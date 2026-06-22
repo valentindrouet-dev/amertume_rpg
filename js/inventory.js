@@ -36,6 +36,7 @@
   }
 
   function poolBadges(pool) {
+    pool = pool || {};
     const parts = D.DICE_ORDER
       .filter(function (c) { return (pool[c] || 0) > 0; })
       .map(function (c) {

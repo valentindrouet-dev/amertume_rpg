@@ -5,6 +5,11 @@
   'use strict';
   const $ = function (sel) { return document.querySelector(sel); };
 
+  // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
+  function safe(label, fn) {
+    try { fn(); } catch (e) { console.error('[' + label + ']', e); }
+  }
+
   function setupTabs() {
     document.querySelectorAll('.tab').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -13,10 +18,10 @@
         document.querySelectorAll('.tab-panel').forEach(function (p) {
           p.classList.toggle('active', p.id === 'tab-' + target);
         });
-        if (target === 'combat') Combat.render();
-        if (target === 'heroes') Combatants.renderHeroes();
-        if (target === 'bestiary') Combatants.renderMonsters();
-        if (target === 'armory') Inventory.render();
+        if (target === 'combat') safe('combat', Combat.render);
+        if (target === 'heroes') safe('heroes', Combatants.renderHeroes);
+        if (target === 'bestiary') safe('bestiary', Combatants.renderMonsters);
+        if (target === 'armory') safe('armory', Inventory.render);
       });
     });
   }
@@ -57,10 +62,10 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    setupTabs();
-    setupBackup();
-    Inventory.init();
-    Combatants.init();
-    Combat.init();
+    safe('tabs', setupTabs);
+    safe('backup', setupBackup);
+    safe('inventory.init', Inventory.init);
+    safe('combatants.init', Combatants.init);
+    safe('combat.init', Combat.init);
   });
 })();

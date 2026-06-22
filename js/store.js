@@ -145,15 +145,43 @@
       if (!parsed.heroes) parsed.heroes = def.heroes;
       if (!parsed.monsters) parsed.monsters = def.monsters;
       if (typeof parsed.combat === 'undefined') parsed.combat = null;
-      // Migration : équipement par héros + champs d'armure/armes
-      parsed.heroes.forEach(function (h) {
-        if (!h.equipment) h.equipment = { weapons: [], armorId: null, shieldId: null };
-        if (!h.equipment.weapons) h.equipment.weapons = [];
-      });
-      parsed.items.forEach(function (i) {
+      // Migration / normalisation : garantit que chaque structure a tous ses champs,
+      // pour qu'aucun rendu ne plante sur une sauvegarde d'une version antérieure.
+      function normAttack(a) {
+        if (!a) return;
+        if (!a.dice) a.dice = AmertumeDice.emptyPool();
+        else a.dice = dice(a.dice);
+        if (!a.effects) a.effects = noStates();
+        if (!a.range) a.range = 'contact';
+        if (!a.targets) a.targets = 'one';
+      }
+      (parsed.items || []).forEach(function (i) {
+        if (!i.dice) i.dice = AmertumeDice.emptyPool(); else i.dice = dice(i.dice);
         if (!i.traits) i.traits = [];
         if (i.category === 'armor' && typeof i.def === 'undefined') { i.def = 0; i.slot = i.slot || 'body'; }
       });
+      (parsed.heroes || []).forEach(function (h) {
+        if (!h.equipment) h.equipment = { weapons: [], armorId: null, shieldId: null };
+        if (!Array.isArray(h.equipment.weapons)) h.equipment.weapons = [];
+        if (!Array.isArray(h.attacks)) h.attacks = [];
+        h.attacks.forEach(normAttack);
+      });
+      (parsed.monsters || []).forEach(function (m) {
+        if (!Array.isArray(m.attacks)) m.attacks = [];
+        m.attacks.forEach(normAttack);
+      });
+      // Combat en cours : on jette une structure incompatible plutôt que de planter l'onglet
+      if (parsed.combat) {
+        var ok = Array.isArray(parsed.combat.combatants) && Array.isArray(parsed.combat.log);
+        if (!ok) parsed.combat = null;
+        else parsed.combat.combatants.forEach(function (c) {
+          if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false };
+          if (!c.used) c.used = { action: false, move: false, object: false };
+          if (!Array.isArray(c.contact)) c.contact = [];
+          if (!Array.isArray(c.attacks)) c.attacks = [];
+          c.attacks.forEach(normAttack);
+        });
+      }
       return parsed;
     } catch (e) {
       console.warn('Sauvegarde illisible, réinitialisation.', e);
