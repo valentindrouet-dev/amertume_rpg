@@ -11,14 +11,13 @@
     <div class="brand">
       <span class="brand-mark">⚔️</span>
       <h1>Amertume</h1>
-      <span class="brand-sub">Inventaire &amp; Lancer de dés</span>
+      <span class="brand-sub">JdR solo</span>
     </div>
     <nav class="tabs">
       <button class="tab active" data-tab="combat">Combat</button>
       <button class="tab" data-tab="heroes">Héros</button>
       <button class="tab" data-tab="bestiary">Bestiaire</button>
-      <button class="tab" data-tab="inventory">Inventaire</button>
-      <button class="tab" data-tab="roller">Lancer de dés</button>
+      <button class="tab" data-tab="armory">Armurerie</button>
     </nav>
     <div class="topbar-actions">
       <button id="btn-export" class="ghost" title="Exporter en .json">⬇ Export</button>
@@ -65,91 +64,29 @@
       </div>
     </section>
 
-    <!-- ============ INVENTAIRE ============ -->
-    <section id="tab-inventory" class="tab-panel">
-      <div class="layout">
-        <!-- Equipement -->
-        <div class="card">
-          <div class="card-head">
-            <h2>Armes équipées</h2>
-          </div>
-          <div id="equip-slots" class="equip-slots"></div>
-          <div class="equip-pool">
-            <h3>Dés cumulés des armes</h3>
-            <div id="equip-dice" class="dice-pool-display"></div>
-            <p class="hint">Deux armes à 1 main cumulent leurs dés. Une arme à 2 mains occupe les deux emplacements.</p>
+    <!-- ============ ARMURERIE ============ -->
+    <section id="tab-armory" class="tab-panel">
+      <div class="card">
+        <div class="card-head">
+          <h2>Armurerie</h2>
+          <div style="display:flex; gap:.4rem;">
+            <button id="btn-load-official" class="ghost" title="Ajouter le catalogue officiel manquant">Catalogue officiel</button>
+            <button id="btn-add-item" class="primary">+ Ajouter</button>
           </div>
         </div>
-
-        <!-- Inventaire -->
-        <div class="card">
-          <div class="card-head">
-            <h2>Inventaire</h2>
-            <div style="display:flex; gap:.4rem;">
-              <button id="btn-load-official" class="ghost" title="Ajouter le catalogue officiel manquant">Catalogue officiel</button>
-              <button id="btn-add-item" class="primary">+ Ajouter</button>
-            </div>
-          </div>
-          <div class="filters">
-            <input id="search" type="search" placeholder="Rechercher…" />
-            <select id="filter-cat">
-              <option value="">Toutes catégories</option>
-              <option value="weapon">Armes</option>
-              <option value="ammo">Munitions</option>
-              <option value="armor">Armures</option>
-              <option value="object">Objets</option>
-              <option value="misc">Divers</option>
-            </select>
-          </div>
-          <div id="item-list" class="item-list"></div>
+        <p class="hint">Catalogue d'armes et d'armures. Chaque héros choisit ici son équipement depuis l'onglet Héros.</p>
+        <div class="filters">
+          <input id="search" type="search" placeholder="Rechercher…" />
+          <select id="filter-cat">
+            <option value="">Toutes catégories</option>
+            <option value="weapon">Armes</option>
+            <option value="armor">Armures</option>
+            <option value="ammo">Munitions</option>
+            <option value="object">Objets</option>
+            <option value="misc">Divers</option>
+          </select>
         </div>
-      </div>
-    </section>
-
-    <!-- ============ LANCER DE DÉS ============ -->
-    <section id="tab-roller" class="tab-panel">
-      <div class="layout">
-        <div class="card">
-          <div class="card-head"><h2>Pool de dés</h2></div>
-
-          <div class="pool-source">
-            <label class="checkbox">
-              <input type="checkbox" id="use-equipped" checked />
-              Inclure les dés des armes équipées
-            </label>
-            <div id="equipped-summary" class="hint"></div>
-          </div>
-
-          <h3>Dés supplémentaires (talents, objets…)</h3>
-          <div id="dice-steppers" class="dice-steppers"></div>
-
-          <h3>Paramètres de l'attaque</h3>
-          <div class="attack-params">
-            <label>DEF de la cible
-              <input type="number" id="param-def" min="0" value="3" />
-            </label>
-            <label>Dégâts de l'attaquant
-              <input type="number" id="param-damage" min="0" value="0" />
-            </label>
-            <label>Tour de combat
-              <input type="number" id="param-turn" min="1" value="1" />
-            </label>
-          </div>
-
-          <div class="roll-actions">
-            <button id="btn-roll" class="primary big">🎲 Lancer les dés</button>
-            <button id="btn-clear-extra" class="ghost">Réinitialiser les dés sup.</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h2>Résultat</h2></div>
-          <div id="roll-result" class="roll-result">
-            <p class="empty">Configure ton pool puis lance les dés.</p>
-          </div>
-          <div class="card-head"><h3>Historique</h3></div>
-          <div id="roll-history" class="roll-history"></div>
-        </div>
+        <div id="item-list" class="roster-list"></div>
       </div>
     </section>
   </main>
@@ -341,7 +278,6 @@
   <script src="js/dice.js"></script>
   <script src="js/store.js"></script>
   <script src="js/inventory.js"></script>
-  <script src="js/roller.js"></script>
   <script src="js/combatants.js"></script>
   <script src="js/combat.js"></script>
   <script src="js/main.js"></script>

@@ -13,10 +13,10 @@
         document.querySelectorAll('.tab-panel').forEach(function (p) {
           p.classList.toggle('active', p.id === 'tab-' + target);
         });
-        if (target === 'roller') Roller.refresh();
         if (target === 'combat') Combat.render();
         if (target === 'heroes') Combatants.renderHeroes();
         if (target === 'bestiary') Combatants.renderMonsters();
+        if (target === 'armory') Inventory.render();
       });
     });
   }
@@ -43,8 +43,6 @@
           if (!data.items) throw new Error('Fichier invalide');
           Store.replace(data);
           Inventory.render();
-          Roller.refresh();
-          Roller.renderHistory();
           Combatants.renderHeroes();
           Combatants.renderMonsters();
           Combat.render();
@@ -62,7 +60,6 @@
     setupTabs();
     setupBackup();
     Inventory.init();
-    Roller.init();
     Combatants.init();
     Combat.init();
   });

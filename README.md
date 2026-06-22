@@ -1,7 +1,9 @@
-# Amertume — Inventaire & Lancer de dés
+# Amertume — Simulateur de combat solo
 
-Outil web pour jouer en **solo** au JdR **Amertume**. Gère l'**inventaire**, les **armes équipables**
-et un **lanceur de dés** respectant les règles d'Amertume. 100 % côté navigateur, sans serveur.
+Outil web pour jouer en **solo** au JdR **Amertume** : combats complets (héros vs adversaires),
+roster de **héros** équipés depuis l'**Armurerie**, **bestiaire** éditable. 100 % côté navigateur, sans serveur.
+
+Quatre onglets : **Combat · Héros · Bestiaire · Armurerie**.
 
 > Les arbres de talents et les feuilles de personnage sont gérés ailleurs (hors de cet outil).
 
@@ -33,21 +35,16 @@ et un **lanceur de dés** respectant les règles d'Amertume. 100 % côté naviga
 - **Roster de héros** : Vie, Endu, bonus PV, DEF de base, Dégâts, équipement, attaques spéciales, PV max calculés.
 - **Bestiaire** éditable : PV, DEF, Dégâts, XP, Type, socle, Menace, Esquive, Rapide, attaques. 4 monstres d'exemple fournis.
 
-### Inventaire & dés
+### Moteur de dés Amertume (utilisé par le combat)
 
-- **Inventaire** : ajout/édition/suppression d'objets (armes, munitions, armures, objets, divers),
-  quantités, consommables, notes, recherche et filtres par catégorie.
-- **Armes équipables** : 1 main / 2 mains. Deux armes à 1 main **cumulent leurs dés** ;
-  une arme à 2 mains occupe les deux emplacements.
-- **Lanceur de dés Amertume** : un bouton qui lance les dés des armes équipées (+ dés
-  supplémentaires pour talents/objets) et résout l'attaque selon les règles :
-  - 7 couleurs de dés : ⬜ Simple, 🟧 Léger, 🟥 Lourd, 🟦 Mystique, 🟩 Soin, ⬛ Mortel, 🟨 Phase.
-  - **Critique** (double 6 → relance bonus en chaîne), **Échec** (double 1 → action ratée).
-  - Légers retirés du total sur double, Mystiques doublés sur double (DEF comparée à la valeur brute),
-    dés Phase multipliés par le tour de combat (max ×3).
-  - Comparaison à la **DEF** de la cible, ajout des **dégâts de l'attaquant**, calcul des **PV** infligés / soignés.
-  - Historique des derniers lancers.
-- **Sauvegarde** : automatique dans le navigateur (`localStorage`) + **export/import** d'un fichier `.json`.
+Chaque attaque est résolue selon les règles :
+- 7 couleurs de dés : ⬜ Simple, 🟧 Léger, 🟥 Lourd, 🟦 Mystique, 🟩 Soin, ⬛ Mortel, 🟨 Phase.
+- **Critique** (double 6 → relance bonus en chaîne), **Échec** (double 1 → action ratée).
+- Légers retirés du total sur double, Mystiques doublés sur double (DEF comparée à la valeur brute),
+  dés Phase multipliés par le tour de combat (max ×3).
+- Comparaison à la **DEF** de la cible, ajout des **dégâts de l'attaquant**, calcul des **PV** infligés / soignés.
+
+**Sauvegarde** : automatique dans le navigateur (`localStorage`) + **export/import** d'un fichier `.json`.
 
 ## Lancer en local
 
@@ -67,9 +64,10 @@ Le fichier `.nojekyll` évite que GitHub Pages ignore certains fichiers.
 index.html        Structure et onglets
 css/style.css     Thème sombre
 js/dice.js        Moteur de dés (résolution des règles)
-js/store.js       Persistance localStorage
-js/inventory.js   Inventaire + équipement + modale d'édition
-js/roller.js      Interface du lanceur de dés
+js/store.js       Persistance localStorage + catalogue officiel
+js/inventory.js   Armurerie (catalogue d'armes/armures + modale d'édition)
+js/combatants.js  Roster de héros (équipement) + bestiaire
+js/combat.js      Moteur de combat + plateau
 js/main.js        Navigation, export/import
 ```
 

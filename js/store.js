@@ -74,9 +74,6 @@
 
     return {
       items: items,
-      equipped: { mainHand: null, offHand: null, twoHand: null },
-      extraDice: AmertumeDice.emptyPool(),
-      history: [],
 
       // Roster de héros (combattants légers)
       heroes: [
@@ -141,9 +138,8 @@
       const parsed = JSON.parse(raw);
       // Garde-fous minimaux
       if (!parsed.items) parsed.items = [];
-      if (!parsed.equipped) parsed.equipped = { mainHand: null, offHand: null, twoHand: null };
-      if (!parsed.extraDice) parsed.extraDice = AmertumeDice.emptyPool();
-      if (!parsed.history) parsed.history = [];
+      // Nettoyage : champs hérités de l'ancienne version (inventaire/lanceur global)
+      delete parsed.equipped; delete parsed.extraDice; delete parsed.history;
       // Migration : ajoute les nouveaux blocs si absents d'une ancienne sauvegarde
       const def = defaultState();
       if (!parsed.heroes) parsed.heroes = def.heroes;
