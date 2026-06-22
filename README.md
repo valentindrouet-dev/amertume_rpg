@@ -20,8 +20,17 @@ et un **lanceur de dés** respectant les règles d'Amertume. 100 % côté naviga
 - **XP** : cumulée (adversaires au coma + Analyses) et distribuée en fin de combat.
 - **Journal de combat** détaillé.
 
+### Équipement des héros (catalogue officiel v4.s2)
+- **Catalogue officiel** intégré : 14 armes (dés + traits Jetable/Vicieuse/2 mains + prix) et 5 armures (DEF).
+  Bouton « Catalogue officiel » dans l'inventaire pour (re)charger les pièces manquantes.
+- **Équiper un héros** depuis l'inventaire : armes (les dés cumulés forment l'attaque), armure et bouclier.
+- **DEF** : l'armure **définit** la DEF du héros (la DEF de base ne sert que sans armure) ; le bouclier ajoute son bonus.
+- Les attaques de combat sont **dérivées des armes** équipées (groupées mêlée / distance), en plus des attaques spéciales optionnelles.
+- ⚠️ Les **couleurs de dés** des armes sont une interprétation du PDF (image) — modifiables via l'éditeur d'inventaire.
+  Le trait **Vicieuse** est stocké mais pas encore appliqué mécaniquement (à venir).
+
 ### Héros & Bestiaire
-- **Roster de héros** : Vie, Endu, bonus PV, DEF, Dégâts, attaques (dés + effets), PV max calculés.
+- **Roster de héros** : Vie, Endu, bonus PV, DEF de base, Dégâts, équipement, attaques spéciales, PV max calculés.
 - **Bestiaire** éditable : PV, DEF, Dégâts, XP, Type, socle, Menace, Esquive, Rapide, attaques. 4 monstres d'exemple fournis.
 
 ### Inventaire & dés

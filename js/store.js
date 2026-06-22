@@ -16,20 +16,64 @@
   function dice(obj) { return Object.assign(AmertumeDice.emptyPool(), obj || {}); }
   function noStates() { return { affaibli: false, auSol: false, feu: false }; }
 
+  /*
+   * Catalogue d'équipement officiel (Amertume v4.s2).
+   * Dés : interprétation visuelle du PDF — modifiable via l'éditeur.
+   * traits : jetable, vicieuse (le « 2 mains » est porté par hands:2).
+   */
+  function buildOfficialEquipment() {
+    function W(name, d, hands, ranged, traits, moy, price) {
+      return {
+        id: uid(), name: name, category: 'weapon', qty: 1, hands: hands, ranged: ranged,
+        usesAmmo: false, consumable: false, dice: dice(d), traits: traits, price: price,
+        effects: '', notes: 'Officiel v4.s2 · DÉG. moy. ' + moy, official: true,
+      };
+    }
+    function A(name, def, slot, price) {
+      return {
+        id: uid(), name: name, category: 'armor', qty: 1, hands: 1, ranged: false,
+        usesAmmo: false, consumable: false, dice: AmertumeDice.emptyPool(),
+        def: def, slot: slot, traits: [], price: price,
+        effects: '', notes: 'Officiel v4.s2', official: true,
+      };
+    }
+    return [
+      // Mêlée
+      W('Dague', { white: 1 }, 1, false, ['jetable'], 3, 3),
+      W('Faux', { white: 1 }, 1, false, ['vicieuse'], 3, 10),
+      W('Épée', { white: 1 }, 1, false, [], 3, 10),
+      W('Bâton', { white: 1, bone: 1 }, 1, false, ['jetable'], 4, 5),
+      W('Rapière', { white: 1, bone: 1 }, 1, false, ['vicieuse'], 4, 60),
+      W('Épée longue', { white: 2 }, 2, false, [], 6, 60),
+      W('Hache', { white: 2 }, 2, false, ['jetable'], 6, 40),
+      W('Lance', { white: 2 }, 2, false, ['vicieuse'], 6, 60),
+      W('Épée lourde', { red: 1, white: 1 }, 2, false, [], 7, 100),
+      W('Hache lourde', { red: 1, white: 1 }, 2, false, ['jetable'], 7, 120),
+      // Distance
+      W('Arc court', { white: 1, bone: 1 }, 2, true, ['vicieuse'], 4, 25),
+      W('Arc', { white: 2 }, 2, true, [], 6, 35),
+      W('Arc long', { white: 2 }, 2, true, [], 6, 50),
+      W('Arbalète', { red: 1, white: 1 }, 2, true, [], 7, 80),
+      // Armures
+      A('Tenue de voyage', 0, 'body', 5),
+      A('Armure de cuir', 1, 'body', 45),
+      A('Armure de mailles', 2, 'body', 60),
+      A('Armure de plates', 3, 'body', 200),
+      A('Bouclier', 1, 'shield', 80),
+    ];
+  }
+
   function defaultState() {
+    const items = buildOfficialEquipment();
+    items.push({
+      id: uid(), name: 'Potion de soin', category: 'object', qty: 2,
+      hands: 1, ranged: false, usesAmmo: false, consumable: true,
+      dice: AmertumeDice.emptyPool(), effects: '', notes: 'Rend des PV',
+    });
+    const epee = items.find(function (i) { return i.name === 'Épée'; });
+
     return {
-      items: [
-        {
-          id: uid(), name: 'Épée courte', category: 'weapon', qty: 1,
-          hands: 1, ranged: false, usesAmmo: false, consumable: false,
-          dice: dice({ white: 2 }), effects: '', notes: 'Arme de départ',
-        },
-        {
-          id: uid(), name: 'Potion de soin', category: 'object', qty: 2,
-          hands: 1, ranged: false, usesAmmo: false, consumable: true,
-          dice: AmertumeDice.emptyPool(), effects: '', notes: 'Rend des PV',
-        },
-      ],
+      items: items,
       equipped: { mainHand: null, offHand: null, twoHand: null },
       extraDice: AmertumeDice.emptyPool(),
       history: [],
@@ -38,11 +82,9 @@
       heroes: [
         {
           id: uid(), name: 'Aventurier', vie: 4, endu: 3, pvBonus: 0,
-          def: 3, damage: 2, rapide: false, notes: '',
-          attacks: [
-            { name: 'Attaque (épée)', dice: dice({ white: 2 }), range: 'contact',
-              targets: 'one', useOwnDamage: true, effects: noStates() },
-          ],
+          def: 2, damage: 2, rapide: false, notes: '',
+          equipment: { weapons: epee ? [epee.id] : [], armorId: null, shieldId: null },
+          attacks: [], // attaques spéciales optionnelles (les armes fournissent l'attaque de base)
         },
       ],
 
@@ -107,6 +149,15 @@
       if (!parsed.heroes) parsed.heroes = def.heroes;
       if (!parsed.monsters) parsed.monsters = def.monsters;
       if (typeof parsed.combat === 'undefined') parsed.combat = null;
+      // Migration : équipement par héros + champs d'armure/armes
+      parsed.heroes.forEach(function (h) {
+        if (!h.equipment) h.equipment = { weapons: [], armorId: null, shieldId: null };
+        if (!h.equipment.weapons) h.equipment.weapons = [];
+      });
+      parsed.items.forEach(function (i) {
+        if (!i.traits) i.traits = [];
+        if (i.category === 'armor' && typeof i.def === 'undefined') { i.def = 0; i.slot = i.slot || 'body'; }
+      });
       return parsed;
     } catch (e) {
       console.warn('Sauvegarde illisible, réinitialisation.', e);
@@ -122,9 +173,22 @@
     }
   }
 
+  // Ajoute les pièces d'équipement officielles absentes (par nom), sans doublon
+  function loadOfficial() {
+    const existing = {};
+    state.items.forEach(function (i) { existing[i.name.toLowerCase()] = true; });
+    let added = 0;
+    buildOfficialEquipment().forEach(function (it) {
+      if (!existing[it.name.toLowerCase()]) { state.items.push(it); added++; }
+    });
+    if (added) save();
+    return added;
+  }
+
   global.Store = {
     uid: uid,
     noStates: noStates,
+    loadOfficial: loadOfficial,
     get state() { return state; },
     save: save,
     replace: function (newState) {

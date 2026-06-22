@@ -86,8 +86,55 @@
 
   // ================= HÉROS =================
   let heroAttacks = [];
+  let heroEquipment = { weapons: [], armorId: null, shieldId: null };
 
   function heroPv(h) { return Math.max(1, (h.vie || 0) * (h.endu || 0) + (h.pvBonus || 0)); }
+  function itemById(id) { return Store.state.items.find(function (i) { return i.id === id; }); }
+
+  function heroWeapons(eq) {
+    return (eq && eq.weapons || []).map(itemById).filter(function (i) { return i && i.category === 'weapon'; });
+  }
+
+  // DEF : l'armure DÉFINIT la DEF (la DEF de base est ignorée si une armure est portée) ; bouclier +def.
+  function heroDef(h) {
+    const eq = h.equipment || {};
+    const armor = eq.armorId ? itemById(eq.armorId) : null;
+    const shield = eq.shieldId ? itemById(eq.shieldId) : null;
+    let def = (armor && armor.category === 'armor') ? (armor.def || 0) : (h.def || 0);
+    if (shield && shield.category === 'armor') def += (shield.def || 0);
+    return def;
+  }
+
+  // Attaques dérivées des armes équipées (mêlée / distance, dés cumulés)
+  function heroDerivedAttacks(eq) {
+    const weapons = heroWeapons(eq);
+    const groups = { contact: [], distance: [] };
+    weapons.forEach(function (w) { (w.ranged ? groups.distance : groups.contact).push(w); });
+    const atks = [];
+    ['contact', 'distance'].forEach(function (range) {
+      const ws = groups[range];
+      if (!ws.length) return;
+      const pool = D.addPools.apply(null, ws.map(function (w) { return w.dice; }));
+      if (!D.poolCount(pool)) return;
+      const vicieuse = ws.some(function (w) { return (w.traits || []).indexOf('vicieuse') !== -1; });
+      atks.push({
+        name: (range === 'contact' ? 'Mêlée' : 'Distance') + ' — ' + ws.map(function (w) { return w.name; }).join(' + '),
+        dice: pool, range: range, targets: 'one', useOwnDamage: true,
+        effects: Store.noStates(), vicieuse: vicieuse,
+      });
+    });
+    return atks;
+  }
+
+  // Attaques utilisées en combat : armes + spéciales (+ secours mains nues)
+  function heroCombatAttacks(h) {
+    let atks = heroDerivedAttacks(h.equipment).concat(JSON.parse(JSON.stringify(h.attacks || [])));
+    if (!atks.length) {
+      atks = [{ name: 'Mains nues', dice: Object.assign(D.emptyPool(), { white: 1 }),
+        range: 'contact', targets: 'one', useOwnDamage: true, effects: Store.noStates() }];
+    }
+    return atks;
+  }
 
   function renderHeroes() {
     const list = $('#hero-list');
@@ -97,13 +144,21 @@
       return;
     }
     list.innerHTML = heroes.map(function (h) {
+      const eq = h.equipment || {};
+      const armor = eq.armorId ? itemById(eq.armorId) : null;
+      const shield = eq.shieldId ? itemById(eq.shieldId) : null;
+      const gear = [];
+      heroWeapons(eq).forEach(function (w) { gear.push(w.name); });
+      if (armor) gear.push(armor.name);
+      if (shield) gear.push(shield.name);
       return '<div class="roster-card">' +
         '<div class="roster-head"><strong>' + esc(h.name) + '</strong>' +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
           '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button></div>' +
-        '<div class="stat-line">❤ ' + heroPv(h) + ' PV · 🛡 DEF ' + h.def + ' · ⚔ Dég. ' + h.damage +
+        '<div class="stat-line">❤ ' + heroPv(h) + ' PV · 🛡 DEF ' + heroDef(h) + ' · ⚔ Dég. ' + h.damage +
           ' <span class="hint">(Vie ' + h.vie + ' × Endu ' + h.endu + (h.pvBonus ? ' +' + h.pvBonus : '') + ')</span></div>' +
-        '<div class="atk-badges">' + attacksSummary(h.attacks) + '</div>' +
+        (gear.length ? '<div class="hint">🎒 ' + esc(gear.join(', ')) + '</div>' : '') +
+        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div>' +
         (h.notes ? '<div class="hint">' + esc(h.notes) + '</div>' : '') +
       '</div>';
     }).join('');
@@ -131,12 +186,69 @@
     $('#h-damage').value = isEdit ? h.damage : 2;
     $('#h-rapide').checked = isEdit ? !!h.rapide : false;
     $('#h-notes').value = isEdit ? (h.notes || '') : '';
-    heroAttacks = isEdit ? JSON.parse(JSON.stringify(h.attacks || [])) : [newAttack()];
+    heroAttacks = isEdit ? JSON.parse(JSON.stringify(h.attacks || [])) : [];
     buildAttacksEditor($('#h-attacks'), heroAttacks);
+    const srcEq = isEdit ? (h.equipment || {}) : {};
+    heroEquipment = {
+      weapons: (srcEq.weapons || []).slice(),
+      armorId: srcEq.armorId || null,
+      shieldId: srcEq.shieldId || null,
+    };
+    buildHeroEquipmentUI();
     $('#btn-delete-hero').hidden = !isEdit;
     updateHeroPvPreview();
     $('#hero-modal').hidden = false;
     $('#h-name').focus();
+  }
+
+  // Construit les sélecteurs d'armure/bouclier et la liste d'armes équipables
+  function buildHeroEquipmentUI() {
+    const items = Store.state.items;
+    const bodies = items.filter(function (i) { return i.category === 'armor' && (i.slot || 'body') === 'body'; });
+    const shields = items.filter(function (i) { return i.category === 'armor' && i.slot === 'shield'; });
+    const weapons = items.filter(function (i) { return i.category === 'weapon'; });
+
+    $('#h-armor').innerHTML = '<option value="">Aucune</option>' + bodies.map(function (a) {
+      return '<option value="' + a.id + '">' + esc(a.name) + ' (DEF ' + (a.def || 0) + ')</option>';
+    }).join('');
+    $('#h-armor').value = heroEquipment.armorId || '';
+
+    $('#h-shield').innerHTML = '<option value="">Aucun</option>' + shields.map(function (a) {
+      return '<option value="' + a.id + '">' + esc(a.name) + ' (+' + (a.def || 0) + ')</option>';
+    }).join('');
+    $('#h-shield').value = heroEquipment.shieldId || '';
+
+    const wbox = $('#h-weapons');
+    if (!weapons.length) {
+      wbox.innerHTML = '<p class="hint">Aucune arme dans l\'inventaire.</p>';
+    } else {
+      wbox.innerHTML = weapons.map(function (w) {
+        const checked = heroEquipment.weapons.indexOf(w.id) !== -1;
+        return '<label class="equip-pick-row"><input type="checkbox" data-weapon="' + w.id + '"' +
+          (checked ? ' checked' : '') + '> ' + esc(w.name) + ' ' + Inventory.poolBadges(w.dice) +
+          '<span class="hint"> ' + (w.hands === 2 ? '2 mains' : '1 main') + (w.ranged ? ' · distance' : '') + '</span></label>';
+      }).join('');
+      wbox.querySelectorAll('[data-weapon]').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          const id = cb.getAttribute('data-weapon');
+          const i = heroEquipment.weapons.indexOf(id);
+          if (cb.checked && i === -1) heroEquipment.weapons.push(id);
+          if (!cb.checked && i >= 0) heroEquipment.weapons.splice(i, 1);
+          updateEquipPreview();
+        });
+      });
+    }
+    updateEquipPreview();
+  }
+
+  function updateEquipPreview() {
+    const fake = { def: parseInt($('#h-def').value, 10) || 0, equipment: heroEquipment, attacks: [] };
+    const atks = heroDerivedAttacks(heroEquipment);
+    const names = atks.map(function (a) {
+      return a.name.split(' — ')[0] + ' ' + Inventory.poolBadges(a.dice) + (a.vicieuse ? ' (Vicieuse)' : '');
+    });
+    $('#h-equip-preview').innerHTML = '🛡 DEF totale : <strong>' + heroDef(fake) + '</strong>' +
+      (names.length ? ' · ⚔ ' + names.join(' / ') : ' · aucune arme → mains nues');
   }
 
   function saveHero(e) {
@@ -153,6 +265,11 @@
       rapide: $('#h-rapide').checked,
       notes: $('#h-notes').value.trim(),
       attacks: heroAttacks,
+      equipment: {
+        weapons: heroEquipment.weapons.slice(),
+        armorId: $('#h-armor').value || null,
+        shieldId: $('#h-shield').value || null,
+      },
     };
     if (existing) Object.assign(existing, data);
     else Store.state.heroes.push(data);
@@ -255,6 +372,9 @@
     ['h-vie', 'h-endu', 'h-pvbonus'].forEach(function (idn) {
       $('#' + idn).addEventListener('input', updateHeroPvPreview);
     });
+    $('#h-armor').addEventListener('change', function () { heroEquipment.armorId = $('#h-armor').value || null; updateEquipPreview(); });
+    $('#h-shield').addEventListener('change', function () { heroEquipment.shieldId = $('#h-shield').value || null; updateEquipPreview(); });
+    $('#h-def').addEventListener('input', updateEquipPreview);
     $('#btn-delete-hero').addEventListener('click', function () {
       const id = $('#h-id').value;
       if (id && confirm('Supprimer ce héros ?')) {
@@ -290,6 +410,8 @@
     renderHeroes: renderHeroes,
     renderMonsters: renderMonsters,
     heroPv: heroPv,
+    heroDef: heroDef,
+    heroCombatAttacks: heroCombatAttacks,
     attacksSummary: attacksSummary,
     TYPE_LABEL: TYPE_LABEL,
     MENACE_LABEL: MENACE_LABEL,

@@ -85,7 +85,10 @@
         <div class="card">
           <div class="card-head">
             <h2>Inventaire</h2>
-            <button id="btn-add-item" class="primary">+ Ajouter</button>
+            <div style="display:flex; gap:.4rem;">
+              <button id="btn-load-official" class="ghost" title="Ajouter le catalogue officiel manquant">Catalogue officiel</button>
+              <button id="btn-add-item" class="primary">+ Ajouter</button>
+            </div>
           </div>
           <div class="filters">
             <input id="search" type="search" placeholder="Rechercher…" />
@@ -196,9 +199,28 @@
           </div>
           <label>Dés de l'arme</label>
           <div id="weapon-dice" class="dice-steppers"></div>
+          <div class="form-row">
+            <label class="checkbox inline"><input type="checkbox" id="f-trait-jetable" /> Jetable</label>
+            <label class="checkbox inline"><input type="checkbox" id="f-trait-vicieuse" /> Vicieuse</label>
+            <label>Prix (po) <input type="number" id="f-price" min="0" value="0" /></label>
+          </div>
           <label>Effets de l'arme
             <textarea id="f-effects" rows="2" placeholder="Inflige Feu, +1 portée…"></textarea>
           </label>
+        </fieldset>
+
+        <fieldset id="armor-fields" class="weapon-fields">
+          <legend>Caractéristiques d'armure</legend>
+          <div class="form-row">
+            <label>DEF <input type="number" id="f-armor-def" min="0" value="1" /></label>
+            <label>Emplacement
+              <select id="f-armor-slot">
+                <option value="body">Corps</option>
+                <option value="shield">Bouclier</option>
+              </select>
+            </label>
+            <label>Prix (po) <input type="number" id="f-armor-price" min="0" value="0" /></label>
+          </div>
         </fieldset>
 
         <label class="checkbox inline">
@@ -230,12 +252,29 @@
           <label>Vie <input type="number" id="h-vie" min="1" value="4" /></label>
           <label>Endu <input type="number" id="h-endu" min="1" value="3" /></label>
           <label>Bonus PV <input type="number" id="h-pvbonus" value="0" /></label>
-          <label>DEF <input type="number" id="h-def" min="0" value="3" /></label>
+          <label>DEF de base <input type="number" id="h-def" min="0" value="2" /></label>
           <label>Dégâts <input type="number" id="h-damage" min="0" value="2" /></label>
           <label class="checkbox inline"><input type="checkbox" id="h-rapide" /> Rapide</label>
         </div>
         <p class="hint">PV max calculés : <strong id="h-pv-preview">12</strong> (Vie × Endu + bonus)</p>
-        <div class="attacks-head"><h3>Attaques</h3><button type="button" id="h-add-attack" class="ghost small">+ Attaque</button></div>
+
+        <fieldset class="weapon-fields">
+          <legend>Équipement (issu de l'inventaire)</legend>
+          <div class="form-row">
+            <label>Armure
+              <select id="h-armor"></select>
+            </label>
+            <label>Bouclier
+              <select id="h-shield"></select>
+            </label>
+          </div>
+          <label>Armes équipées</label>
+          <div id="h-weapons" class="equip-pick"></div>
+          <p class="hint" id="h-equip-preview"></p>
+        </fieldset>
+
+        <div class="attacks-head"><h3>Attaques spéciales (optionnel)</h3><button type="button" id="h-add-attack" class="ghost small">+ Attaque</button></div>
+        <p class="hint">Les armes équipées fournissent déjà l'attaque de base. Ajoute ici des capacités particulières.</p>
         <div id="h-attacks" class="attacks-editor"></div>
         <label>Notes <textarea id="h-notes" rows="2"></textarea></label>
         <div class="modal-actions">

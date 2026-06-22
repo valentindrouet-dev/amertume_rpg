@@ -142,6 +142,10 @@
     list.innerHTML = items.map(function (i) {
       const equipped = isEquipped(i.id);
       const isWeapon = i.category === 'weapon';
+      const isArmor = i.category === 'armor';
+      const traits = (i.traits || []).map(function (t) {
+        return '<span class="tag">' + (t === 'jetable' ? 'Jetable' : t === 'vicieuse' ? 'Vicieuse' : t) + '</span>';
+      }).join('');
       return '<div class="item-row' + (equipped ? ' is-equipped' : '') + '">' +
         '<div class="item-main">' +
           '<div class="item-title">' +
@@ -150,10 +154,13 @@
             (i.qty > 1 ? '<span class="tag qty">×' + i.qty + '</span>' : '') +
             (i.consumable ? '<span class="tag consum">conso</span>' : '') +
             (equipped ? '<span class="tag eq">équipée</span>' : '') +
+            (typeof i.price === 'number' && i.price ? '<span class="tag">' + i.price + ' po</span>' : '') +
           '</div>' +
           (isWeapon ? '<div class="dice-pool-display">' + poolBadges(i.dice) +
             '<span class="hint"> · ' + (i.hands === 2 ? '2 mains' : '1 main') +
-            (i.ranged ? ' · distance' : '') + '</span></div>' : '') +
+            (i.ranged ? ' · distance' : '') + '</span> ' + traits + '</div>' : '') +
+          (isArmor ? '<div class="hint">🛡 DEF ' + (i.def || 0) +
+            (i.slot === 'shield' ? ' · Bouclier (+' + (i.def || 0) + ')' : ' · Corps') + '</div>' : '') +
           (i.effects ? '<div class="hint">⚡ ' + escapeHtml(i.effects) + '</div>' : '') +
           (i.notes ? '<div class="hint">' + escapeHtml(i.notes) + '</div>' : '') +
         '</div>' +
@@ -199,6 +206,13 @@
     $('#f-consumable').checked = isEdit ? !!item.consumable : false;
     $('#f-effects').value = isEdit ? (item.effects || '') : '';
     $('#f-notes').value = isEdit ? (item.notes || '') : '';
+    const traits = isEdit ? (item.traits || []) : [];
+    $('#f-trait-jetable').checked = traits.indexOf('jetable') !== -1;
+    $('#f-trait-vicieuse').checked = traits.indexOf('vicieuse') !== -1;
+    $('#f-price').value = isEdit ? (item.price || 0) : 0;
+    $('#f-armor-def').value = isEdit && typeof item.def === 'number' ? item.def : 1;
+    $('#f-armor-slot').value = isEdit ? (item.slot || 'body') : 'body';
+    $('#f-armor-price').value = isEdit ? (item.price || 0) : 0;
     weaponDicePool = isEdit ? Object.assign(D.emptyPool(), item.dice) : D.emptyPool();
     buildDiceSteppers($('#weapon-dice'), weaponDicePool);
     $('#btn-delete-item').hidden = !isEdit;
@@ -210,27 +224,39 @@
   function closeModal() { modal().hidden = true; }
 
   function toggleWeaponFields() {
-    const isWeapon = $('#f-category').value === 'weapon';
-    $('#weapon-fields').style.display = isWeapon ? '' : 'none';
+    const cat = $('#f-category').value;
+    $('#weapon-fields').style.display = cat === 'weapon' ? '' : 'none';
+    $('#armor-fields').style.display = cat === 'armor' ? '' : 'none';
   }
 
   function saveFromForm(e) {
     e.preventDefault();
     const id = $('#f-id').value || Store.uid();
     const existing = Store.state.items.find(function (i) { return i.id === id; });
+    const cat = $('#f-category').value;
+    const isArmor = cat === 'armor';
+    const traits = [];
+    if ($('#f-trait-jetable').checked) traits.push('jetable');
+    if ($('#f-trait-vicieuse').checked) traits.push('vicieuse');
     const data = {
       id: id,
       name: $('#f-name').value.trim() || 'Sans nom',
-      category: $('#f-category').value,
+      category: cat,
       qty: Math.max(1, parseInt($('#f-qty').value, 10) || 1),
       hands: parseInt($('#f-hands').value, 10) || 1,
       ranged: $('#f-ranged').checked,
       usesAmmo: $('#f-uses-ammo').checked,
       consumable: $('#f-consumable').checked,
       dice: Object.assign(D.emptyPool(), weaponDicePool),
+      traits: traits,
+      price: parseInt(isArmor ? $('#f-armor-price').value : $('#f-price').value, 10) || 0,
       effects: $('#f-effects').value.trim(),
       notes: $('#f-notes').value.trim(),
     };
+    if (isArmor) {
+      data.def = parseInt($('#f-armor-def').value, 10) || 0;
+      data.slot = $('#f-armor-slot').value;
+    }
     if (existing) Object.assign(existing, data);
     else Store.state.items.push(data);
     Store.save();
@@ -268,6 +294,12 @@
     $('#f-category').addEventListener('change', toggleWeaponFields);
     $('#search').addEventListener('input', renderList);
     $('#filter-cat').addEventListener('change', renderList);
+    $('#btn-load-official').addEventListener('click', function () {
+      const n = Store.loadOfficial();
+      render();
+      document.dispatchEvent(new CustomEvent('equipment-changed'));
+      alert(n ? (n + ' pièce(s) ajoutée(s) depuis le catalogue officiel.') : 'Catalogue officiel déjà présent.');
+    });
     render();
   }
 

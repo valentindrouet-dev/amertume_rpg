@@ -348,3 +348,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .log-turn-row, .log-turn.turn { }
 .log-row.log-turn { background: rgba(181,70,47,.08); font-weight: 600; }
 .log-move { color: var(--muted); }
+
+/* ---- Sélecteur d'équipement (héros) ---- */
+.equip-pick { display: flex; flex-direction: column; gap: .3rem; max-height: 180px; overflow-y: auto; background: var(--bg-2); border: 1px solid var(--border); border-radius: 7px; padding: .5rem; }
+.equip-pick-row { display: flex; align-items: center; gap: .45rem; font-size: .85rem; }
+.equip-pick-row input { width: auto; }
+#h-equip-preview { background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: .5rem .6rem; }
