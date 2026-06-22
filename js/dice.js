@@ -1,0 +1,165 @@
+/*
+ * Moteur de dés Amertume.
+ * Gère les 7 couleurs de dés et la résolution d'une attaque selon les règles :
+ * Critique (double 6), Échec (double 1), légers retirés sur double,
+ * mystiques doublés sur double, dés Phase multipliés par le tour (max 3).
+ */
+(function (global) {
+  'use strict';
+
+  // Définition des types de dés (ordre d'affichage)
+  const DICE_TYPES = {
+    white:  { key: 'white',  label: 'Simple',   emoji: '⬜', ignoresDef: false, heal: false },
+    bone:   { key: 'bone',   label: 'Léger',    emoji: '🟧', ignoresDef: false, heal: false },
+    red:    { key: 'red',    label: 'Lourd',    emoji: '🟥', ignoresDef: true,  heal: false },
+    blue:   { key: 'blue',   label: 'Mystique', emoji: '🟦', ignoresDef: false, heal: false },
+    green:  { key: 'green',  label: 'Soin',     emoji: '🟩', ignoresDef: true,  heal: true  },
+    black:  { key: 'black',  label: 'Mortel',   emoji: '⬛', ignoresDef: true,  heal: false },
+    yellow: { key: 'yellow', label: 'Phase',    emoji: '🟨', ignoresDef: false, heal: false },
+  };
+  const DICE_ORDER = ['white', 'bone', 'red', 'blue', 'green', 'black', 'yellow'];
+
+  function emptyPool() {
+    const p = {};
+    DICE_ORDER.forEach(function (k) { p[k] = 0; });
+    return p;
+  }
+
+  function addPools() {
+    const out = emptyPool();
+    for (let i = 0; i < arguments.length; i++) {
+      const pool = arguments[i] || {};
+      DICE_ORDER.forEach(function (k) { out[k] += (pool[k] || 0); });
+    }
+    return out;
+  }
+
+  function poolCount(pool) {
+    return DICE_ORDER.reduce(function (n, k) { return n + (pool[k] || 0); }, 0);
+  }
+
+  function d6() { return 1 + Math.floor(Math.random() * 6); }
+
+  /*
+   * Résout un lancer.
+   * pool : { white, bone, red, blue, green, black, yellow }
+   * opts : { def, damage, turn }
+   * Retourne un objet détaillé pour l'affichage.
+   */
+  function resolve(pool, opts) {
+    opts = opts || {};
+    const def = Math.max(0, parseInt(opts.def, 10) || 0);
+    const damage = Math.max(0, parseInt(opts.damage, 10) || 0);
+    const turnMult = Math.min(3, Math.max(1, parseInt(opts.turn, 10) || 1));
+
+    // 1. On lance tous les dés du pool
+    const dice = [];
+    DICE_ORDER.forEach(function (color) {
+      const n = pool[color] || 0;
+      for (let i = 0; i < n; i++) {
+        dice.push({ color: color, value: d6(), bonus: false });
+      }
+    });
+
+    // 2. Critique : deux 6 ou plus (toutes couleurs) déclenchent une relance bonus en chaîne
+    const colorsPresent = DICE_ORDER.filter(function (c) { return (pool[c] || 0) > 0; });
+    let critique = false;
+    if (dice.filter(function (d) { return d.value === 6; }).length >= 2 && colorsPresent.length) {
+      critique = true;
+      let keepRolling = true;
+      let guard = 0;
+      while (keepRolling && guard < 50) {
+        guard++;
+        const color = colorsPresent[Math.floor(Math.random() * colorsPresent.length)];
+        const v = d6();
+        dice.push({ color: color, value: v, bonus: true });
+        keepRolling = (v === 6); // un 6 sur le dé bonus relance indéfiniment
+      }
+    }
+
+    // 3. Échec : au moins deux 1 sur des dés NON mortels
+    const echec = dice.filter(function (d) {
+      return d.value === 1 && !DICE_TYPES[d.color].heal && d.color !== 'black';
+    }).length >= 2;
+
+    // 4. Détection des doubles (sur la face brute du dé)
+    const faceCount = {};
+    dice.forEach(function (d) { faceCount[d.value] = (faceCount[d.value] || 0) + 1; });
+    function isDouble(d) { return faceCount[d.value] >= 2; }
+
+    // 5. Calcul de la contribution de chaque dé
+    let damageTotal = 0;
+    let healTotal = 0;
+    dice.forEach(function (d) {
+      const t = DICE_TYPES[d.color];
+      let contributed = d.value;   // valeur ajoutée au total
+      let compare = d.value;       // valeur comparée à la DEF
+      let removed = false;
+      let note = '';
+
+      if (d.color === 'yellow') {
+        contributed = d.value * turnMult;
+        compare = contributed;
+        if (turnMult > 1) note = '×' + turnMult;
+      } else if (d.color === 'blue' && isDouble(d)) {
+        contributed = d.value * 2; // valeur doublée sur double
+        compare = d.value;         // mais la DEF se compare à la valeur brute
+        note = 'double ×2';
+      } else if (d.color === 'bone' && isDouble(d)) {
+        removed = true;            // léger retiré du total sur double
+        note = 'retiré (double)';
+      }
+
+      let passes;
+      if (t.ignoresDef) {
+        passes = true;             // lourds, mortels, soins ignorent la DEF
+      } else {
+        passes = compare > def;
+      }
+
+      d.contributed = contributed;
+      d.compare = compare;
+      d.passes = passes && !removed;
+      d.removed = removed;
+      d.note = note;
+
+      if (echec) return; // l'action échoue : aucun PV n'est appliqué
+
+      if (t.heal) {
+        if (passes && !removed) healTotal += contributed;
+      } else if (passes && !removed) {
+        damageTotal += contributed;
+      }
+    });
+
+    // 6. Dégâts de l'attaquant : ajoutés si au moins 1 dé offensif a dépassé la DEF
+    const anyDamageHit = !echec && dice.some(function (d) {
+      return d.passes && !DICE_TYPES[d.color].heal;
+    });
+    let damageBonus = 0;
+    if (anyDamageHit && damage > 0) {
+      damageBonus = damage;
+      damageTotal += damage;
+    }
+
+    return {
+      dice: dice,
+      critique: critique,
+      echec: echec,
+      def: def,
+      turnMult: turnMult,
+      damageBonus: damageBonus,
+      pvLost: echec ? 0 : damageTotal,
+      pvHealed: echec ? 0 : healTotal,
+    };
+  }
+
+  global.AmertumeDice = {
+    DICE_TYPES: DICE_TYPES,
+    DICE_ORDER: DICE_ORDER,
+    emptyPool: emptyPool,
+    addPools: addPools,
+    poolCount: poolCount,
+    resolve: resolve,
+  };
+})(window);
