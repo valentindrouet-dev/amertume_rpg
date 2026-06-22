@@ -14,6 +14,9 @@
           p.classList.toggle('active', p.id === 'tab-' + target);
         });
         if (target === 'roller') Roller.refresh();
+        if (target === 'combat') Combat.render();
+        if (target === 'heroes') Combatants.renderHeroes();
+        if (target === 'bestiary') Combatants.renderMonsters();
       });
     });
   }
@@ -42,6 +45,9 @@
           Inventory.render();
           Roller.refresh();
           Roller.renderHistory();
+          Combatants.renderHeroes();
+          Combatants.renderMonsters();
+          Combat.render();
           alert('Sauvegarde importée.');
         } catch (err) {
           alert('Import impossible : ' + err.message);
@@ -57,5 +63,7 @@
     setupBackup();
     Inventory.init();
     Roller.init();
+    Combatants.init();
+    Combat.init();
   });
 })();

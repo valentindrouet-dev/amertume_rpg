@@ -14,7 +14,10 @@
       <span class="brand-sub">Inventaire &amp; Lancer de dés</span>
     </div>
     <nav class="tabs">
-      <button class="tab active" data-tab="inventory">Inventaire</button>
+      <button class="tab active" data-tab="combat">Combat</button>
+      <button class="tab" data-tab="heroes">Héros</button>
+      <button class="tab" data-tab="bestiary">Bestiaire</button>
+      <button class="tab" data-tab="inventory">Inventaire</button>
       <button class="tab" data-tab="roller">Lancer de dés</button>
     </nav>
     <div class="topbar-actions">
@@ -25,8 +28,45 @@
   </header>
 
   <main>
+    <!-- ============ COMBAT ============ -->
+    <section id="tab-combat" class="tab-panel active">
+      <div id="combat-root"></div>
+    </section>
+
+    <!-- ============ HÉROS ============ -->
+    <section id="tab-heroes" class="tab-panel">
+      <div class="card">
+        <div class="card-head">
+          <h2>Roster de héros</h2>
+          <button id="btn-add-hero" class="primary">+ Nouveau héros</button>
+        </div>
+        <div id="hero-list" class="roster-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ BESTIAIRE ============ -->
+    <section id="tab-bestiary" class="tab-panel">
+      <div class="card">
+        <div class="card-head">
+          <h2>Bestiaire</h2>
+          <button id="btn-add-monster" class="primary">+ Nouveau monstre</button>
+        </div>
+        <div class="filters">
+          <input id="monster-search" type="search" placeholder="Rechercher…" />
+          <select id="monster-filter-type">
+            <option value="">Tous types</option>
+            <option value="standard">Standard</option>
+            <option value="solitaire">Solitaire</option>
+            <option value="alpha">Alpha</option>
+            <option value="boss">Boss</option>
+          </select>
+        </div>
+        <div id="monster-list" class="roster-list"></div>
+      </div>
+    </section>
+
     <!-- ============ INVENTAIRE ============ -->
-    <section id="tab-inventory" class="tab-panel active">
+    <section id="tab-inventory" class="tab-panel">
       <div class="layout">
         <!-- Equipement -->
         <div class="card">
@@ -176,10 +216,95 @@
     </div>
   </div>
 
+  <!-- ============ MODALE HÉROS ============ -->
+  <div id="hero-modal" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="hero-modal-title">Nouveau héros</h2>
+        <button id="hero-modal-close" class="icon-btn">✕</button>
+      </div>
+      <form id="hero-form" class="item-form">
+        <input type="hidden" id="h-id" />
+        <label>Nom <input type="text" id="h-name" required placeholder="Nom du héros" /></label>
+        <div class="stat-grid">
+          <label>Vie <input type="number" id="h-vie" min="1" value="4" /></label>
+          <label>Endu <input type="number" id="h-endu" min="1" value="3" /></label>
+          <label>Bonus PV <input type="number" id="h-pvbonus" value="0" /></label>
+          <label>DEF <input type="number" id="h-def" min="0" value="3" /></label>
+          <label>Dégâts <input type="number" id="h-damage" min="0" value="2" /></label>
+          <label class="checkbox inline"><input type="checkbox" id="h-rapide" /> Rapide</label>
+        </div>
+        <p class="hint">PV max calculés : <strong id="h-pv-preview">12</strong> (Vie × Endu + bonus)</p>
+        <div class="attacks-head"><h3>Attaques</h3><button type="button" id="h-add-attack" class="ghost small">+ Attaque</button></div>
+        <div id="h-attacks" class="attacks-editor"></div>
+        <label>Notes <textarea id="h-notes" rows="2"></textarea></label>
+        <div class="modal-actions">
+          <button type="button" id="btn-delete-hero" class="danger" hidden>Supprimer</button>
+          <button type="submit" class="primary">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODALE MONSTRE ============ -->
+  <div id="monster-modal" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="monster-modal-title">Nouveau monstre</h2>
+        <button id="monster-modal-close" class="icon-btn">✕</button>
+      </div>
+      <form id="monster-form" class="item-form">
+        <input type="hidden" id="m-id" />
+        <label>Nom <input type="text" id="m-name" required placeholder="Nom du monstre" /></label>
+        <div class="stat-grid">
+          <label>PV <input type="number" id="m-pv" min="1" value="6" /></label>
+          <label>DEF <input type="number" id="m-def" min="0" value="3" /></label>
+          <label>Dégâts <input type="number" id="m-damage" min="0" value="2" /></label>
+          <label>XP <input type="number" id="m-xp" min="0" value="5" /></label>
+          <label>Type
+            <select id="m-type">
+              <option value="standard">Standard</option>
+              <option value="solitaire">Solitaire</option>
+              <option value="alpha">Alpha</option>
+              <option value="boss">Boss</option>
+            </select>
+          </label>
+          <label>Socle
+            <select id="m-socle">
+              <option value="small">Petit</option>
+              <option value="medium" selected>Moyen</option>
+              <option value="large">Grand</option>
+              <option value="huge">Énorme</option>
+            </select>
+          </label>
+          <label>Menace
+            <select id="m-menace">
+              <option value="closest">Plus proche</option>
+              <option value="pvLow">PV bas</option>
+              <option value="pvHigh">PV haut</option>
+              <option value="defLow">DEF basse</option>
+            </select>
+          </label>
+          <label class="checkbox inline"><input type="checkbox" id="m-esquive" /> Esquive 6+</label>
+          <label class="checkbox inline"><input type="checkbox" id="m-rapide" /> Rapide</label>
+        </div>
+        <div class="attacks-head"><h3>Attaques</h3><button type="button" id="m-add-attack" class="ghost small">+ Attaque</button></div>
+        <div id="m-attacks" class="attacks-editor"></div>
+        <label>Notes / talents <textarea id="m-notes" rows="2"></textarea></label>
+        <div class="modal-actions">
+          <button type="button" id="btn-delete-monster" class="danger" hidden>Supprimer</button>
+          <button type="submit" class="primary">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="js/dice.js"></script>
   <script src="js/store.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/roller.js"></script>
+  <script src="js/combatants.js"></script>
+  <script src="js/combat.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

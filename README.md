@@ -7,6 +7,25 @@ et un **lanceur de dés** respectant les règles d'Amertume. 100 % côté naviga
 
 ## Fonctionnalités
 
+### Combat (zones abstraites)
+- **Préparation** : sélection des héros engagés + ajout d'adversaires depuis le bestiaire (avec quantité).
+- **Tours de combat** : phase des Héros (activation manuelle) puis phase des Adversaires (IA automatique).
+- **Activation** : 1 Action (attaque) + 1 Mouvement/Analyse + 1 Objet, suivis par carte.
+- **Attaques** : résolues par le moteur de dés (DEF, dégâts, critique, échec…), cibles unique ou multiples,
+  portée contact/distance avec **dégâts-choc**.
+- **États** : Affaibli, Au sol (annule la DEF), Feu, Blindage, Onde, Ciblage — appliqués par les attaques
+  ou à la main (clic). Au sol impossible sur un Boss / un socle plus grand ; Boss ignore Au sol.
+- **IA des adversaires** : choix de cible par **Menace** (plus proche, PV bas/haut, DEF basse).
+- **Fuite** selon le type (Standard fin T1, Solitaire/Alpha fin T2, Boss ≥T3 manuel), **Esquive 6+**, **coma**.
+- **XP** : cumulée (adversaires au coma + Analyses) et distribuée en fin de combat.
+- **Journal de combat** détaillé.
+
+### Héros & Bestiaire
+- **Roster de héros** : Vie, Endu, bonus PV, DEF, Dégâts, attaques (dés + effets), PV max calculés.
+- **Bestiaire** éditable : PV, DEF, Dégâts, XP, Type, socle, Menace, Esquive, Rapide, attaques. 4 monstres d'exemple fournis.
+
+### Inventaire & dés
+
 - **Inventaire** : ajout/édition/suppression d'objets (armes, munitions, armures, objets, divers),
   quantités, consommables, notes, recherche et filtres par catégorie.
 - **Armes équipables** : 1 main / 2 mains. Deux armes à 1 main **cumulent leurs dés** ;
