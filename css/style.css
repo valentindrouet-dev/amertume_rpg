@@ -1545,3 +1545,35 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .loot-pct input { width: 58px; } .loot-qty input { width: 48px; }
 .cs-lootg .cs-chip { background: rgba(214,178,42,.16); border-color: rgba(214,178,42,.45); }
 .cs-chip em { font-style: normal; color: var(--muted); }
+
+/* ===================================================================
+   v2.19 — Résumé & bouton « Résultat » sur la DA parchemin + chips typées
+   =================================================================== */
+.result-btn { background: var(--accent); color: #fff; border: 1px solid var(--accent); box-shadow: none; }
+.result-btn:hover { background: var(--accent); filter: brightness(1.08); }
+
+.combat-summary { background: #efe4cf; color: #33271a; border: 1px solid #cdb98f; border-radius: var(--radius); padding: 1.1rem 1.2rem 1.3rem; }
+.cs-banner { border-radius: 10px; padding: .8rem 1rem; }
+.combat-summary.cs-victory .cs-banner { background: var(--good); }
+.combat-summary.cs-minor   .cs-banner { background: var(--accent-2); }
+.combat-summary.cs-defeat  .cs-banner { background: var(--accent); }
+.combat-summary.cs-end     .cs-banner { background: #8a7a66; }
+.cs-xpnum { color: #a8631f; }
+.cs-xplbl { color: #7a6a55; }
+.cs-statcard { border-color: #cdb98f; background: #f4ecda; }
+.cs-stat-head { background: rgba(141,110,70,.18); color: #6b5640; }
+.cs-stat-row { border-top-color: #dccbab; }
+.cs-stat-row.is-hero { background: rgba(77,142,209,.08); }
+.cs-stat-row .cs-dealt { color: #b0432b; }
+.cs-stat-row .cs-taken { color: #7c4a86; }
+.cs-glabel { color: #6b5640; }
+.cs-chip { background: rgba(0,0,0,.05); border-color: #cdb98f; color: #33271a; }
+.cs-chip em { color: #7a6a55; }
+.cs-killed .cs-chip { background: rgba(192,57,43,.12); border-color: rgba(192,57,43,.4); }
+.cs-healg .cs-chip { background: rgba(95,164,95,.16); border-color: rgba(95,164,95,.45); }
+
+/* Chips d'adversaires (aperçu) colorées par type */
+.pz-mon.ztype-sbire     { background: rgba(155,150,138,.22); border-color: rgba(155,150,138,.6); color: #5a554c; }
+.pz-mon.ztype-alpha     { background: rgba(217,131,36,.16);  border-color: rgba(217,131,36,.5);  color: #9a6012; }
+.pz-mon.ztype-solitaire { background: rgba(192,57,43,.14);   border-color: rgba(192,57,43,.5);   color: #a3261b; }
+.pz-mon.ztype-boss      { background: rgba(124,82,168,.16);  border-color: rgba(124,82,168,.5);  color: #6a3f9a; }

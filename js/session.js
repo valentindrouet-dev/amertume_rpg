@@ -415,7 +415,8 @@
         const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
           const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
           if (m && (rank[m.type] || 0) > (rank[bestType] || 0)) bestType = m.type;
-          return '<span class="pz-mon">' + esc(m ? m.name : '?') + (r.count > 1 ? ' ×' + r.count : '') + '</span>';
+          const t = m ? (m.type === 'standard' ? 'sbire' : m.type) : '';
+          return '<span class="pz-mon ztype-' + t + '">' + esc(m ? m.name : '?') + (r.count > 1 ? ' ×' + r.count : '') + '</span>';
         }).join('');
         const ztype = z.heroStart ? 'ztype-heroes' : (bestType ? 'ztype-' + (bestType === 'standard' ? 'sbire' : bestType) : '');
         return '<div class="preview-zone ' + ztype + (z.heroStart ? ' hero-start' : '') + '">' +

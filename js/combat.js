@@ -1018,7 +1018,7 @@
     if (!killed.length && !fled.length) { box.innerHTML = ''; return; }
     let html = '';
     if (killed.length) {
-      html += '<div class="cem-row cem-killed"><span class="cem-label">☠ Détruits</span>' +
+      html += '<div class="cem-row cem-killed"><span class="cem-label">☠ Cimetière</span>' +
         killed.map(function (c) { return '<span class="cem-chip">💀 ' + esc(c.name) + '</span>'; }).join('') + '</div>';
     }
     if (fled.length) {
