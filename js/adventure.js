@@ -212,6 +212,17 @@
             '<input type="text" id="adv-password" value="' + esc(a.password || '') + '" placeholder="Aucun" />' +
           '</label>' +
         '</div>' +
+        '<div class="adv-title-row">' +
+          '<label class="adv-label">Durée (affichée sur l\'accueil)' +
+            '<input type="text" id="adv-duration" value="' + esc(a.duration || '') + '" placeholder="ex. 2 h" />' +
+          '</label>' +
+          '<label class="adv-label">Difficulté (affichée sur l\'accueil)' +
+            '<input type="text" id="adv-difficulty" value="' + esc(a.difficulty || '') + '" placeholder="ex. Intermédiaire" />' +
+          '</label>' +
+        '</div>' +
+        '<label class="adv-label">Résumé (affiché sur l\'accueil)' +
+          '<textarea id="adv-summary" rows="2" placeholder="Quelques lignes de présentation…">' + esc(a.summary || '') + '</textarea>' +
+        '</label>' +
         '<div id="adv-chapters"></div>' +
         '<button id="adv-add-chapter" class="ghost" style="margin-top:.5rem">+ Chapitre</button>' +
       '</div>';
@@ -223,6 +234,9 @@
       save();
     });
     $('#adv-password').addEventListener('input', function () { a.password = this.value; save(); });
+    $('#adv-duration').addEventListener('input', function () { a.duration = this.value; save(); });
+    $('#adv-difficulty').addEventListener('input', function () { a.difficulty = this.value; save(); });
+    $('#adv-summary').addEventListener('input', function () { a.summary = this.value; save(); });
     $('#adv-add-chapter').addEventListener('click', function () {
       a.chapters.push(newChapter());
       save();

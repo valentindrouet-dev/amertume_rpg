@@ -531,7 +531,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 
 /* Mode ciblage : surligne les cibles valides */
 .combat-card.targetable { outline: 2px solid #e76f39; outline-offset: 2px; cursor: crosshair; }
-.combat-card.targetable:hover { background: rgba(231,111,57,.22); }
+.combat-card.targetable:hover { background: rgba(248,186,150,.92); }
 .targeting-banner {
   background: rgba(77,142,209,.15); border: 1px solid var(--action);
   border-radius: 8px; padding: .5rem .75rem; margin-bottom: .8rem;
@@ -1233,7 +1233,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   box-shadow: 0 0 0 4px rgba(231,111,57,.22);
 }
 .combat-card.targetable:hover {
-  background: rgba(231,111,57,.22);
+  background: rgba(248,186,150,.92);
   box-shadow: 0 0 0 5px rgba(231,111,57,.55);
 }
 .combat-card.targetable::before {
@@ -1308,3 +1308,21 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 /* Un style inline display:flex sur un .admin-only l'empêchait de se cacher :
    on force le masquage quand l'attribut hidden est présent. */
 [hidden] { display: none !important; }
+
+/* ===================================================================
+   v2.09 — Bouton éditer discret, méta d'aventure sur l'accueil
+   =================================================================== */
+.armory-card { position: relative; padding-bottom: 1.7rem !important; }
+.card-edit-btn {
+  position: absolute; bottom: 5px; right: 6px;
+  width: 22px; height: 22px; line-height: 1; padding: 0;
+  border-radius: 6px; border: 1px solid var(--border);
+  background: rgba(0,0,0,.05); color: var(--muted); cursor: pointer;
+  font-size: .8rem; opacity: .5;
+}
+.card-edit-btn:hover { opacity: 1; background: var(--action); color: #fff; border-color: var(--action); }
+
+.home-adv-badges { display: flex; gap: .4rem; margin-top: .25rem; flex-wrap: wrap; }
+.home-adv-badge { font-size: .72rem; background: rgba(0,0,0,.06); border: 1px solid var(--border);
+  border-radius: 10px; padding: .06rem .45rem; color: var(--muted); }
+.home-adv-summary { display: block; margin-top: .35rem; font-size: .8rem; color: var(--muted); line-height: 1.35; }

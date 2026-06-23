@@ -83,14 +83,10 @@
       list.innerHTML = '<p class="empty">Aucun aventurier : crée ton groupe d\'abord.</p>';
       return;
     }
-    const byId = function (id) { return Store.state.items.find(function (i) { return i.id === id; }); };
     let html = '';
     heroes.forEach(function (h) {
-      const eq = h.equipment || {};
-      const gear = [];
-      (eq.weapons || []).forEach(function (wid) { const it = byId(wid); if (it) gear.push(it); });
-      if (eq.armorId) { const it = byId(eq.armorId); if (it) gear.push(it); }
-      if (eq.shieldId) { const it = byId(eq.shieldId); if (it) gear.push(it); }
+      // Modèle d'équipement normalisé (armes G/D + armure + objet)
+      const gear = (window.Combatants && Combatants.heroGear) ? Combatants.heroGear(h) : [];
       html += '<div class="inv-hero-sep">' + escapeHtml(h.name) +
         (h.klass ? ' <span class="hint">' + escapeHtml(h.klass) + '</span>' : '') + '</div>';
       html += gear.length
@@ -125,7 +121,6 @@
     return '<div class="roster-card armory-card cat-' + i.category + '">' +
       '<div class="roster-head">' +
         '<span class="roster-name">' + escapeHtml(i.name) + '</span>' +
-        (canEdit ? '<button class="ghost small" data-edit="' + i.id + '">Éditer</button>' : '') +
         (typeof i.price === 'number' && i.price ? '<span class="tag price-tag">' + i.price + ' po</span>' : '') +
       '</div>' +
       (isWeapon ? '<div class="armory-line">' + poolBadges(i.dice) +
@@ -135,6 +130,7 @@
         '<span class="stat-pill">' + (i.slot === 'shield' ? 'Bouclier' : 'Corps') + '</span></div>' : '') +
       (i.effects && !isWeapon ? '<div class="roster-notes">⚡ ' + escapeHtml(i.effects) + '</div>' : '') +
       (i.notes && !isOfficialNote ? '<div class="roster-notes">' + escapeHtml(i.notes) + '</div>' : '') +
+      (canEdit ? '<button class="card-edit-btn" data-edit="' + i.id + '" title="Éditer">✎</button>' : '') +
     '</div>';
   }
 

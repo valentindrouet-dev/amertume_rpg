@@ -174,16 +174,23 @@
     },
     adventures: {
       file: 'amertume-aventures.csv',
-      headers: ['id', 'title', 'password', 'chapters'],
+      headers: ['id', 'title', 'password', 'duration', 'difficulty', 'summary', 'chapters'],
       get: function () { return Store.loadAdventures(); },
       toRow: function (a) {
-        return { id: a.id, title: a.title, password: a.password || '', chapters: jEnc(a.chapters || []) };
+        return {
+          id: a.id, title: a.title, password: a.password || '',
+          duration: a.duration || '', difficulty: a.difficulty || '', summary: a.summary || '',
+          chapters: jEnc(a.chapters || []),
+        };
       },
       fromRow: function (r, prev) {
         const a = prev || {};
         a.id = r.id || a.id || Store.uid();
         a.title = r.title || a.title || 'Aventure';
         a.password = r.password || '';
+        a.duration = r.duration || '';
+        a.difficulty = r.difficulty || '';
+        a.summary = r.summary || '';
         a.chapters = jDec(r.chapters, a.chapters || []);
         return a;
       },

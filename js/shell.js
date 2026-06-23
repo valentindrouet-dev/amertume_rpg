@@ -39,10 +39,15 @@
       const chCount = a.chapters.length;
       const scCount = a.chapters.reduce(function (n, ch) { return n + ch.scenes.length; }, 0);
       const locked = a.password && unlocked.indexOf(a.id) === -1;
+      const badges = [];
+      if (a.duration) badges.push('<span class="home-adv-badge">⏱ ' + esc(a.duration) + '</span>');
+      if (a.difficulty) badges.push('<span class="home-adv-badge">📊 ' + esc(a.difficulty) + '</span>');
       return '<div class="home-adv-card' + (locked ? ' locked' : '') + '">' +
         '<div class="home-adv-info">' +
           '<span class="home-adv-title">' + (locked ? '🔒 ' : '') + esc(a.title) + '</span>' +
           '<span class="home-adv-meta">' + chCount + ' chapitre(s) · ' + scCount + ' scène(s)</span>' +
+          (badges.length ? '<span class="home-adv-badges">' + badges.join('') + '</span>' : '') +
+          (a.summary ? '<span class="home-adv-summary">' + esc(a.summary) + '</span>' : '') +
         '</div>' +
         (locked
           ? '<button class="ghost home-locked" data-id="' + a.id + '">🔒 Verrouillé</button>'

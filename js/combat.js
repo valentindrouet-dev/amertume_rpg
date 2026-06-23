@@ -506,7 +506,8 @@
   }
 
   function renderSetup(root) {
-    const heroes = Store.state.heroes;
+    // Combat Test : uniquement les aventuriers pré-construits (pas les héros de joueurs)
+    const heroes = (window.Combatants && Combatants.prebuiltHeroes) ? Combatants.prebuiltHeroes() : Store.state.heroes;
     const monsters = Store.state.monsters;
     root.innerHTML =
       '<div class="layout">' +
@@ -750,7 +751,7 @@
             '<span class="stat-pill">Dégâts ' + c.damage + '</span>' +
             (isEnemy ? '<span class="stat-pill">XP ' + c.xp + '</span>' : '') +
           '</div>'
-        : '<div class="stat-pills compact"><span class="stat-pill">DEF ?</span><span class="stat-pill">Dégâts ?</span><span class="stat-pill">XP ?</span></div>'
+        : ''
       ) +
       (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '');
 

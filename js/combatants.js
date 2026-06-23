@@ -193,6 +193,12 @@
     return { mainD: w[0] || null, mainG: w[1] || (eq.shieldId || null), armorId: eq.armorId || null, objectId: null };
   }
 
+  // Tout l'équipement porté (armes + armure + objet), modèle normalisé
+  function heroGear(h) {
+    const e = normalizeEquip((h && h.equipment) || {});
+    return [e.mainG, e.mainD, e.armorId, e.objectId].map(itemById).filter(Boolean);
+  }
+
   function heroWeapons(eq) {
     const e = normalizeEquip(eq);
     return [e.mainG, e.mainD].map(itemById).filter(function (i) { return i && i.category === 'weapon'; });
@@ -355,13 +361,7 @@
       return;
     }
     list.innerHTML = heroes.map(function (h) {
-      const eq = h.equipment || {};
-      const armor = eq.armorId ? itemById(eq.armorId) : null;
-      const shield = eq.shieldId ? itemById(eq.shieldId) : null;
-      const gear = [];
-      heroWeapons(eq).forEach(function (w) { gear.push(w.name); });
-      if (armor) gear.push(armor.name);
-      if (shield) gear.push(shield.name);
+      const gear = heroGear(h).map(function (it) { return it.name; });
       return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
         '<div class="roster-head hero-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
@@ -551,6 +551,7 @@
     const copy = JSON.parse(JSON.stringify(src));
     copy.id = Store.uid();
     copy.adventureId = advId;
+    copy.prebuiltId = prebuiltId; // origine : empêche d'ajouter deux fois le même modèle
     delete copy.pv; // PV au maximum
     Store.state.heroes.push(copy);
     Store.save();
@@ -560,7 +561,10 @@
 
   function openPrebuiltPicker() {
     const s = scope();
-    const list = prebuiltHeroes();
+    // Exclut les pré-construits déjà présents dans le groupe (un même modèle une seule fois)
+    const used = {};
+    adventureHeroes(s.advId).forEach(function (h) { if (h.prebuiltId) used[h.prebuiltId] = true; });
+    const list = prebuiltHeroes().filter(function (h) { return !used[h.id]; });
     const box = $('#prebuilt-list');
     box.innerHTML = list.length
       ? list.map(function (h) {
@@ -572,7 +576,9 @@
             '<button type="button" class="primary small pb-pick" data-id="' + h.id + '">Ajouter</button>' +
           '</div>';
         }).join('')
-      : '<p class="empty">Aucun aventurier pré-construit. Le MJ peut en créer en mode Admin.</p>';
+      : '<p class="empty">' + (prebuiltHeroes().length
+          ? 'Tous les aventuriers pré-construits sont déjà dans le groupe.'
+          : 'Aucun aventurier pré-construit. Le MJ peut en créer en mode Admin.') + '</p>';
     $('#prebuilt-modal').hidden = false;
     box.querySelectorAll('.pb-pick').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -859,6 +865,7 @@
     openPrebuiltPicker: openPrebuiltPicker,
     adventureHeroes: adventureHeroes,
     prebuiltHeroes: prebuiltHeroes,
+    heroGear: heroGear,
     heroPv: heroPv,
     heroCurPv: heroCurPv,
     heroRestShort: heroRestShort,
