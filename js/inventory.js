@@ -82,7 +82,22 @@
   function isEquipped(e, item) {
     return e.mainG === item.id || e.mainD === item.id || e.armorId === item.id || e.objectId === item.id;
   }
-  function handsUsed(e) { return e.twoH ? 2 : ((e.mainG ? 1 : 0) + (e.mainD ? 1 : 0)); }
+  // Nombre de mains occupées par un emplacement (arme 1/2 mains, ou bouclier)
+  function slotHands(id) {
+    const it = id ? byId(id) : null;
+    if (!it) return 0;
+    if (it.category === 'weapon') return Number(it.hands) === 2 ? 2 : 1;
+    if (it.category === 'armor' && it.slot === 'shield') return 1;
+    return 0;
+  }
+  // Détecte une arme à deux mains même si le drapeau twoH n'a pas été posé
+  // (aventuriers pré-construits / créés via l'éditeur arrivant sans ce drapeau).
+  function handsUsed(e) {
+    if (e.twoH) return 2;
+    const dh = slotHands(e.mainD), gh = slotHands(e.mainG);
+    if (dh === 2 || gh === 2) return 2;
+    return dh + gh;
+  }
   function isHandItem(item) { return item.category === 'weapon' || (item.category === 'armor' && item.slot === 'shield'); }
 
   function equipItem(h, item) {
