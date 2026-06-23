@@ -115,14 +115,16 @@
 
   // ================= AVENTURIERS =================
   let heroAttacks = [];
-  let heroEquipment = { weapons: [], armorId: null, shieldId: null };
+  let heroEquipment = { mainG: null, mainD: null, armorId: null, objectId: null };
   let heroSkills = emptySkills();
 
-  // Compétences > 0 affichées sur la fiche (hors édition)
+  function skillSlug(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+  // Compétences > 0 affichées sur la fiche (hors édition), une couleur par compétence
   function skillsSummary(skills) {
     if (!skills) return '';
     const badges = SKILLS.filter(function (s) { return (skills[s] || 0) > 0; })
-      .map(function (s) { return '<span class="skill-badge">' + s + ' <b>+' + skills[s] + '</b></span>'; });
+      .map(function (s) { return '<span class="skill-badge skill-' + skillSlug(s) + '">' + s + ' <b>+' + skills[s] + '</b></span>'; });
     if (!badges.length) return '';
     return '<div class="roster-section"><div class="roster-label">Compétences</div>' +
       '<div class="skill-badges">' + badges.join('') + '</div></div>';
@@ -180,17 +182,31 @@
   }
   function itemById(id) { return Store.state.items.find(function (i) { return i.id === id; }); }
 
-  function heroWeapons(eq) {
-    return (eq && eq.weapons || []).map(itemById).filter(function (i) { return i && i.category === 'weapon'; });
+  // Modèle d'équipement à 4 emplacements : main gauche / droite, armure, objet.
+  // Compatibilité ascendante avec l'ancien modèle (weapons[] + armorId + shieldId).
+  function normalizeEquip(eq) {
+    eq = eq || {};
+    if (eq.mainG !== undefined || eq.mainD !== undefined || eq.objectId !== undefined) {
+      return { mainG: eq.mainG || null, mainD: eq.mainD || null, armorId: eq.armorId || null, objectId: eq.objectId || null };
+    }
+    const w = eq.weapons || [];
+    return { mainD: w[0] || null, mainG: w[1] || (eq.shieldId || null), armorId: eq.armorId || null, objectId: null };
   }
 
-  // DEF : uniquement l'armure (+ bouclier). Il n'y a pas de DEF de base.
+  function heroWeapons(eq) {
+    const e = normalizeEquip(eq);
+    return [e.mainG, e.mainD].map(itemById).filter(function (i) { return i && i.category === 'weapon'; });
+  }
+
+  // DEF : armure équipée + bouclier porté en main (objet de catégorie armure, emplacement bouclier).
   function heroDef(h) {
-    const eq = h.equipment || {};
-    const armor = eq.armorId ? itemById(eq.armorId) : null;
-    const shield = eq.shieldId ? itemById(eq.shieldId) : null;
+    const e = normalizeEquip(h.equipment || {});
+    const armor = e.armorId ? itemById(e.armorId) : null;
     let def = (armor && armor.category === 'armor') ? (armor.def || 0) : 0;
-    if (shield && shield.category === 'armor') def += (shield.def || 0);
+    [e.mainG, e.mainD].forEach(function (id) {
+      const it = id ? itemById(id) : null;
+      if (it && it.category === 'armor') def += (it.def || 0);
+    });
     return def;
   }
 
@@ -231,9 +247,15 @@
   }
 
   // ---- Progression du groupe (XP / niveaux) ----
+  function isPlayerMode() {
+    return (global.Shell && Shell.getMode && Shell.getMode() === 'player');
+  }
+
   function renderProgress() {
     const root = $('#progress-root');
     if (!root) return;
+    // En mode Joueur, l'XP n'est pas modifiable : on masque toute la barre d'édition.
+    if (isPlayerMode()) { root.innerHTML = ''; return; }
     const info = Store.levelInfo(Store.state.party.xp);
     const nextTxt = info.next
       ? 'Niveau ' + info.next.lvl + ' dans <b>' + info.toNext + '</b> XP'
@@ -347,7 +369,6 @@
           '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">' + h.damage + '</span></div>' +
         '</div>' +
-        skillsSummary(h.skills) +
         '<div class="roster-section">' +
           '<div class="roster-label">Équipement</div>' +
           '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div>' +
@@ -356,12 +377,38 @@
           '<div class="roster-label">Attaques</div>' +
           '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div>' +
         '</div>' +
+        skillsSummary(h.skills) +
         (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
       '</div>';
     }).join('');
     list.querySelectorAll('[data-edit-hero]').forEach(function (b) {
       b.addEventListener('click', function () { openHeroModal(b.getAttribute('data-edit-hero')); });
     });
+  }
+
+  // Fiche d'aventurier en lecture seule (ouverte depuis la narration)
+  function heroSheetHtml(h) {
+    const e = normalizeEquip(h.equipment);
+    const gear = [e.mainG, e.mainD, e.armorId, e.objectId].map(itemById).filter(Boolean).map(function (it) { return it.name; });
+    return (h.klass ? '<div class="sheet-class class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</div>' : '') +
+      '<div class="hero-stat-row">' +
+        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroCurPv(h) + ' / ' + heroPv(h) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">' + h.damage + '</span></div>' +
+      '</div>' +
+      '<div class="roster-section"><div class="roster-label">Équipement</div>' +
+        '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div></div>' +
+      '<div class="roster-section"><div class="roster-label">Attaques</div>' +
+        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div></div>' +
+      skillsSummary(h.skills) +
+      (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '');
+  }
+  function openHeroSheet(id) {
+    const h = Store.state.heroes.find(function (x) { return x.id === id; });
+    if (!h) return;
+    $('#hero-sheet-title').textContent = h.name;
+    $('#hero-sheet-body').innerHTML = heroSheetHtml(h);
+    $('#hero-sheet-modal').hidden = false;
   }
 
   function updateHeroPvPreview() {
@@ -390,12 +437,7 @@
     buildAttacksEditor($('#h-attacks'), heroAttacks);
     heroSkills = isEdit ? mergeSkills(h.skills) : emptySkills();
     buildSkillsEditor($('#h-skills'), heroSkills);
-    const srcEq = isEdit ? (h.equipment || {}) : {};
-    heroEquipment = {
-      weapons: (srcEq.weapons || []).slice(),
-      armorId: srcEq.armorId || null,
-      shieldId: srcEq.shieldId || null,
-    };
+    heroEquipment = isEdit ? normalizeEquip(h.equipment) : { mainG: null, mainD: null, armorId: null, objectId: null };
     buildHeroEquipmentUI();
     $('#btn-delete-hero').hidden = !isEdit;
     updateHeroPvPreview();
@@ -403,59 +445,40 @@
     $('#h-name').focus();
   }
 
-  // Sélecteur unique (armure / bouclier) sous forme de boutons-bascule
-  function renderEquipSingle(box, list, selectedId, defPrefix, noneLabel, onSel) {
-    box.innerHTML = '<button type="button" class="equip-btn' + (!selectedId ? ' on' : '') + '" data-id="">' +
-        noneLabel + '</button>' +
-      list.map(function (a) {
-        return '<button type="button" class="equip-btn' + (a.id === selectedId ? ' on' : '') + '" data-id="' + a.id + '">' +
-          '<span class="equip-btn-name">' + esc(a.name) + '</span>' +
-          '<span class="equip-btn-meta">' + defPrefix + ' ' + (a.def || 0) + '</span>' +
-        '</button>';
+  // Remplit un menu déroulant d'équipement avec les objets de l'inventaire
+  function fillEquipSelect(sel, list, selectedId, noneLabel) {
+    sel.innerHTML = '<option value="">' + noneLabel + '</option>' +
+      list.map(function (it) {
+        const meta = it.category === 'armor' ? ' (DEF ' + (it.def || 0) + ')'
+          : (it.category === 'weapon' ? ' (' + (it.hands === 2 ? '2 mains' : '1 main') + (it.ranged ? ', dist.' : '') + ')' : '');
+        return '<option value="' + it.id + '"' + (it.id === selectedId ? ' selected' : '') + '>' + esc(it.name) + meta + '</option>';
       }).join('');
-    box.querySelectorAll('.equip-btn').forEach(function (b) {
-      b.addEventListener('click', function () {
-        box.querySelectorAll('.equip-btn').forEach(function (x) { x.classList.remove('on'); });
-        b.classList.add('on');
-        onSel(b.getAttribute('data-id') || null);
-      });
-    });
+    sel.value = selectedId || '';
   }
 
-  // Construit les sélecteurs d'armure/bouclier (boutons) et la liste d'armes
+  // 4 emplacements d'équipement (menus déroulants), uniquement les objets de l'inventaire
   function buildHeroEquipmentUI() {
-    const items = Store.state.items;
+    const items = Store.state.items.filter(function (i) { return (i.qty || 1) > 0; });
+    const hands = items.filter(function (i) { return i.category === 'weapon' || (i.category === 'armor' && i.slot === 'shield'); });
     const bodies = items.filter(function (i) { return i.category === 'armor' && (i.slot || 'body') === 'body'; });
-    const shields = items.filter(function (i) { return i.category === 'armor' && i.slot === 'shield'; });
-    const weapons = items.filter(function (i) { return i.category === 'weapon'; });
+    const objects = items.filter(function (i) { return i.category === 'object' || i.category === 'misc'; });
 
-    renderEquipSingle($('#h-armor'), bodies, heroEquipment.armorId, 'DEF', 'Aucune armure',
-      function (id) { heroEquipment.armorId = id; updateEquipPreview(); });
-    renderEquipSingle($('#h-shield'), shields, heroEquipment.shieldId, '+', 'Aucun bouclier',
-      function (id) { heroEquipment.shieldId = id; updateEquipPreview(); });
+    fillEquipSelect($('#h-maing'), hands, heroEquipment.mainG, 'Vide');
+    fillEquipSelect($('#h-maind'), hands, heroEquipment.mainD, 'Vide');
+    fillEquipSelect($('#h-armor'), bodies, heroEquipment.armorId, 'Aucune');
+    fillEquipSelect($('#h-object'), objects, heroEquipment.objectId, 'Aucun');
 
-    const wbox = $('#h-weapons');
-    if (!weapons.length) {
-      wbox.innerHTML = '<p class="hint">Aucune arme dans l\'inventaire.</p>';
-    } else {
-      wbox.innerHTML = weapons.map(function (w) {
-        const on = heroEquipment.weapons.indexOf(w.id) !== -1;
-        return '<button type="button" class="equip-btn' + (on ? ' on' : '') + '" data-weapon="' + w.id + '">' +
-          '<span class="equip-btn-name">' + esc(w.name) + '</span> ' + Inventory.poolBadges(w.dice) +
-          '<span class="equip-btn-meta">' + (w.hands === 2 ? '2 mains' : '1 main') + (w.ranged ? ' · distance' : '') + '</span>' +
-        '</button>';
-      }).join('');
-      wbox.querySelectorAll('[data-weapon]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          const id = b.getAttribute('data-weapon');
-          const i = heroEquipment.weapons.indexOf(id);
-          if (i === -1) heroEquipment.weapons.push(id); else heroEquipment.weapons.splice(i, 1);
-          b.classList.toggle('on');
-          updateEquipPreview();
-        });
-      });
-    }
+    $('#h-maing').onchange = function () { heroEquipment.mainG = this.value || null; updateEquipPreview(); };
+    $('#h-maind').onchange = function () { heroEquipment.mainD = this.value || null; updateEquipPreview(); };
+    $('#h-armor').onchange = function () { heroEquipment.armorId = this.value || null; updateEquipPreview(); };
+    $('#h-object').onchange = function () { heroEquipment.objectId = this.value || null; updateEquipPreview(); };
+
     updateEquipPreview();
+  }
+
+  function unequipAll() {
+    heroEquipment = { mainG: null, mainD: null, armorId: null, objectId: null };
+    buildHeroEquipmentUI();
   }
 
   function updateEquipPreview() {
@@ -485,9 +508,10 @@
       attacks: heroAttacks,
       skills: mergeSkills(heroSkills),
       equipment: {
-        weapons: heroEquipment.weapons.slice(),
+        mainG: heroEquipment.mainG || null,
+        mainD: heroEquipment.mainD || null,
         armorId: heroEquipment.armorId || null,
-        shieldId: heroEquipment.shieldId || null,
+        objectId: heroEquipment.objectId || null,
       },
       // Pré-construit (Admin) → adventureId null ; Joueur → lié à l'aventure courante.
       adventureId: existing ? (existing.adventureId || null) : (s.mode === 'player' ? s.advId : null),
@@ -757,6 +781,8 @@
     $('#prebuilt-close').addEventListener('click', function () { $('#prebuilt-modal').hidden = true; });
     $('#prebuilt-modal').addEventListener('click', function (e) { if (e.target.id === 'prebuilt-modal') $('#prebuilt-modal').hidden = true; });
     $('#hero-modal-close').addEventListener('click', function () { $('#hero-modal').hidden = true; });
+    $('#hero-sheet-close').addEventListener('click', function () { $('#hero-sheet-modal').hidden = true; });
+    $('#hero-sheet-modal').addEventListener('click', function (e) { if (e.target.id === 'hero-sheet-modal') $('#hero-sheet-modal').hidden = true; });
     $('#hero-modal').addEventListener('click', function (e) { if (e.target.id === 'hero-modal') $('#hero-modal').hidden = true; });
     $('#hero-form').addEventListener('submit', saveHero);
     $('#h-add-attack').addEventListener('click', function () {
@@ -766,6 +792,7 @@
       $('#' + idn).addEventListener('input', updateHeroPvPreview);
     });
     $('#h-class').addEventListener('change', updateHeroPvPreview);
+    $('#h-unequip').addEventListener('click', unequipAll);
     $('#btn-delete-hero').addEventListener('click', function () {
       const id = $('#h-id').value;
       if (id && confirm('Supprimer cet aventurier ?')) {
@@ -808,6 +835,7 @@
     renderMonsters: renderMonsters,
     renderProgress: renderProgress,
     openHeroModal: openHeroModal,
+    openHeroSheet: openHeroSheet,
     openPrebuiltPicker: openPrebuiltPicker,
     adventureHeroes: adventureHeroes,
     prebuiltHeroes: prebuiltHeroes,

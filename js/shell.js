@@ -24,19 +24,37 @@
         'Crée-en une depuis le Mode MJ / Admin.</p>';
       return;
     }
+    const unlocked = Store.loadUnlocked();
     box.innerHTML = advs.map(function (a) {
       const chCount = a.chapters.length;
       const scCount = a.chapters.reduce(function (n, ch) { return n + ch.scenes.length; }, 0);
-      return '<div class="home-adv-card">' +
+      const locked = a.password && unlocked.indexOf(a.id) === -1;
+      return '<div class="home-adv-card' + (locked ? ' locked' : '') + '">' +
         '<div class="home-adv-info">' +
-          '<span class="home-adv-title">' + esc(a.title) + '</span>' +
+          '<span class="home-adv-title">' + (locked ? '🔒 ' : '') + esc(a.title) + '</span>' +
           '<span class="home-adv-meta">' + chCount + ' chapitre(s) · ' + scCount + ' scène(s)</span>' +
         '</div>' +
-        '<button class="primary home-play" data-id="' + a.id + '">▶ Jouer</button>' +
+        (locked
+          ? '<button class="ghost home-locked" data-id="' + a.id + '">🔒 Verrouillé</button>'
+          : '<button class="primary home-play" data-id="' + a.id + '">▶ Jouer</button>') +
       '</div>';
     }).join('');
     box.querySelectorAll('.home-play').forEach(function (b) {
       b.addEventListener('click', function () { enterPlayer(b.getAttribute('data-id')); });
+    });
+    box.querySelectorAll('.home-locked').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const a = advs.find(function (x) { return x.id === b.getAttribute('data-id'); });
+        if (!a) return;
+        const pw = prompt('Vous devez terminer le chapitre précédent pour obtenir le Mot de Passe du Chapitre.\n\nEntrez le mot de passe :');
+        if (pw === null) return;
+        if (pw === a.password) {
+          const u = Store.loadUnlocked(); u.push(a.id); Store.saveUnlocked(u);
+          renderHome();
+        } else {
+          alert('Mot de passe incorrect.');
+        }
+      });
     });
   }
 
@@ -84,7 +102,7 @@
     mode = 'admin';
     adventureId = null;
     applyMode();
-    if (global.App) App.selectTab('combat');
+    if (global.App) App.selectTab('adventures');
   }
 
   function enterPlayer(advId) {

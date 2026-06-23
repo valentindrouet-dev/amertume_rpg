@@ -275,6 +275,18 @@
     try { global.localStorage.setItem(SES_KEY, JSON.stringify(sessions)); } catch (e) {}
   }
 
+  // ---------- Aventures déverrouillées (mots de passe) ----------
+  const UNLOCK_KEY = 'amertume_unlocked_v1';
+  function loadUnlocked() {
+    try {
+      const raw = global.localStorage.getItem(UNLOCK_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+  function saveUnlocked(ids) {
+    try { global.localStorage.setItem(UNLOCK_KEY, JSON.stringify(ids)); } catch (e) {}
+  }
+
   // ---------- Classes & talents de classe (Admin) ----------
   const CLS_KEY = 'amertume_classes_v1';
   function loadClasses() {
@@ -309,5 +321,7 @@
     saveSessions: saveSessions,
     loadClasses: loadClasses,
     saveClasses: saveClasses,
+    loadUnlocked: loadUnlocked,
+    saveUnlocked: saveUnlocked,
   };
 })(window);

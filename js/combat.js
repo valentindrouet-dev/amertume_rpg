@@ -605,12 +605,7 @@
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
-      (pendingAttack ? (function () {
-        const at = byId(pendingAttack.iid); const ak = at && at.attacks[pendingAttack.atkIndex];
-        return at && ak ? '<div class="targeting-banner">🎯 <b>' + esc(at.name) + '</b> — ' + esc(ak.name) +
-          (pendingAttack.average ? ' <span class="lavg">(dégâts moyens)</span>' : '') +
-          ' : clique un adversaire pour frapper. <button id="cancel-target" class="ghost xs">Annuler</button></div>' : '';
-      })() : '') +
+      '<div class="targeting-banner' + (pendingAttack ? ' active' : '') + '">' + bannerHtml() + '</div>' +
       '<div class="combat-cols">' +
         '<div class="combat-col"><h3>Aventuriers</h3><div id="col-heroes"></div></div>' +
         '<div class="combat-col"><h3>Adversaires</h3><div id="col-monsters"></div></div>' +
@@ -629,6 +624,20 @@
     });
     const ct = $('#cancel-target');
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
+  }
+
+  // Contenu de la bannière de ciblage (toujours présente pour éviter le saut d'UI)
+  function bannerHtml() {
+    if (pendingAttack) {
+      const at = byId(pendingAttack.iid);
+      const ak = at && at.attacks[pendingAttack.atkIndex];
+      if (at && ak) {
+        return '🎯 <b>' + esc(at.name) + '</b> — ' + esc(ak.name) +
+          (pendingAttack.average ? ' <span class="lavg">(dégâts moyens)</span>' : '') +
+          ' : <b>clique l\'adversaire à frapper</b>. <button id="cancel-target" class="ghost xs">Annuler</button>';
+      }
+    }
+    return '<span class="tb-idle">Choisis l\'attaque d\'un aventurier, puis clique l\'adversaire à frapper.</span>';
   }
 
   function activeColumn(side) {
@@ -973,10 +982,24 @@
 
   function hasActiveCombat() { return !!Store.state.combat; }
 
+  // Rendu de l'onglet « Combat Test » (MJ). Indépendant du combat d'aventure :
+  // si un combat de session est en cours, on ne l'affiche pas ici (et on le protège).
+  function renderTest() {
+    rootSel = '#combat-root';
+    const root = $('#combat-root');
+    if (!root) return;
+    if (Store.state.combat && Store.state.sessionCombat) {
+      root.innerHTML = '<div class="card"><p class="empty">Un combat d\'aventure est en cours. ' +
+        'Termine-le avant de lancer un combat de test.</p></div>';
+      return;
+    }
+    render();
+  }
+
   function init() { render(); }
 
   global.Combat = {
-    init: init, render: render,
+    init: init, render: render, renderTest: renderTest,
     startInSession: startInSession,
     resumeInSession: resumeInSession,
     hasActiveCombat: hasActiveCombat,

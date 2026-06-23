@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.04';
+  const APP_VERSION = 'v2.05';
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
   function safe(label, fn) {
@@ -17,7 +17,7 @@
   function renderForTab(target) {
     const mode = (window.Shell && Shell.getMode) ? Shell.getMode() : 'admin';
     const advId = (window.Shell && Shell.getAdventureId) ? Shell.getAdventureId() : null;
-    if (target === 'combat') safe('combat', Combat.render);
+    if (target === 'combat') safe('combat', Combat.renderTest);
     if (target === 'heroes') safe('heroes', Combatants.renderHeroes);
     if (target === 'bestiary') safe('bestiary', Combatants.renderMonsters);
     if (target === 'classes') safe('classes', Classes.render);
@@ -53,45 +53,9 @@
   // Exposé pour la coquille de navigation (Shell)
   window.App = { selectTab: selectTab, renderForTab: renderForTab };
 
-  function setupBackup() {
-    $('#btn-export').addEventListener('click', function () {
-      const blob = new Blob([JSON.stringify(Store.state, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'amertume-sauvegarde.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    $('#btn-import').addEventListener('click', function () { $('#file-import').click(); });
-    $('#file-import').addEventListener('change', function (e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function () {
-        try {
-          const data = JSON.parse(reader.result);
-          if (!data.items) throw new Error('Fichier invalide');
-          Store.replace(data);
-          Inventory.render();
-          Combatants.renderHeroes();
-          Combatants.renderMonsters();
-          Combat.render();
-          alert('Sauvegarde importée.');
-        } catch (err) {
-          alert('Import impossible : ' + err.message);
-        }
-        e.target.value = '';
-      };
-      reader.readAsText(file);
-    });
-  }
-
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.brand-version').forEach(function (el) { el.textContent = APP_VERSION; });
     safe('tabs', setupTabs);
-    safe('backup', setupBackup);
     safe('inventory.init', Inventory.init);
     safe('combatants.init', Combatants.init);
     safe('combat.init', Combat.init);

@@ -208,6 +208,9 @@
           '<label class="adv-label">Titre de l\'aventure' +
             '<input type="text" id="adv-title" value="' + esc(a.title) + '" />' +
           '</label>' +
+          '<label class="adv-label">Mot de passe (optionnel — verrouille l\'aventure sur l\'accueil)' +
+            '<input type="text" id="adv-password" value="' + esc(a.password || '') + '" placeholder="Aucun" />' +
+          '</label>' +
         '</div>' +
         '<div id="adv-chapters"></div>' +
         '<button id="adv-add-chapter" class="ghost" style="margin-top:.5rem">+ Chapitre</button>' +
@@ -219,6 +222,7 @@
       $('#adv-title-display').textContent = a.title;
       save();
     });
+    $('#adv-password').addEventListener('input', function () { a.password = this.value; save(); });
     $('#adv-add-chapter').addEventListener('click', function () {
       a.chapters.push(newChapter());
       save();

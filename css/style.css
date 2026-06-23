@@ -1188,3 +1188,71 @@ select.choice-type-discussion { color: #3fae9f; }
 body.mode-player #tab-armory .card-head > div,
 body.mode-player #tab-armory .filters,
 body.mode-player #tab-armory > .card > .hint { display: none; }
+
+/* ===================================================================
+   v2.05 — Mode header, équipement 4 slots, compétences colorées,
+            ciblage visible, inventaire coloré, mots de passe
+   =================================================================== */
+
+/* Bandeau de mode mieux cadré */
+.topbar-actions { align-items: center; }
+.mode-context { display: inline-flex; align-items: center; line-height: 1.1; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Équipement : 4 menus déroulants compacts */
+.equip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+@media (max-width: 520px) { .equip-grid { grid-template-columns: 1fr; } }
+.equip-grid label { font-size: .8rem; color: var(--muted); display: flex; flex-direction: column; gap: .25rem; }
+
+/* Compétences : une couleur par compétence */
+.skill-agilite    { background: rgba(95,164,95,.16);  border-color: rgba(95,164,95,.45);  color: #4f8b4f; }
+.skill-force      { background: rgba(193,78,53,.16);  border-color: rgba(193,78,53,.45);  color: #b0432b; }
+.skill-mysticisme { background: rgba(157,114,196,.16); border-color: rgba(157,114,196,.45); color: #7c52a8; }
+.skill-perception { background: rgba(216,193,58,.18);  border-color: rgba(216,193,58,.5);   color: #8a7714; }
+.skill-robustesse { background: rgba(176,122,46,.16);  border-color: rgba(176,122,46,.45);  color: #8a5e22; }
+.skill-ruse       { background: rgba(99,99,99,.18);    border-color: rgba(120,120,120,.5);  color: #5a5a5a; }
+.skill-savoir     { background: rgba(63,123,192,.16);  border-color: rgba(63,123,192,.45);  color: #2c5a93; }
+.skill-technique  { background: rgba(63,174,159,.16);  border-color: rgba(63,174,159,.45);  color: #1f6b5e; }
+.roster-card .skill-badge b { color: inherit; }
+
+/* Fiche d'aventurier (lecture seule) */
+.sheet-class { display: inline-block; margin-bottom: .6rem; }
+
+/* Bannière de ciblage : espace réservé en permanence (pas de saut d'UI) */
+.targeting-banner {
+  min-height: 2.5rem; display: flex; align-items: center; gap: .6rem;
+  border-radius: 8px; padding: .5rem .75rem; margin-bottom: .8rem; font-size: .9rem;
+  background: var(--bg-2); border: 1px dashed var(--border); color: var(--muted);
+}
+.targeting-banner.active { background: rgba(193,78,53,.16); border: 1px solid var(--accent); color: var(--text); }
+.tb-idle { color: var(--muted); }
+
+/* Cible cliquable : effet « attaque » bien visible */
+.combat-card.targetable {
+  position: relative; cursor: crosshair;
+  outline: 2px solid var(--accent); outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(193,78,53,.28);
+}
+.combat-card.targetable:hover { box-shadow: 0 0 0 5px rgba(193,78,53,.5); }
+.combat-card.targetable::before {
+  content: '⚔ Frapper'; position: absolute; top: -11px; right: 8px; z-index: 3;
+  background: var(--accent); color: #fff; font-size: .66rem; font-weight: 800;
+  padding: .12rem .45rem; border-radius: 6px; letter-spacing: .03em;
+}
+
+/* ---- Inventaire : couleurs par catégorie + petits blocs carrés ---- */
+#item-list.roster-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .55rem; }
+.armory-card { padding: .55rem .6rem !important; border-radius: 10px; border-left: 4px solid var(--border); }
+.armory-card.cat-weapon { border-left-color: #c0563f; background: linear-gradient(180deg,#efe4cf,#f0dcd2); }
+.armory-card.cat-armor  { border-left-color: #4a8dd6; background: linear-gradient(180deg,#efe4cf,#d7e3f1); }
+.armory-card.cat-object { border-left-color: #5fa45f; background: linear-gradient(180deg,#efe4cf,#dcecd2); }
+.armory-card.cat-ammo   { border-left-color: #d8c13a; background: linear-gradient(180deg,#efe4cf,#efe6c4); }
+.armory-card.cat-misc   { border-left-color: #9b968a; background: linear-gradient(180deg,#efe4cf,#e7e3d8); }
+.armory-card .roster-name { font-size: .92rem; }
+.armory-card .roster-head { padding-bottom: .3rem; margin-bottom: .3rem; }
+/* Prix en doré, bien à droite */
+.price-tag { color: #b8860b !important; border-color: #cda64a !important; background: rgba(216,193,58,.18) !important; font-weight: 800; }
+
+/* Aventures verrouillées sur l'accueil */
+.home-adv-card.locked { opacity: .6; filter: grayscale(.4); }
+.home-adv-card.locked .home-adv-title { color: var(--muted); }
+.home-locked { cursor: pointer; }

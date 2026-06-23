@@ -243,7 +243,6 @@
       '<div class="ses-content">' +
         '<div class="ses-scene-card">' +
           (scene.title ? '<h2 class="ses-scene-title">' + esc(scene.title) + '</h2>' : '') +
-          '<div class="ses-scene-type type-' + scene.type + '">' + typeLabel(scene.type) + '</div>' +
           sceneContentHtml(scene) +
           '<div id="ses-actions" class="ses-actions"></div>' +
         '</div>' +
@@ -270,7 +269,7 @@
     // Cliquer le nom d'un aventurier ouvre sa fiche
     root.querySelectorAll('.ses-hero-name[data-hero]').forEach(function (el) {
       el.addEventListener('click', function () {
-        if (global.Combatants && Combatants.openHeroModal) Combatants.openHeroModal(el.getAttribute('data-hero'));
+        if (global.Combatants && Combatants.openHeroSheet) Combatants.openHeroSheet(el.getAttribute('data-hero'));
       });
     });
 
@@ -333,8 +332,6 @@
         '<span class="ses-hero-name" data-hero="' + h.id + '" title="Voir la fiche">' + esc(h.name) + '</span>' +
         '<div class="pv-bar" style="flex:1;min-width:80px"><div class="pv-fill" style="width:' + pct + '%"></div>' +
           '<span class="pv-text">' + curPv + '/' + maxPv + '</span></div>' +
-        '<button class="ghost xs ses-hp-minus" data-hero="' + h.id + '" title="-1 PV">−1</button>' +
-        '<button class="ghost xs ses-hp-plus" data-hero="' + h.id + '" title="+1 PV">+1</button>' +
       '</div>';
     }).join('') + '</div>';
   }
@@ -380,31 +377,6 @@
       }
     }
 
-    // PV hero buttons (wired after each render)
-    const root = $('#session-root');
-    if (root) {
-      root.querySelectorAll('.ses-hp-minus').forEach(function (b) {
-        b.addEventListener('click', function () {
-          const hid = b.getAttribute('data-hero');
-          const h = Store.state.heroes.find(function (x) { return x.id === hid; });
-          if (!h) return;
-          if (!ses.heroStates[hid]) ses.heroStates[hid] = { pv: Combatants.heroCurPv(h) };
-          ses.heroStates[hid].pv = Math.max(0, ses.heroStates[hid].pv - 1);
-          save(); render();
-        });
-      });
-      root.querySelectorAll('.ses-hp-plus').forEach(function (b) {
-        b.addEventListener('click', function () {
-          const hid = b.getAttribute('data-hero');
-          const h = Store.state.heroes.find(function (x) { return x.id === hid; });
-          if (!h) return;
-          if (!ses.heroStates[hid]) ses.heroStates[hid] = { pv: Combatants.heroCurPv(h) };
-          const maxPv = Combatants.heroPv(h);
-          ses.heroStates[hid].pv = Math.min(maxPv, ses.heroStates[hid].pv + 1);
-          save(); render();
-        });
-      });
-    }
   }
 
   function navigateTo(ses, adv, sceneId) {
