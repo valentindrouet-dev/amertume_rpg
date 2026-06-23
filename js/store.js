@@ -71,6 +71,7 @@
       dice: AmertumeDice.emptyPool(), effects: '', notes: 'Rend des PV',
     });
     const epee = items.find(function (i) { return i.name === 'Épée'; });
+    const cuir = items.find(function (i) { return i.name === 'Armure de cuir'; });
 
     return {
       items: items,
@@ -79,8 +80,8 @@
       heroes: [
         {
           id: uid(), name: 'Aventurier', klass: 'Gardien', vie: 4, endu: 3, pvBonus: 0,
-          def: 2, damage: 2, rapide: false, notes: '',
-          equipment: { weapons: epee ? [epee.id] : [], armorId: null, shieldId: null },
+          damage: 2, rapide: false, notes: '',
+          equipment: { weapons: epee ? [epee.id] : [], armorId: cuir ? cuir.id : null, shieldId: null },
           attacks: [], // attaques spéciales optionnelles (les armes fournissent l'attaque de base)
         },
       ],
@@ -142,6 +143,11 @@
     { lvl: 6, xp: 350, points: 30 },
     { lvl: 7, xp: 600, points: 35 },
   ];
+
+  function xpForLevel(lvl) {
+    lvl = Math.max(1, Math.min(LEVELS.length, lvl));
+    return LEVELS[lvl - 1].xp;
+  }
 
   function levelInfo(xp) {
     xp = Math.max(0, xp || 0);
@@ -245,6 +251,7 @@
     noStates: noStates,
     loadOfficial: loadOfficial,
     levelInfo: levelInfo,
+    xpForLevel: xpForLevel,
     get state() { return state; },
     save: save,
     replace: function (newState) {

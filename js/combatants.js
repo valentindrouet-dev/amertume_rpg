@@ -105,21 +105,32 @@
   let heroAttacks = [];
   let heroEquipment = { weapons: [], armorId: null, shieldId: null };
 
-  function heroPv(h) { return Math.max(1, (h.vie || 0) * (h.endu || 0) + (h.pvBonus || 0)); }
+  // Bonus de PV conféré par la classe
+  const CLASS_PV = {
+    'Déviant': 10, 'Apothicaire': 12, 'Artificier': 14, 'Chasseur': 16,
+    'Destructeur': 16, 'Gardien': 18, 'Lamevent': 14, 'Pyromane': 10,
+  };
+  function classPv(h) { return CLASS_PV[h.klass] || 0; }
+  function heroPv(h) { return Math.max(1, (h.vie || 0) * (h.endu || 0) + (h.pvBonus || 0) + classPv(h)); }
   function itemById(id) { return Store.state.items.find(function (i) { return i.id === id; }); }
 
   function heroWeapons(eq) {
     return (eq && eq.weapons || []).map(itemById).filter(function (i) { return i && i.category === 'weapon'; });
   }
 
-  // DEF : l'armure DÉFINIT la DEF (la DEF de base est ignorée si une armure est portée) ; bouclier +def.
+  // DEF : uniquement l'armure (+ bouclier). Il n'y a pas de DEF de base.
   function heroDef(h) {
     const eq = h.equipment || {};
     const armor = eq.armorId ? itemById(eq.armorId) : null;
     const shield = eq.shieldId ? itemById(eq.shieldId) : null;
-    let def = (armor && armor.category === 'armor') ? (armor.def || 0) : (h.def || 0);
+    let def = (armor && armor.category === 'armor') ? (armor.def || 0) : 0;
     if (shield && shield.category === 'armor') def += (shield.def || 0);
     return def;
+  }
+
+  // Slug CSS pour la couleur pastel de classe (retire les accents)
+  function classSlug(k) {
+    return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   }
 
   // Attaques dérivées des armes équipées (mêlée / distance, dés cumulés)
@@ -164,7 +175,9 @@
     root.innerHTML =
       '<div class="progress-card">' +
         '<div class="progress-top">' +
-          '<div class="level-badge"><span class="lvl-num">' + info.level + '</span><span class="lvl-lbl">Niveau</span></div>' +
+          '<div class="level-badge"><button class="lvl-step" data-lvl="-1" title="Niveau −">▾</button>' +
+            '<span class="lvl-num">' + info.level + '</span><span class="lvl-lbl">Niveau</span>' +
+            '<button class="lvl-step" data-lvl="1" title="Niveau +">▴</button></div>' +
           '<div class="progress-info">' +
             '<div class="pi-line"><span>✦ <b>' + info.xp + '</b> XP partagée</span>' +
               '<span class="points-pill">' + info.points + ' pts de talent</span></div>' +
@@ -173,7 +186,7 @@
           '</div>' +
         '</div>' +
         '<div class="progress-actions">' +
-          '<span class="hint">Ajuster :</span>' +
+          '<span class="hint">XP :</span>' +
           '<button class="ghost small" data-xp="-10">−10</button>' +
           '<button class="ghost small" data-xp="-1">−1</button>' +
           '<button class="ghost small" data-xp="1">+1</button>' +
@@ -182,6 +195,11 @@
           '<button class="ghost small" id="xp-reset">Réinitialiser</button>' +
         '</div>' +
       '</div>';
+    root.querySelectorAll('[data-lvl]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        setLevel(Store.levelInfo(Store.state.party.xp).level + parseInt(b.getAttribute('data-lvl'), 10));
+      });
+    });
     root.querySelectorAll('[data-xp]').forEach(function (b) {
       b.addEventListener('click', function () {
         Store.state.party.xp = Math.max(0, (Store.state.party.xp || 0) + parseInt(b.getAttribute('data-xp'), 10));
@@ -192,6 +210,11 @@
     if (rst) rst.addEventListener('click', function () {
       if (confirm('Réinitialiser l\'XP du groupe à 0 ?')) { Store.state.party.xp = 0; Store.save(); renderProgress(); }
     });
+  }
+
+  function setLevel(lvl) {
+    Store.state.party.xp = Store.xpForLevel(lvl);
+    Store.save(); renderProgress();
   }
 
   function renderHeroes() {
@@ -210,7 +233,7 @@
       heroWeapons(eq).forEach(function (w) { gear.push(w.name); });
       if (armor) gear.push(armor.name);
       if (shield) gear.push(shield.name);
-      return '<div class="roster-card">' +
+      return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
         '<div class="roster-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
           (h.klass ? '<span class="tag class-tag">' + esc(h.klass) + '</span>' : '') +
@@ -223,7 +246,8 @@
           '<span class="stat-pill">⚔ Dég. <b>' + h.damage + '</b></span>' +
         '</div>' +
         '<div class="roster-meta">Vie ' + h.vie + ' × Endu ' + h.endu +
-          (h.pvBonus ? ' +' + h.pvBonus + ' PV' : '') + '</div>' +
+          (classPv(h) ? ' + ' + classPv(h) + ' (' + esc(h.klass) + ')' : '') +
+          (h.pvBonus ? ' + ' + h.pvBonus + ' bonus' : '') + ' PV</div>' +
         '<div class="roster-section">' +
           '<div class="roster-label">Équipement</div>' +
           '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div>' +
@@ -241,9 +265,10 @@
   }
 
   function updateHeroPvPreview() {
+    const cBonus = CLASS_PV[$('#h-class').value] || 0;
     $('#h-pv-preview').textContent = Math.max(1,
       (parseInt($('#h-vie').value, 10) || 0) * (parseInt($('#h-endu').value, 10) || 0) +
-      (parseInt($('#h-pvbonus').value, 10) || 0));
+      (parseInt($('#h-pvbonus').value, 10) || 0) + cBonus);
   }
 
   function openHeroModal(id) {
@@ -258,7 +283,6 @@
     $('#h-vie').value = isEdit ? h.vie : 4;
     $('#h-endu').value = isEdit ? h.endu : 3;
     $('#h-pvbonus').value = isEdit ? h.pvBonus : 0;
-    $('#h-def').value = isEdit ? h.def : 3;
     $('#h-damage').value = isEdit ? h.damage : 2;
     $('#h-rapide').checked = isEdit ? !!h.rapide : false;
     $('#h-notes').value = isEdit ? (h.notes || '') : '';
@@ -318,7 +342,7 @@
   }
 
   function updateEquipPreview() {
-    const fake = { def: parseInt($('#h-def').value, 10) || 0, equipment: heroEquipment, attacks: [] };
+    const fake = { equipment: heroEquipment, attacks: [] };
     const atks = heroDerivedAttacks(heroEquipment);
     const names = atks.map(function (a) {
       return a.name.split(' — ')[0] + ' ' + Inventory.poolBadges(a.dice) + (a.vicieuse ? ' (Vicieuse)' : '');
@@ -337,7 +361,6 @@
       vie: parseInt($('#h-vie').value, 10) || 1,
       endu: parseInt($('#h-endu').value, 10) || 1,
       pvBonus: parseInt($('#h-pvbonus').value, 10) || 0,
-      def: parseInt($('#h-def').value, 10) || 0,
       damage: parseInt($('#h-damage').value, 10) || 0,
       rapide: $('#h-rapide').checked,
       notes: $('#h-notes').value.trim(),
@@ -493,9 +516,9 @@
     ['h-vie', 'h-endu', 'h-pvbonus'].forEach(function (idn) {
       $('#' + idn).addEventListener('input', updateHeroPvPreview);
     });
+    $('#h-class').addEventListener('change', updateHeroPvPreview);
     $('#h-armor').addEventListener('change', function () { heroEquipment.armorId = $('#h-armor').value || null; updateEquipPreview(); });
     $('#h-shield').addEventListener('change', function () { heroEquipment.shieldId = $('#h-shield').value || null; updateEquipPreview(); });
-    $('#h-def').addEventListener('input', updateEquipPreview);
     $('#btn-delete-hero').addEventListener('click', function () {
       const id = $('#h-id').value;
       if (id && confirm('Supprimer ce héros ?')) {

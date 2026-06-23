@@ -71,16 +71,15 @@
       return;
     }
 
-    list.innerHTML = items.map(function (i) {
+    function cardHtml(i) {
       const isWeapon = i.category === 'weapon';
       const isArmor = i.category === 'armor';
       const traits = (i.traits || []).map(function (t) {
         return '<span class="tag">' + (t === 'jetable' ? 'Jetable' : t === 'vicieuse' ? 'Vicieuse' : t) + '</span>';
       }).join('');
-      return '<div class="roster-card armory-card">' +
+      return '<div class="roster-card armory-card cat-' + i.category + '">' +
         '<div class="roster-head">' +
           '<span class="roster-name">' + escapeHtml(i.name) + '</span>' +
-          '<span class="tag type">' + (CAT_LABEL[i.category] || i.category) + '</span>' +
           (typeof i.price === 'number' && i.price ? '<span class="tag">' + i.price + ' po</span>' : '') +
           '<button class="ghost small" data-edit="' + i.id + '">Éditer</button>' +
         '</div>' +
@@ -93,7 +92,20 @@
         (i.effects ? '<div class="roster-notes">⚡ ' + escapeHtml(i.effects) + '</div>' : '') +
         (i.notes ? '<div class="roster-notes">' + escapeHtml(i.notes) + '</div>' : '') +
       '</div>';
-    }).join('');
+    }
+
+    // Regroupe par catégorie avec un séparateur visuel
+    const GROUP = [['weapon', 'Armes'], ['armor', 'Armures'], ['ammo', 'Munitions'],
+      ['object', 'Objets'], ['misc', 'Divers']];
+    let html = '';
+    GROUP.forEach(function (g) {
+      const group = items.filter(function (i) { return i.category === g[0]; });
+      if (!group.length) return;
+      html += '<div class="armory-sep">' + g[1] +
+        ' <span class="armory-sep-count">' + group.length + '</span></div>';
+      html += group.map(cardHtml).join('');
+    });
+    list.innerHTML = html;
 
     list.querySelectorAll('[data-edit]').forEach(function (b) {
       b.addEventListener('click', function () { openModal(b.getAttribute('data-edit')); });

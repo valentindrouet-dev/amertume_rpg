@@ -256,36 +256,26 @@
     Store.save(); render();
   }
 
-  function monsterAI() {
-    const monsters = activeOf('monster');
-    monsters.forEach(function (m) {
+  // Cœur de la phase adverse (sans rendu)
+  function monstersActCore() {
+    activeOf('monster').forEach(function (m) {
       if (m.used.action || m.states.auSol) return; // Au sol : pas d'action
       const target = chooseTarget(m);
       if (!target) return;
-      // Première attaque disponible (usages restants)
       let ai = -1;
       for (let i = 0; i < m.attacks.length; i++) { if (m.attackUses[i] !== 0) { ai = i; break; } }
       if (ai < 0) return;
       const atk = m.attacks[ai];
-      // Engagement si attaque de contact
       if (atk.range === 'contact' && !inContact(m, target)) {
         setContact(m, target, true);
         log(m.name + ' engage ' + target.name + '.', 'move');
       }
-      if (atk.targets === 'all') {
-        const heroes = activeOf('hero').filter(function (h) {
-          return atk.range === 'contact' ? inContact(m, h) : true;
-        });
-        heroes.forEach(function (h) { resolveAttack(m, h, atk); });
-      } else {
-        resolveAttack(m, target, atk);
-      }
-      if (m.attackUses[ai] !== null) m.attackUses[ai] = Math.max(0, m.attackUses[ai] - 1);
-      m.used.action = true;
+      applyAttack(m, ai, target);
     });
     checkOutcome();
-    Store.save(); render();
   }
+
+  function monsterAI() { monstersActCore(); Store.save(); render(); }
 
   function chooseTarget(monster) {
     const heroes = activeOf('hero');
@@ -301,10 +291,9 @@
   function minBy(arr, f) { return arr.reduce(function (a, b) { return f(b) < f(a) ? b : a; }); }
   function maxBy(arr, f) { return arr.reduce(function (a, b) { return f(b) > f(a) ? b : a; }); }
 
-  function endTurn() {
-    pendingAttack = null; stateMenuFor = null;
+  // Fuite des adversaires en fin de tour (sans rendu)
+  function doFlee() {
     const c = combat();
-    // Fuite des adversaires
     activeOf('monster').forEach(function (m) {
       if (m.states.ciblage) return; // Ciblage interdit la fuite
       let flees = false;
@@ -323,12 +312,80 @@
       }
     });
     checkOutcome();
-    if (c.outcome) { Store.save(); render(); return; }
+  }
+
+  function advanceTurn() {
+    const c = combat();
     c.turn += 1;
     resetActivations();
     c.phase = 'heroes';
     log('Tour ' + c.turn + '.', 'turn');
+  }
+
+  function endTurn() {
+    pendingAttack = null; stateMenuFor = null;
+    doFlee();
+    if (combat().outcome) { Store.save(); render(); return; }
+    advanceTurn();
     Store.save(); render();
+  }
+
+  // ---------- Auto-combat (héros joués de façon optimisée) ----------
+  function avgDicePool(pool) {
+    let s = 0;
+    D.DICE_ORDER.forEach(function (c) { s += (pool[c] || 0) * 3.5; });
+    return s;
+  }
+  function attackScore(atk, attacker) {
+    let s = avgDicePool(atk.dice) +
+      ((atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0);
+    if (atk.targets === 'all') s *= Math.max(1, activeOf('monster').length);
+    return s;
+  }
+  function autoTarget() {
+    const enemies = activeOf('monster');
+    if (!enemies.length) return null;
+    // Achever en priorité : cible aux PV les plus bas
+    return enemies.reduce(function (a, b) { return b.pv < a.pv ? b : a; });
+  }
+  function heroesActAuto() {
+    activeOf('hero').forEach(function (h) {
+      let safety = 0;
+      while (safety++ < 8) {
+        if (!activeOf('monster').length) break;
+        let bestI = -1, best = -1;
+        h.attacks.forEach(function (a, i) {
+          if (h.attackUses[i] === 0) return;
+          if (!a.freeAction && h.used.action) return;
+          const sc = attackScore(a, h);
+          if (sc > best) { best = sc; bestI = i; }
+        });
+        if (bestI < 0) break;
+        const atk = h.attacks[bestI];
+        applyAttack(h, bestI, atk.targets === 'all' ? null : autoTarget());
+      }
+    });
+    checkOutcome();
+  }
+  function autoCombat() {
+    startCombat();
+    const c = combat();
+    let guard = 0;
+    while (c && !c.outcome && guard < 300) {
+      guard++;
+      heroesActAuto(); if (c.outcome) break;
+      monstersActCore(); if (c.outcome) break;
+      doFlee(); if (c.outcome) break;
+      advanceTurn();
+    }
+    pendingAttack = null; stateMenuFor = null;
+    Store.save(); render();
+    if (c && c.outcome) {
+      const labels = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
+      alert('⚔️ Combat automatique terminé\n\nIssue : ' + labels[c.outcome] +
+        '\nTours : ' + c.turn + '\nXP récupérée : ' + totalXp() +
+        '\n\nLe détail est dans le journal de combat.');
+    }
   }
 
   // ---------- Helpers d'affichage ----------
@@ -365,6 +422,7 @@
           '<div id="setup-monster-list" class="setup-list"></div>' +
           '<div class="roll-actions">' +
             '<button id="setup-start" class="primary big">⚔ Démarrer le combat</button>' +
+            '<button id="setup-auto" class="ghost big" title="Joue tout le combat automatiquement">⚡ Combat Auto</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -404,6 +462,9 @@
     $('#setup-start').addEventListener('click', function () {
       if (canStart()) startCombat();
     });
+    $('#setup-auto').addEventListener('click', function () {
+      if (canStart()) autoCombat();
+    });
     updateStartBtn();
   }
 
@@ -430,7 +491,11 @@
     const monCount = setupMonsters.reduce(function (n, e) { return n + e.count; }, 0);
     return heroCount > 0 && monCount > 0;
   }
-  function updateStartBtn() { const b = $('#setup-start'); if (b) b.disabled = !canStart(); }
+  function updateStartBtn() {
+    const ok = canStart();
+    const b = $('#setup-start'); if (b) b.disabled = !ok;
+    const a = $('#setup-auto'); if (a) a.disabled = !ok;
+  }
 
   // ---------- Plateau de combat ----------
   function renderBoard(root) {
@@ -494,6 +559,7 @@
     const pct = Math.round((c.pv / c.maxPv) * 100);
     const dead = c.status !== 'active';
     const cls = ['combat-card', 'side-' + c.side];
+    if (c.klass) cls.push('klass-' + c.klass.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''));
     if (dead) cls.push('is-' + c.status);
     const phase = combat().phase;
     const canAct = !dead && !combat().outcome &&
@@ -580,18 +646,14 @@
     return html;
   }
 
-  // Exécute une attaque de héros (consomme usage + action sauf si gratuite)
-  function execHeroAttack(attacker, atkIndex, target) {
+  // Cœur d'exécution d'une attaque (sans rendu) — réutilisé par l'UI et l'auto-combat
+  function applyAttack(attacker, atkIndex, target) {
     const atk = attacker.attacks[atkIndex];
     if (!atk) return;
     if (attacker.attackUses[atkIndex] === 0) return;
     if (!atk.freeAction && attacker.used.action) return;
-    let targets;
-    if (atk.targets === 'all') {
-      targets = activeOf('monster').filter(function (e) { return atk.range === 'contact' ? true : true; });
-    } else {
-      targets = target ? [target] : [];
-    }
+    const enemySide = attacker.side === 'hero' ? 'monster' : 'hero';
+    let targets = (atk.targets === 'all') ? activeOf(enemySide).slice() : (target ? [target] : []);
     targets.forEach(function (t) {
       if (atk.range === 'contact' && !inContact(attacker, t)) setContact(attacker, t, true);
       resolveAttack(attacker, t, atk);
@@ -600,6 +662,11 @@
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
     }
     if (!atk.freeAction) attacker.used.action = true;
+  }
+
+  // Version UI : applique puis rafraîchit
+  function execHeroAttack(attacker, atkIndex, target) {
+    applyAttack(attacker, atkIndex, target);
     pendingAttack = null;
     checkOutcome(); Store.save(); render();
   }
