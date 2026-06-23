@@ -1256,3 +1256,10 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .home-adv-card.locked { opacity: .6; filter: grayscale(.4); }
 .home-adv-card.locked .home-adv-title { color: var(--muted); }
 .home-locked { cursor: pointer; }
+
+/* ===================================================================
+   v2.06 — Partage en ligne (Firebase)
+   =================================================================== */
+#share-body label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--muted); margin: .6rem 0; }
+#share-link { font-family: monospace; font-size: .82rem; }
+.share-stats { font-size: .82rem; color: var(--muted); margin: .3rem 0 .2rem; }

@@ -13,6 +13,16 @@
 
   let mode = 'home';            // 'home' | 'player' | 'admin'
   let adventureId = null;       // aventure sélectionnée en mode Joueur
+  let publishedMode = false;    // ouvert via un lien partagé (#pub=…) : pas d'accès MJ
+
+  // Quand on arrive via un lien partagé, on masque l'accès au mode MJ/Admin.
+  function setPublishedMode(v) {
+    publishedMode = !!v;
+    const a = $('#home-admin-btn');
+    if (a) a.hidden = publishedMode;
+    const sub = document.querySelector('.home-sub');
+    if (sub && publishedMode) sub.textContent = 'Aventures partagées par votre MJ';
+  }
 
   // ---------- Accueil ----------
   function renderHome() {
@@ -132,6 +142,7 @@
 
   global.Shell = {
     init: init,
+    setPublishedMode: setPublishedMode,
     goHome: goHome,
     enterAdmin: enterAdmin,
     enterPlayer: enterPlayer,
