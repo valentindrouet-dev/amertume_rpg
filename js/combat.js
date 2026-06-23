@@ -60,20 +60,13 @@
   }
 
   function instFromMonster(m, i) {
-    // Armes équipées → attaques spéciales (avec effets) ; armures équipées → DEF
-    const equipItems = (m.equipment || []).map(function (r) {
-      return Store.state.items.find(function (it) { return it.id === r.itemId; });
-    }).filter(Boolean);
-    const weapons = equipItems.filter(function (it) { return it.category === 'weapon'; });
-    const armorDef = equipItems.filter(function (it) { return it.category === 'armor'; })
-      .reduce(function (s, a) { return s + (a.def || 0); }, 0);
-    const derived = Combatants.weaponAttacks(weapons);
-    const attacks = derived.concat(JSON.parse(JSON.stringify(m.attacks || [])));
+    // Armes équipées → attaques (avec effets) + attaques spéciales ; armures → DEF
+    const attacks = Combatants.monsterCombatAttacks(m);
     return {
       iid: 'M' + i + '-' + m.id.slice(-4),
       side: 'monster', templateId: m.id, name: m.name,
       maxPv: m.pv, pv: m.pv,
-      def: (m.def || 0) + armorDef, damage: m.damage, xp: m.xp, type: m.type,
+      def: Combatants.monsterTotalDef(m), damage: m.damage, xp: m.xp, type: m.type,
       menace: m.menace, esquive: !!m.esquive, rapide: !!m.rapide, socle: m.socle,
       attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },

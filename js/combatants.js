@@ -247,6 +247,20 @@
     return weaponAttacks(heroWeapons(eq));
   }
 
+  // ----- Adversaires : équipement → attaques & DEF -----
+  function monsterEquipItems(m) {
+    return (m.equipment || []).map(function (r) { return itemById(r.itemId); }).filter(Boolean);
+  }
+  function monsterCombatAttacks(m) {
+    const weapons = monsterEquipItems(m).filter(function (it) { return it.category === 'weapon'; });
+    return weaponAttacks(weapons).concat(JSON.parse(JSON.stringify(m.attacks || [])));
+  }
+  function monsterTotalDef(m) {
+    const armorDef = monsterEquipItems(m).filter(function (it) { return it.category === 'armor'; })
+      .reduce(function (s, a) { return s + (a.def || 0); }, 0);
+    return (m.def || 0) + armorDef;
+  }
+
   // Attaques utilisées en combat : armes + spéciales (+ secours mains nues)
   function heroCombatAttacks(h) {
     let atks = heroDerivedAttacks(h.equipment).concat(JSON.parse(JSON.stringify(h.attacks || [])));
@@ -750,14 +764,14 @@
         '</div>' +
         '<div class="stat-pills">' +
           '<span class="stat-pill">❤ <b>' + m.pv + '</b></span>' +
-          '<span class="stat-pill">🛡 <b>' + m.def + '</b></span>' +
+          '<span class="stat-pill">🛡 <b>' + monsterTotalDef(m) + '</b></span>' +
           '<span class="stat-pill">⚔ <b>' + m.damage + '</b></span>' +
           '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
           '<span class="stat-pill">🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</span>' +
         '</div>' +
         '<div class="roster-section">' +
           '<div class="roster-label">Attaques</div>' +
-          '<div class="atk-badges">' + attacksSummary(m.attacks) + '</div>' +
+          '<div class="atk-badges">' + attacksSummary(monsterCombatAttacks(m)) + '</div>' +
         '</div>' +
         (m.talents && m.talents.length ? '<div class="roster-section"><div class="roster-label">Talents</div><div class="talent-badges">' + talentsSummary(m.talents) + '</div></div>' : '') +
         (m.notes ? '<div class="roster-notes">' + esc(m.notes) + '</div>' : '') +
@@ -930,6 +944,8 @@
     heroGear: heroGear,
     normalizeEquip: normalizeEquip,
     weaponAttacks: weaponAttacks,
+    monsterCombatAttacks: monsterCombatAttacks,
+    monsterTotalDef: monsterTotalDef,
     heroPv: heroPv,
     heroCurPv: heroCurPv,
     heroRestShort: heroRestShort,
