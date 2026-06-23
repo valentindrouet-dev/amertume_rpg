@@ -12,17 +12,22 @@
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
 
   // ---------- CSV bas niveau ----------
+  // Délimiteur point-virgule : Excel (locale FR) découpe alors directement en
+  // colonnes lisibles. L'import détecte automatiquement « ; » ou « , ».
+  const DELIM = ';';
   function csvCell(v) {
     v = (v === null || v === undefined) ? '' : String(v);
-    return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    return /[";,\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   }
   function toCSV(headers, rows) {
-    const lines = [headers.join(',')];
-    rows.forEach(function (r) { lines.push(headers.map(function (h) { return csvCell(r[h]); }).join(',')); });
+    const lines = [headers.join(DELIM)];
+    rows.forEach(function (r) { lines.push(headers.map(function (h) { return csvCell(r[h]); }).join(DELIM)); });
     return lines.join('\r\n');
   }
   function parseCSV(text) {
-    text = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    text = String(text).replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const firstLine = text.split('\n')[0] || '';
+    const delim = firstLine.indexOf(';') >= 0 ? ';' : ',';
     const rows = []; let cur = []; let field = ''; let inQ = false; let i = 0;
     while (i < text.length) {
       const ch = text[i];
@@ -31,7 +36,7 @@
         field += ch; i++; continue;
       }
       if (ch === '"') { inQ = true; i++; continue; }
-      if (ch === ',') { cur.push(field); field = ''; i++; continue; }
+      if (ch === delim) { cur.push(field); field = ''; i++; continue; }
       if (ch === '\n') { cur.push(field); field = ''; rows.push(cur); cur = []; i++; continue; }
       field += ch; i++;
     }

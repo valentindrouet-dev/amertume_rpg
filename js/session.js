@@ -87,7 +87,8 @@
       currentSceneId: firstSc.scene.id,
       visitedSceneIds: [firstSc.scene.id],
       choicesTaken: [],
-      party: { xp: Store.state.party.xp },
+      party: { xp: 0 },          // XP de la session, décorrélée de l'XP du mode Admin
+      acquiredItems: {},
     };
     sessions.push(ses);
     save();
@@ -353,7 +354,6 @@
         '<button class="primary" id="ses-fin-btn" style="margin-top:.75rem">Terminer la session</button></div>';
       document.getElementById('ses-fin-btn').addEventListener('click', function () {
         ses.status = 'ended'; ses.party.xp = 0;
-        Store.state.party.xp = 0; Store.save();
         save(); activeSession = null; render();
       });
     } else {
@@ -471,17 +471,20 @@
       '</div>';
 
     document.getElementById('ses-claim-reward').addEventListener('click', function () {
-      if (xp > 0) {
-        Store.state.party.xp = (Store.state.party.xp || 0) + xp;
-        ses.party.xp = (ses.party.xp || 0) + xp;
-        Store.save();
-      }
-      // Ajouter les objets à l'inventaire
+      // XP attribuée uniquement à la session (jamais à l'XP du mode Admin)
+      if (xp > 0) { ses.party.xp = (ses.party.xp || 0) + xp; }
+      // Ajouter les objets à l'inventaire, en mémorisant ce qui a été acquis durant l'aventure
+      if (!ses.acquiredItems) ses.acquiredItems = {};
       (scene.itemRewards || []).forEach(function (r) {
         if (!r.itemId) return;
         const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-        if (it) it.qty = (it.qty || 0) + (r.qty || 1);
+        if (it) {
+          const q = r.qty || 1;
+          it.qty = (it.qty || 0) + q;
+          ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
+        }
       });
+      save();
       Store.save();
       const nextId = scene.nextSceneId;
       if (nextId) navigateTo(ses, adv, nextId);
@@ -511,6 +514,8 @@
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (h && typeof h.pv === 'number') ses.heroStates[hid] = { pv: h.pv };
     });
+    // XP du combat attribuée à la session (décorrélée de l'XP du mode Admin)
+    if (detail.xp) ses.party.xp = (ses.party.xp || 0) + detail.xp;
     save();
 
     let targetId = null;
@@ -635,6 +640,26 @@
     refresh();
   }
 
+  // Retire de l'inventaire les objets acquis durant les parties d'une aventure
+  function rollbackAcquiredItems(advId) {
+    let changed = false;
+    sessions.forEach(function (s) {
+      if (s.adventureId !== advId || !s.acquiredItems) return;
+      Object.keys(s.acquiredItems).forEach(function (itemId) {
+        const it = Store.state.items.find(function (x) { return x.id === itemId; });
+        if (it) it.qty = Math.max(0, (it.qty || 0) - s.acquiredItems[itemId]);
+        changed = true;
+      });
+      s.acquiredItems = {};
+    });
+    if (changed) Store.save();
+  }
+
+  // XP de la partie active (pour l'affichage de la progression côté Joueur)
+  function activePartyXp() {
+    return (activeSession && activeSession.party) ? (activeSession.party.xp || 0) : 0;
+  }
+
   // Crée une nouvelle partie avec les aventuriers choisis et lance la narration
   function startSessionWithHeroes(advId, heroIds) {
     const adv = findAdventure(advId);
@@ -642,18 +667,21 @@
     const firstSc = firstScene(adv);
     if (!firstSc) { alert('Cette aventure n\'a pas encore de scène.'); return; }
     load();
+    // Nouvelle aventure : on retire de l'inventaire les objets acquis lors des parties précédentes
+    rollbackAcquiredItems(advId);
+    // Aventuriers entièrement soignés (comme un repos long)
     const heroStates = {};
     heroIds.forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
-      if (h) heroStates[hid] = { pv: Combatants.heroCurPv(h) };
+      if (h) heroStates[hid] = { pv: Combatants.heroPv(h) };
     });
-    // Chaque partie recommence avec 0 XP
-    Store.state.party.xp = 0; Store.save();
     const ses = {
       id: Store.uid(), adventureId: advId, startedAt: Date.now(), status: 'active',
       heroIds: heroIds.slice(), heroStates: heroStates,
       currentChapterId: firstSc.chapter.id, currentSceneId: firstSc.scene.id,
-      visitedSceneIds: [firstSc.scene.id], choicesTaken: [], party: { xp: 0 },
+      visitedSceneIds: [firstSc.scene.id], choicesTaken: [],
+      party: { xp: 0 },          // XP de la session, décorrélée de l'XP du mode Admin
+      acquiredItems: {},
     };
     sessions.push(ses); save();
     activeSession = ses;
@@ -718,7 +746,6 @@
         const id = b.getAttribute('data-id');
         sessions.forEach(function (s) { if (s.id === id) { s.status = 'ended'; if (s.party) s.party.xp = 0; } });
         if (activeSession && activeSession.id === id) activeSession = null;
-        Store.state.party.xp = 0; Store.save();
         save(); renderSaves(scopeAdventureId);
       });
     });
@@ -751,5 +778,6 @@
     playAdventure: playAdventure,
     beginNewGame: beginNewGame,
     startFromAdventure: startFromAdventure,
+    activePartyXp: activePartyXp,
   };
 })(window);

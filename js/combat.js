@@ -28,6 +28,13 @@
   function combat() { return Store.state[combatKey]; }
   function setCombat(v) { Store.state[combatKey] = v; }
 
+  // Un aventurier dispose de l'action Analyser si sa classe possède le talent « Analyse »
+  function heroHasAnalyse(c) {
+    if (!c || c.side !== 'hero') return false;
+    const k = (Store.loadClasses() || []).find(function (x) { return x.name === c.klass; });
+    return !!(k && Array.isArray(k.talents) && k.talents.some(function (t) { return /analyse/i.test(t.name || ''); }));
+  }
+
   // ---------- Construction des instances ----------
   // Compteurs d'usages par attaque (null = illimité)
   function initUses(attacks) {
@@ -104,12 +111,14 @@
     if (isSession) persistHeroPv(); // un combat de test n'altère pas les PV réels
     const sessionCtx = isSession ? (Store.state.sessionCombat || null) : null;
     const outcomeLabel = combat() ? (combat().outcome || null) : null;
-    if (finalize && combat()) {
-      const xp = totalXp();
+    const gained = (finalize && combat()) ? totalXp() : 0;
+    // Combat de test : l'XP va dans le bac à sable Admin (jamais dans la session d'aventure).
+    // Combat d'aventure : l'XP est transmise à la session (gérée par Session), pas à l'XP Admin.
+    if (finalize && combat() && !isSession) {
       const before = Store.levelInfo(Store.state.party.xp);
-      Store.state.party.xp = (Store.state.party.xp || 0) + xp;
+      Store.state.party.xp = (Store.state.party.xp || 0) + gained;
       const after = Store.levelInfo(Store.state.party.xp);
-      let msg = 'Combat terminé.\n+' + xp + ' XP (total : ' + Store.state.party.xp + ').';
+      let msg = 'Combat terminé.\n+' + gained + ' XP (total Admin : ' + Store.state.party.xp + ').';
       if (after.level > before.level) msg += '\n\n🎉 Niveau ' + after.level + ' atteint ! (' + after.points + ' points de talent)';
       alert(msg);
     }
@@ -117,13 +126,12 @@
     setCombat(null);
     if (isSession) Store.state.sessionCombat = null;
     Store.save();
-    // Repasser sur la cible de rendu par défaut avant de prévenir la session
-    rootSel = (combatKey === 'testCombat') ? '#combat-root' : '#combat-root';
+    rootSel = '#combat-root';
     render();
     if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
     if (sessionCtx && sessionCtx.sessionId) {
       window.dispatchEvent(new CustomEvent('adventure-combat-end', {
-        detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel }
+        detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained }
       }));
     }
   }
@@ -403,6 +411,21 @@
 
   function endTurn() {
     pendingAttack = null; stateMenuFor = null;
+    doFlee();
+    if (combat().outcome) { Store.save(); render(); return; }
+    advanceTurn();
+    Store.save(); render();
+  }
+
+  // Tour des adversaires en une seule étape : tous les adversaires en vie agissent,
+  // puis on enchaîne directement sur le tour suivant.
+  function enemyTurnAndAdvance() {
+    pendingAttack = null; stateMenuFor = null;
+    const c = combat();
+    c.phase = 'monsters';
+    log('Tour des adversaires.', 'turn');
+    monstersActCore();
+    if (combat().outcome) { Store.save(); render(); return; }
     doFlee();
     if (combat().outcome) { Store.save(); render(); return; }
     advanceTurn();
@@ -727,9 +750,7 @@
             '<span class="stat-pill">Dégâts ' + c.damage + '</span>' +
             (isEnemy ? '<span class="stat-pill">XP ' + c.xp + '</span>' : '') +
           '</div>'
-        : (!dead && combat().phase === 'heroes' && !combat().outcome
-            ? '<div class="cc-stats-hidden"><button class="analyse-btn do-analyse-enemy" data-iid="' + c.iid + '" title="Révèle DEF, Dégâts et XP (+2 XP)">🔍 Analyser</button></div>'
-            : '<div class="stat-pills compact"><span class="stat-pill">DEF ?</span><span class="stat-pill">Dégâts ?</span><span class="stat-pill">XP ?</span></div>')
+        : '<div class="stat-pills compact"><span class="stat-pill">DEF ?</span><span class="stat-pill">Dégâts ?</span><span class="stat-pill">XP ?</span></div>'
       ) +
       (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '');
 
@@ -766,6 +787,10 @@
         '</div>';
       }).join('') + '</div>';
       html += '<div class="cc-secondary">' +
+        (heroHasAnalyse(c)
+          ? '<button class="ghost xs do-analyse" data-iid="' + c.iid + '"' + (usedA ? ' disabled' : '') +
+              ' title="Action : révèle DEF, Dégâts et XP de tous les adversaires">🔍 Analyser</button>'
+          : '') +
         '<button class="ghost xs do-object" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + '>Objet</button>' +
         '</div>';
     }
@@ -866,17 +891,16 @@
         c.states[b.getAttribute('data-state')] = false; Store.save(); render();
       });
     });
-    // Analyser un adversaire : révèle DEF / Dégâts / XP (+2 XP)
-    const ana = root.querySelector('.do-analyse-enemy[data-iid="' + c.iid + '"]');
-    if (ana) ana.addEventListener('click', function () {
-      if (c.analyzed) return;
-      c.analyzed = true;
-      combat().bonusXp = (combat().bonusXp || 0) + 2;
-      log(wname(c.name) + ' est analysé : DEF, Dégâts et XP révélés (' + amt('+2', 'heal') + ' XP).', 'move');
-      Store.save(); render();
-    });
-
     if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active' && !combat().outcome) {
+      // Action Analyser (talent) : révèle les caractéristiques de tous les adversaires
+      const anaBtn = root.querySelector('.do-analyse[data-iid="' + c.iid + '"]');
+      if (anaBtn) anaBtn.addEventListener('click', function () {
+        if (c.used.action) return;
+        combat().combatants.forEach(function (m) { if (m.side === 'monster') m.analyzed = true; });
+        c.used.action = true;
+        log(wname(c.name) + ' analyse les adversaires : DEF, Dégâts et XP révélés.', 'move');
+        Store.save(); render();
+      });
       // Chips d'attaque (dé)
       root.querySelectorAll('.atk-chip[data-iid="' + c.iid + '"]').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -942,8 +966,8 @@
       return;
     }
     if (c.phase === 'heroes') {
-      box.innerHTML = '<button id="pc-to-monsters" class="primary">Passer aux adversaires →</button>';
-      $('#pc-to-monsters').addEventListener('click', endHeroPhase);
+      box.innerHTML = '<button id="pc-enemy-turn" class="primary">Tour des Adversaires →</button>';
+      $('#pc-enemy-turn').addEventListener('click', enemyTurnAndAdvance);
     } else {
       box.innerHTML =
         '<button id="pc-ai" class="primary">▶ Activer les adversaires (auto)</button>' +

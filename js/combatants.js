@@ -255,7 +255,9 @@
     const root = $('#progress-root');
     if (!root) return;
     const player = isPlayerMode();
-    const info = Store.levelInfo(Store.state.party.xp);
+    // Côté Joueur, l'XP affichée est celle de la partie en cours (décorrélée de l'XP Admin)
+    const xpVal = (player && global.Session && Session.activePartyXp) ? Session.activePartyXp() : Store.state.party.xp;
+    const info = Store.levelInfo(xpVal);
     const nextTxt = info.next
       ? 'Niveau ' + info.next.lvl + ' dans <b>' + info.toNext + '</b> XP'
       : 'Niveau max atteint';
@@ -366,6 +368,7 @@
           (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
           '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>' +
+          '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="hero-stat-row">' +
           '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroCurPv(h) + ' / ' + heroPv(h) + '</span></div>' +
@@ -386,6 +389,16 @@
     }).join('');
     list.querySelectorAll('[data-edit-hero]').forEach(function (b) {
       b.addEventListener('click', function () { openHeroModal(b.getAttribute('data-edit-hero')); });
+    });
+    list.querySelectorAll('[data-del-hero]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const id = b.getAttribute('data-del-hero');
+        const h = Store.state.heroes.find(function (x) { return x.id === id; });
+        if (!h) return;
+        if (!confirm('Supprimer l\'aventurier « ' + h.name + ' » ?')) return;
+        Store.state.heroes = Store.state.heroes.filter(function (x) { return x.id !== id; });
+        Store.save(); renderHeroes();
+      });
     });
   }
 
