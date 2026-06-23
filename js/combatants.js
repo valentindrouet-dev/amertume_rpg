@@ -618,10 +618,16 @@
         return '<option value="' + i.id + '"' + (i.id === sel ? ' selected' : '') + '>' + esc(i.name) + '</option>';
       }).join('');
     }
+    function lootOpts(sel) {
+      const v = (sel != null ? sel : 30);
+      let o = '';
+      for (let p = 0; p <= 100; p += 10) o += '<option value="' + p + '"' + (p === v ? ' selected' : '') + '>' + p + '%</option>';
+      return o;
+    }
     container.innerHTML = list.length ? list.map(function (row, idx) {
       return '<div class="loot-row" data-i="' + idx + '">' +
         '<select class="loot-item">' + itemOpts(row.itemId) + '</select>' +
-        '<label class="loot-pct">Loot <input type="number" class="loot-loot" min="0" max="100" value="' + (row.loot != null ? row.loot : 50) + '" />%</label>' +
+        '<label class="loot-pct">Loot <select class="loot-loot">' + lootOpts(row.loot) + '</select></label>' +
         (opts.withQty ? '<label class="loot-qty">×<input type="number" class="loot-q" min="1" value="' + (row.qty || 1) + '" /></label>' : '') +
         '<button type="button" class="icon-btn loot-del">✕</button>' +
       '</div>';
@@ -629,7 +635,7 @@
     container.querySelectorAll('.loot-row').forEach(function (rowEl) {
       const idx = +rowEl.getAttribute('data-i');
       rowEl.querySelector('.loot-item').onchange = function () { list[idx].itemId = this.value; };
-      rowEl.querySelector('.loot-loot').oninput = function () { list[idx].loot = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); };
+      rowEl.querySelector('.loot-loot').onchange = function () { list[idx].loot = parseInt(this.value, 10) || 0; };
       const q = rowEl.querySelector('.loot-q');
       if (q) q.oninput = function () { list[idx].qty = Math.max(1, parseInt(this.value, 10) || 1); };
       rowEl.querySelector('.loot-del').onclick = function () { list.splice(idx, 1); buildLootEditor(container, list, opts); };
@@ -890,10 +896,10 @@
       monsterTalents.push(newTalent()); buildTalentsEditor($('#m-talents'), monsterTalents);
     });
     $('#m-add-equip').addEventListener('click', function () {
-      monsterEquip.push({ itemId: '', loot: 50 }); buildLootEditor($('#m-equip'), monsterEquip, { cats: ['weapon', 'armor'] });
+      monsterEquip.push({ itemId: '', loot: 30 }); buildLootEditor($('#m-equip'), monsterEquip, { cats: ['weapon', 'armor'] });
     });
     $('#m-add-loot').addEventListener('click', function () {
-      monsterLoot.push({ itemId: '', loot: 50, qty: 1 }); buildLootEditor($('#m-loot'), monsterLoot, { withQty: true });
+      monsterLoot.push({ itemId: '', loot: 30, qty: 1 }); buildLootEditor($('#m-loot'), monsterLoot, { withQty: true });
     });
     $('#monster-search').addEventListener('input', renderMonsters);
     $('#monster-filter-type').addEventListener('change', renderMonsters);
