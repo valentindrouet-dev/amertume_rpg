@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.01';
+  const APP_VERSION = 'v2.02';
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
   function safe(label, fn) {

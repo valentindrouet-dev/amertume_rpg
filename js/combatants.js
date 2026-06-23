@@ -249,12 +249,38 @@
     Store.save(); renderProgress();
   }
 
+  // ---- Portée des aventuriers (Joueur = liés à l'aventure, Admin = pré-construits) ----
+  function scope() {
+    const mode = (global.Shell && Shell.getMode) ? Shell.getMode() : 'admin';
+    const advId = (global.Shell && Shell.getAdventureId) ? Shell.getAdventureId() : null;
+    return { mode: mode, advId: advId };
+  }
+  function adventureHeroes(advId) {
+    return Store.state.heroes.filter(function (h) { return h.adventureId === advId; });
+  }
+  function prebuiltHeroes() {
+    return Store.state.heroes.filter(function (h) { return !h.adventureId; });
+  }
+  function scopedHeroes() {
+    const s = scope();
+    return s.mode === 'player' ? adventureHeroes(s.advId) : prebuiltHeroes();
+  }
+
   function renderHeroes() {
     renderProgress();
+    const s = scope();
+    const titleEl = $('#heroes-title');
+    if (titleEl) titleEl.textContent = s.mode === 'player' ? 'Vos aventuriers' : 'Aventuriers pré-construits';
+    const hintEl = $('#heroes-hint');
+    if (hintEl) hintEl.textContent = s.mode === 'player'
+      ? 'Crée autant d\'aventuriers que tu veux. Ils restent disponibles pour rejouer l\'aventure.'
+      : 'Aventuriers modèles, réutilisables par les joueurs via « + Aventurier Pré-Construit ».';
+    const preBtn = $('#btn-add-prebuilt');
+    if (preBtn) preBtn.hidden = s.mode !== 'player';
     const list = $('#hero-list');
-    const heroes = Store.state.heroes;
+    const heroes = scopedHeroes();
     if (!heroes.length) {
-      list.innerHTML = '<p class="empty">Aucun héros. Clique sur « + Nouveau héros ».</p>';
+      list.innerHTML = '<p class="empty">Aucun aventurier. Clique sur « + Nouvel Aventurier ».</p>';
       return;
     }
     list.innerHTML = heroes.map(function (h) {
@@ -306,7 +332,7 @@
   function openHeroModal(id) {
     const isEdit = !!id;
     const h = isEdit ? Store.state.heroes.find(function (x) { return x.id === id; }) : null;
-    $('#hero-modal-title').textContent = isEdit ? 'Éditer le héros' : 'Nouveau héros';
+    $('#hero-modal-title').textContent = isEdit ? 'Éditer l\'aventurier' : 'Nouvel aventurier';
     $('#h-id').value = isEdit ? h.id : '';
     $('#h-name').value = isEdit ? h.name : '';
     $('#h-class').innerHTML = '<option value="">—</option>' +
@@ -387,8 +413,9 @@
     e.preventDefault();
     const id = $('#h-id').value || Store.uid();
     const existing = Store.state.heroes.find(function (x) { return x.id === id; });
+    const s = scope();
     const data = {
-      id: id, name: $('#h-name').value.trim() || 'Héros',
+      id: id, name: $('#h-name').value.trim() || 'Aventurier',
       klass: $('#h-class').value,
       vie: parseInt($('#h-vie').value, 10) || 1,
       endu: parseInt($('#h-endu').value, 10) || 1,
@@ -402,12 +429,53 @@
         armorId: $('#h-armor').value || null,
         shieldId: $('#h-shield').value || null,
       },
+      // Pré-construit (Admin) → adventureId null ; Joueur → lié à l'aventure courante.
+      adventureId: existing ? (existing.adventureId || null) : (s.mode === 'player' ? s.advId : null),
     };
     if (existing) Object.assign(existing, data);
     else Store.state.heroes.push(data);
     Store.save();
     $('#hero-modal').hidden = true;
     renderHeroes();
+    global.dispatchEvent(new CustomEvent('heroes-changed'));
+  }
+
+  // Copie un aventurier pré-construit dans le groupe d'une aventure
+  function clonePrebuilt(prebuiltId, advId) {
+    const src = Store.state.heroes.find(function (h) { return h.id === prebuiltId; });
+    if (!src) return;
+    const copy = JSON.parse(JSON.stringify(src));
+    copy.id = Store.uid();
+    copy.adventureId = advId;
+    delete copy.pv; // PV au maximum
+    Store.state.heroes.push(copy);
+    Store.save();
+    renderHeroes();
+    global.dispatchEvent(new CustomEvent('heroes-changed'));
+  }
+
+  function openPrebuiltPicker() {
+    const s = scope();
+    const list = prebuiltHeroes();
+    const box = $('#prebuilt-list');
+    box.innerHTML = list.length
+      ? list.map(function (h) {
+          return '<div class="setup-row">' +
+            '<span class="setup-name">' + esc(h.name) +
+              (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
+            '<span class="stat-pills compact"><span class="stat-pill">❤ ' + heroPv(h) + '</span>' +
+              '<span class="stat-pill">⚔ ' + h.damage + '</span></span>' +
+            '<button type="button" class="primary small pb-pick" data-id="' + h.id + '">Ajouter</button>' +
+          '</div>';
+        }).join('')
+      : '<p class="empty">Aucun aventurier pré-construit. Le MJ peut en créer en mode Admin.</p>';
+    $('#prebuilt-modal').hidden = false;
+    box.querySelectorAll('.pb-pick').forEach(function (b) {
+      b.addEventListener('click', function () {
+        clonePrebuilt(b.getAttribute('data-id'), s.advId);
+        $('#prebuilt-modal').hidden = true;
+      });
+    });
   }
 
   // ================= MONSTRES =================
@@ -622,8 +690,11 @@
   }
 
   function init() {
-    // Héros
+    // Aventuriers
     $('#btn-add-hero').addEventListener('click', function () { openHeroModal(null); });
+    $('#btn-add-prebuilt').addEventListener('click', function () { openPrebuiltPicker(); });
+    $('#prebuilt-close').addEventListener('click', function () { $('#prebuilt-modal').hidden = true; });
+    $('#prebuilt-modal').addEventListener('click', function (e) { if (e.target.id === 'prebuilt-modal') $('#prebuilt-modal').hidden = true; });
     $('#hero-modal-close').addEventListener('click', function () { $('#hero-modal').hidden = true; });
     $('#hero-modal').addEventListener('click', function (e) { if (e.target.id === 'hero-modal') $('#hero-modal').hidden = true; });
     $('#hero-form').addEventListener('submit', saveHero);
@@ -638,9 +709,10 @@
     $('#h-shield').addEventListener('change', function () { heroEquipment.shieldId = $('#h-shield').value || null; updateEquipPreview(); });
     $('#btn-delete-hero').addEventListener('click', function () {
       const id = $('#h-id').value;
-      if (id && confirm('Supprimer ce héros ?')) {
+      if (id && confirm('Supprimer cet aventurier ?')) {
         Store.state.heroes = Store.state.heroes.filter(function (x) { return x.id !== id; });
         Store.save(); $('#hero-modal').hidden = true; renderHeroes();
+        global.dispatchEvent(new CustomEvent('heroes-changed'));
       }
     });
 
@@ -676,6 +748,10 @@
     renderHeroes: renderHeroes,
     renderMonsters: renderMonsters,
     renderProgress: renderProgress,
+    openHeroModal: openHeroModal,
+    openPrebuiltPicker: openPrebuiltPicker,
+    adventureHeroes: adventureHeroes,
+    prebuiltHeroes: prebuiltHeroes,
     heroPv: heroPv,
     heroCurPv: heroCurPv,
     heroRestShort: heroRestShort,

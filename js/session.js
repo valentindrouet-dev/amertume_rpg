@@ -13,6 +13,19 @@
   let sessions = [];
   let activeSession = null;      // session en cours de lecture
   let scopeAdventureId = null;   // aventure courante en mode Joueur (limite l'affichage)
+  let forceSetup = false;        // force l'écran de création/sélection du groupe
+  let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
+
+  function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+  // Conseil de difficulté selon le nombre d'aventuriers engagés
+  function difficultyAdvice(n) {
+    if (n <= 0) return '';
+    if (n === 1) return '1 aventurier — Très difficile';
+    if (n === 2) return '2 aventuriers — Difficile';
+    if (n === 3) return '3 aventuriers — Équilibré';
+    return '4 aventuriers — Facile';
+  }
 
   // ---------- Persistance ----------
   function load() { sessions = Store.loadSessions(); }
@@ -84,9 +97,11 @@
   }
 
   function openHeroPicker(adv) {
-    const heroes = Store.state.heroes;
+    // En MJ/Admin, on engage des aventuriers pré-construits.
+    const heroes = (global.Combatants && Combatants.prebuiltHeroes) ? Combatants.prebuiltHeroes() : Store.state.heroes;
     const modal = $('#hero-picker-modal');
     const list = $('#hero-picker-list');
+    const advice = document.getElementById('hero-picker-advice');
     list.innerHTML = heroes.length
       ? heroes.map(function (h) {
           const pv = Combatants.heroCurPv(h), maxPv = Combatants.heroPv(h);
@@ -95,10 +110,24 @@
             '<span class="stat-pills compact"><span class="stat-pill">❤ ' + pv + '/' + maxPv + '</span></span>' +
           '</label>';
         }).join('')
-      : '<p class="empty">Aucun héros dans le roster.</p>';
+      : '<p class="empty">Aucun aventurier pré-construit. Crée-en dans l\'onglet Aventuriers.</p>';
+    function refreshAdvice() {
+      const n = list.querySelectorAll('[data-hero]:checked').length;
+      if (advice) advice.textContent = difficultyAdvice(n) || 'Sélectionne au moins un aventurier.';
+    }
+    list.querySelectorAll('[data-hero]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        if (cb.checked && list.querySelectorAll('[data-hero]:checked').length > 4) {
+          cb.checked = false; alert('Maximum 4 aventuriers par aventure.');
+        }
+        refreshAdvice();
+      });
+    });
+    refreshAdvice();
     modal.removeAttribute('hidden');
     document.getElementById('hero-picker-start').onclick = function () {
       const checked = list.querySelectorAll('[data-hero]:checked');
+      if (!checked.length) { alert('Sélectionne au moins un aventurier.'); return; }
       activeSession.heroIds = Array.from(checked).map(function (cb) { return cb.getAttribute('data-hero'); });
       modal.setAttribute('hidden', '');
       save();
@@ -217,8 +246,9 @@
 
     $('#ses-quit').addEventListener('click', function () {
       activeSession = null;
-      if (global.Shell && Shell.getMode && Shell.getMode() === 'player') renderPlay(scopeAdventureId);
-      else render();
+      if (global.Shell && Shell.getMode && Shell.getMode() === 'player' && global.App) {
+        App.selectTab('saves'); // vue des parties sauvegardées
+      } else { render(); }
     });
 
     renderSceneActions(scene, adv, ses);
@@ -480,8 +510,8 @@
 
   // ============ MODE JOUEUR : lecture limitée à une aventure ============
 
-  // Onglet « Aventure » : reprend la partie active de l'aventure, sinon propose
-  // de la commencer. Rendu dans #session-root.
+  // Onglet « Aventure » : reprend la partie active de l'aventure, sinon présente
+  // la création / sélection du groupe d'aventuriers. Rendu dans #session-root.
   function renderPlay(advId) {
     scopeAdventureId = advId || scopeAdventureId;
     load();
@@ -489,28 +519,127 @@
       const m = sessions.find(function (s) { return s.id === activeSession.id; });
       activeSession = m || null;
     }
-    if (!activeSession || activeSession.adventureId !== scopeAdventureId) {
+    if (forceSetup) {
+      activeSession = null;
+    } else if (!activeSession || activeSession.adventureId !== scopeAdventureId) {
       const existing = sessions.filter(function (s) {
         return s.adventureId === scopeAdventureId && s.status === 'active';
       });
+      existing.sort(function (a, b) { return (b.startedAt || 0) - (a.startedAt || 0); });
       activeSession = existing.length ? existing[0] : null;
     }
     const root = $('#session-root');
     if (!root) return;
     if (activeSession) renderScene(root);
-    else renderPlayStart(root, scopeAdventureId);
+    else renderGroupSetup(root, scopeAdventureId);
   }
 
-  function renderPlayStart(root, advId) {
+  // Première étape d'une aventure : créer son groupe puis choisir les engagés.
+  function renderGroupSetup(root, advId) {
+    forceSetup = false;
     const adv = findAdventure(advId);
     if (!adv) { root.innerHTML = '<p class="empty">Aventure introuvable.</p>'; return; }
+    const heroes = Combatants.adventureHeroes(advId);
+
+    // Aucun aventurier : inviter à créer le groupe
+    if (!heroes.length) {
+      root.innerHTML =
+        '<div class="card">' +
+          '<div class="card-head"><h2>Créez votre groupe d\'aventuriers</h2></div>' +
+          '<p class="hint">Avant de commencer « ' + esc(adv.title) + ' », créez au moins un aventurier. ' +
+            'Vos aventuriers restent disponibles pour rejouer l\'aventure autant de fois que vous le souhaitez.</p>' +
+          '<div class="group-create-actions">' +
+            '<button class="primary" id="grp-new">+ Nouvel Aventurier</button>' +
+            '<button class="ghost" id="grp-prebuilt">+ Aventurier Pré-Construit</button>' +
+          '</div>' +
+        '</div>';
+      document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
+      document.getElementById('grp-prebuilt').onclick = function () { Combatants.openPrebuiltPicker(); };
+      return;
+    }
+
+    const rows = heroes.map(function (h) {
+      const checked = setupSel[h.id] ? ' checked' : '';
+      return '<label class="setup-row' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' +
+        '<input type="checkbox" data-hero="' + h.id + '"' + checked + '>' +
+        '<span class="setup-name">' + esc(h.name) +
+          (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
+        '<span class="stat-pills compact"><span class="stat-pill">❤ ' + Combatants.heroPv(h) + '</span>' +
+          '<span class="stat-pill">⚔ ' + h.damage + '</span></span>' +
+      '</label>';
+    }).join('');
+
     root.innerHTML =
       '<div class="card">' +
-        '<div class="card-head"><h2>' + esc(adv.title) + '</h2></div>' +
-        '<p class="hint">Aucune partie en cours pour cette aventure.</p>' +
-        '<button class="primary big" id="play-start">▶ Commencer l\'aventure</button>' +
+        '<div class="card-head"><h2>Votre groupe — ' + esc(adv.title) + '</h2>' +
+          '<div style="display:flex;gap:.4rem">' +
+            '<button class="ghost small" id="grp-prebuilt">+ Pré-Construit</button>' +
+            '<button class="primary small" id="grp-new">+ Aventurier</button>' +
+          '</div>' +
+        '</div>' +
+        '<p class="hint">Choisis 1 à 4 aventuriers qui partent à l\'aventure.</p>' +
+        '<div id="grp-list" class="setup-list">' + rows + '</div>' +
+        '<p class="diff-advice" id="grp-advice"></p>' +
+        '<div class="roll-actions"><button class="primary big" id="grp-start">▶ Commencer l\'aventure</button></div>' +
       '</div>';
-    document.getElementById('play-start').onclick = function () { startFromAdventure(advId); };
+
+    function refresh() {
+      const n = root.querySelectorAll('[data-hero]:checked').length;
+      document.getElementById('grp-advice').textContent = difficultyAdvice(n) || 'Sélectionne au moins un aventurier (max 4).';
+      document.getElementById('grp-start').disabled = n < 1 || n > 4;
+    }
+    root.querySelectorAll('[data-hero]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        if (cb.checked && root.querySelectorAll('[data-hero]:checked').length > 4) {
+          cb.checked = false; alert('Maximum 4 aventuriers par aventure.');
+        }
+        setupSel[cb.getAttribute('data-hero')] = cb.checked;
+        refresh();
+      });
+    });
+    document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
+    document.getElementById('grp-prebuilt').onclick = function () { Combatants.openPrebuiltPicker(); };
+    document.getElementById('grp-start').onclick = function () {
+      const ids = Array.from(root.querySelectorAll('[data-hero]:checked')).map(function (cb) { return cb.getAttribute('data-hero'); });
+      if (!ids.length || ids.length > 4) return;
+      startSessionWithHeroes(advId, ids);
+    };
+    refresh();
+  }
+
+  // Crée une nouvelle partie avec les aventuriers choisis et lance la narration
+  function startSessionWithHeroes(advId, heroIds) {
+    const adv = findAdventure(advId);
+    if (!adv) return;
+    const firstSc = firstScene(adv);
+    if (!firstSc) { alert('Cette aventure n\'a pas encore de scène.'); return; }
+    load();
+    const heroStates = {};
+    heroIds.forEach(function (hid) {
+      const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      if (h) heroStates[hid] = { pv: Combatants.heroCurPv(h) };
+    });
+    const ses = {
+      id: Store.uid(), adventureId: advId, startedAt: Date.now(), status: 'active',
+      heroIds: heroIds.slice(), heroStates: heroStates,
+      currentChapterId: firstSc.chapter.id, currentSceneId: firstSc.scene.id,
+      visitedSceneIds: [firstSc.scene.id], choicesTaken: [], party: { xp: Store.state.party.xp },
+    };
+    sessions.push(ses); save();
+    activeSession = ses;
+    setupSel = {};
+    const root = $('#session-root');
+    if (root) renderScene(root);
+  }
+
+  // Démarre une nouvelle partie (depuis l'onglet Session) même si une partie est active
+  function beginNewGame(advId) {
+    scopeAdventureId = advId || scopeAdventureId;
+    forceSetup = true;
+    activeSession = null;
+    setupSel = {};
+    if (global.Shell && Shell.showPlayTab) Shell.showPlayTab();
+    else { const root = $('#session-root'); if (root) renderPlay(scopeAdventureId); }
   }
 
   // Onglet « Session » (mode Joueur) : sauvegardes de l'aventure courante.
@@ -545,7 +674,7 @@
           : '<p class="empty">Aucune partie en cours. Lance « Nouvelle partie » pour démarrer.</p>') +
       '</div>';
 
-    document.getElementById('saves-new').onclick = function () { startFromAdventure(scopeAdventureId); };
+    document.getElementById('saves-new').onclick = function () { beginNewGame(scopeAdventureId); };
     root.querySelectorAll('.ses-resume').forEach(function (b) {
       b.addEventListener('click', function () {
         activeSession = sessions.find(function (s) { return s.id === b.getAttribute('data-id'); });
@@ -569,6 +698,18 @@
     renderPlay(advId);
   }
 
+  // Quand le joueur crée/ajoute un aventurier pendant la préparation du groupe,
+  // on rafraîchit l'écran de setup s'il est affiché.
+  window.addEventListener('heroes-changed', function () {
+    if (!(global.Shell && Shell.getMode && Shell.getMode() === 'player')) return;
+    if (activeSession) return;
+    const panel = document.getElementById('tab-session');
+    const root = $('#session-root');
+    if (root && panel && panel.classList.contains('active')) {
+      renderGroupSetup(root, scopeAdventureId);
+    }
+  });
+
   function init() { render(); }
 
   global.Session = {
@@ -577,6 +718,7 @@
     renderPlay: renderPlay,
     renderSaves: renderSaves,
     playAdventure: playAdventure,
+    beginNewGame: beginNewGame,
     startFromAdventure: startFromAdventure,
   };
 })(window);

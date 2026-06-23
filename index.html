@@ -38,12 +38,12 @@
     <nav class="tabs">
       <!-- Onglets Joueur -->
       <button class="tab" data-tab="session" data-modes="player">Aventure</button>
-      <button class="tab" data-tab="heroes" data-modes="player">Héros</button>
+      <button class="tab" data-tab="heroes" data-modes="player">Aventuriers</button>
       <button class="tab" data-tab="armory" data-modes="player">Inventaire</button>
       <button class="tab" data-tab="saves" data-modes="player">Session</button>
       <!-- Onglets MJ / Admin -->
       <button class="tab" data-tab="combat" data-modes="admin">Combat</button>
-      <button class="tab" data-tab="heroes" data-modes="admin">Héros</button>
+      <button class="tab" data-tab="heroes" data-modes="admin">Aventuriers</button>
       <button class="tab" data-tab="bestiary" data-modes="admin">Bestiaire</button>
       <button class="tab" data-tab="armory" data-modes="admin">Armurerie</button>
       <button class="tab" data-tab="adventures" data-modes="admin">Aventures</button>
@@ -69,9 +69,13 @@
       <div id="progress-root"></div>
       <div class="card">
         <div class="card-head">
-          <h2>Roster de héros</h2>
-          <button id="btn-add-hero" class="primary">+ Nouveau héros</button>
+          <h2 id="heroes-title">Aventuriers</h2>
+          <div style="display:flex; gap:.4rem;">
+            <button id="btn-add-prebuilt" class="ghost" hidden>+ Aventurier Pré-Construit</button>
+            <button id="btn-add-hero" class="primary">+ Nouvel Aventurier</button>
+          </div>
         </div>
+        <p class="hint" id="heroes-hint"></p>
         <div id="hero-list" class="roster-list"></div>
       </div>
     </section>
@@ -131,7 +135,7 @@
             <button id="btn-add-item" class="primary">+ Ajouter</button>
           </div>
         </div>
-        <p class="hint">Catalogue d'armes et d'armures. Chaque héros choisit ici son équipement depuis l'onglet Héros.</p>
+        <p class="hint">Catalogue d'armes et d'armures. Chaque aventurier choisit ici son équipement depuis l'onglet Aventuriers.</p>
         <div class="filters">
           <input id="search" type="search" placeholder="Rechercher…" />
           <select id="filter-cat">
@@ -236,13 +240,13 @@
   <div id="hero-modal" class="modal" hidden>
     <div class="modal-box">
       <div class="modal-head">
-        <h2 id="hero-modal-title">Nouveau héros</h2>
+        <h2 id="hero-modal-title">Nouvel aventurier</h2>
         <button id="hero-modal-close" class="icon-btn">✕</button>
       </div>
       <form id="hero-form" class="item-form">
         <input type="hidden" id="h-id" />
         <div class="form-row">
-          <label>Nom <input type="text" id="h-name" required placeholder="Nom du héros" /></label>
+          <label>Nom <input type="text" id="h-name" required placeholder="Nom de l'aventurier" /></label>
           <label>Classe <select id="h-class"></select></label>
         </div>
         <div class="stat-grid">
@@ -408,19 +412,34 @@
     </div>
   </div>
 
-  <!-- ============ MODALE CHOIX HÉROS (session) ============ -->
+  <!-- ============ MODALE CHOIX AVENTURIERS (session) ============ -->
   <div id="hero-picker-modal" class="modal" hidden>
-    <div class="modal-box" style="max-width:420px">
+    <div class="modal-box" style="max-width:440px">
       <div class="modal-head">
-        <h2>Héros engagés</h2>
+        <h2>Aventuriers engagés</h2>
       </div>
       <div class="item-form">
-        <p class="hint">Coche les héros qui participent à cette aventure.</p>
+        <p class="hint">Coche les aventuriers qui participent à cette aventure (max 4).</p>
         <div id="hero-picker-list" class="setup-list"></div>
+        <p class="diff-advice" id="hero-picker-advice"></p>
         <div class="modal-actions">
           <button type="button" id="hero-picker-cancel" class="ghost">Annuler</button>
           <button type="button" id="hero-picker-start" class="primary">Commencer</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODALE AVENTURIERS PRÉ-CONSTRUITS ============ -->
+  <div id="prebuilt-modal" class="modal" hidden>
+    <div class="modal-box" style="max-width:440px">
+      <div class="modal-head">
+        <h2>Aventuriers pré-construits</h2>
+        <button type="button" id="prebuilt-close" class="icon-btn">✕</button>
+      </div>
+      <div class="item-form">
+        <p class="hint">Ajoute une copie d'un aventurier pré-construit (créé par le MJ) à ton groupe.</p>
+        <div id="prebuilt-list" class="setup-list"></div>
       </div>
     </div>
   </div>

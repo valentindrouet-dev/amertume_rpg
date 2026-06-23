@@ -302,7 +302,7 @@
     if (!c || c.outcome) return;
     if (!activeOf('hero').length) {
       c.outcome = 'defeat'; c.phase = 'over';
-      log('Tous les héros sont au coma — Défaite. Aucune XP gagnée.', 'turn');
+      log('Tous les aventuriers sont au coma — Défaite. Aucune XP gagnée.', 'turn');
     } else if (!activeOf('monster').length) {
       const monsters = c.combatants.filter(function (x) { return x.side === 'monster'; });
       const allKilled = monsters.every(function (m) { return m.status === 'coma'; });
@@ -483,9 +483,9 @@
     root.innerHTML =
       '<div class="layout">' +
         '<div class="card">' +
-          '<div class="card-head"><h2>Héros engagés</h2>' +
+          '<div class="card-head"><h2>Aventuriers engagés</h2>' +
             '<div class="rest-actions">' +
-              '<button id="rest-short" class="ghost small" title="Endu × 🟩 par héros">🏕️ Repos court</button>' +
+              '<button id="rest-short" class="ghost small" title="Endu × 🟩 par aventurier">🏕️ Repos court</button>' +
               '<button id="rest-long" class="ghost small" title="PV au maximum">🌙 Repos long</button>' +
             '</div>' +
           '</div>' +
@@ -508,7 +508,7 @@
 
     // Héros (cases à cocher)
     const hbox = $('#setup-heroes');
-    if (!heroes.length) hbox.innerHTML = '<p class="empty">Crée d\'abord un héros dans l\'onglet Héros.</p>';
+    if (!heroes.length) hbox.innerHTML = '<p class="empty">Crée d\'abord un aventurier dans l\'onglet Aventuriers.</p>';
     else hbox.innerHTML = heroes.map(function (h) {
       const cur = Combatants.heroCurPv(h), max = Combatants.heroPv(h);
       const low = cur < max;
@@ -534,7 +534,7 @@
       Combatants.heroRestLong();
       renderSetup(root);
       if (window.Combatants) Combatants.renderHeroes();
-      alert('🌙 Repos long : tous les héros sont à PV maximum.');
+      alert('🌙 Repos long : tous les aventuriers sont à PV maximum.');
     });
 
     // Sélecteur de monstres
@@ -595,7 +595,7 @@
     const c = combat();
     const OUTCOME_LABEL = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
     const phaseLabel = c.outcome ? OUTCOME_LABEL[c.outcome]
-      : (c.phase === 'heroes' ? 'Activation des héros' : 'Activation des adversaires');
+      : (c.phase === 'heroes' ? 'Activation des aventuriers' : 'Activation des adversaires');
     root.innerHTML =
       '<div class="combat-bar">' +
         '<div class="cb-left"><span class="turn-pill">Tour ' + c.turn + '</span>' +
@@ -612,7 +612,7 @@
           ' : clique un adversaire pour frapper. <button id="cancel-target" class="ghost xs">Annuler</button></div>' : '';
       })() : '') +
       '<div class="combat-cols">' +
-        '<div class="combat-col"><h3>Héros</h3><div id="col-heroes"></div></div>' +
+        '<div class="combat-col"><h3>Aventuriers</h3><div id="col-heroes"></div></div>' +
         '<div class="combat-col"><h3>Adversaires</h3><div id="col-monsters"></div></div>' +
       '</div>' +
       '<div class="phase-controls" id="phase-controls"></div>' +
