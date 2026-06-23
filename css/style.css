@@ -562,3 +562,9 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .contact-chip.on { border-color: var(--accent); color: var(--accent-2); background: rgba(193,78,53,.14); }
 .state-menu { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .5rem; padding: .4rem; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; }
 .atk-usage { margin-top: .3rem; }
+
+/* Tag de classe & logs enrichis */
+.class-tag { color: var(--action); border-color: var(--action); background: rgba(77,142,209,.12); }
+.log-crit { color: var(--accent-2); font-weight: 600; }
+.log-heal { color: var(--good); }
+.phase-pill.minor { color: var(--accent-2); border-color: var(--accent-2); }

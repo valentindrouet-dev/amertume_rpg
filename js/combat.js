@@ -32,7 +32,7 @@
     const attacks = Combatants.heroCombatAttacks(h);
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
-      side: 'hero', templateId: h.id, name: h.name,
+      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: h.endu || 1,
       maxPv: Combatants.heroPv(h), pv: Combatants.heroPv(h),
       def: Combatants.heroDef(h), damage: h.damage, xp: 0, type: 'hero',
       menace: null, esquive: false, rapide: !!h.rapide, socle: 'medium',
@@ -126,6 +126,9 @@
   }
   function inContact(a, b) { return a.contact.indexOf(b.iid) !== -1; }
 
+  // Nom lisible d'une attaque (retire le préfixe « Mêlée — » / « Distance — »)
+  function attackLabel(atk) { return (atk.name || 'attaque').replace(/^(Mêlée|Distance) — /, ''); }
+
   // ---------- Résolution d'une attaque ----------
   function dchocFrom(monster, hero) {
     // Un adversaire inflige ses dégâts-choc (sauf affaibli/coma)
@@ -189,19 +192,22 @@
     }
 
     const diceStr = res.dice.map(function (d) { return D.DICE_TYPES[d.color].emoji + d.value; }).join(' ');
+    const label = attackLabel(atk);
     if (res.echec) {
-      log(attacker.name + ' → ' + target.name + ' : ÉCHEC (' + diceStr + ').', 'attack');
+      log(attacker.name + ' rate son attaque (' + label + ') contre ' + target.name + ' — Échec (' + diceStr + ').', 'attack');
       return;
     }
     if (negated) {
-      log(attacker.name + ' → ' + target.name + ' : annulé (' + reason + ').', 'attack');
+      log('L’attaque de ' + attacker.name + ' contre ' + target.name + ' est annulée (' + reason + ').', 'attack');
       return;
     }
 
     if (res.pvLost > 0) target.pv = Math.max(0, target.pv - res.pvLost);
     if (res.pvHealed > 0) target.pv = Math.min(target.maxPv, target.pv + res.pvHealed);
-    log(attacker.name + ' → ' + target.name + ' : ' + (res.critique ? 'CRITIQUE ! ' : '') +
-        res.pvLost + ' PV (' + diceStr + ').', 'attack');
+    log(attacker.name + ' attaque ' + target.name + ' avec ' + label +
+        (res.critique ? ' — CRITIQUE !' : '') + ' : ' +
+        (res.pvLost > 0 ? res.pvLost + ' PV infligés' : 'aucun dégât') +
+        ' (' + diceStr + ').', res.critique ? 'crit' : 'attack');
     applyStates(attacker, target, atk);
     checkComa(target);
   }
@@ -212,7 +218,8 @@
     if (c.status === 'active' && c.pv <= 0) {
       c.status = 'coma';
       c.pv = 0;
-      log(c.name + ' tombe dans le coma.', c.side === 'monster' ? 'kill' : 'down');
+      log(c.side === 'monster' ? (c.name + ' est vaincu (coma) !') : (c.name + ' sombre dans le coma…'),
+        c.side === 'monster' ? 'kill' : 'down');
     }
   }
 
@@ -221,10 +228,17 @@
     if (!c || c.outcome) return;
     if (!activeOf('hero').length) {
       c.outcome = 'defeat'; c.phase = 'over';
-      log('Tous les héros sont au coma — défaite. Aucune XP.', 'turn');
+      log('Tous les héros sont au coma — Défaite. Aucune XP gagnée.', 'turn');
     } else if (!activeOf('monster').length) {
-      c.outcome = 'victory'; c.phase = 'over';
-      log('Tous les adversaires sont vaincus ou en fuite — victoire ! XP : ' + totalXp() + '.', 'turn');
+      const monsters = c.combatants.filter(function (x) { return x.side === 'monster'; });
+      const allKilled = monsters.every(function (m) { return m.status === 'coma'; });
+      if (allKilled) {
+        c.outcome = 'victory'; c.phase = 'over';
+        log('Tous les adversaires sont vaincus — Victoire ! XP récupérée : ' + totalXp() + '.', 'turn');
+      } else {
+        c.outcome = 'minor'; c.phase = 'over';
+        log('Les adversaires restants ont fui — Victoire mineure. XP : ' + totalXp() + '.', 'turn');
+      }
     }
   }
 
@@ -421,7 +435,8 @@
   // ---------- Plateau de combat ----------
   function renderBoard(root) {
     const c = combat();
-    const phaseLabel = c.outcome ? (c.outcome === 'victory' ? 'Victoire' : 'Défaite')
+    const OUTCOME_LABEL = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
+    const phaseLabel = c.outcome ? OUTCOME_LABEL[c.outcome]
       : (c.phase === 'heroes' ? 'Activation des héros' : 'Activation des adversaires');
     root.innerHTML =
       '<div class="combat-bar">' +
@@ -491,6 +506,7 @@
 
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
+        (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
         (c.type !== 'hero' ? '<span class="tag type">' + Combatants.TYPE_LABEL[c.type] + '</span>' : '') +
         (c.rapide ? '<span class="tag">Rapide</span>' : '') +
         (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
@@ -668,12 +684,34 @@
     }
   }
 
+  // Repos court : chaque héros récupère Endu × 🟩 (somme de dés de soin)
+  function shortRest() {
+    const c = combat();
+    if (!c || c.restDone) return;
+    activeOf('hero').forEach(function (h) {
+      const n = Math.max(1, h.endu || 1);
+      const rolls = [];
+      let heal = 0;
+      for (let i = 0; i < n; i++) { const v = 1 + Math.floor(Math.random() * 6); rolls.push('🟩' + v); heal += v; }
+      const before = h.pv;
+      h.pv = Math.min(h.maxPv, h.pv + heal);
+      log(h.name + ' prend un repos court et récupère ' + (h.pv - before) + ' PV (' + rolls.join(' ') + ').', 'heal');
+    });
+    c.restDone = true;
+    Store.save(); render();
+  }
+
   function renderPhaseControls() {
     const box = $('#phase-controls');
     const c = combat();
     if (c.outcome) {
-      box.innerHTML = '<button id="pc-finish" class="primary big">Terminer (XP : ' + totalXp() + ')</button>';
+      const canRest = c.outcome !== 'defeat' && !c.restDone && activeOf('hero').length;
+      box.innerHTML =
+        (canRest ? '<button id="pc-rest" class="ghost big">🏕️ Repos court (Endu × 🟩)</button>' : '') +
+        '<button id="pc-finish" class="primary big">Terminer (XP : ' + totalXp() + ')</button>';
       $('#pc-finish').addEventListener('click', function () { endCombat(true); });
+      const rest = $('#pc-rest');
+      if (rest) rest.addEventListener('click', shortRest);
       return;
     }
     if (c.phase === 'heroes') {

@@ -78,7 +78,7 @@
       // Roster de héros (combattants légers)
       heroes: [
         {
-          id: uid(), name: 'Aventurier', vie: 4, endu: 3, pvBonus: 0,
+          id: uid(), name: 'Aventurier', klass: 'Gardien', vie: 4, endu: 3, pvBonus: 0,
           def: 2, damage: 2, rapide: false, notes: '',
           equipment: { weapons: epee ? [epee.id] : [], armorId: null, shieldId: null },
           attacks: [], // attaques spéciales optionnelles (les armes fournissent l'attaque de base)
@@ -191,6 +191,7 @@
         if (i.category === 'armor' && typeof i.def === 'undefined') { i.def = 0; i.slot = i.slot || 'body'; }
       });
       (parsed.heroes || []).forEach(function (h) {
+        if (typeof h.klass === 'undefined') h.klass = '';
         if (!h.equipment) h.equipment = { weapons: [], armorId: null, shieldId: null };
         if (!Array.isArray(h.equipment.weapons)) h.equipment.weapons = [];
         if (!Array.isArray(h.attacks)) h.attacks = [];

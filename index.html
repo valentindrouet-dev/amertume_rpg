@@ -194,7 +194,10 @@
       </div>
       <form id="hero-form" class="item-form">
         <input type="hidden" id="h-id" />
-        <label>Nom <input type="text" id="h-name" required placeholder="Nom du héros" /></label>
+        <div class="form-row">
+          <label>Nom <input type="text" id="h-name" required placeholder="Nom du héros" /></label>
+          <label>Classe <select id="h-class"></select></label>
+        </div>
         <div class="stat-grid">
           <label>Vie <input type="number" id="h-vie" min="1" value="4" /></label>
           <label>Endu <input type="number" id="h-endu" min="1" value="3" /></label>

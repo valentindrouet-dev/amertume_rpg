@@ -12,6 +12,8 @@
   const RANGE_LABEL = { contact: 'Contact', distance: 'Distance' };
   const MENACE_LABEL = { closest: 'Plus proche', pvLow: 'PV bas', pvHigh: 'PV haut', defLow: 'DEF basse' };
   const TYPE_LABEL = { standard: 'Standard', solitaire: 'Solitaire', alpha: 'Alpha', boss: 'Boss' };
+  const CLASSES = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
+    'Gardien', 'Lamevent', 'Pyromane'];
 
   function newAttack() {
     return { name: 'Attaque', dice: D.emptyPool(), range: 'contact',
@@ -211,6 +213,7 @@
       return '<div class="roster-card">' +
         '<div class="roster-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
+          (h.klass ? '<span class="tag class-tag">' + esc(h.klass) + '</span>' : '') +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
           '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>' +
         '</div>' +
@@ -249,6 +252,9 @@
     $('#hero-modal-title').textContent = isEdit ? 'Éditer le héros' : 'Nouveau héros';
     $('#h-id').value = isEdit ? h.id : '';
     $('#h-name').value = isEdit ? h.name : '';
+    $('#h-class').innerHTML = '<option value="">—</option>' +
+      CLASSES.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    $('#h-class').value = isEdit ? (h.klass || '') : '';
     $('#h-vie').value = isEdit ? h.vie : 4;
     $('#h-endu').value = isEdit ? h.endu : 3;
     $('#h-pvbonus').value = isEdit ? h.pvBonus : 0;
@@ -327,6 +333,7 @@
     const existing = Store.state.heroes.find(function (x) { return x.id === id; });
     const data = {
       id: id, name: $('#h-name').value.trim() || 'Héros',
+      klass: $('#h-class').value,
       vie: parseInt($('#h-vie').value, 10) || 1,
       endu: parseInt($('#h-endu').value, 10) || 1,
       pvBonus: parseInt($('#h-pvbonus').value, 10) || 0,
