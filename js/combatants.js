@@ -568,14 +568,16 @@
     if (!wiz || $('#hw-next').disabled) return;
     if (wiz.step < WIZ_STEPS.length - 1) { wiz.step++; renderWizard(); return; }
     const skills = {}; wiz.skills.forEach(function (s) { skills[s] = 1; });
+    const eq = {
+      mainG: wiz.equipment.mainG || null, mainD: wiz.equipment.mainD || null,
+      armorId: wiz.equipment.armorId || null, objectId: wiz.equipment.objectId || null, twoH: false,
+    };
     Store.state.heroes.push({
       id: Store.uid(), name: wiz.name.trim() || 'Aventurier', klass: wiz.klass,
       vie: 4, endu: 3, pvBonus: 0, damage: 2, rapide: false, notes: '',
       attacks: [], skills: mergeSkills(skills),
-      equipment: {
-        mainG: wiz.equipment.mainG || null, mainD: wiz.equipment.mainD || null,
-        armorId: wiz.equipment.armorId || null, objectId: wiz.equipment.objectId || null,
-      },
+      equipment: eq,
+      baseEquipment: JSON.parse(JSON.stringify(eq)),
       adventureId: wiz.advId || null,
     });
     Store.save();
@@ -680,6 +682,15 @@
         mainD: heroEquipment.mainD || null,
         armorId: heroEquipment.armorId || null,
         objectId: heroEquipment.objectId || null,
+        twoH: !!heroEquipment.twoH,
+      },
+      // Équipement de base (pré-tiré) : restauré au début de chaque partie
+      baseEquipment: {
+        mainG: heroEquipment.mainG || null,
+        mainD: heroEquipment.mainD || null,
+        armorId: heroEquipment.armorId || null,
+        objectId: heroEquipment.objectId || null,
+        twoH: !!heroEquipment.twoH,
       },
       // Pré-construit (Admin) → adventureId null ; Joueur → lié à l'aventure courante.
       adventureId: existing ? (existing.adventureId || null) : (s.mode === 'player' ? s.advId : null),
@@ -700,6 +711,8 @@
     copy.id = Store.uid();
     copy.adventureId = advId;
     copy.prebuiltId = prebuiltId; // origine : empêche d'ajouter deux fois le même modèle
+    // L'équipement défini sur le pré-construit devient l'équipement de base du clone
+    copy.baseEquipment = JSON.parse(JSON.stringify(src.baseEquipment || src.equipment || {}));
     delete copy.pv; // PV au maximum
     Store.state.heroes.push(copy);
     Store.save();

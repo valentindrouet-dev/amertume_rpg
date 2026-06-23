@@ -766,26 +766,33 @@
   // Objets possédés par UN aventurier pour cette aventure : son équipement de
   // DÉPART (figé) + son butin de combat + ce qu'il porte actuellement. Personnel :
   // l'équipement d'un aventurier n'est jamais accessible à un autre.
+  // Objets possédés par UN aventurier pour cette aventure (équipement de départ
+  // + butin personnel). Tout objet porté est réconcilié dans le set possédé, donc
+  // le déséquiper ne le fait jamais disparaître de l'inventaire.
   function ownedForHero(advId, heroId) {
     load();
     let ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; }) || activeSession;
-    const owned = {};
-    if (ses) {
-      if (!ses.heroOwned) ses.heroOwned = {};
-      // Migration / aventurier sans entrée : on fige sur son équipement courant
-      if (!ses.heroOwned[heroId]) {
-        const set = {};
-        const h0 = Store.state.heroes.find(function (x) { return x.id === heroId; });
-        if (h0) Combatants.heroGear(h0).forEach(function (it) { set[it.id] = (set[it.id] || 0) + 1; });
-        ses.heroOwned[heroId] = set;
-        delete ses.startGear; delete ses.ownedItems; // purge des anciens sets de groupe
-        save();
-      }
-      Object.keys(ses.heroOwned[heroId]).forEach(function (id) { owned[id] = Number(ses.heroOwned[heroId][id]) || 1; });
-    }
-    // Toujours inclure ce que CE héros porte actuellement (au moins 1)
     const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
-    if (h) Combatants.heroGear(h).forEach(function (it) { if (!owned[it.id]) owned[it.id] = 1; });
+    if (!ses) {
+      const o = {};
+      if (h) Combatants.heroGear(h).forEach(function (it) { o[it.id] = (o[it.id] || 0) + 1; });
+      return o;
+    }
+    if (!ses.heroOwned) ses.heroOwned = {};
+    if (!ses.heroOwned[heroId]) {
+      ses.heroOwned[heroId] = {};
+      if (h) Combatants.heroGear(h).forEach(function (it) { ses.heroOwned[heroId][it.id] = (ses.heroOwned[heroId][it.id] || 0) + 1; });
+      delete ses.startGear; delete ses.ownedItems; // purge des anciens sets de groupe
+      save();
+    }
+    // Réconciliation : ce qui est porté est forcément possédé (persisté)
+    let changed = false;
+    if (h) Combatants.heroGear(h).forEach(function (it) {
+      if (!ses.heroOwned[heroId][it.id]) { ses.heroOwned[heroId][it.id] = 1; changed = true; }
+    });
+    if (changed) save();
+    const owned = {};
+    Object.keys(ses.heroOwned[heroId]).forEach(function (id) { owned[id] = Number(ses.heroOwned[heroId][id]) || 1; });
     return owned; // { itemId: quantité }
   }
 
@@ -804,15 +811,18 @@
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (h) heroStates[hid] = { pv: Combatants.heroPv(h) };
     });
-    // Équipement personnel de départ (figé), par aventurier : chacun n'a accès
-    // dans l'inventaire qu'à son propre équipement + son butin de combat.
+    // Nouvelle partie : chaque aventurier récupère son équipement de BASE (pré-tiré),
+    // puis l'inventaire personnel est figé sur cet équipement de départ + butin à venir.
     const heroOwned = {};
     heroIds.forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      if (!h) { heroOwned[hid] = {}; return; }
+      if (h.baseEquipment) h.equipment = JSON.parse(JSON.stringify(h.baseEquipment));
       const set = {};
-      if (h) Combatants.heroGear(h).forEach(function (it) { set[it.id] = (set[it.id] || 0) + 1; });
+      Combatants.heroGear(h).forEach(function (it) { set[it.id] = (set[it.id] || 0) + 1; });
       heroOwned[hid] = set;
     });
+    Store.save();
     const ses = {
       id: Store.uid(), adventureId: advId, startedAt: Date.now(), status: 'active',
       heroIds: heroIds.slice(), heroStates: heroStates,
