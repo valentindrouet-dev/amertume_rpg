@@ -45,6 +45,7 @@
       <button class="tab" data-tab="combat" data-modes="admin">Combat</button>
       <button class="tab" data-tab="heroes" data-modes="admin">Aventuriers</button>
       <button class="tab" data-tab="bestiary" data-modes="admin">Bestiaire</button>
+      <button class="tab" data-tab="classes" data-modes="admin">Classes</button>
       <button class="tab" data-tab="armory" data-modes="admin">Armurerie</button>
       <button class="tab" data-tab="adventures" data-modes="admin">Aventures</button>
       <button class="tab" data-tab="session" data-modes="admin">Session</button>
@@ -123,6 +124,11 @@
     <!-- ============ SAUVEGARDES (gestion de session, mode Joueur) ============ -->
     <section id="tab-saves" class="tab-panel">
       <div id="saves-root"></div>
+    </section>
+
+    <!-- ============ CLASSES (Admin) ============ -->
+    <section id="tab-classes" class="tab-panel">
+      <div id="classes-root"></div>
     </section>
 
     <!-- ============ ARMURERIE ============ -->
@@ -259,16 +265,18 @@
         <p class="hint">PV max : <strong id="h-pv-preview">12</strong> (Vie × Endu + bonus + classe) · DEF = armure équipée</p>
 
         <fieldset class="weapon-fields">
+          <legend>Compétences (bonus aux tests)</legend>
+          <p class="hint">Toutes à 0 par défaut. Ajoute des +1 à la création.</p>
+          <div id="h-skills" class="skills-editor"></div>
+        </fieldset>
+
+        <fieldset class="weapon-fields">
           <legend>Équipement (issu de l'inventaire)</legend>
-          <div class="form-row">
-            <label>Armure
-              <select id="h-armor"></select>
-            </label>
-            <label>Bouclier
-              <select id="h-shield"></select>
-            </label>
-          </div>
-          <label>Armes équipées</label>
+          <label>Armure</label>
+          <div id="h-armor" class="equip-pick equip-pick-single"></div>
+          <label style="margin-top:.5rem">Bouclier</label>
+          <div id="h-shield" class="equip-pick equip-pick-single"></div>
+          <label style="margin-top:.5rem">Armes équipées</label>
           <div id="h-weapons" class="equip-pick"></div>
           <p class="hint" id="h-equip-preview"></p>
         </fieldset>
@@ -371,8 +379,12 @@
           <h3>Blocs de texte</h3>
           <button type="button" id="sm-add-block" class="ghost small">+ Bloc</button>
         </div>
-        <p class="hint">Narratif = italique · Technique = normal · Alerte = gras · Conseil = encadré.</p>
+        <p class="hint">Chaque type de bloc a sa propre couleur d'encadré.</p>
         <div id="sm-blocks"></div>
+
+        <label>Fait accompli (résumé ajouté au journal du joueur quand la scène est atteinte)
+          <textarea id="sm-fait" rows="2" placeholder="Ex : Les héros ont franchi le pont effondré."></textarea>
+        </label>
 
         <!-- Navigation (next) -->
         <div id="sm-next-section">
@@ -449,6 +461,7 @@
   <script src="js/inventory.js"></script>
   <script src="js/combatants.js"></script>
   <script src="js/combat.js"></script>
+  <script src="js/classes.js"></script>
   <script src="js/adventure.js"></script>
   <script src="js/session.js"></script>
   <script src="js/shell.js"></script>

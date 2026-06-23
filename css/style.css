@@ -1027,3 +1027,121 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
   background: rgba(226,151,74,.1); border: 1px solid rgba(226,151,74,.3); border-radius: 8px;
 }
 .group-create-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
+
+/* ===================================================================
+   v2.03 — Feuilles d'aventuriers, compétences, classes, narration
+   =================================================================== */
+
+/* ---- Feuille d'aventurier : classe visible + stats pleine largeur ---- */
+.class-badge {
+  font-family: "Georgia", serif; font-weight: 700; font-size: .92rem;
+  padding: .2rem .65rem; border-radius: 8px; letter-spacing: .02em;
+  background: rgba(80,55,20,.12); border: 1px solid rgba(80,55,20,.3); color: #5a4527;
+}
+.hero-head .class-badge { margin-right: auto; }
+.roster-card.klass-apothicaire .class-badge { background:#cfe3bd; border-color:#8fbf72; color:#33571f; }
+.roster-card.klass-artificier  .class-badge { background:#ecdcb0; border-color:#cdaa55; color:#7a5510; }
+.roster-card.klass-chasseur    .class-badge { background:#cfe6c4; border-color:#74b85e; color:#2e6b1f; }
+.roster-card.klass-destructeur .class-badge { background:#eccabf; border-color:#d36a52; color:#9a3320; }
+.roster-card.klass-deviant     .class-badge { background:#e0d2ef; border-color:#9d7fc4; color:#5a3b8c; }
+.roster-card.klass-gardien     .class-badge { background:#cddcf0; border-color:#6f9fd6; color:#2c5a93; }
+.roster-card.klass-lamevent    .class-badge { background:#c9e7e0; border-color:#5cb6a6; color:#1f6b5e; }
+.roster-card.klass-pyromane    .class-badge { background:#f3d3b6; border-color:#e08a4a; color:#9a4f17; }
+
+.hero-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin: .5rem 0 .2rem; }
+.hero-stat {
+  display: flex; flex-direction: column; align-items: center; gap: .15rem;
+  background: rgba(255,255,255,.55); border: 1px solid rgba(80,55,20,.25);
+  border-radius: 9px; padding: .5rem .3rem;
+}
+.hero-stat .hs-label { font-size: .64rem; text-transform: uppercase; letter-spacing: .06em; color: #7c6646; font-weight: 700; }
+.hero-stat .hs-val { font-size: 1.15rem; font-weight: 800; color: #2a1d10; font-variant-numeric: tabular-nums; }
+
+/* ---- Compétences (fiche) ---- */
+.skill-badges { display: flex; flex-wrap: wrap; gap: .35rem; }
+.skill-badge {
+  font-size: .78rem; padding: .2rem .5rem; border-radius: 7px;
+  background: rgba(77,142,209,.14); border: 1px solid rgba(77,142,209,.35); color: #2c5a93;
+}
+.roster-card .skill-badge b { color: #1c3f66; }
+
+/* ---- Attaques : méta sous le nom ---- */
+.atk-badge { flex-direction: column; align-items: flex-start; gap: .15rem; }
+.atk-badge-line { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.atk-badge-meta { margin-left: 0; font-size: .68rem; }
+
+/* ---- Modale : éditeur de compétences ---- */
+.skills-editor { display: grid; grid-template-columns: repeat(2, 1fr); gap: .4rem; }
+@media (max-width: 520px) { .skills-editor { grid-template-columns: 1fr; } }
+.skill-edit-row {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: .3rem .5rem;
+}
+.skill-edit-name { font-size: .85rem; }
+.skill-stepper { display: inline-flex; align-items: center; gap: .4rem; }
+.skill-val { min-width: 20px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---- Équipement : boutons-bascule (plus de menus déroulants) ---- */
+.equip-pick { display: flex; flex-wrap: wrap; gap: .4rem; background: transparent; border: none; padding: 0; max-height: none; }
+.equip-btn {
+  display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+  background: var(--bg-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 9px; padding: .45rem .65rem; cursor: pointer; font-size: .85rem; text-align: left;
+}
+.equip-btn:hover { border-color: var(--accent-2); }
+.equip-btn.on { background: rgba(226,151,74,.18); border-color: var(--accent-2); box-shadow: inset 0 0 0 1px var(--accent-2); }
+.equip-btn-name { font-weight: 600; }
+.equip-btn-meta { font-size: .72rem; color: var(--muted); }
+
+/* ---- Onglet Classes (Admin) ---- */
+.class-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: .75rem .85rem; margin-bottom: .7rem; border-left: 4px solid var(--border); }
+.class-card.klass-apothicaire { border-left-color:#7bbf6a; } .class-card.klass-artificier { border-left-color:#d9a94a; }
+.class-card.klass-chasseur { border-left-color:#74b85e; } .class-card.klass-destructeur { border-left-color:#d36a52; }
+.class-card.klass-deviant { border-left-color:#9d7fc4; } .class-card.klass-gardien { border-left-color:#6f9fd6; }
+.class-card.klass-lamevent { border-left-color:#5cb6a6; } .class-card.klass-pyromane { border-left-color:#e08a4a; }
+.class-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.class-name { font-family: "Georgia", serif; font-size: 1.1rem; font-weight: 600; margin-right: auto; }
+.class-talents { display: flex; flex-direction: column; gap: .4rem; }
+.talent-edit { background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; }
+.talent-edit-top { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: .35rem; }
+.talent-edit-top .tl-name { flex: 1; min-width: 140px; }
+.talent-edit-top .tl-lvl { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; }
+.talent-edit-top .tl-level { width: 52px; }
+.talent-edit-top .tl-usage { width: auto; }
+
+/* ---- Blocs de texte : conteneurs colorés par type ---- */
+.scene-block { line-height: 1.7; font-size: .97rem; border-radius: 0 8px 8px 0; padding: .55rem .8rem; border-left: 3px solid var(--border); }
+.scene-block-narrative { font-style: italic; background: rgba(141,134,118,.1); border-left-color: #9b968a; color: var(--text); }
+.scene-block-technical { background: rgba(74,141,214,.1); border-left-color: #4a8dd6; color: var(--text); }
+.scene-block-alert { font-weight: 700; background: rgba(214,92,64,.12); border-left-color: var(--accent); color: var(--text); }
+.scene-block-tip { background: rgba(111,174,111,.13); border-left-color: var(--good); color: var(--text); }
+
+/* ---- Colonne de droite : empilement héros / XP / faits ---- */
+.ses-side { display: flex; flex-direction: column; gap: 1rem; }
+.ses-xp { margin-top: .8rem; padding-top: .7rem; border-top: 1px dashed var(--border); }
+.ses-xp-line { display: flex; justify-content: space-between; font-size: .85rem; margin-bottom: .3rem; }
+.ses-xp-next { font-size: .75rem; color: var(--muted); margin-top: .3rem; }
+.ses-deeds { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: .85rem 1rem; }
+.deeds-list { margin: .2rem 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
+.deeds-list li { font-size: .85rem; line-height: 1.4; color: var(--text); }
+.ses-hero-name { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.ses-hero-name:hover { color: var(--accent-2); }
+
+/* ---- Choix colorés par type ---- */
+.ses-choice-btn {
+  text-align: left; padding: .65rem .85rem; font-size: .95rem; width: 100%; cursor: pointer;
+  border-radius: 9px; border: 1px solid var(--border); border-left-width: 4px;
+  background: var(--panel-2); color: var(--text);
+}
+.ses-choice-btn:hover { filter: brightness(1.08); }
+.choice-type-neutre     { border-left-color: #9b968a; }
+.choice-type-violence   { border-left-color: #d65c40; background: rgba(214,92,64,.12); }
+.choice-type-calme      { border-left-color: #4a8dd6; background: rgba(74,141,214,.12); }
+.choice-type-ruse       { border-left-color: #9d72c4; background: rgba(157,114,196,.12); }
+.choice-type-enquete    { border-left-color: #c49a20; background: rgba(196,154,32,.12); }
+.choice-type-discussion { border-left-color: #3fae9f; background: rgba(63,174,159,.12); }
+/* Sélecteur de type de choix (éditeur) */
+select.ch-type { width: auto; font-weight: 600; }
+select.choice-type-violence { color: #d65c40; } select.choice-type-calme { color: #4a8dd6; }
+select.choice-type-ruse { color: #9d72c4; } select.choice-type-enquete { color: #c49a20; }
+select.choice-type-discussion { color: #3fae9f; }

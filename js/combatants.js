@@ -14,6 +14,15 @@
   const TYPE_LABEL = { standard: 'Standard', solitaire: 'Solitaire', alpha: 'Alpha', boss: 'Boss' };
   const CLASSES = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
     'Gardien', 'Lamevent', 'Pyromane'];
+  const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
+  function emptySkills() { const o = {}; SKILLS.forEach(function (s) { o[s] = 0; }); return o; }
+  function mergeSkills(src) {
+    const o = emptySkills();
+    if (src) SKILLS.forEach(function (s) { if (typeof src[s] === 'number') o[s] = src[s]; });
+    return o;
+  }
+  // Retire le préfixe « Mêlée — » / « Distance — » des attaques dérivées d'armes
+  function cleanAttackName(name) { return (name || '').replace(/^(Mêlée|Distance) — /, ''); }
 
   function newAttack() {
     return { name: 'Attaque', dice: D.emptyPool(), range: 'contact',
@@ -91,19 +100,54 @@
     if (!attacks || !attacks.length) return '<span class="hint">—</span>';
     return attacks.map(function (a) {
       const meta = [RANGE_LABEL[a.range] || a.range];
-      if (a.targets === 'all') meta.push('toutes');
+      if (a.targets === 'all') meta.push('toutes cibles');
       if (a.uses > 0) meta.push(a.uses + '×/combat');
       if (a.freeAction) meta.push('gratuite');
       return '<div class="atk-badge">' +
-        '<span class="atk-badge-name">' + esc(a.name) + '</span>' +
-        Inventory.poolBadges(a.dice) +
-        '<span class="atk-badge-meta">' + meta.join(' · ') + '</span></div>';
+        '<div class="atk-badge-line">' +
+          '<span class="atk-badge-name">' + esc(cleanAttackName(a.name)) + '</span>' +
+          Inventory.poolBadges(a.dice) +
+        '</div>' +
+        '<span class="atk-badge-meta">' + meta.join(' · ') + '</span>' +
+      '</div>';
     }).join('');
   }
 
-  // ================= HÉROS =================
+  // ================= AVENTURIERS =================
   let heroAttacks = [];
   let heroEquipment = { weapons: [], armorId: null, shieldId: null };
+  let heroSkills = emptySkills();
+
+  // Compétences > 0 affichées sur la fiche (hors édition)
+  function skillsSummary(skills) {
+    if (!skills) return '';
+    const badges = SKILLS.filter(function (s) { return (skills[s] || 0) > 0; })
+      .map(function (s) { return '<span class="skill-badge">' + s + ' <b>+' + skills[s] + '</b></span>'; });
+    if (!badges.length) return '';
+    return '<div class="roster-section"><div class="roster-label">Compétences</div>' +
+      '<div class="skill-badges">' + badges.join('') + '</div></div>';
+  }
+
+  // Éditeur de compétences (steppers, base 0)
+  function buildSkillsEditor(container, skills) {
+    container.innerHTML = SKILLS.map(function (s) {
+      return '<div class="skill-edit-row">' +
+        '<span class="skill-edit-name">' + s + '</span>' +
+        '<div class="skill-stepper">' +
+          '<button type="button" class="step-btn sk-minus" data-skill="' + s + '">−</button>' +
+          '<span class="skill-val" data-skill="' + s + '">' + (skills[s] || 0) + '</span>' +
+          '<button type="button" class="step-btn sk-plus" data-skill="' + s + '">+</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    function setVal(s) { container.querySelector('.skill-val[data-skill="' + s + '"]').textContent = skills[s] || 0; }
+    container.querySelectorAll('.sk-plus').forEach(function (b) {
+      b.onclick = function () { const s = b.getAttribute('data-skill'); skills[s] = (skills[s] || 0) + 1; setVal(s); };
+    });
+    container.querySelectorAll('.sk-minus').forEach(function (b) {
+      b.onclick = function () { const s = b.getAttribute('data-skill'); skills[s] = Math.max(0, (skills[s] || 0) - 1); setVal(s); };
+    });
+  }
 
   // Bonus de PV conféré par la classe
   const CLASS_PV = {
@@ -292,20 +336,18 @@
       if (armor) gear.push(armor.name);
       if (shield) gear.push(shield.name);
       return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
-        '<div class="roster-head">' +
+        '<div class="roster-head hero-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
-          (h.klass ? '<span class="tag class-tag">' + esc(h.klass) + '</span>' : '') +
+          (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
           '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>' +
         '</div>' +
-        '<div class="stat-pills">' +
-          '<span class="stat-pill">❤ <b>' + heroCurPv(h) + '</b> / ' + heroPv(h) + ' PV</span>' +
-          '<span class="stat-pill">🛡 DEF <b>' + heroDef(h) + '</b></span>' +
-          '<span class="stat-pill">⚔ Dég. <b>' + h.damage + '</b></span>' +
+        '<div class="hero-stat-row">' +
+          '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroCurPv(h) + ' / ' + heroPv(h) + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">' + h.damage + '</span></div>' +
         '</div>' +
-        '<div class="roster-meta">Vie ' + h.vie + ' × Endu ' + h.endu +
-          (classPv(h) ? ' + ' + classPv(h) + ' (' + esc(h.klass) + ')' : '') +
-          (h.pvBonus ? ' + ' + h.pvBonus + ' bonus' : '') + ' PV</div>' +
+        skillsSummary(h.skills) +
         '<div class="roster-section">' +
           '<div class="roster-label">Équipement</div>' +
           '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div>' +
@@ -346,6 +388,8 @@
     $('#h-notes').value = isEdit ? (h.notes || '') : '';
     heroAttacks = isEdit ? JSON.parse(JSON.stringify(h.attacks || [])) : [];
     buildAttacksEditor($('#h-attacks'), heroAttacks);
+    heroSkills = isEdit ? mergeSkills(h.skills) : emptySkills();
+    buildSkillsEditor($('#h-skills'), heroSkills);
     const srcEq = isEdit ? (h.equipment || {}) : {};
     heroEquipment = {
       weapons: (srcEq.weapons || []).slice(),
@@ -359,39 +403,54 @@
     $('#h-name').focus();
   }
 
-  // Construit les sélecteurs d'armure/bouclier et la liste d'armes équipables
+  // Sélecteur unique (armure / bouclier) sous forme de boutons-bascule
+  function renderEquipSingle(box, list, selectedId, defPrefix, noneLabel, onSel) {
+    box.innerHTML = '<button type="button" class="equip-btn' + (!selectedId ? ' on' : '') + '" data-id="">' +
+        noneLabel + '</button>' +
+      list.map(function (a) {
+        return '<button type="button" class="equip-btn' + (a.id === selectedId ? ' on' : '') + '" data-id="' + a.id + '">' +
+          '<span class="equip-btn-name">' + esc(a.name) + '</span>' +
+          '<span class="equip-btn-meta">' + defPrefix + ' ' + (a.def || 0) + '</span>' +
+        '</button>';
+      }).join('');
+    box.querySelectorAll('.equip-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        box.querySelectorAll('.equip-btn').forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        onSel(b.getAttribute('data-id') || null);
+      });
+    });
+  }
+
+  // Construit les sélecteurs d'armure/bouclier (boutons) et la liste d'armes
   function buildHeroEquipmentUI() {
     const items = Store.state.items;
     const bodies = items.filter(function (i) { return i.category === 'armor' && (i.slot || 'body') === 'body'; });
     const shields = items.filter(function (i) { return i.category === 'armor' && i.slot === 'shield'; });
     const weapons = items.filter(function (i) { return i.category === 'weapon'; });
 
-    $('#h-armor').innerHTML = '<option value="">Aucune</option>' + bodies.map(function (a) {
-      return '<option value="' + a.id + '">' + esc(a.name) + ' (DEF ' + (a.def || 0) + ')</option>';
-    }).join('');
-    $('#h-armor').value = heroEquipment.armorId || '';
-
-    $('#h-shield').innerHTML = '<option value="">Aucun</option>' + shields.map(function (a) {
-      return '<option value="' + a.id + '">' + esc(a.name) + ' (+' + (a.def || 0) + ')</option>';
-    }).join('');
-    $('#h-shield').value = heroEquipment.shieldId || '';
+    renderEquipSingle($('#h-armor'), bodies, heroEquipment.armorId, 'DEF', 'Aucune armure',
+      function (id) { heroEquipment.armorId = id; updateEquipPreview(); });
+    renderEquipSingle($('#h-shield'), shields, heroEquipment.shieldId, '+', 'Aucun bouclier',
+      function (id) { heroEquipment.shieldId = id; updateEquipPreview(); });
 
     const wbox = $('#h-weapons');
     if (!weapons.length) {
       wbox.innerHTML = '<p class="hint">Aucune arme dans l\'inventaire.</p>';
     } else {
       wbox.innerHTML = weapons.map(function (w) {
-        const checked = heroEquipment.weapons.indexOf(w.id) !== -1;
-        return '<label class="equip-pick-row"><input type="checkbox" data-weapon="' + w.id + '"' +
-          (checked ? ' checked' : '') + '> ' + esc(w.name) + ' ' + Inventory.poolBadges(w.dice) +
-          '<span class="hint"> ' + (w.hands === 2 ? '2 mains' : '1 main') + (w.ranged ? ' · distance' : '') + '</span></label>';
+        const on = heroEquipment.weapons.indexOf(w.id) !== -1;
+        return '<button type="button" class="equip-btn' + (on ? ' on' : '') + '" data-weapon="' + w.id + '">' +
+          '<span class="equip-btn-name">' + esc(w.name) + '</span> ' + Inventory.poolBadges(w.dice) +
+          '<span class="equip-btn-meta">' + (w.hands === 2 ? '2 mains' : '1 main') + (w.ranged ? ' · distance' : '') + '</span>' +
+        '</button>';
       }).join('');
-      wbox.querySelectorAll('[data-weapon]').forEach(function (cb) {
-        cb.addEventListener('change', function () {
-          const id = cb.getAttribute('data-weapon');
+      wbox.querySelectorAll('[data-weapon]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const id = b.getAttribute('data-weapon');
           const i = heroEquipment.weapons.indexOf(id);
-          if (cb.checked && i === -1) heroEquipment.weapons.push(id);
-          if (!cb.checked && i >= 0) heroEquipment.weapons.splice(i, 1);
+          if (i === -1) heroEquipment.weapons.push(id); else heroEquipment.weapons.splice(i, 1);
+          b.classList.toggle('on');
           updateEquipPreview();
         });
       });
@@ -424,10 +483,11 @@
       rapide: $('#h-rapide').checked,
       notes: $('#h-notes').value.trim(),
       attacks: heroAttacks,
+      skills: mergeSkills(heroSkills),
       equipment: {
         weapons: heroEquipment.weapons.slice(),
-        armorId: $('#h-armor').value || null,
-        shieldId: $('#h-shield').value || null,
+        armorId: heroEquipment.armorId || null,
+        shieldId: heroEquipment.shieldId || null,
       },
       // Pré-construit (Admin) → adventureId null ; Joueur → lié à l'aventure courante.
       adventureId: existing ? (existing.adventureId || null) : (s.mode === 'player' ? s.advId : null),
@@ -705,8 +765,6 @@
       $('#' + idn).addEventListener('input', updateHeroPvPreview);
     });
     $('#h-class').addEventListener('change', updateHeroPvPreview);
-    $('#h-armor').addEventListener('change', function () { heroEquipment.armorId = $('#h-armor').value || null; updateEquipPreview(); });
-    $('#h-shield').addEventListener('change', function () { heroEquipment.shieldId = $('#h-shield').value || null; updateEquipPreview(); });
     $('#btn-delete-hero').addEventListener('click', function () {
       const id = $('#h-id').value;
       if (id && confirm('Supprimer cet aventurier ?')) {

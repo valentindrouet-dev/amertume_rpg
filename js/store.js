@@ -275,6 +275,18 @@
     try { global.localStorage.setItem(SES_KEY, JSON.stringify(sessions)); } catch (e) {}
   }
 
+  // ---------- Classes & talents de classe (Admin) ----------
+  const CLS_KEY = 'amertume_classes_v1';
+  function loadClasses() {
+    try {
+      const raw = global.localStorage.getItem(CLS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+  function saveClasses(classes) {
+    try { global.localStorage.setItem(CLS_KEY, JSON.stringify(classes)); } catch (e) {}
+  }
+
   global.Store = {
     uid: uid,
     noStates: noStates,
@@ -295,5 +307,7 @@
     saveAdventures: saveAdventures,
     loadSessions: loadSessions,
     saveSessions: saveSessions,
+    loadClasses: loadClasses,
+    saveClasses: saveClasses,
   };
 })(window);

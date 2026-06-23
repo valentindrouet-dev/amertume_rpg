@@ -216,6 +216,15 @@
     if (!found) { root.innerHTML = '<p class="empty">Scène introuvable.</p>'; return; }
     const { chapter, scene } = found;
 
+    // Journal des faits : enregistre le fait de la scène atteinte (une seule fois)
+    if (scene.fait && scene.fait.trim()) {
+      if (!Array.isArray(ses.deeds)) ses.deeds = [];
+      if (!ses.deeds.some(function (d) { return d.sceneId === scene.id; })) {
+        ses.deeds.push({ sceneId: scene.id, text: scene.fait.trim() });
+        save();
+      }
+    }
+
     const heroes = Store.state.heroes.filter(function (h) {
       return !ses.heroIds.length || ses.heroIds.indexOf(h.id) !== -1;
     });
@@ -238,9 +247,16 @@
           sceneContentHtml(scene) +
           '<div id="ses-actions" class="ses-actions"></div>' +
         '</div>' +
-        '<div class="ses-heroes">' +
-          '<h3>Héros engagés</h3>' +
-          renderHeroesState(heroes, ses) +
+        '<div class="ses-side">' +
+          '<div class="ses-heroes">' +
+            '<h3>Aventuriers</h3>' +
+            renderHeroesState(heroes, ses) +
+            xpProgressHtml(ses) +
+          '</div>' +
+          '<div class="ses-deeds">' +
+            '<h3>Faits accomplis</h3>' +
+            deedsHtml(ses) +
+          '</div>' +
         '</div>' +
       '</div>';
 
@@ -251,7 +267,32 @@
       } else { render(); }
     });
 
+    // Cliquer le nom d'un aventurier ouvre sa fiche
+    root.querySelectorAll('.ses-hero-name[data-hero]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        if (global.Combatants && Combatants.openHeroModal) Combatants.openHeroModal(el.getAttribute('data-hero'));
+      });
+    });
+
     renderSceneActions(scene, adv, ses);
+  }
+
+  function xpProgressHtml(ses) {
+    const info = Store.levelInfo(ses.party ? ses.party.xp : 0);
+    const nextTxt = info.next ? ('Niveau ' + info.next.lvl + ' dans ' + info.toNext + ' XP') : 'Niveau max atteint';
+    return '<div class="ses-xp">' +
+      '<div class="ses-xp-line"><span>Niveau <b>' + info.level + '</b></span><span><b>' + info.xp + '</b> XP</span></div>' +
+      '<div class="xp-bar"><div class="xp-fill" style="width:' + info.pct + '%"></div></div>' +
+      '<div class="ses-xp-next">' + nextTxt + '</div>' +
+    '</div>';
+  }
+
+  function deedsHtml(ses) {
+    const deeds = ses.deeds || [];
+    if (!deeds.length) return '<p class="empty">Aucun fait pour l\'instant.</p>';
+    return '<ul class="deeds-list">' +
+      deeds.map(function (d) { return '<li>' + esc(d.text) + '</li>'; }).join('') +
+    '</ul>';
   }
 
   // Construit le HTML du contenu textuel d'une scène.
@@ -289,7 +330,7 @@
       const maxPv = Combatants.heroPv(h);
       const pct = Math.round((curPv / maxPv) * 100);
       return '<div class="ses-hero-row">' +
-        '<span class="ses-hero-name">' + esc(h.name) + '</span>' +
+        '<span class="ses-hero-name" data-hero="' + h.id + '" title="Voir la fiche">' + esc(h.name) + '</span>' +
         '<div class="pv-bar" style="flex:1;min-width:80px"><div class="pv-fill" style="width:' + pct + '%"></div>' +
           '<span class="pv-text">' + curPv + '/' + maxPv + '</span></div>' +
         '<button class="ghost xs ses-hp-minus" data-hero="' + h.id + '" title="-1 PV">−1</button>' +
@@ -319,7 +360,7 @@
         box.innerHTML = '<div class="ses-choices">' +
           scene.choices.map(function (ch) {
             return '<div class="ses-choice">' +
-              '<button class="ses-choice-btn ghost" data-target="' + ch.targetSceneId + '">' + esc(ch.label) + '</button>' +
+              '<button class="ses-choice-btn choice-type-' + (ch.choiceType || 'neutre') + '" data-target="' + ch.targetSceneId + '">' + esc(ch.label) + '</button>' +
               (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
             '</div>';
           }).join('') +

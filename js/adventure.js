@@ -30,6 +30,16 @@
     { value: 'tip',       label: 'Conseil (encadré)'   },
   ];
 
+  // Types de choix : couleur dédiée dans l'interface de jeu
+  const CHOICE_TYPES = [
+    { value: 'neutre',     label: 'Neutre'     },
+    { value: 'violence',   label: 'Violence'   },
+    { value: 'calme',      label: 'Calme'      },
+    { value: 'ruse',       label: 'Ruse'       },
+    { value: 'enquete',    label: 'Enquête'    },
+    { value: 'discussion', label: 'Discussion' },
+  ];
+
   // Modèle vide d'une scène
   function newScene(id) {
     return {
@@ -38,6 +48,7 @@
       title: '',
       text: '',           // champ hérité — conservé pour compatibilité
       blocks: [],         // [{ id, type, content }]
+      fait: '',           // résumé ajouté au journal du joueur à l'arrivée sur la scène
       // navigation
       choices: [],        // [{ id, label, targetSceneId }]
       nextSceneId: null,  // pour fin auto sans choix
@@ -348,6 +359,8 @@
       refreshSceneModalSections(scene, adv);
     };
     document.getElementById('sm-title').oninput = function () { scene.title = this.value; };
+    const faitEl = document.getElementById('sm-fait');
+    if (faitEl) { faitEl.value = scene.fait || ''; faitEl.oninput = function () { scene.fait = this.value; }; }
     document.getElementById('sm-add-block').onclick = function () {
       scene.blocks.push({ id: Store.uid(), type: 'narrative', content: '' });
       renderBlocksEditor(scene);
@@ -487,9 +500,13 @@
     const box = document.getElementById('sm-choices');
     const allScenes = buildAllScenes(adv);
     box.innerHTML = (scene.choices || []).map(function (ch, i) {
+      const typeOpts = CHOICE_TYPES.map(function (t) {
+        return '<option value="' + t.value + '"' + ((ch.choiceType || 'neutre') === t.value ? ' selected' : '') + '>' + esc(t.label) + '</option>';
+      }).join('');
       return '<div class="adv-choice-row" data-ci="' + i + '">' +
         '<div class="adv-choice-main">' +
           '<input type="text" class="ch-label" value="' + esc(ch.label) + '" placeholder="Texte du choix" />' +
+          '<select class="ch-type choice-type-' + (ch.choiceType || 'neutre') + '">' + typeOpts + '</select>' +
           '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId) + '</select>' +
           '<button type="button" class="icon-btn ch-del" title="Supprimer ce choix">✕</button>' +
         '</div>' +
@@ -501,6 +518,12 @@
 
     box.querySelectorAll('.ch-label').forEach(function (inp, i) {
       inp.oninput = function () { scene.choices[i].label = this.value; };
+    });
+    box.querySelectorAll('.ch-type').forEach(function (sel, i) {
+      sel.onchange = function () {
+        scene.choices[i].choiceType = this.value;
+        this.className = 'ch-type choice-type-' + this.value;
+      };
     });
     box.querySelectorAll('.ch-desc').forEach(function (inp, i) {
       inp.oninput = function () { scene.choices[i].description = this.value; };
@@ -517,7 +540,7 @@
     });
     const addBtn = document.getElementById('sm-add-choice');
     if (addBtn) addBtn.onclick = function () {
-      scene.choices.push({ id: Store.uid(), label: '', targetSceneId: null, description: '' });
+      scene.choices.push({ id: Store.uid(), label: '', targetSceneId: null, description: '', choiceType: 'neutre' });
       renderChoicesEditor(scene, adv);
     };
   }

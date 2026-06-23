@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.02';
+  const APP_VERSION = 'v2.03';
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
   function safe(label, fn) {
@@ -20,6 +20,7 @@
     if (target === 'combat') safe('combat', Combat.render);
     if (target === 'heroes') safe('heroes', Combatants.renderHeroes);
     if (target === 'bestiary') safe('bestiary', Combatants.renderMonsters);
+    if (target === 'classes') safe('classes', Classes.render);
     if (target === 'armory') safe('armory', Inventory.render);
     if (target === 'adventures') safe('adventures', Adventure.render);
     if (target === 'session') {
@@ -91,6 +92,7 @@
     safe('inventory.init', Inventory.init);
     safe('combatants.init', Combatants.init);
     safe('combat.init', Combat.init);
+    safe('classes.init', Classes.init);
     safe('adventure.init', Adventure.init);
     safe('session.init', Session.init);
     safe('shell.init', Shell.init);
