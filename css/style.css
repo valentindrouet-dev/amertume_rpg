@@ -1145,3 +1145,46 @@ select.ch-type { width: auto; font-weight: 600; }
 select.choice-type-violence { color: #d65c40; } select.choice-type-calme { color: #4a8dd6; }
 select.choice-type-ruse { color: #9d72c4; } select.choice-type-enquete { color: #c49a20; }
 select.choice-type-discussion { color: #3fae9f; }
+
+/* ===================================================================
+   v2.04 — Combat épuré, ordre des monstres, inventaire de session
+   =================================================================== */
+
+/* Adversaires standard de même nom : 2 colonnes avec léger écart */
+.monster-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+@media (max-width: 520px) { .monster-grid { grid-template-columns: 1fr; } }
+
+/* Bouton Analyser sur les adversaires */
+.cc-analyse { margin: .1rem 0 .4rem; }
+.cc-analyse .do-analyse-enemy { width: 100%; }
+
+/* Bandeau Repos : boutons mieux placés et colorés */
+.rest-bar { display: flex; gap: .5rem; margin-top: .7rem; }
+.rest-btn { flex: 1; border-radius: 8px; padding: .55rem .7rem; cursor: pointer; font-weight: 600; font-size: .9rem; border: 1px solid; }
+.rest-short { background: rgba(226,151,74,.16); color: var(--accent-2); border-color: var(--accent-2); }
+.rest-short:hover { background: rgba(226,151,74,.3); }
+.rest-long { background: rgba(111,174,111,.16); color: var(--good); border-color: var(--good); }
+.rest-long:hover { background: rgba(111,174,111,.3); }
+
+/* Tag de classe en combat : plus de bleu, ton neutre */
+.combat-card .tag.class-tag { color: #5a4527 !important; border-color: rgba(80,55,20,.4) !important; background: rgba(80,55,20,.12) !important; }
+
+/* ---- Armurerie / inventaire : moyenne, méta sous les dés, prix en haut à droite ---- */
+.armory-card .roster-head { align-items: center; }
+.armory-card .roster-name { margin-right: auto; }
+.price-tag { color: var(--accent-2); border-color: var(--accent-2); font-weight: 700; }
+.avg-paren { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.armory-submeta { font-size: .74rem; color: var(--muted); margin-top: .3rem; }
+
+/* Inventaire de session : séparateurs par aventurier */
+.inv-hero-sep {
+  grid-column: 1 / -1; display: flex; align-items: baseline; gap: .5rem;
+  margin: .8rem 0 .2rem; font-family: "Georgia", serif; font-size: 1.05rem; font-weight: 600;
+  color: var(--accent-2); border-bottom: 1px solid var(--border); padding-bottom: .3rem;
+}
+.inv-hero-sep:first-child { margin-top: 0; }
+
+/* Masque les outils MJ de l'armurerie en mode Joueur (inventaire en lecture) */
+body.mode-player #tab-armory .card-head > div,
+body.mode-player #tab-armory .filters,
+body.mode-player #tab-armory > .card > .hint { display: none; }

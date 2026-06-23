@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.03';
+  const APP_VERSION = 'v2.04';
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
   function safe(label, fn) {
@@ -21,7 +21,10 @@
     if (target === 'heroes') safe('heroes', Combatants.renderHeroes);
     if (target === 'bestiary') safe('bestiary', Combatants.renderMonsters);
     if (target === 'classes') safe('classes', Classes.render);
-    if (target === 'armory') safe('armory', Inventory.render);
+    if (target === 'armory') {
+      if (mode === 'player') safe('armory.player', function () { Inventory.renderPlayer(advId); });
+      else safe('armory', Inventory.render);
+    }
     if (target === 'adventures') safe('adventures', Adventure.render);
     if (target === 'session') {
       if (mode === 'player') safe('session.play', function () { Session.renderPlay(advId); });

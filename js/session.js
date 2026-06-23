@@ -571,6 +571,14 @@
     }
     const root = $('#session-root');
     if (!root) return;
+    // Combat de session en cours : on le réaffiche au lieu de la scène (le combat
+    // n'est pas interrompu par un passage sur un autre onglet).
+    if (activeSession && Store.state.combat && Store.state.sessionCombat &&
+        Store.state.sessionCombat.sessionId === activeSession.id) {
+      root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
+      if (global.Combat && Combat.resumeInSession) Combat.resumeInSession('#session-combat-root');
+      return;
+    }
     if (activeSession) renderScene(root);
     else renderGroupSetup(root, scopeAdventureId);
   }

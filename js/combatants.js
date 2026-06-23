@@ -547,6 +547,7 @@
   // Talents structurés disponibles
   const TALENT_DEFS = [
     { id: 'flee_on_big_hit',    label: 'Fuite si X+ dégâts en un coup', paramKey: 'threshold', paramLabel: 'Seuil', defaultVal: 10 },
+    { id: 'flee_after_turns',   label: 'Fuite après le tour X',          paramKey: 'turns',     paramLabel: 'Après tour', defaultVal: 3 },
     { id: 'ally_contact_bonus', label: '+X dégâts par allié au contact', paramKey: 'bonus',     paramLabel: 'Bonus/allié', defaultVal: 1  },
   ];
 

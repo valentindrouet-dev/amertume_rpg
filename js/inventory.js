@@ -71,28 +71,76 @@
       return;
     }
 
-    function cardHtml(i) {
-      const isWeapon = i.category === 'weapon';
-      const isArmor = i.category === 'armor';
-      const traits = (i.traits || []).map(function (t) {
-        return '<span class="tag">' + (t === 'jetable' ? 'Jetable' : t === 'vicieuse' ? 'Vicieuse' : t) + '</span>';
-      }).join('');
-      return '<div class="roster-card armory-card cat-' + i.category + '">' +
-        '<div class="roster-head">' +
-          '<span class="roster-name">' + escapeHtml(i.name) + '</span>' +
-          (typeof i.price === 'number' && i.price ? '<span class="tag">' + i.price + ' po</span>' : '') +
-          '<button class="ghost small" data-edit="' + i.id + '">Éditer</button>' +
-        '</div>' +
-        (isWeapon ? '<div class="armory-line">' + poolBadges(i.dice) +
-          '<span class="stat-pill">' + (i.hands === 2 ? '2 mains' : '1 main') + '</span>' +
-          (i.ranged ? '<span class="stat-pill">distance</span>' : '<span class="stat-pill">contact</span>') +
-          traits + '</div>' : '') +
-        (isArmor ? '<div class="armory-line"><span class="stat-pill">🛡 DEF <b>' + (i.def || 0) + '</b></span>' +
-          '<span class="stat-pill">' + (i.slot === 'shield' ? 'Bouclier' : 'Corps') + '</span></div>' : '') +
-        (i.effects ? '<div class="roster-notes">⚡ ' + escapeHtml(i.effects) + '</div>' : '') +
-        (i.notes ? '<div class="roster-notes">' + escapeHtml(i.notes) + '</div>' : '') +
-      '</div>';
+    renderGrouped(items, true);
+  }
+
+  // ---- Inventaire d'une session de jeu : par aventurier, lecture seule ----
+  function renderPlayer(advId) {
+    const list = $('#item-list');
+    if (!list) return;
+    const heroes = (window.Combatants && Combatants.adventureHeroes) ? Combatants.adventureHeroes(advId) : [];
+    if (!heroes.length) {
+      list.innerHTML = '<p class="empty">Aucun aventurier : crée ton groupe d\'abord.</p>';
+      return;
     }
+    const byId = function (id) { return Store.state.items.find(function (i) { return i.id === id; }); };
+    let html = '';
+    heroes.forEach(function (h) {
+      const eq = h.equipment || {};
+      const gear = [];
+      (eq.weapons || []).forEach(function (wid) { const it = byId(wid); if (it) gear.push(it); });
+      if (eq.armorId) { const it = byId(eq.armorId); if (it) gear.push(it); }
+      if (eq.shieldId) { const it = byId(eq.shieldId); if (it) gear.push(it); }
+      html += '<div class="inv-hero-sep">' + escapeHtml(h.name) +
+        (h.klass ? ' <span class="hint">' + escapeHtml(h.klass) + '</span>' : '') + '</div>';
+      html += gear.length
+        ? gear.map(function (i) { return itemCardHtml(i, false); }).join('')
+        : '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement obtenu.</p>';
+    });
+    list.innerHTML = html;
+  }
+
+  // Moyenne d'un pool de dés (3,5 par dé)
+  function avgOf(dice) {
+    let s = 0;
+    D.DICE_ORDER.forEach(function (c) { s += (dice[c] || 0) * 3.5; });
+    return Math.round(s);
+  }
+
+  function itemCardHtml(i, canEdit) {
+    const isWeapon = i.category === 'weapon';
+    const isArmor = i.category === 'armor';
+    const isOfficialNote = (i.notes || '').indexOf('Officiel') === 0;
+    const traits = (i.traits || []).map(function (t) {
+      return '<span class="tag">' + (t === 'jetable' ? 'Jetable' : t === 'vicieuse' ? 'Vicieuse' : t) + '</span>';
+    }).join('');
+    // Caractéristiques sous les dés (remplace l'ancienne note « Officiel »)
+    const subMeta = [];
+    if (isWeapon) {
+      subMeta.push(i.hands === 2 ? '2 mains' : '1 main');
+      subMeta.push(i.ranged ? 'distance' : 'contact');
+      if (i.usesAmmo) subMeta.push('munitions');
+      if (i.effects) subMeta.push('⚡ ' + escapeHtml(i.effects));
+    }
+    return '<div class="roster-card armory-card cat-' + i.category + '">' +
+      '<div class="roster-head">' +
+        '<span class="roster-name">' + escapeHtml(i.name) + '</span>' +
+        (canEdit ? '<button class="ghost small" data-edit="' + i.id + '">Éditer</button>' : '') +
+        (typeof i.price === 'number' && i.price ? '<span class="tag price-tag">' + i.price + ' po</span>' : '') +
+      '</div>' +
+      (isWeapon ? '<div class="armory-line">' + poolBadges(i.dice) +
+        '<span class="avg-paren">(≈ ' + avgOf(i.dice) + ')</span>' + traits + '</div>' +
+        (subMeta.length ? '<div class="armory-submeta">' + subMeta.join(' · ') + '</div>' : '') : '') +
+      (isArmor ? '<div class="armory-line"><span class="stat-pill">DEF <b>' + (i.def || 0) + '</b></span>' +
+        '<span class="stat-pill">' + (i.slot === 'shield' ? 'Bouclier' : 'Corps') + '</span></div>' : '') +
+      (i.effects && !isWeapon ? '<div class="roster-notes">⚡ ' + escapeHtml(i.effects) + '</div>' : '') +
+      (i.notes && !isOfficialNote ? '<div class="roster-notes">' + escapeHtml(i.notes) + '</div>' : '') +
+    '</div>';
+  }
+
+  function renderGrouped(items, canEdit) {
+    const list = $('#item-list');
+    function cardHtml(i) { return itemCardHtml(i, canEdit); }
 
     function sepHtml(label, n, sub) {
       return '<div class="armory-sep' + (sub ? ' armory-subsep' : '') + '">' + label +
@@ -249,6 +297,7 @@
   global.Inventory = {
     init: init,
     render: render,
+    renderPlayer: renderPlayer,
     buildDiceSteppers: buildDiceSteppers,
     poolBadges: poolBadges,
     escapeHtml: escapeHtml,
