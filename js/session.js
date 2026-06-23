@@ -440,10 +440,12 @@
     });
     const sv = document.getElementById('ses-skip-victory');
     if (sv) sv.addEventListener('click', function () {
+      if (!confirm('Passer le Combat (victoire) ? Vous ne gagnerez aucune récompense ni XP de ce combat.')) return;
       navigateTo(ses, adv, scene.outcomeSceneId);
     });
     const sd = document.getElementById('ses-skip-defeat');
     if (sd) sd.addEventListener('click', function () {
+      if (!confirm('Passer le Combat (défaite) ? Vous subirez une défaite.')) return;
       navigateTo(ses, adv, scene.defeatSceneId);
     });
   }

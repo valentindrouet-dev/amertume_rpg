@@ -221,6 +221,8 @@
           if (!c.used) c.used = { action: false, move: false, object: false };
           if (typeof c.zone !== 'number') c.zone = 0;
           if (c.zone >= cb.zones.length) c.zone = 0;
+          if (typeof c.dmgDealt !== 'number') c.dmgDealt = 0;
+          if (typeof c.dmgTaken !== 'number') c.dmgTaken = 0;
           if (!Array.isArray(c.attacks)) c.attacks = [];
           c.attacks.forEach(normAttack);
         });

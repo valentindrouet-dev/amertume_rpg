@@ -55,6 +55,7 @@
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
       zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
+      dmgDealt: 0, dmgTaken: 0,
     };
   }
 
@@ -70,6 +71,7 @@
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
       zone: 0, status: 'active', analyzed: false,
+      dmgDealt: 0, dmgTaken: 0,
     };
   }
 
@@ -166,33 +168,46 @@
     endCombat(false); // dispatch la défaite à la session
   }
 
+  // Fin de combat → soin automatique des aventuriers à terre, puis écran de résumé.
   function endCombat(finalize) {
+    const c = combat();
+    if (!c) return;
+    c.healLines = [];
+    c.combatants.forEach(function (h) {
+      if (h.side === 'hero' && (h.status !== 'active' || h.pv <= 0)) {
+        const v = Math.min(h.maxPv, 1 + Math.floor(Math.random() * 6) + (h.endu || 0));
+        h.pv = v; h.status = 'active';
+        c.healLines.push({ name: h.name, pv: v });
+      }
+    });
+    c.finalize = !!finalize;
+    c.finished = true;
+    pendingAttack = null; pendingMove = null; stateMenuFor = null;
+    Store.save();
+    renderSummary();
+  }
+
+  // Quitte réellement le combat (après l'écran de résumé) et reprend l'aventure
+  function finishCombat() {
+    const c = combat();
+    if (!c) return;
     const isSession = combatKey === 'combat';
-    if (isSession) persistHeroPv(); // un combat de test n'altère pas les PV réels
     const sessionCtx = isSession ? (Store.state.sessionCombat || null) : null;
-    const outcomeLabel = combat() ? (combat().outcome || null) : null;
-    const gained = (finalize && combat()) ? totalXp() : 0;
-    // Combat de test : l'XP va dans le bac à sable Admin (jamais dans la session d'aventure).
-    // Combat d'aventure : l'XP est transmise à la session (gérée par Session), pas à l'XP Admin.
-    if (finalize && combat() && !isSession) {
-      const before = Store.levelInfo(Store.state.party.xp);
-      Store.state.party.xp = (Store.state.party.xp || 0) + gained;
-      const after = Store.levelInfo(Store.state.party.xp);
-      let msg = 'Combat terminé.\n+' + gained + ' XP (total Admin : ' + Store.state.party.xp + ').';
-      if (after.level > before.level) msg += '\n\n🎉 Niveau ' + after.level + ' atteint ! (' + after.points + ' points de talent)';
-      alert(msg);
-    }
-    pendingAttack = null; stateMenuFor = null;
+    const outcomeLabel = c.outcome || null;
+    const gained = c.finalize ? totalXp() : 0;
+    if (c.finalize && !isSession) Store.state.party.xp = (Store.state.party.xp || 0) + gained;
+    if (isSession) persistHeroPv();
     setCombat(null);
     if (isSession) Store.state.sessionCombat = null;
     Store.save();
-    rootSel = '#combat-root';
-    render();
     if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
     if (sessionCtx && sessionCtx.sessionId) {
       window.dispatchEvent(new CustomEvent('adventure-combat-end', {
         detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained }
       }));
+    } else {
+      rootSel = '#combat-root';
+      render();
     }
   }
 
@@ -228,13 +243,30 @@
       return c.side === es && c.status === 'active' && c.zone === attacker.zone;
     });
   }
+  // Déplacement (sans rendu). Un aventurier qui quitte une zone occupée par des
+  // adversaires sans autre allié subit leurs dégâts-choc (attaques d'opportunité).
+  function doMove(c, zi) {
+    const from = c.zone;
+    if (c.side === 'hero') {
+      const enemiesHere = combat().combatants.filter(function (x) { return x.side === 'monster' && x.status === 'active' && x.zone === from; });
+      const otherAllies = combat().combatants.filter(function (x) { return x.side === 'hero' && x.status === 'active' && x.zone === from && x.iid !== c.iid; });
+      if (enemiesHere.length && !otherAllies.length) {
+        log(wname(c.name) + ' quitte la zone — <span class="lstate">attaques d\'opportunité</span> !', 'state');
+        enemiesHere.forEach(function (m) { if (c.status === 'active') dchocFrom(m, c); });
+      }
+    }
+    c.used.move = true;
+    if (c.status !== 'active') return; // tombé au coma en partant
+    c.zone = zi;
+    log(wname(c.name) + ' se déplace vers <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
+  }
+
   function moveCombatant(iid, zi) {
     const c = byId(iid);
     if (!c || c.used.move || c.status !== 'active') { pendingMove = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; render(); return; }
-    c.zone = zi; c.used.move = true;
-    log(wname(c.name) + ' se déplace vers <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
-    pendingMove = null; Store.save(); render();
+    doMove(c, zi);
+    pendingMove = null; checkOutcome(); Store.save(); render();
   }
 
   // Nom lisible d'une attaque (retire le préfixe « Mêlée — » / « Distance — »)
@@ -256,6 +288,7 @@
     const dmg = monster.damage || 0;
     if (dmg <= 0) return 0;
     hero.pv = Math.max(0, hero.pv - dmg);
+    hero.dmgTaken += dmg; monster.dmgDealt += dmg;
     log(wname(monster.name) + ' inflige ' + amt(dmg, 'dmg') + ' dégâts-choc à ' + wname(hero.name) + '.', 'dchoc');
     checkComa(hero);
     return dmg;
@@ -323,7 +356,7 @@
       return;
     }
 
-    if (res.pvLost > 0) target.pv = Math.max(0, target.pv - res.pvLost);
+    if (res.pvLost > 0) { target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; attacker.dmgDealt += res.pvLost; }
     if (res.pvHealed > 0) target.pv = Math.min(target.maxPv, target.pv + res.pvHealed);
     log(wname(attacker.name) + ' attaque ' + wname(target.name) + ' avec ' + label +
         (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' : ' +
@@ -611,7 +644,42 @@
     const root = $(rootSel);
     if (!root) return;
     if (!combat()) { renderSetup(root); }
+    else if (combat().finished) { renderSummary(); }
     else { renderBoard(root); }
+  }
+
+  // Écran de résumé de fin de combat
+  function renderSummary() {
+    const root = $(rootSel);
+    if (!root) return;
+    const c = combat();
+    const OUT = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
+    const killed = c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; });
+    const fled = c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'fled'; });
+    const dealt = c.combatants.filter(function (x) { return x.dmgDealt > 0; }).sort(function (a, b) { return b.dmgDealt - a.dmgDealt; });
+    const taken = c.combatants.filter(function (x) { return x.dmgTaken > 0; }).sort(function (a, b) { return b.dmgTaken - a.dmgTaken; });
+    const xp = c.finalize ? totalXp() : 0;
+    function names(list) { return list.length ? list.map(function (x) { return esc(x.name); }).join(', ') : '—'; }
+    function rows(list, key) {
+      if (!list.length) return '<div class="cs-row hint">—</div>';
+      return list.map(function (x) { return '<div class="cs-row"><span>' + esc(x.name) + '</span><strong>' + x[key] + '</strong></div>'; }).join('');
+    }
+    root.innerHTML = '<div class="card combat-summary cs-' + (c.outcome || 'end') + '">' +
+      '<h2 class="cs-title">' + (OUT[c.outcome] || 'Combat terminé') + '</h2>' +
+      '<div class="cs-line">☠ Adversaires vaincus : <strong>' + names(killed) + '</strong></div>' +
+      (fled.length ? '<div class="cs-line">🏃 Adversaires en fuite : <strong>' + names(fled) + '</strong></div>' : '') +
+      '<div class="cs-cols">' +
+        '<div class="cs-block"><h3>Dégâts infligés</h3>' + rows(dealt, 'dmgDealt') + '</div>' +
+        '<div class="cs-block"><h3>Dégâts subis</h3>' + rows(taken, 'dmgTaken') + '</div>' +
+      '</div>' +
+      (c.healLines && c.healLines.length
+        ? '<div class="cs-line">✚ Aventuriers ranimés : <strong>' +
+            c.healLines.map(function (h) { return esc(h.name) + ' (' + h.pv + ' PV)'; }).join(', ') + '</strong></div>'
+        : '') +
+      '<div class="cs-xp">✦ XP gagnée : <strong>' + xp + '</strong></div>' +
+      '<button class="primary big" id="cs-continue">Continuer</button>' +
+    '</div>';
+    $('#cs-continue').addEventListener('click', finishCombat);
   }
 
   function renderSetup(root) {
@@ -854,17 +922,12 @@
         .sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
       // Aventuriers côte à côte (grille), pour gagner de la place
       let html = heroes.length ? '<div class="hero-grid">' + heroes.map(renderCard).join('') + '</div>' : '';
-      let i = 0;
-      while (i < monsters.length) {
-        const c = monsters[i];
-        if (c.type === 'standard') {
-          const base = baseName(c.name);
-          const grp = []; let j = i;
-          while (j < monsters.length && monsters[j].type === 'standard' && baseName(monsters[j].name) === base) { grp.push(monsters[j]); j++; }
-          html += grp.length > 1 ? '<div class="monster-grid">' + grp.map(renderCard).join('') + '</div>' : renderCard(grp[0]);
-          i = j;
-        } else { html += renderCard(c); i++; }
-      }
+      // Les sbires (standard) occupent toujours une demi-largeur (grille), même seuls ;
+      // les autres types prennent toute la largeur.
+      const sbires = monsters.filter(function (m) { return m.type === 'standard'; });
+      const elites = monsters.filter(function (m) { return m.type !== 'standard'; });
+      if (sbires.length) html += '<div class="monster-grid">' + sbires.map(renderCard).join('') + '</div>';
+      elites.forEach(function (m) { html += renderCard(m); });
       box.innerHTML = html || '<p class="empty zone-empty">Zone vide</p>';
       heroes.concat(monsters).forEach(function (c) { wireCard(c); });
     });
@@ -908,6 +971,7 @@
 
     const isEnemy = c.side === 'monster';
     const known = !isEnemy || c.analyzed;   // stats ennemies cachées avant Analyse
+    const pvText = (isEnemy && !known) ? 'PV ?' : (c.pv + ' / ' + c.maxPv + ' PV');
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
         (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
@@ -915,11 +979,13 @@
         (c.rapide ? '<span class="tag">Rapide</span>' : '') +
         (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
       '</div>' +
-      '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
-        '<span class="pv-text">' + c.pv + ' / ' + c.maxPv + ' PV</span></div>' +
+      '<div class="cc-pvline">' +
+        '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
+          '<span class="pv-text">' + pvText + '</span></div>' +
+        (known ? '<span class="def-badge">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' : '') +
+      '</div>' +
       (known
         ? '<div class="stat-pills compact">' +
-            '<span class="stat-pill">DEF ' + (c.states.auSol ? '0' : c.def) + '</span>' +
             '<span class="stat-pill">Dégâts ' + c.damage + '</span>' +
             (isEnemy ? '<span class="stat-pill">XP ' + c.xp + '</span>' : '') +
           '</div>'
@@ -957,13 +1023,19 @@
               (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
             '</span>' +
           '</button>';
-      }).join('') +
-      (zoneCount() > 1
-        ? '<button class="move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
-            (c.used.move ? ' disabled' : '') + '>' +
-            '<span class="atk-chip-main"><span class="atk-chip-name">Mouvement</span>' +
-            '<span class="atk-chip-range">changer de zone</span></span></button>'
-        : '') +
+      }).join('') + '</div>';
+      // Mouvement (demi-largeur) + Objet équipé, côte à côte
+      const usedO = c.used.object;
+      html += '<div class="cc-move-row">' +
+        (zoneCount() > 1
+          ? '<button class="move-chip do-move half' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
+              (c.used.move ? ' disabled' : '') + '>' +
+              '<span class="atk-chip-main"><span class="atk-chip-name">Mouvement</span>' +
+              '<span class="atk-chip-range">changer de zone</span></span></button>'
+          : '') +
+        '<button class="obj-chip do-object half" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + '>' +
+          '<span class="atk-chip-main"><span class="atk-chip-name">Objet</span>' +
+          '<span class="atk-chip-range">utiliser l\'objet équipé</span></span></button>' +
       '</div>';
       if (heroHasAnalyse(c)) {
         html += '<div class="cc-secondary"><button class="ghost xs do-analyse" data-iid="' + c.iid + '"' +
@@ -1012,6 +1084,7 @@
     const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
     if (pvLost > 0) {
       target.pv = Math.max(0, target.pv - pvLost);
+      target.dmgTaken += pvLost; attacker.dmgDealt += pvLost;
       checkMonsterTalents(target, pvLost);
     }
     log(wname(attacker.name) + ' inflige les dégâts moyens de l\'arme via ' + label + ' sur ' + wname(target.name) +
@@ -1053,8 +1126,11 @@
         if (!attacker) return;
         const atk = attacker.attacks[pendingAttack.atkIndex];
         if (atk && atk.range === 'contact' && attacker.zone !== c.zone) {
-          alert('Vous ne pouvez pas atteindre cet adversaire.');
-          return;
+          // Pas de mouvement disponible → on ne peut pas atteindre la cible
+          if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
+          // Sinon, déplacement automatique vers la zone de la cible avant d'attaquer
+          doMove(attacker, c.zone);
+          if (attacker.status !== 'active') { pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
         }
         if (pendingAttack.average) execHeroAverageAttack(attacker, pendingAttack.atkIndex, c);
         else execHeroAttack(attacker, pendingAttack.atkIndex, c);
@@ -1140,10 +1216,11 @@
     const c = combat();
     if (c.outcome) {
       const canRest = c.outcome !== 'defeat' && !c.restDone && activeOf('hero').length;
+      const won = c.outcome !== 'defeat';
       box.innerHTML =
         (canRest ? '<button id="pc-rest" class="ghost big">🏕️ Repos court (Endu × 🟩)</button>' : '') +
-        '<button id="pc-finish" class="primary big">Terminer (XP : ' + totalXp() + ')</button>';
-      $('#pc-finish').addEventListener('click', function () { endCombat(true); });
+        '<button id="pc-finish" class="primary big">Terminer' + (won ? ' (XP : ' + totalXp() + ')' : '') + '</button>';
+      $('#pc-finish').addEventListener('click', function () { endCombat(won); });
       const rest = $('#pc-rest');
       if (rest) rest.addEventListener('click', shortRest);
       return;

@@ -1410,3 +1410,47 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .pz-heroes { font-size: .8rem; font-weight: 600; color: var(--action); margin-bottom: .25rem; }
 .pz-mon { display: inline-block; font-size: .78rem; background: rgba(192,86,63,.14); border: 1px solid rgba(192,86,63,.4); border-radius: 8px; padding: .05rem .4rem; margin: .1rem .2rem .1rem 0; }
 .pz-empty { color: var(--muted); }
+
+/* ===================================================================
+   v2.12 — Combat : PV+DEF, mouvement/objet, cimetière, résumé
+   =================================================================== */
+/* Ligne PV + DEF */
+.cc-pvline { display: flex; align-items: center; gap: .4rem; }
+.cc-pvline .pv-bar { flex: 1; }
+.def-badge { font-size: .74rem; font-weight: 700; color: #4a8dd6; background: rgba(77,142,209,.14);
+  border: 1px solid rgba(77,142,209,.4); border-radius: 7px; padding: .08rem .35rem; white-space: nowrap; }
+.combat-card.side-monster .def-badge { color: #8a4a2a; background: rgba(192,86,63,.14); border-color: rgba(192,86,63,.4); }
+
+/* Rangée Mouvement + Objet (demi-largeur chacun) */
+.cc-move-row { display: flex; gap: .4rem; margin-top: .1rem; }
+.cc-move-row .half { flex: 1; }
+.obj-chip {
+  display: inline-flex; align-items: center; gap: .5rem; text-align: left;
+  border-radius: 9px; padding: .45rem .6rem; cursor: pointer; font-size: .86rem;
+  background: rgba(95,164,95,.16); border: 1px solid #5fa45f; color: #356b35;
+}
+.obj-chip:hover:not(:disabled) { background: rgba(95,164,95,.3); }
+.obj-chip:disabled { opacity: .4; cursor: not-allowed; }
+.obj-chip .atk-chip-range { color: #5a8a5a; }
+
+/* Cimetière un peu plus visible */
+.combat-cemetery { margin: .5rem 0; padding: .35rem .5rem; border: 1px dashed var(--border); border-radius: 9px; background: rgba(0,0,0,.05); }
+.cem-label { font-size: .78rem; color: var(--text); }
+.cem-chip { font-size: .76rem; color: var(--text); background: rgba(0,0,0,.08); }
+.cem-chip em { color: var(--muted); }
+
+/* Écran de résumé de combat */
+.combat-summary { text-align: left; }
+.combat-summary .cs-title { margin: 0 0 .6rem; font-size: 1.4rem; }
+.combat-summary.cs-victory .cs-title { color: #4f8b4f; }
+.combat-summary.cs-minor .cs-title { color: #9a6c12; }
+.combat-summary.cs-defeat .cs-title { color: #c0392b; }
+.cs-line { margin: .3rem 0; }
+.cs-cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin: .7rem 0; }
+@media (max-width: 520px) { .cs-cols { grid-template-columns: 1fr; } }
+.cs-block { border: 1px solid var(--border); border-radius: 10px; padding: .5rem .6rem; background: rgba(0,0,0,.03); }
+.cs-block h3 { margin: 0 0 .35rem; font-size: .82rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.cs-row { display: flex; justify-content: space-between; gap: .5rem; font-size: .85rem; padding: .1rem 0; }
+.cs-row.hint { color: var(--muted); }
+.cs-xp { margin: .6rem 0; font-size: 1rem; }
+.combat-summary #cs-continue { margin-top: .4rem; }
