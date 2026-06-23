@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertume — Inventaire &amp; Dés</title>
-  <link rel="stylesheet" href="css/style.css?v=2.06" />
+  <link rel="stylesheet" href="css/style.css?v=2.07" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -65,6 +65,9 @@
 
     <!-- ============ HÉROS ============ -->
     <section id="tab-heroes" class="tab-panel">
+      <div class="io-bar admin-only"><span class="io-label">Tableau CSV :</span>
+        <button class="ghost small" data-export="heroes">⇩ Export</button>
+        <button class="ghost small" data-import="heroes">⇧ Import</button></div>
       <div id="progress-root"></div>
       <div class="card">
         <div class="card-head">
@@ -81,6 +84,9 @@
 
     <!-- ============ BESTIAIRE ============ -->
     <section id="tab-bestiary" class="tab-panel">
+      <div class="io-bar admin-only"><span class="io-label">Tableau CSV :</span>
+        <button class="ghost small" data-export="monsters">⇩ Export</button>
+        <button class="ghost small" data-import="monsters">⇧ Import</button></div>
       <div class="card">
         <div class="card-head">
           <h2>Bestiaire</h2>
@@ -111,6 +117,9 @@
 
     <!-- ============ AVENTURES ============ -->
     <section id="tab-adventures" class="tab-panel">
+      <div class="io-bar admin-only"><span class="io-label">Tableau CSV :</span>
+        <button class="ghost small" data-export="adventures">⇩ Export</button>
+        <button class="ghost small" data-import="adventures">⇧ Import</button></div>
       <div id="adventure-root"></div>
     </section>
 
@@ -131,10 +140,13 @@
 
     <!-- ============ ARMURERIE ============ -->
     <section id="tab-armory" class="tab-panel">
+      <div class="io-bar admin-only"><span class="io-label">Tableau CSV :</span>
+        <button class="ghost small" data-export="items">⇩ Export</button>
+        <button class="ghost small" data-import="items">⇧ Import</button></div>
       <div class="card">
         <div class="card-head">
           <h2 id="armory-title">Armurerie</h2>
-          <div style="display:flex; gap:.4rem;">
+          <div class="admin-only" style="display:flex; gap:.4rem;">
             <button id="btn-load-official" class="ghost" title="Ajouter le catalogue officiel manquant">Catalogue officiel</button>
             <button id="btn-add-item" class="primary">+ Ajouter</button>
           </div>
@@ -478,18 +490,21 @@
     </div>
   </div>
 
+  <input id="io-file" type="file" accept=".csv,text/csv" hidden />
+
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.06"></script>
-  <script src="js/store.js?v=2.06"></script>
-  <script src="js/inventory.js?v=2.06"></script>
-  <script src="js/combatants.js?v=2.06"></script>
-  <script src="js/combat.js?v=2.06"></script>
-  <script src="js/classes.js?v=2.06"></script>
-  <script src="js/adventure.js?v=2.06"></script>
-  <script src="js/session.js?v=2.06"></script>
-  <script src="js/share.js?v=2.06"></script>
-  <script src="js/shell.js?v=2.06"></script>
-  <script src="js/main.js?v=2.06"></script>
+  <script src="js/dice.js?v=2.07"></script>
+  <script src="js/store.js?v=2.07"></script>
+  <script src="js/inventory.js?v=2.07"></script>
+  <script src="js/combatants.js?v=2.07"></script>
+  <script src="js/combat.js?v=2.07"></script>
+  <script src="js/classes.js?v=2.07"></script>
+  <script src="js/adventure.js?v=2.07"></script>
+  <script src="js/session.js?v=2.07"></script>
+  <script src="js/dataio.js?v=2.07"></script>
+  <script src="js/share.js?v=2.07"></script>
+  <script src="js/shell.js?v=2.07"></script>
+  <script src="js/main.js?v=2.07"></script>
 </body>
 </html>

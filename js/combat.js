@@ -22,7 +22,11 @@
   const SOCLE_RANK = { small: 0, medium: 1, large: 2, huge: 3 };
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 
-  function combat() { return Store.state.combat; }
+  // Deux combats indépendants : 'combat' (aventure) et 'testCombat' (équilibrage MJ).
+  // combatKey désigne celui affiché/édité dans le contexte courant.
+  let combatKey = 'combat';
+  function combat() { return Store.state[combatKey]; }
+  function setCombat(v) { Store.state[combatKey] = v; }
 
   // ---------- Construction des instances ----------
   // Compteurs d'usages par attaque (null = illimité)
@@ -76,10 +80,10 @@
       }
     });
     pendingAttack = null; stateMenuFor = null;
-    Store.state.combat = {
+    setCombat({
       turn: 1, phase: 'heroes', bonusXp: 0,
       combatants: combatants, log: [], outcome: null,
-    };
+    });
     log('Début du combat — Tour 1.', 'turn');
     Store.save();
     render();
@@ -96,8 +100,9 @@
   }
 
   function endCombat(finalize) {
-    persistHeroPv();
-    const sessionCtx = Store.state.sessionCombat || null;
+    const isSession = combatKey === 'combat';
+    if (isSession) persistHeroPv(); // un combat de test n'altère pas les PV réels
+    const sessionCtx = isSession ? (Store.state.sessionCombat || null) : null;
     const outcomeLabel = combat() ? (combat().outcome || null) : null;
     if (finalize && combat()) {
       const xp = totalXp();
@@ -109,14 +114,13 @@
       alert(msg);
     }
     pendingAttack = null; stateMenuFor = null;
-    Store.state.combat = null;
-    Store.state.sessionCombat = null;
+    setCombat(null);
+    if (isSession) Store.state.sessionCombat = null;
     Store.save();
     // Repasser sur la cible de rendu par défaut avant de prévenir la session
-    rootSel = '#combat-root';
+    rootSel = (combatKey === 'testCombat') ? '#combat-root' : '#combat-root';
     render();
     if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
-    // Si ce combat était lié à une session d'aventure, prévenir Session
     if (sessionCtx && sessionCtx.sessionId) {
       window.dispatchEvent(new CustomEvent('adventure-combat-end', {
         detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel }
@@ -717,17 +721,17 @@
       '</div>' +
       '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
         '<span class="pv-text">' + c.pv + ' / ' + c.maxPv + ' PV</span></div>' +
-      '<div class="stat-pills compact">' +
-        '<span class="stat-pill">DEF ' + (known ? (c.states.auSol ? '0' : c.def) : '?') + '</span>' +
-        '<span class="stat-pill">Dégâts ' + (known ? c.damage : '?') + '</span>' +
-        (isEnemy ? '<span class="stat-pill">XP ' + (known ? c.xp : '?') + '</span>' : '') +
-      '</div>' +
+      (known
+        ? '<div class="stat-pills compact">' +
+            '<span class="stat-pill">DEF ' + (c.states.auSol ? '0' : c.def) + '</span>' +
+            '<span class="stat-pill">Dégâts ' + c.damage + '</span>' +
+            (isEnemy ? '<span class="stat-pill">XP ' + c.xp + '</span>' : '') +
+          '</div>'
+        : (!dead && combat().phase === 'heroes' && !combat().outcome
+            ? '<div class="cc-stats-hidden"><button class="analyse-btn do-analyse-enemy" data-iid="' + c.iid + '" title="Révèle DEF, Dégâts et XP (+2 XP)">🔍 Analyser</button></div>'
+            : '<div class="stat-pills compact"><span class="stat-pill">DEF ?</span><span class="stat-pill">Dégâts ?</span><span class="stat-pill">XP ?</span></div>')
+      ) +
       (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '');
-
-    // Bouton Analyser sur les adversaires non encore analysés (phase héros)
-    if (isEnemy && !dead && !c.analyzed && combat().phase === 'heroes' && !combat().outcome) {
-      html += '<div class="cc-analyse"><button class="ghost xs do-analyse-enemy" data-iid="' + c.iid + '">🔍 Analyser (+2 XP)</button></div>';
-    }
 
     if (canAct) {
       const usedA = c.used.action, usedO = c.used.object;
@@ -963,6 +967,7 @@
   // préparation : héros et adversaires sont imposés par l'aventure.
   // Le rendu est dirigé vers `sel` (conteneur dans le panneau Session).
   function startInSession(heroIds, monsterRefs, sessionCtx, sel) {
+    combatKey = 'combat';
     rootSel = sel || '#combat-root';
     setupHeroes = {};
     (heroIds || []).forEach(function (id) { setupHeroes[id] = true; });
@@ -976,23 +981,18 @@
   // Réaffiche un combat de session en cours dans le conteneur donné (après un
   // changement d'onglet, le combat n'est pas perdu).
   function resumeInSession(sel) {
+    combatKey = 'combat';
     rootSel = sel || '#combat-root';
     render();
   }
 
   function hasActiveCombat() { return !!Store.state.combat; }
 
-  // Rendu de l'onglet « Combat Test » (MJ). Indépendant du combat d'aventure :
-  // si un combat de session est en cours, on ne l'affiche pas ici (et on le protège).
+  // Onglet « Combat Test » (MJ) : combat indépendant ('testCombat'),
+  // totalement décorrélé du combat d'aventure.
   function renderTest() {
+    combatKey = 'testCombat';
     rootSel = '#combat-root';
-    const root = $('#combat-root');
-    if (!root) return;
-    if (Store.state.combat && Store.state.sessionCombat) {
-      root.innerHTML = '<div class="card"><p class="empty">Un combat d\'aventure est en cours. ' +
-        'Termine-le avant de lancer un combat de test.</p></div>';
-      return;
-    }
     render();
   }
 

@@ -254,23 +254,25 @@
   function renderProgress() {
     const root = $('#progress-root');
     if (!root) return;
-    // En mode Joueur, l'XP n'est pas modifiable : on masque toute la barre d'édition.
-    if (isPlayerMode()) { root.innerHTML = ''; return; }
+    const player = isPlayerMode();
     const info = Store.levelInfo(Store.state.party.xp);
     const nextTxt = info.next
       ? 'Niveau ' + info.next.lvl + ' dans <b>' + info.toNext + '</b> XP'
       : 'Niveau max atteint';
+    // La barre (niveau, XP, XP manquante) est toujours visible ;
+    // seuls les boutons de MODIFICATION sont masqués côté Joueur.
     root.innerHTML =
       '<div class="progress-card">' +
         '<div class="progress-top">' +
           '<div class="level-badge"><span class="lvl-num">' + info.level + '</span><span class="lvl-lbl">Niveau</span></div>' +
           '<div class="progress-info">' +
-            '<div class="pi-line"><span>✦ <b>' + info.xp + '</b> XP partagée</span>' +
+            '<div class="pi-line"><span>✦ <b>' + info.xp + '</b> XP' + (player ? '' : ' partagée') + '</span>' +
               '<span class="points-pill">' + info.points + ' pts de talent</span></div>' +
             '<div class="xp-bar"><div class="xp-fill" style="width:' + info.pct + '%"></div></div>' +
             '<div class="pi-line" style="margin-top:.4rem;color:var(--muted)"><span>' + nextTxt + '</span></div>' +
           '</div>' +
         '</div>' +
+        (player ? '' :
         '<div class="progress-actions">' +
           '<div class="level-control">' +
             '<button class="ghost lvl-btn" data-lvl="-1">− Niveau</button>' +
@@ -289,8 +291,9 @@
           '<button class="ghost small" data-xp="10">+10</button>' +
           '<button class="ghost small" data-xp="50">+50</button>' +
           '<button class="ghost small" id="xp-reset">Réinitialiser</button>' +
-        '</div>' +
+        '</div>') +
       '</div>';
+    if (player) return; // pas de câblage des boutons d'édition
     const lsel = $('#level-select');
     if (lsel) lsel.addEventListener('change', function () { setLevel(parseInt(lsel.value, 10)); });
     root.querySelectorAll('[data-lvl]').forEach(function (b) {
@@ -407,7 +410,11 @@
     const h = Store.state.heroes.find(function (x) { return x.id === id; });
     if (!h) return;
     $('#hero-sheet-title').textContent = h.name;
-    $('#hero-sheet-body').innerHTML = heroSheetHtml(h);
+    // Carte aux couleurs de la classe, comme dans l'onglet Aventuriers
+    $('#hero-sheet-body').innerHTML =
+      '<div class="roster-card hero-card hero-sheet-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
+        heroSheetHtml(h) +
+      '</div>';
     $('#hero-sheet-modal').hidden = false;
   }
 

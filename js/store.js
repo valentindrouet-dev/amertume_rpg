@@ -210,18 +210,23 @@
         if (!Array.isArray(m.attacks)) m.attacks = [];
         m.attacks.forEach(normAttack);
       });
-      // Combat en cours : on jette une structure incompatible plutôt que de planter l'onglet
-      if (parsed.combat) {
-        var ok = Array.isArray(parsed.combat.combatants) && Array.isArray(parsed.combat.log);
-        if (!ok) parsed.combat = null;
-        else parsed.combat.combatants.forEach(function (c) {
+      // Combats en cours (aventure + test) : on jette une structure incompatible
+      function normCombat(cb) {
+        if (!cb) return null;
+        var ok = Array.isArray(cb.combatants) && Array.isArray(cb.log);
+        if (!ok) return null;
+        cb.combatants.forEach(function (c) {
           if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false };
           if (!c.used) c.used = { action: false, move: false, object: false };
           if (!Array.isArray(c.contact)) c.contact = [];
           if (!Array.isArray(c.attacks)) c.attacks = [];
           c.attacks.forEach(normAttack);
         });
+        return cb;
       }
+      parsed.combat = normCombat(parsed.combat);
+      if (typeof parsed.testCombat === 'undefined') parsed.testCombat = null;
+      else parsed.testCombat = normCombat(parsed.testCombat);
       return parsed;
     } catch (e) {
       console.warn('Sauvegarde illisible, réinitialisation.', e);

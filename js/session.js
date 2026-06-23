@@ -113,7 +113,10 @@
       : '<p class="empty">Aucun aventurier pré-construit. Crée-en dans l\'onglet Aventuriers.</p>';
     function refreshAdvice() {
       const n = list.querySelectorAll('[data-hero]:checked').length;
-      if (advice) advice.textContent = difficultyAdvice(n) || 'Sélectionne au moins un aventurier.';
+      if (advice) {
+        advice.textContent = difficultyAdvice(n) || 'Sélectionne au moins un aventurier.';
+        advice.className = 'diff-advice' + (n >= 1 && n <= 4 ? ' diff-' + n : '');
+      }
     }
     list.querySelectorAll('[data-hero]').forEach(function (cb) {
       cb.addEventListener('change', function () {
@@ -329,7 +332,7 @@
       const maxPv = Combatants.heroPv(h);
       const pct = Math.round((curPv / maxPv) * 100);
       return '<div class="ses-hero-row">' +
-        '<span class="ses-hero-name" data-hero="' + h.id + '" title="Voir la fiche">' + esc(h.name) + '</span>' +
+        '<span class="ses-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '" data-hero="' + h.id + '" title="Voir la fiche">' + esc(h.name) + '</span>' +
         '<div class="pv-bar" style="flex:1;min-width:80px"><div class="pv-fill" style="width:' + pct + '%"></div>' +
           '<span class="pv-text">' + curPv + '/' + maxPv + '</span></div>' +
       '</div>';
@@ -349,7 +352,9 @@
       box.innerHTML = '<div class="ses-fin"><strong>Fin de l\'aventure.</strong>' +
         '<button class="primary" id="ses-fin-btn" style="margin-top:.75rem">Terminer la session</button></div>';
       document.getElementById('ses-fin-btn').addEventListener('click', function () {
-        ses.status = 'ended'; save(); activeSession = null; render();
+        ses.status = 'ended'; ses.party.xp = 0;
+        Store.state.party.xp = 0; Store.save();
+        save(); activeSession = null; render();
       });
     } else {
       // exploration / interaction : choix ou avancer
@@ -606,7 +611,9 @@
 
     function refresh() {
       const n = root.querySelectorAll('[data-hero]:checked').length;
-      document.getElementById('grp-advice').textContent = difficultyAdvice(n) || 'Sélectionne au moins un aventurier (max 4).';
+      const adv = document.getElementById('grp-advice');
+      adv.textContent = difficultyAdvice(n) || 'Sélectionne au moins un aventurier (max 4).';
+      adv.className = 'diff-advice' + (n >= 1 && n <= 4 ? ' diff-' + n : '');
       document.getElementById('grp-start').disabled = n < 1 || n > 4;
     }
     root.querySelectorAll('[data-hero]').forEach(function (cb) {
@@ -640,11 +647,13 @@
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (h) heroStates[hid] = { pv: Combatants.heroCurPv(h) };
     });
+    // Chaque partie recommence avec 0 XP
+    Store.state.party.xp = 0; Store.save();
     const ses = {
       id: Store.uid(), adventureId: advId, startedAt: Date.now(), status: 'active',
       heroIds: heroIds.slice(), heroStates: heroStates,
       currentChapterId: firstSc.chapter.id, currentSceneId: firstSc.scene.id,
-      visitedSceneIds: [firstSc.scene.id], choicesTaken: [], party: { xp: Store.state.party.xp },
+      visitedSceneIds: [firstSc.scene.id], choicesTaken: [], party: { xp: 0 },
     };
     sessions.push(ses); save();
     activeSession = ses;
@@ -705,10 +714,11 @@
     });
     root.querySelectorAll('.ses-end').forEach(function (b) {
       b.addEventListener('click', function () {
-        if (!confirm('Terminer cette session ?')) return;
+        if (!confirm('Terminer cette session ? L\'XP des aventuriers sera remise à 0.')) return;
         const id = b.getAttribute('data-id');
-        sessions.forEach(function (s) { if (s.id === id) s.status = 'ended'; });
+        sessions.forEach(function (s) { if (s.id === id) { s.status = 'ended'; if (s.party) s.party.xp = 0; } });
         if (activeSession && activeSession.id === id) activeSession = null;
+        Store.state.party.xp = 0; Store.save();
         save(); renderSaves(scopeAdventureId);
       });
     });
