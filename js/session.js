@@ -204,7 +204,7 @@
         '<div class="ses-scene-card">' +
           (scene.title ? '<h2 class="ses-scene-title">' + esc(scene.title) + '</h2>' : '') +
           '<div class="ses-scene-type type-' + scene.type + '">' + typeLabel(scene.type) + '</div>' +
-          '<div class="ses-scene-text">' + esc(scene.text).replace(/\n/g, '<br>') + '</div>' +
+          sceneContentHtml(scene) +
           '<div id="ses-actions" class="ses-actions"></div>' +
         '</div>' +
         '<div class="ses-heroes">' +
@@ -218,6 +218,28 @@
     });
 
     renderSceneActions(scene, adv, ses);
+  }
+
+  // Construit le HTML du contenu textuel d'une scène.
+  // 1) Si un ancien champ `text` existe, il est affiché en style narratif.
+  // 2) Les blocs typés sont rendus ensuite dans leur propre style.
+  function sceneContentHtml(scene) {
+    var parts = [];
+    // Champ hérité : affiché comme narratif si non vide
+    if (scene.text && scene.text.trim()) {
+      parts.push('<div class="scene-block scene-block-narrative">' +
+        esc(scene.text).replace(/\n/g, '<br>') + '</div>');
+    }
+    // Blocs typés
+    var blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
+    blocks.forEach(function (blk) {
+      var cls = 'scene-block scene-block-' + (blk.type || 'narrative');
+      var content = esc(blk.content || '').replace(/\n/g, '<br>');
+      parts.push('<div class="' + cls + '">' + content + '</div>');
+    });
+    return parts.length
+      ? '<div class="ses-scene-blocks">' + parts.join('') + '</div>'
+      : '';
   }
 
   function typeLabel(t) {

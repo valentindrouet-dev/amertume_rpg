@@ -327,9 +327,16 @@
             </select>
           </label>
         </div>
-        <label>Texte de la scène
-          <textarea id="sm-text" rows="5" placeholder="Décris la scène…"></textarea>
+        <label>Texte hérité (ancien format)
+          <textarea id="sm-text" rows="3" placeholder="Laisse vide et utilise les blocs ci-dessous pour le nouveau format."></textarea>
         </label>
+
+        <!-- Blocs de texte typés -->
+        <div class="attacks-head">
+          <h3>Blocs de texte</h3>
+          <button type="button" id="sm-add-block" class="ghost small">+ Bloc</button>
+        </div>
+        <div id="sm-blocks"></div>
 
         <!-- Navigation (next) -->
         <div id="sm-next-section">

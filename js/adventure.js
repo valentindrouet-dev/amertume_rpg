@@ -23,13 +23,21 @@
   // ---------- Données ----------
   let adventures = [];
 
+  const BLOCK_TYPES = [
+    { value: 'narrative', label: 'Narratif (italique)' },
+    { value: 'technical', label: 'Technique (normal)'  },
+    { value: 'alert',     label: 'Alerte (gras)'       },
+    { value: 'tip',       label: 'Conseil (encadré)'   },
+  ];
+
   // Modèle vide d'une scène
   function newScene(id) {
     return {
       id: id || Store.uid(),
       type: 'exploration',
       title: '',
-      text: '',
+      text: '',           // champ hérité — conservé pour compatibilité
+      blocks: [],         // [{ id, type, content }]
       // navigation
       choices: [],        // [{ id, label, targetSceneId }]
       nextSceneId: null,  // pour fin auto sans choix
@@ -246,7 +254,9 @@
     const typeSelect = document.getElementById('sm-type');
     typeSelect.value = scene.type || 'exploration';
 
+    if (!Array.isArray(scene.blocks)) scene.blocks = [];
     refreshSceneModalSections(scene, adv, allScenes);
+    renderBlocksEditor(scene);
 
     typeSelect.onchange = function () {
       scene.type = typeSelect.value;
@@ -254,6 +264,10 @@
     };
     document.getElementById('sm-title').oninput = function () { scene.title = this.value; };
     document.getElementById('sm-text').oninput = function () { scene.text = this.value; };
+    document.getElementById('sm-add-block').onclick = function () {
+      scene.blocks.push({ id: Store.uid(), type: 'narrative', content: '' });
+      renderBlocksEditor(scene);
+    };
 
     document.getElementById('sm-save').onclick = function () {
       save();
@@ -310,6 +324,36 @@
       document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
       renderItemRewards(scene, items);
     }
+  }
+
+  function renderBlocksEditor(scene) {
+    const box = document.getElementById('sm-blocks');
+    if (!box) return;
+    if (!scene.blocks.length) {
+      box.innerHTML = '<p class="empty" style="margin:.25rem 0 .35rem">Aucun bloc — clique « + Bloc » pour en ajouter.</p>';
+    } else {
+      box.innerHTML = scene.blocks.map(function (blk, i) {
+        const typeOpts = BLOCK_TYPES.map(function (t) {
+          return '<option value="' + t.value + '"' + (t.value === blk.type ? ' selected' : '') + '>' + esc(t.label) + '</option>';
+        }).join('');
+        return '<div class="adv-block-row">' +
+          '<div class="adv-block-row-head">' +
+            '<select class="block-type-sel">' + typeOpts + '</select>' +
+            '<button class="icon-btn block-del" title="Supprimer ce bloc">✕</button>' +
+          '</div>' +
+          '<textarea class="block-content" rows="3">' + esc(blk.content || '') + '</textarea>' +
+        '</div>';
+      }).join('');
+    }
+    box.querySelectorAll('.block-type-sel').forEach(function (sel, i) {
+      sel.onchange = function () { scene.blocks[i].type = this.value; };
+    });
+    box.querySelectorAll('.block-content').forEach(function (ta, i) {
+      ta.oninput = function () { scene.blocks[i].content = this.value; };
+    });
+    box.querySelectorAll('.block-del').forEach(function (b, i) {
+      b.onclick = function () { scene.blocks.splice(i, 1); renderBlocksEditor(scene); };
+    });
   }
 
   function renderChoicesEditor(scene, allScenes) {
