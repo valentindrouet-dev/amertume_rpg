@@ -249,6 +249,32 @@
     return added;
   }
 
+  // ---------- Aventures (stockage séparé) ----------
+  const ADV_KEY = 'amertume_adventures_v1';
+  const SES_KEY = 'amertume_sessions_v1';
+
+  function loadAdventures() {
+    try {
+      const raw = global.localStorage.getItem(ADV_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+
+  function saveAdventures(adventures) {
+    try { global.localStorage.setItem(ADV_KEY, JSON.stringify(adventures)); } catch (e) {}
+  }
+
+  function loadSessions() {
+    try {
+      const raw = global.localStorage.getItem(SES_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+
+  function saveSessions(sessions) {
+    try { global.localStorage.setItem(SES_KEY, JSON.stringify(sessions)); } catch (e) {}
+  }
+
   global.Store = {
     uid: uid,
     noStates: noStates,
@@ -265,5 +291,9 @@
       state = defaultState();
       save();
     },
+    loadAdventures: loadAdventures,
+    saveAdventures: saveAdventures,
+    loadSessions: loadSessions,
+    saveSessions: saveSessions,
   };
 })(window);

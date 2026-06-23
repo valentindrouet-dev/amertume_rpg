@@ -18,6 +18,8 @@
       <button class="tab" data-tab="heroes">Héros</button>
       <button class="tab" data-tab="bestiary">Bestiaire</button>
       <button class="tab" data-tab="armory">Armurerie</button>
+      <button class="tab" data-tab="adventures">Aventures</button>
+      <button class="tab" data-tab="session">Session</button>
     </nav>
     <div class="topbar-actions">
       <button id="btn-export" class="ghost" title="Exporter en .json">⬇ Export</button>
@@ -72,6 +74,16 @@
         </div>
         <div id="monster-list" class="roster-list"></div>
       </div>
+    </section>
+
+    <!-- ============ AVENTURES ============ -->
+    <section id="tab-adventures" class="tab-panel">
+      <div id="adventure-root"></div>
+    </section>
+
+    <!-- ============ SESSION ============ -->
+    <section id="tab-session" class="tab-panel">
+      <div id="session-root"></div>
     </section>
 
     <!-- ============ ARMURERIE ============ -->
@@ -294,11 +306,92 @@
     </div>
   </div>
 
+  <!-- ============ MODALE SCÈNE D'AVENTURE ============ -->
+  <div id="scene-modal" class="modal" hidden>
+    <div class="modal-box" style="max-width:640px">
+      <div class="modal-head">
+        <h2>Éditer la scène</h2>
+        <button id="sm-close" class="icon-btn">✕</button>
+      </div>
+      <form class="item-form" onsubmit="return false">
+        <div class="form-row" style="grid-template-columns:2fr 1fr">
+          <label>Titre <input type="text" id="sm-title" placeholder="Titre de la scène" /></label>
+          <label>Type
+            <select id="sm-type">
+              <option value="exploration">Exploration</option>
+              <option value="interaction">Interaction</option>
+              <option value="combat">Combat</option>
+              <option value="reward">Récompense</option>
+              <option value="fin">Fin</option>
+            </select>
+          </label>
+        </div>
+        <label>Texte de la scène
+          <textarea id="sm-text" rows="5" placeholder="Décris la scène…"></textarea>
+        </label>
+
+        <!-- Navigation (next) -->
+        <div id="sm-next-section">
+          <label>Scène suivante (auto)
+            <select id="sm-next"></select>
+          </label>
+        </div>
+
+        <!-- Choix -->
+        <div id="sm-choices-section">
+          <div class="attacks-head"><h3>Choix</h3></div>
+          <div id="sm-choices"></div>
+        </div>
+
+        <!-- Combat -->
+        <div id="sm-combat-section">
+          <div class="attacks-head"><h3>Monstres</h3></div>
+          <div id="sm-monster-refs"></div>
+          <div class="form-row" style="grid-template-columns:1fr 1fr;margin-top:.5rem">
+            <label>Scène si victoire <select id="sm-outcome"></select></label>
+            <label>Scène si défaite  <select id="sm-defeat"></select></label>
+          </div>
+        </div>
+
+        <!-- Récompense -->
+        <div id="sm-reward-section">
+          <div class="attacks-head"><h3>Récompenses</h3></div>
+          <label>XP <input type="number" id="sm-xp" min="0" value="0" style="width:80px" /></label>
+          <div class="attacks-head" style="margin-top:.35rem"><h3>Objets</h3></div>
+          <div id="sm-item-rewards"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="sm-save" class="primary">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODALE CHOIX HÉROS (session) ============ -->
+  <div id="hero-picker-modal" class="modal" hidden>
+    <div class="modal-box" style="max-width:420px">
+      <div class="modal-head">
+        <h2>Héros engagés</h2>
+      </div>
+      <div class="item-form">
+        <p class="hint">Coche les héros qui participent à cette aventure.</p>
+        <div id="hero-picker-list" class="setup-list"></div>
+        <div class="modal-actions">
+          <button type="button" id="hero-picker-cancel" class="ghost">Annuler</button>
+          <button type="button" id="hero-picker-start" class="primary">Commencer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/dice.js"></script>
   <script src="js/store.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/combatants.js"></script>
   <script src="js/combat.js"></script>
+  <script src="js/adventure.js"></script>
+  <script src="js/session.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

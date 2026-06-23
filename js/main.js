@@ -22,6 +22,8 @@
         if (target === 'heroes') safe('heroes', Combatants.renderHeroes);
         if (target === 'bestiary') safe('bestiary', Combatants.renderMonsters);
         if (target === 'armory') safe('armory', Inventory.render);
+        if (target === 'adventures') safe('adventures', Adventure.render);
+        if (target === 'session') safe('session', Session.render);
       });
     });
   }
@@ -67,5 +69,7 @@
     safe('inventory.init', Inventory.init);
     safe('combatants.init', Combatants.init);
     safe('combat.init', Combat.init);
+    safe('adventure.init', Adventure.init);
+    safe('session.init', Session.init);
   });
 })();

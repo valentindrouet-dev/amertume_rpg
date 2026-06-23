@@ -96,6 +96,8 @@
 
   function endCombat(finalize) {
     persistHeroPv();
+    const sessionCtx = Store.state.sessionCombat || null;
+    const outcomeLabel = combat() ? (combat().outcome || null) : null;
     if (finalize && combat()) {
       const xp = totalXp();
       const before = Store.levelInfo(Store.state.party.xp);
@@ -110,6 +112,12 @@
     Store.save();
     render();
     if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
+    // Si ce combat était lié à une session d'aventure, prévenir Session
+    if (sessionCtx && sessionCtx.sessionId) {
+      window.dispatchEvent(new CustomEvent('adventure-combat-end', {
+        detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel }
+      }));
+    }
   }
 
   // ---------- Utilitaires ----------
@@ -957,6 +965,13 @@
         e.text + '</div>';
     }).join('');
   }
+
+  // Pré-remplir depuis une session d'aventure
+  window.addEventListener('session-start-combat', function (e) {
+    const refs = e.detail.monsterRefs || [];
+    setupMonsters = refs.map(function (r) { return { templateId: r.monsterId, count: r.count || 1 }; });
+    render();
+  });
 
   function init() { render(); }
 
