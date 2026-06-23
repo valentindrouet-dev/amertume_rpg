@@ -17,7 +17,8 @@
     black:  { key: 'black',  label: 'Mortel',   emoji: '⬛', ignoresDef: true,  heal: false },
     yellow: { key: 'yellow', label: 'Phase',    emoji: '🟨', ignoresDef: false, heal: false },
   };
-  const DICE_ORDER = ['white', 'bone', 'red', 'blue', 'green', 'black', 'yellow'];
+  // Ordre d'affichage : NOIR > ROUGE > BLEU > VERT > JAUNE > BLANC > OS
+  const DICE_ORDER = ['black', 'red', 'blue', 'green', 'yellow', 'white', 'bone'];
 
   function emptyPool() {
     const p = {};

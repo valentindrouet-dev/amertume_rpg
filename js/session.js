@@ -410,11 +410,15 @@
     // Mini-schéma des zones : adversaires par zone + position de départ des aventuriers
     const preview = '<div class="combat-preview zc-' + Math.max(1, zones.length) + '">' +
       zones.map(function (z) {
+        const rank = { boss: 4, solitaire: 3, alpha: 2, standard: 1 };
+        let bestType = '';
         const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
           const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
+          if (m && (rank[m.type] || 0) > (rank[bestType] || 0)) bestType = m.type;
           return '<span class="pz-mon">' + esc(m ? m.name : '?') + (r.count > 1 ? ' ×' + r.count : '') + '</span>';
         }).join('');
-        return '<div class="preview-zone' + (z.heroStart ? ' hero-start' : '') + '">' +
+        const ztype = z.heroStart ? 'ztype-heroes' : (bestType ? 'ztype-' + (bestType === 'standard' ? 'sbire' : bestType) : '');
+        return '<div class="preview-zone ' + ztype + (z.heroStart ? ' hero-start' : '') + '">' +
           '<div class="pz-name">' + esc(z.name || 'Zone') + '</div>' +
           (z.heroStart ? '<div class="pz-heroes">🛡 Aventuriers</div>' : '') +
           (mons || (z.heroStart ? '' : '<span class="pz-empty">—</span>')) +
@@ -424,7 +428,7 @@
 
     box.innerHTML =
       '<div class="ses-combat-block">' +
-        '<p class="hint">Disposition du combat :</p>' +
+        '<p class="hint">Disposition du combat (vous ne pouvez pas changer votre position de départ) :</p>' +
         preview +
         '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">' +
           '<button class="primary" id="ses-start-combat">⚔ Lancer le combat</button>' +

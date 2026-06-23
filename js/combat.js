@@ -258,7 +258,7 @@
     c.used.move = true;
     if (c.status !== 'active') return; // tombé au coma en partant
     c.zone = zi;
-    log(wname(c.name) + ' se déplace vers <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
+    log(wname(c.name) + ' se déplace <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
   }
 
   function moveCombatant(iid, zi) {
@@ -437,6 +437,8 @@
   function resetActivations() {
     combat().combatants.forEach(function (c) {
       c.used = { action: false, move: false, object: false };
+      // Les usages d'attaque sont « par tour » : on les réarme à chaque tour
+      c.attackUses = initUses(c.attacks);
     });
   }
 
@@ -483,7 +485,7 @@
         const target = chooseFrom(m, heroes);
         if (target && !m.used.move) {
           m.zone = target.zone; m.used.move = true;
-          log(wname(m.name) + ' se déplace vers <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
+          log(wname(m.name) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
         }
         if (target && target.zone === m.zone) applyAttack(m, contactIdx, target);
       }
@@ -548,6 +550,12 @@
   // Tour des adversaires en une seule étape : tous les adversaires en vie agissent,
   // puis on enchaîne directement sur le tour suivant.
   function enemyTurnAndAdvance() {
+    // Avertissement : des aventuriers n'ont encore rien fait ce tour
+    const idle = activeOf('hero').filter(function (h) { return !h.used.action && !h.used.move && !h.used.object; });
+    if (idle.length) {
+      const names = idle.map(function (h) { return h.name; }).join(', ');
+      if (!confirm('⚠️ ' + names + ' n\'a/n\'ont pas encore agi ce tour.\nLancer quand même le tour des adversaires ?')) return;
+    }
     pendingAttack = null; stateMenuFor = null;
     const c = combat();
     c.phase = 'monsters';
@@ -653,31 +661,42 @@
     const root = $(rootSel);
     if (!root) return;
     const c = combat();
-    const OUT = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
+    const OUT = { victory: 'VICTOIRE', minor: 'VICTOIRE MINEURE', defeat: 'DÉFAITE' };
+    const ICON = { victory: '🏆', minor: '🥉', defeat: '💀' };
+    const out = c.outcome || 'end';
     const killed = c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; });
     const fled = c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'fled'; });
-    const dealt = c.combatants.filter(function (x) { return x.dmgDealt > 0; }).sort(function (a, b) { return b.dmgDealt - a.dmgDealt; });
-    const taken = c.combatants.filter(function (x) { return x.dmgTaken > 0; }).sort(function (a, b) { return b.dmgTaken - a.dmgTaken; });
     const xp = c.finalize ? totalXp() : 0;
-    function names(list) { return list.length ? list.map(function (x) { return esc(x.name); }).join(', ') : '—'; }
-    function rows(list, key) {
-      if (!list.length) return '<div class="cs-row hint">—</div>';
-      return list.map(function (x) { return '<div class="cs-row"><span>' + esc(x.name) + '</span><strong>' + x[key] + '</strong></div>'; }).join('');
+    // Tableau des combattants : aventuriers puis adversaires ayant agi/subi
+    const parts = c.combatants.filter(function (x) { return x.side === 'hero' || x.dmgDealt > 0 || x.dmgTaken > 0; });
+    parts.sort(function (a, b) { return (a.side === 'hero' ? 0 : 1) - (b.side === 'hero' ? 0 : 1) || b.dmgDealt - a.dmgDealt; });
+    function statRows() {
+      return parts.map(function (x) {
+        return '<div class="cs-stat-row ' + (x.side === 'hero' ? 'is-hero' : 'is-foe') + '">' +
+          '<span class="cs-name">' + (x.side === 'hero' ? '🛡️' : '⚔️') + ' ' + esc(x.name) + '</span>' +
+          '<span class="cs-val cs-dealt" title="Dégâts infligés">' + x.dmgDealt + '</span>' +
+          '<span class="cs-val cs-taken" title="Dégâts subis">' + x.dmgTaken + '</span>' +
+        '</div>';
+      }).join('');
     }
-    root.innerHTML = '<div class="card combat-summary cs-' + (c.outcome || 'end') + '">' +
-      '<h2 class="cs-title">' + (OUT[c.outcome] || 'Combat terminé') + '</h2>' +
-      '<div class="cs-line">☠ Adversaires vaincus : <strong>' + names(killed) + '</strong></div>' +
-      (fled.length ? '<div class="cs-line">🏃 Adversaires en fuite : <strong>' + names(fled) + '</strong></div>' : '') +
-      '<div class="cs-cols">' +
-        '<div class="cs-block"><h3>Dégâts infligés</h3>' + rows(dealt, 'dmgDealt') + '</div>' +
-        '<div class="cs-block"><h3>Dégâts subis</h3>' + rows(taken, 'dmgTaken') + '</div>' +
+    function chips(list) { return list.map(function (x) { return '<span class="cs-chip">' + esc(x.name) + '</span>'; }).join(''); }
+
+    root.innerHTML = '<div class="combat-summary cs-' + out + '">' +
+      '<div class="cs-banner"><span class="cs-icon">' + (ICON[out] || '⚔️') + '</span>' +
+        '<span class="cs-title">' + (OUT[out] || 'COMBAT TERMINÉ') + '</span></div>' +
+      '<div class="cs-xpbig"><span class="cs-xpnum">+' + xp + '</span><span class="cs-xplbl">XP gagnée</span></div>' +
+      '<div class="cs-statcard">' +
+        '<div class="cs-stat-head"><span class="cs-name">Combattant</span>' +
+          '<span class="cs-val">⚔️ Infligés</span><span class="cs-val">🩸 Subis</span></div>' +
+        statRows() +
       '</div>' +
+      (killed.length ? '<div class="cs-group cs-killed"><div class="cs-glabel">💀 Adversaires détruits</div><div class="cs-chips">' + chips(killed) + '</div></div>' : '') +
+      (fled.length ? '<div class="cs-group cs-fledg"><div class="cs-glabel">🏃 Adversaires en fuite</div><div class="cs-chips">' + chips(fled) + '</div></div>' : '') +
       (c.healLines && c.healLines.length
-        ? '<div class="cs-line">✚ Aventuriers ranimés : <strong>' +
-            c.healLines.map(function (h) { return esc(h.name) + ' (' + h.pv + ' PV)'; }).join(', ') + '</strong></div>'
+        ? '<div class="cs-group cs-healg"><div class="cs-glabel">✚ Aventuriers ranimés</div><div class="cs-chips">' +
+            c.healLines.map(function (h) { return '<span class="cs-chip">' + esc(h.name) + ' · ' + h.pv + ' PV</span>'; }).join('') + '</div></div>'
         : '') +
-      '<div class="cs-xp">✦ XP gagnée : <strong>' + xp + '</strong></div>' +
-      '<button class="primary big" id="cs-continue">Continuer</button>' +
+      '<button class="primary big cs-continue-btn" id="cs-continue">Continuer l\'aventure →</button>' +
     '</div>';
     $('#cs-continue').addEventListener('click', finishCombat);
   }
@@ -830,6 +849,17 @@
     const a = $('#setup-auto'); if (a) a.disabled = !ok;
   }
 
+  // Couleur de bordure d'une zone selon ses occupants
+  const ZTYPE_RANK = { boss: 4, solitaire: 3, alpha: 2, standard: 1 };
+  function zoneColorClass(zi) {
+    const here = combat().combatants.filter(function (c) { return c.zone === zi && c.status === 'active'; });
+    if (here.some(function (c) { return c.side === 'hero'; })) return 'ztype-heroes';
+    const mons = here.filter(function (c) { return c.side === 'monster'; });
+    if (!mons.length) return '';
+    let best = mons.reduce(function (a, b) { return (ZTYPE_RANK[b.type] || 0) > (ZTYPE_RANK[a.type] || 0) ? b : a; });
+    return 'ztype-' + (best.type === 'standard' ? 'sbire' : best.type);
+  }
+
   // ---------- Plateau de combat ----------
   function renderBoard(root) {
     const c = combat();
@@ -848,7 +878,7 @@
       '<div class="targeting-banner' + ((pendingAttack || pendingMove) ? ' active' : '') + '">' + bannerHtml() + '</div>' +
       '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
         zones().map(function (z, zi) {
-          return '<div class="combat-zone' + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
+          return '<div class="combat-zone ' + zoneColorClass(zi) + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
             '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
             '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
           '</div>';
@@ -938,11 +968,19 @@
   function renderCemetery() {
     const box = $('#combat-cemetery');
     if (!box) return;
-    const dead = combat().combatants.filter(function (c) { return c.side === 'monster' && c.status !== 'active'; });
-    if (!dead.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<span class="cem-label">☠ Cimetière</span>' + dead.map(function (c) {
-      return '<span class="cem-chip">' + esc(c.name) + ' <em>' + (c.status === 'coma' ? 'vaincu' : 'a fui') + '</em></span>';
-    }).join('');
+    const killed = combat().combatants.filter(function (c) { return c.side === 'monster' && c.status === 'coma'; });
+    const fled = combat().combatants.filter(function (c) { return c.side === 'monster' && c.status === 'fled'; });
+    if (!killed.length && !fled.length) { box.innerHTML = ''; return; }
+    let html = '';
+    if (killed.length) {
+      html += '<div class="cem-row cem-killed"><span class="cem-label">☠ Détruits</span>' +
+        killed.map(function (c) { return '<span class="cem-chip">💀 ' + esc(c.name) + '</span>'; }).join('') + '</div>';
+    }
+    if (fled.length) {
+      html += '<div class="cem-row cem-fled"><span class="cem-label">EN FUITE</span>' +
+        fled.map(function (c) { return '<span class="cem-chip">' + esc(c.name) + '</span>'; }).join('') + '</div>';
+    }
+    box.innerHTML = html;
   }
 
   function statesBadges(c) {
@@ -971,7 +1009,7 @@
 
     const isEnemy = c.side === 'monster';
     const known = !isEnemy || c.analyzed;   // stats ennemies cachées avant Analyse
-    const pvText = (isEnemy && !known) ? 'PV ?' : (c.pv + ' / ' + c.maxPv + ' PV');
+    const pvText = (isEnemy && !known) ? '' : (c.pv + ' / ' + c.maxPv + ' PV');
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
         (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
@@ -1034,8 +1072,7 @@
               '<span class="atk-chip-range">changer de zone</span></span></button>'
           : '') +
         '<button class="obj-chip do-object half" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + '>' +
-          '<span class="atk-chip-main"><span class="atk-chip-name">Objet</span>' +
-          '<span class="atk-chip-range">utiliser l\'objet équipé</span></span></button>' +
+          '<span class="atk-chip-main"><span class="atk-chip-name">Utiliser Obj. équipé</span></span></button>' +
       '</div>';
       if (heroHasAnalyse(c)) {
         html += '<div class="cc-secondary"><button class="ghost xs do-analyse" data-iid="' + c.iid + '"' +
@@ -1215,14 +1252,9 @@
     const box = $('#phase-controls');
     const c = combat();
     if (c.outcome) {
-      const canRest = c.outcome !== 'defeat' && !c.restDone && activeOf('hero').length;
       const won = c.outcome !== 'defeat';
-      box.innerHTML =
-        (canRest ? '<button id="pc-rest" class="ghost big">🏕️ Repos court (Endu × 🟩)</button>' : '') +
-        '<button id="pc-finish" class="primary big">Terminer' + (won ? ' (XP : ' + totalXp() + ')' : '') + '</button>';
+      box.innerHTML = '<button id="pc-finish" class="primary big result-btn">📊 Résultat du Combat</button>';
       $('#pc-finish').addEventListener('click', function () { endCombat(won); });
-      const rest = $('#pc-rest');
-      if (rest) rest.addEventListener('click', shortRest);
       return;
     }
     if (c.phase === 'heroes') {

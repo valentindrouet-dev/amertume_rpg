@@ -360,14 +360,16 @@
       list.innerHTML = '<p class="empty">Aucun aventurier. Clique sur « + Nouvel Aventurier ».</p>';
       return;
     }
+    const player = s.mode === 'player';
     list.innerHTML = heroes.map(function (h) {
       const gear = heroGear(h).map(function (it) { return it.name; });
-      return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
+      return '<div class="roster-card hero-card' + (player ? ' clickable-sheet' : '') + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '"' +
+          (player ? ' data-sheet-hero="' + h.id + '" title="Voir la fiche complète"' : '') + '>' +
         '<div class="roster-head hero-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
           (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
-          '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>' +
+          (player ? '' : '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>') +
           '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="hero-stat-row">' +
@@ -375,10 +377,12 @@
           '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">' + h.damage + '</span></div>' +
         '</div>' +
-        '<div class="roster-section">' +
-          '<div class="roster-label">Équipement</div>' +
-          '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div>' +
-        '</div>' +
+        // En mode Joueur, l'équipement n'est pas affiché ici (doublon avec l'onglet Inventaire)
+        (player ? '' :
+          '<div class="roster-section">' +
+            '<div class="roster-label">Équipement</div>' +
+            '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div>' +
+          '</div>') +
         '<div class="roster-section">' +
           '<div class="roster-label">Attaques</div>' +
           '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div>' +
@@ -389,6 +393,12 @@
     }).join('');
     list.querySelectorAll('[data-edit-hero]').forEach(function (b) {
       b.addEventListener('click', function () { openHeroModal(b.getAttribute('data-edit-hero')); });
+    });
+    list.querySelectorAll('[data-sheet-hero]').forEach(function (card) {
+      card.addEventListener('click', function (e) {
+        if (e.target.closest('button')) return;
+        openHeroSheet(card.getAttribute('data-sheet-hero'));
+      });
     });
     list.querySelectorAll('[data-del-hero]').forEach(function (b) {
       b.addEventListener('click', function () {
