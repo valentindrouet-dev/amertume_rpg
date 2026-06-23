@@ -690,24 +690,10 @@
       return;
     }
 
+    // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
     const rows = heroes.map(function (h) {
-      const checked = setupSel[h.id] ? ' checked' : '';
-      const weapons = Combatants.heroGear(h).filter(function (it) { return it.category === 'weapon'; }).map(function (it) { return it.name; });
-      const skills = Object.keys(h.skills || {}).filter(function (k) { return (h.skills[k] || 0) > 0; })
-        .map(function (k) { return k + ' +' + h.skills[k]; });
-      return '<label class="setup-row hero-pick' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' +
-        '<input type="checkbox" data-hero="' + h.id + '"' + checked + '>' +
-        '<div class="hero-pick-body">' +
-          '<div class="hero-pick-top"><span class="setup-name">' + esc(h.name) + '</span>' +
-            (h.klass ? '<span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</div>' +
-          '<div class="hero-pick-stats">' +
-            '<span class="stat-pill">❤ ' + Combatants.heroPv(h) + '</span>' +
-            '<span class="stat-pill">🛡 ' + Combatants.heroDef(h) + '</span>' +
-            '<span class="stat-pill">⚔ +' + h.damage + '</span>' +
-          '</div>' +
-          '<div class="hero-pick-line"><b>Armes :</b> ' + esc(weapons.length ? weapons.join(', ') : '—') + '</div>' +
-          (skills.length ? '<div class="hero-pick-line"><b>Compétences :</b> ' + esc(skills.join(' · ')) + '</div>' : '') +
-        '</div>' +
+      return '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
+        Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id] }) +
       '</label>';
     }).join('');
 
@@ -720,7 +706,7 @@
           '</div>' +
         '</div>' +
         '<p class="hint">Choisis 1 à 4 aventuriers qui partent à l\'aventure.</p>' +
-        '<div id="grp-list" class="setup-list">' + rows + '</div>' +
+        '<div id="grp-list" class="hero-pick-list">' + rows + '</div>' +
         '<p class="diff-advice" id="grp-advice"></p>' +
         '<div class="roll-actions"><button class="primary big" id="grp-start">▶ Commencer l\'aventure</button></div>' +
       '</div>';
@@ -738,6 +724,8 @@
           cb.checked = false; alert('Maximum 4 aventuriers par aventure.');
         }
         setupSel[cb.getAttribute('data-hero')] = cb.checked;
+        const lbl = cb.closest('.hero-pick-card');
+        if (lbl) lbl.classList.toggle('selected', cb.checked);
         refresh();
       });
     });

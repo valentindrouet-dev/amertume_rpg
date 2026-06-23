@@ -362,6 +362,29 @@
     return s.mode === 'player' ? adventureHeroes(s.advId) : prebuiltHeroes();
   }
 
+  // Carte d'aventurier réutilisable (même design que l'onglet Groupe).
+  // opts : { selectable, checked } pour la sélection de groupe.
+  function heroCardHtml(h, opts) {
+    opts = opts || {};
+    return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
+      '<div class="roster-head hero-head">' +
+        (opts.selectable ? '<input type="checkbox" class="hero-pick-cb" data-hero="' + h.id + '"' + (opts.checked ? ' checked' : '') + '>' : '') +
+        '<span class="roster-name">' + esc(h.name) + '</span>' +
+        (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
+        (h.rapide ? '<span class="tag">Rapide</span>' : '') +
+      '</div>' +
+      '<div class="hero-stat-row">' +
+        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroCurPv(h) + ' / ' + heroPv(h) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + h.damage + '</span></div>' +
+      '</div>' +
+      '<div class="roster-section"><div class="roster-label">Attaques</div>' +
+        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div></div>' +
+      skillsSummary(h.skills) +
+      (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
+    '</div>';
+  }
+
   function renderHeroes() {
     renderProgress();
     const s = scope();
@@ -953,6 +976,7 @@
     heroDef: heroDef,
     heroCombatAttacks: heroCombatAttacks,
     attacksSummary: attacksSummary,
+    heroCardHtml: heroCardHtml,
     TYPE_LABEL: TYPE_LABEL,
     MENACE_LABEL: MENACE_LABEL,
     RANGE_LABEL: RANGE_LABEL,

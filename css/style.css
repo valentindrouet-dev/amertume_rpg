@@ -1618,3 +1618,14 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .pz-mon.ztype-alpha     { color: #e2974a; background: rgba(217,131,36,.16);  border-color: rgba(217,131,36,.55); }
 .pz-mon.ztype-solitaire { color: #e58368; background: rgba(192,57,43,.18);   border-color: rgba(192,57,43,.55); }
 .pz-mon.ztype-boss      { color: #bd9be0; background: rgba(124,82,168,.18);   border-color: rgba(124,82,168,.55); }
+
+/* ===================================================================
+   v2.25 — Sélection du groupe : cartes identiques à l'onglet Groupe
+   =================================================================== */
+.hero-pick-list { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+@media (max-width: 760px) { .hero-pick-list { grid-template-columns: 1fr; } }
+.hero-pick-card { display: block; cursor: pointer; margin: 0; }
+.hero-pick-card > .roster-card { margin: 0; transition: box-shadow .12s, transform .12s; }
+.hero-pick-card:hover > .roster-card { box-shadow: 0 4px 14px rgba(0,0,0,.22); transform: translateY(-1px); }
+.hero-pick-card.selected > .roster-card { outline: 3px solid var(--accent-2); outline-offset: 1px; }
+.hero-pick-cb { width: 18px; height: 18px; cursor: pointer; margin-right: .3rem; accent-color: var(--accent); flex: 0 0 auto; }
