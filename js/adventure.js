@@ -22,6 +22,7 @@
 
   // ---------- Données ----------
   let adventures = [];
+  let collapsedChapters = {}; // { chapterId: true } — état enroulé dans l'éditeur
 
   const BLOCK_TYPES = [
     { value: 'narrative', label: 'Narratif (italique)' },
@@ -205,25 +206,21 @@
           '<button id="adv-back" class="ghost small">← Liste</button>' +
           '<h2 id="adv-title-display">' + esc(a.title) + '</h2>' +
         '</div>' +
-        '<div class="adv-title-row">' +
-          '<label class="adv-label">Titre de l\'aventure' +
-            '<input type="text" id="adv-title" value="' + esc(a.title) + '" />' +
-          '</label>' +
-          '<label class="adv-label">Mot de passe (optionnel — verrouille l\'aventure sur l\'accueil)' +
-            '<input type="text" id="adv-password" value="' + esc(a.password || '') + '" placeholder="Aucun" />' +
-          '</label>' +
-        '</div>' +
-        '<div class="adv-title-row">' +
-          '<label class="adv-label">Durée (affichée sur l\'accueil)' +
-            '<input type="text" id="adv-duration" value="' + esc(a.duration || '') + '" placeholder="ex. 2 h" />' +
-          '</label>' +
-          '<label class="adv-label">Difficulté (affichée sur l\'accueil)' +
-            '<input type="text" id="adv-difficulty" value="' + esc(a.difficulty || '') + '" placeholder="ex. Intermédiaire" />' +
-          '</label>' +
-        '</div>' +
-        '<label class="adv-label">Résumé (affiché sur l\'accueil)' +
-          '<textarea id="adv-summary" rows="2" placeholder="Quelques lignes de présentation…">' + esc(a.summary || '') + '</textarea>' +
+        '<label class="adv-label">Titre de l\'aventure' +
+          '<input type="text" id="adv-title" value="' + esc(a.title) + '" />' +
         '</label>' +
+        '<div class="adv-meta-grid">' +
+          '<label class="adv-label">Mot de passe' +
+            '<input type="text" id="adv-password" value="' + esc(a.password || '') + '" placeholder="Aucun" /></label>' +
+          '<label class="adv-label">Durée' +
+            '<input type="text" id="adv-duration" value="' + esc(a.duration || '') + '" placeholder="ex. 2 h" /></label>' +
+          '<label class="adv-label">Difficulté' +
+            '<input type="text" id="adv-difficulty" value="' + esc(a.difficulty || '') + '" placeholder="ex. Intermédiaire" /></label>' +
+          '<label class="adv-label">Résumé' +
+            '<input type="text" id="adv-summary" value="' + esc(a.summary || '') + '" placeholder="Présentation courte (accueil)…" /></label>' +
+        '</div>' +
+        '<div class="adv-chapters-bar"><h3>Chapitres</h3>' +
+          '<button id="adv-toggle-all" class="ghost small">Tout enrouler</button></div>' +
         '<div id="adv-chapters"></div>' +
         '<button id="adv-add-chapter" class="ghost" style="margin-top:.5rem">+ Chapitre</button>' +
       '</div>';
@@ -243,6 +240,12 @@
       save();
       renderChapters(a);
     });
+    $('#adv-toggle-all').addEventListener('click', function () {
+      const anyOpen = a.chapters.some(function (ch) { return !collapsedChapters[ch.id]; });
+      a.chapters.forEach(function (ch) { collapsedChapters[ch.id] = anyOpen; });
+      this.textContent = anyOpen ? 'Tout dérouler' : 'Tout enrouler';
+      renderChapters(a);
+    });
     renderChapters(a);
   }
 
@@ -254,19 +257,28 @@
       return;
     }
     box.innerHTML = a.chapters.map(function (ch, ci) {
-      return '<div class="adv-chapter" data-ch="' + ch.id + '">' +
+      const collapsed = !!collapsedChapters[ch.id];
+      return '<div class="adv-chapter' + (collapsed ? ' collapsed' : '') + '" data-ch="' + ch.id + '">' +
         '<div class="adv-ch-head">' +
+          '<button type="button" class="icon-btn adv-ch-toggle" data-ch="' + ch.id + '" title="' + (collapsed ? 'Dérouler' : 'Enrouler') + '">' + (collapsed ? '▸' : '▾') + '</button>' +
           '<span class="adv-ch-num">Chapitre ' + (ci + 1) + '</span>' +
           '<input type="text" class="adv-ch-title" data-ch="' + ch.id + '" value="' + esc(ch.title) + '" placeholder="Titre du chapitre" />' +
+          (collapsed ? '<span class="adv-ch-count">' + ch.scenes.length + ' scène(s)</span>' : '') +
           '<button class="icon-btn adv-del-ch" data-ch="' + ch.id + '" title="Supprimer">✕</button>' +
         '</div>' +
-        '<div class="adv-scenes" id="scenes-' + ch.id + '">' +
-          renderScenesHTML(ch, a) +
-        '</div>' +
-        '<button class="ghost small adv-add-scene" data-ch="' + ch.id + '" style="margin:.4rem 0 .8rem">+ Scène</button>' +
+        (collapsed ? '' :
+          '<div class="adv-scenes" id="scenes-' + ch.id + '">' + renderScenesHTML(ch, a) + '</div>' +
+          '<button class="ghost small adv-add-scene" data-ch="' + ch.id + '" style="margin:.4rem 0 .8rem">+ Scène</button>') +
       '</div>';
     }).join('');
 
+    box.querySelectorAll('.adv-ch-toggle').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const id = b.getAttribute('data-ch');
+        collapsedChapters[id] = !collapsedChapters[id];
+        renderChapters(a);
+      });
+    });
     box.querySelectorAll('.adv-ch-title').forEach(function (inp) {
       inp.addEventListener('input', function () {
         const ch = a.chapters.find(function (c) { return c.id === inp.getAttribute('data-ch'); });
