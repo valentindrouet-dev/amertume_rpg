@@ -250,11 +250,15 @@
     modal.removeAttribute('hidden');
 
     document.getElementById('sm-title').value = scene.title || '';
-    document.getElementById('sm-text').value = scene.text || '';
     const typeSelect = document.getElementById('sm-type');
     typeSelect.value = scene.type || 'exploration';
 
     if (!Array.isArray(scene.blocks)) scene.blocks = [];
+    // Migration douce : l'ancien champ `text` devient un bloc narratif éditable.
+    if (scene.text && scene.text.trim() && !scene.blocks.length) {
+      scene.blocks.push({ id: Store.uid(), type: 'narrative', content: scene.text });
+      scene.text = '';
+    }
     refreshSceneModalSections(scene, adv, allScenes);
     renderBlocksEditor(scene);
 
@@ -263,7 +267,6 @@
       refreshSceneModalSections(scene, adv, allScenes);
     };
     document.getElementById('sm-title').oninput = function () { scene.title = this.value; };
-    document.getElementById('sm-text').oninput = function () { scene.text = this.value; };
     document.getElementById('sm-add-block').onclick = function () {
       scene.blocks.push({ id: Store.uid(), type: 'narrative', content: '' });
       renderBlocksEditor(scene);
@@ -339,7 +342,7 @@
         return '<div class="adv-block-row">' +
           '<div class="adv-block-row-head">' +
             '<select class="block-type-sel">' + typeOpts + '</select>' +
-            '<button class="icon-btn block-del" title="Supprimer ce bloc">✕</button>' +
+            '<button type="button" class="icon-btn block-del" title="Supprimer ce bloc">✕</button>' +
           '</div>' +
           '<textarea class="block-content" rows="3">' + esc(blk.content || '') + '</textarea>' +
         '</div>';
@@ -362,10 +365,10 @@
       return '<div class="adv-choice-row" data-ci="' + i + '">' +
         '<input type="text" class="ch-label" value="' + esc(ch.label) + '" placeholder="Texte du choix" />' +
         '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId) + '</select>' +
-        '<button class="icon-btn ch-del">✕</button>' +
+        '<button type="button" class="icon-btn ch-del">✕</button>' +
       '</div>';
     }).join('') +
-    '<button class="ghost small" id="sm-add-choice">+ Choix</button>';
+    '<button type="button" class="ghost small" id="sm-add-choice">+ Choix</button>';
 
     box.querySelectorAll('.ch-label').forEach(function (inp, i) {
       inp.oninput = function () { scene.choices[i].label = this.value; };
@@ -392,10 +395,10 @@
       return '<div class="adv-ref-row" data-ri="' + i + '">' +
         '<select class="ref-mon"><option value="">(choisir)</option>' + monOpts + '</select>' +
         '<input type="number" class="ref-count" value="' + (ref.count || 1) + '" min="1" style="width:55px" />' +
-        '<button class="icon-btn ref-del">✕</button>' +
+        '<button type="button" class="icon-btn ref-del">✕</button>' +
       '</div>';
     }).join('') +
-    '<button class="ghost small" id="sm-add-ref">+ Monstre</button>';
+    '<button type="button" class="ghost small" id="sm-add-ref">+ Monstre</button>';
 
     box.querySelectorAll('.ref-mon').forEach(function (sel, i) {
       sel.onchange = function () { scene.monsterRefs[i].monsterId = this.value; };
@@ -423,10 +426,10 @@
       return '<div class="adv-ref-row">' +
         '<select class="ir-item"><option value="">(choisir)</option>' + opts + '</select>' +
         '<input type="number" class="ir-qty" value="' + (ref.qty || 1) + '" min="1" style="width:55px" />' +
-        '<button class="icon-btn ir-del">✕</button>' +
+        '<button type="button" class="icon-btn ir-del">✕</button>' +
       '</div>';
     }).join('') +
-    '<button class="ghost small" id="sm-add-ir">+ Objet</button>';
+    '<button type="button" class="ghost small" id="sm-add-ir">+ Objet</button>';
 
     box.querySelectorAll('.ir-item').forEach(function (sel, i) {
       sel.onchange = function () { scene.itemRewards[i].itemId = this.value; };

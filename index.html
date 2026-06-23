@@ -311,7 +311,7 @@
     <div class="modal-box" style="max-width:640px">
       <div class="modal-head">
         <h2>Éditer la scène</h2>
-        <button id="sm-close" class="icon-btn">✕</button>
+        <button type="button" id="sm-close" class="icon-btn">✕</button>
       </div>
       <form class="item-form" onsubmit="return false">
         <div class="form-row" style="grid-template-columns:2fr 1fr">
@@ -327,15 +327,12 @@
             </select>
           </label>
         </div>
-        <label>Texte hérité (ancien format)
-          <textarea id="sm-text" rows="3" placeholder="Laisse vide et utilise les blocs ci-dessous pour le nouveau format."></textarea>
-        </label>
-
         <!-- Blocs de texte typés -->
         <div class="attacks-head">
           <h3>Blocs de texte</h3>
           <button type="button" id="sm-add-block" class="ghost small">+ Bloc</button>
         </div>
+        <p class="hint">Narratif = italique · Technique = normal · Alerte = gras · Conseil = encadré.</p>
         <div id="sm-blocks"></div>
 
         <!-- Navigation (next) -->
