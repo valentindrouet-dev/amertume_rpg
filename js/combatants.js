@@ -15,7 +15,8 @@
 
   function newAttack() {
     return { name: 'Attaque', dice: D.emptyPool(), range: 'contact',
-             targets: 'one', useOwnDamage: true, effects: Store.noStates() };
+             targets: 'one', useOwnDamage: true, effects: Store.noStates(),
+             uses: 0, freeAction: false };
   }
 
   // ---- Éditeur d'attaques (réutilisé héros + monstres) ----
@@ -44,6 +45,10 @@
           '<label class="checkbox inline"><input type="checkbox" class="eff-affaibli"> Affaibli</label>' +
           '<label class="checkbox inline"><input type="checkbox" class="eff-ausol"> Au sol</label>' +
           '<label class="checkbox inline"><input type="checkbox" class="eff-feu"> Feu</label>' +
+        '</div>' +
+        '<div class="atk-effects atk-usage">' +
+          '<label class="checkbox inline" title="0 = illimité">Utilisations / combat <input type="number" class="atk-uses-in" min="0" style="width:60px"></label>' +
+          '<label class="checkbox inline"><input type="checkbox" class="atk-free"> Ne consomme pas l\'action</label>' +
         '</div>';
 
       row.querySelector('.atk-range').value = atk.range;
@@ -52,6 +57,8 @@
       row.querySelector('.eff-affaibli').checked = !!atk.effects.affaibli;
       row.querySelector('.eff-ausol').checked = !!atk.effects.auSol;
       row.querySelector('.eff-feu').checked = !!atk.effects.feu;
+      row.querySelector('.atk-uses-in').value = atk.uses || 0;
+      row.querySelector('.atk-free').checked = !!atk.freeAction;
 
       Inventory.buildDiceSteppers(row.querySelector('.atk-dice'), atk.dice, onChange);
 
@@ -62,6 +69,8 @@
       row.querySelector('.eff-affaibli').addEventListener('change', function (e) { atk.effects.affaibli = e.target.checked; });
       row.querySelector('.eff-ausol').addEventListener('change', function (e) { atk.effects.auSol = e.target.checked; });
       row.querySelector('.eff-feu').addEventListener('change', function (e) { atk.effects.feu = e.target.checked; });
+      row.querySelector('.atk-uses-in').addEventListener('input', function (e) { atk.uses = Math.max(0, parseInt(e.target.value, 10) || 0); });
+      row.querySelector('.atk-free').addEventListener('change', function (e) { atk.freeAction = e.target.checked; });
       row.querySelector('.atk-del').addEventListener('click', function () {
         const i = attacks.indexOf(atk);
         if (i >= 0) attacks.splice(i, 1);
@@ -79,11 +88,14 @@
   function attacksSummary(attacks) {
     if (!attacks || !attacks.length) return '<span class="hint">—</span>';
     return attacks.map(function (a) {
+      const meta = [RANGE_LABEL[a.range] || a.range];
+      if (a.targets === 'all') meta.push('toutes');
+      if (a.uses > 0) meta.push(a.uses + '×/combat');
+      if (a.freeAction) meta.push('gratuite');
       return '<div class="atk-badge">' +
         '<span class="atk-badge-name">' + esc(a.name) + '</span>' +
         Inventory.poolBadges(a.dice) +
-        '<span class="atk-badge-meta">' + (RANGE_LABEL[a.range] || a.range) +
-        (a.targets === 'all' ? ' · toutes' : '') + '</span></div>';
+        '<span class="atk-badge-meta">' + meta.join(' · ') + '</span></div>';
     }).join('');
   }
 
@@ -139,7 +151,49 @@
     return atks;
   }
 
+  // ---- Progression du groupe (XP / niveaux) ----
+  function renderProgress() {
+    const root = $('#progress-root');
+    if (!root) return;
+    const info = Store.levelInfo(Store.state.party.xp);
+    const nextTxt = info.next
+      ? 'Niveau ' + info.next.lvl + ' dans <b>' + info.toNext + '</b> XP'
+      : 'Niveau max atteint';
+    root.innerHTML =
+      '<div class="progress-card">' +
+        '<div class="progress-top">' +
+          '<div class="level-badge"><span class="lvl-num">' + info.level + '</span><span class="lvl-lbl">Niveau</span></div>' +
+          '<div class="progress-info">' +
+            '<div class="pi-line"><span>✦ <b>' + info.xp + '</b> XP partagée</span>' +
+              '<span class="points-pill">' + info.points + ' pts de talent</span></div>' +
+            '<div class="xp-bar"><div class="xp-fill" style="width:' + info.pct + '%"></div></div>' +
+            '<div class="pi-line" style="margin-top:.4rem;color:var(--muted)"><span>' + nextTxt + '</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="progress-actions">' +
+          '<span class="hint">Ajuster :</span>' +
+          '<button class="ghost small" data-xp="-10">−10</button>' +
+          '<button class="ghost small" data-xp="-1">−1</button>' +
+          '<button class="ghost small" data-xp="1">+1</button>' +
+          '<button class="ghost small" data-xp="10">+10</button>' +
+          '<button class="ghost small" data-xp="50">+50</button>' +
+          '<button class="ghost small" id="xp-reset">Réinitialiser</button>' +
+        '</div>' +
+      '</div>';
+    root.querySelectorAll('[data-xp]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        Store.state.party.xp = Math.max(0, (Store.state.party.xp || 0) + parseInt(b.getAttribute('data-xp'), 10));
+        Store.save(); renderProgress();
+      });
+    });
+    const rst = $('#xp-reset');
+    if (rst) rst.addEventListener('click', function () {
+      if (confirm('Réinitialiser l\'XP du groupe à 0 ?')) { Store.state.party.xp = 0; Store.save(); renderProgress(); }
+    });
+  }
+
   function renderHeroes() {
+    renderProgress();
     const list = $('#hero-list');
     const heroes = Store.state.heroes;
     if (!heroes.length) {
@@ -297,14 +351,26 @@
   // ================= MONSTRES =================
   let monsterAttacks = [];
 
+  const TYPE_RANK = { standard: 0, alpha: 1, solitaire: 2, boss: 3 };
+
   function renderMonsters() {
     const list = $('#monster-list');
+    refreshFamilyControls();
     const term = ($('#monster-search').value || '').toLowerCase().trim();
     const type = $('#monster-filter-type').value;
+    const family = ($('#monster-filter-family') || {}).value || '';
+    const sort = ($('#monster-sort') || {}).value || 'danger';
     const monsters = Store.state.monsters.filter(function (m) {
       if (type && m.type !== type) return false;
+      if (family && (m.family || '') !== family) return false;
       if (term && m.name.toLowerCase().indexOf(term) === -1) return false;
       return true;
+    });
+    monsters.sort(function (a, b) {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      if (sort === 'type') return (TYPE_RANK[b.type] || 0) - (TYPE_RANK[a.type] || 0) || a.name.localeCompare(b.name);
+      if (sort === 'family') return (a.family || '~').localeCompare(b.family || '~') || a.name.localeCompare(b.name);
+      return (b.xp || 0) - (a.xp || 0); // danger : par XP décroissante
     });
     if (!monsters.length) {
       list.innerHTML = '<p class="empty">Aucun monstre.</p>';
@@ -315,14 +381,15 @@
         '<div class="roster-head">' +
           '<span class="roster-name">' + esc(m.name) + '</span>' +
           '<span class="tag type">' + (TYPE_LABEL[m.type] || m.type) + '</span>' +
+          (m.family ? '<span class="tag">' + esc(m.family) + '</span>' : '') +
           (m.rapide ? '<span class="tag">Rapide</span>' : '') +
           (m.esquive ? '<span class="tag">Esq. 6+</span>' : '') +
           '<button class="ghost small" data-edit-monster="' + m.id + '">Éditer</button>' +
         '</div>' +
         '<div class="stat-pills">' +
-          '<span class="stat-pill">❤ <b>' + m.pv + '</b> PV</span>' +
-          '<span class="stat-pill">🛡 DEF <b>' + m.def + '</b></span>' +
-          '<span class="stat-pill">⚔ Dég. <b>' + m.damage + '</b></span>' +
+          '<span class="stat-pill">❤ <b>' + m.pv + '</b></span>' +
+          '<span class="stat-pill">🛡 <b>' + m.def + '</b></span>' +
+          '<span class="stat-pill">⚔ <b>' + m.damage + '</b></span>' +
           '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
           '<span class="stat-pill">🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</span>' +
         '</div>' +
@@ -338,12 +405,32 @@
     });
   }
 
+  // Met à jour la liste des familles (filtre + datalist) selon le bestiaire
+  function refreshFamilyControls() {
+    const families = [];
+    Store.state.monsters.forEach(function (m) {
+      if (m.family && families.indexOf(m.family) === -1) families.push(m.family);
+    });
+    families.sort();
+    const sel = $('#monster-filter-family');
+    if (sel) {
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">Toutes familles</option>' +
+        families.map(function (f) { return '<option value="' + esc(f) + '">' + esc(f) + '</option>'; }).join('');
+      sel.value = cur;
+    }
+    const dl = $('#family-list');
+    if (dl) dl.innerHTML = families.map(function (f) { return '<option value="' + esc(f) + '">'; }).join('');
+  }
+
   function openMonsterModal(id) {
     const isEdit = !!id;
     const m = isEdit ? Store.state.monsters.find(function (x) { return x.id === id; }) : null;
     $('#monster-modal-title').textContent = isEdit ? 'Éditer le monstre' : 'Nouveau monstre';
     $('#m-id').value = isEdit ? m.id : '';
     $('#m-name').value = isEdit ? m.name : '';
+    $('#m-family').value = isEdit ? (m.family || '') : '';
+    refreshFamilyControls();
     $('#m-pv').value = isEdit ? m.pv : 6;
     $('#m-def').value = isEdit ? m.def : 3;
     $('#m-damage').value = isEdit ? m.damage : 2;
@@ -367,6 +454,7 @@
     const existing = Store.state.monsters.find(function (x) { return x.id === id; });
     const data = {
       id: id, name: $('#m-name').value.trim() || 'Monstre',
+      family: $('#m-family').value.trim(),
       pv: parseInt($('#m-pv').value, 10) || 1,
       def: parseInt($('#m-def').value, 10) || 0,
       damage: parseInt($('#m-damage').value, 10) || 0,
@@ -419,6 +507,8 @@
     });
     $('#monster-search').addEventListener('input', renderMonsters);
     $('#monster-filter-type').addEventListener('change', renderMonsters);
+    $('#monster-filter-family').addEventListener('change', renderMonsters);
+    $('#monster-sort').addEventListener('change', renderMonsters);
     $('#btn-delete-monster').addEventListener('click', function () {
       const id = $('#m-id').value;
       if (id && confirm('Supprimer ce monstre ?')) {
@@ -435,6 +525,7 @@
     init: init,
     renderHeroes: renderHeroes,
     renderMonsters: renderMonsters,
+    renderProgress: renderProgress,
     heroPv: heroPv,
     heroDef: heroDef,
     heroCombatAttacks: heroCombatAttacks,

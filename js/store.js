@@ -88,7 +88,7 @@
       // Bestiaire (modèles d'adversaires)
       monsters: [
         {
-          id: uid(), name: 'Rôdeur famélique', type: 'standard', socle: 'medium',
+          id: uid(), name: 'Rôdeur famélique', type: 'standard', socle: 'medium', family: 'Bête',
           pv: 6, def: 3, damage: 2, xp: 5, menace: 'closest', esquive: false, rapide: false, notes: '',
           attacks: [
             { name: 'Griffes', dice: dice({ white: 2 }), range: 'contact',
@@ -96,7 +96,7 @@
           ],
         },
         {
-          id: uid(), name: 'Charognard enragé', type: 'standard', socle: 'medium',
+          id: uid(), name: 'Charognard enragé', type: 'standard', socle: 'medium', family: 'Charognard',
           pv: 8, def: 2, damage: 3, xp: 7, menace: 'closest', esquive: false, rapide: true, notes: 'Rapide',
           attacks: [
             { name: 'Morsure', dice: dice({ white: 1, bone: 1 }), range: 'contact',
@@ -104,7 +104,7 @@
           ],
         },
         {
-          id: uid(), name: 'Mystique déchu', type: 'solitaire', socle: 'medium',
+          id: uid(), name: 'Mystique déchu', type: 'solitaire', socle: 'medium', family: 'Humanoïde',
           pv: 14, def: 4, damage: 2, xp: 15, menace: 'defLow', esquive: true, rapide: false, notes: '',
           attacks: [
             { name: 'Boule de feu', dice: dice({ blue: 2 }), range: 'distance',
@@ -112,7 +112,7 @@
           ],
         },
         {
-          id: uid(), name: 'Colosse d’Amertume', type: 'boss', socle: 'huge',
+          id: uid(), name: 'Colosse d’Amertume', type: 'boss', socle: 'huge', family: 'Colosse',
           pv: 30, def: 5, damage: 4, xp: 40, menace: 'pvHigh', esquive: false, rapide: false,
           notes: 'Boss : ignore Au sol. Fuit au plus tôt fin du Tour 3.',
           attacks: [
@@ -124,9 +124,34 @@
         },
       ],
 
+      // Progression commune du groupe (l'XP est partagée dans Amertume)
+      party: { xp: 0 },
+
       // Combat en cours (null hors combat)
       combat: null,
     };
+  }
+
+  // Table des niveaux : seuil d'XP et points de talent cumulés
+  var LEVELS = [
+    { lvl: 1, xp: 0, points: 10 },
+    { lvl: 2, xp: 20, points: 13 },
+    { lvl: 3, xp: 50, points: 16 },
+    { lvl: 4, xp: 100, points: 20 },
+    { lvl: 5, xp: 200, points: 25 },
+    { lvl: 6, xp: 350, points: 30 },
+    { lvl: 7, xp: 600, points: 35 },
+  ];
+
+  function levelInfo(xp) {
+    xp = Math.max(0, xp || 0);
+    var cur = LEVELS[0];
+    for (var i = 0; i < LEVELS.length; i++) { if (xp >= LEVELS[i].xp) cur = LEVELS[i]; }
+    var next = LEVELS.find(function (l) { return l.xp > xp; }) || null;
+    var spanStart = cur.xp;
+    var spanEnd = next ? next.xp : cur.xp;
+    var pct = next ? Math.round(((xp - spanStart) / (spanEnd - spanStart)) * 100) : 100;
+    return { level: cur.lvl, points: cur.points, xp: xp, next: next, toNext: next ? next.xp - xp : 0, pct: pct };
   }
 
   let state = load();
@@ -144,6 +169,8 @@
       const def = defaultState();
       if (!parsed.heroes) parsed.heroes = def.heroes;
       if (!parsed.monsters) parsed.monsters = def.monsters;
+      if (!parsed.party) parsed.party = { xp: 0 };
+      if (typeof parsed.party.xp !== 'number') parsed.party.xp = 0;
       if (typeof parsed.combat === 'undefined') parsed.combat = null;
       // Migration / normalisation : garantit que chaque structure a tous ses champs,
       // pour qu'aucun rendu ne plante sur une sauvegarde d'une version antérieure.
@@ -154,7 +181,10 @@
         if (!a.effects) a.effects = noStates();
         if (!a.range) a.range = 'contact';
         if (!a.targets) a.targets = 'one';
+        if (typeof a.uses === 'undefined') a.uses = 0;        // 0 = illimité
+        if (typeof a.freeAction === 'undefined') a.freeAction = false;
       }
+      (parsed.monsters || []).forEach(function (m) { if (typeof m.family === 'undefined') m.family = ''; });
       (parsed.items || []).forEach(function (i) {
         if (!i.dice) i.dice = AmertumeDice.emptyPool(); else i.dice = dice(i.dice);
         if (!i.traits) i.traits = [];
@@ -213,6 +243,7 @@
     uid: uid,
     noStates: noStates,
     loadOfficial: loadOfficial,
+    levelInfo: levelInfo,
     get state() { return state; },
     save: save,
     replace: function (newState) {

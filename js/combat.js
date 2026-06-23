@@ -14,19 +14,29 @@
   let setupHeroes = {};      // { heroId: true }
   let setupMonsters = [];     // [{ templateId, count }]
 
+  // État d'interaction du plateau
+  let pendingAttack = null;   // { iid, atkIndex } quand on choisit une cible au clic
+  let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
+
   const SOCLE_RANK = { small: 0, medium: 1, large: 2, huge: 3 };
 
   function combat() { return Store.state.combat; }
 
   // ---------- Construction des instances ----------
+  // Compteurs d'usages par attaque (null = illimité)
+  function initUses(attacks) {
+    return attacks.map(function (a) { return (a.uses && a.uses > 0) ? a.uses : null; });
+  }
+
   function instFromHero(h, i) {
+    const attacks = Combatants.heroCombatAttacks(h);
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
       side: 'hero', templateId: h.id, name: h.name,
       maxPv: Combatants.heroPv(h), pv: Combatants.heroPv(h),
       def: Combatants.heroDef(h), damage: h.damage, xp: 0, type: 'hero',
       menace: null, esquive: false, rapide: !!h.rapide, socle: 'medium',
-      attacks: Combatants.heroCombatAttacks(h),
+      attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
       contact: [], status: 'active',
@@ -34,13 +44,14 @@
   }
 
   function instFromMonster(m, i) {
+    const attacks = JSON.parse(JSON.stringify(m.attacks || []));
     return {
       iid: 'M' + i + '-' + m.id.slice(-4),
       side: 'monster', templateId: m.id, name: m.name,
       maxPv: m.pv, pv: m.pv,
       def: m.def, damage: m.damage, xp: m.xp, type: m.type,
       menace: m.menace, esquive: !!m.esquive, rapide: !!m.rapide, socle: m.socle,
-      attacks: JSON.parse(JSON.stringify(m.attacks || [])),
+      attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
       contact: [], status: 'active',
@@ -62,6 +73,7 @@
         combatants.push(inst);
       }
     });
+    pendingAttack = null; stateMenuFor = null;
     Store.state.combat = {
       turn: 1, phase: 'heroes', bonusXp: 0,
       combatants: combatants, log: [], outcome: null,
@@ -74,11 +86,18 @@
   function endCombat(finalize) {
     if (finalize && combat()) {
       const xp = totalXp();
-      alert('Combat terminé.\nXP gagnée : ' + xp);
+      const before = Store.levelInfo(Store.state.party.xp);
+      Store.state.party.xp = (Store.state.party.xp || 0) + xp;
+      const after = Store.levelInfo(Store.state.party.xp);
+      let msg = 'Combat terminé.\n+' + xp + ' XP (total : ' + Store.state.party.xp + ').';
+      if (after.level > before.level) msg += '\n\n🎉 Niveau ' + after.level + ' atteint ! (' + after.points + ' points de talent)';
+      alert(msg);
     }
+    pendingAttack = null; stateMenuFor = null;
     Store.state.combat = null;
     Store.save();
     render();
+    if (window.Combatants) Combatants.renderProgress();
   }
 
   // ---------- Utilitaires ----------
@@ -217,6 +236,7 @@
   }
 
   function endHeroPhase() {
+    pendingAttack = null; stateMenuFor = null;
     combat().phase = 'monsters';
     log('Phase des adversaires.', 'turn');
     Store.save(); render();
@@ -228,8 +248,11 @@
       if (m.used.action || m.states.auSol) return; // Au sol : pas d'action
       const target = chooseTarget(m);
       if (!target) return;
-      const atk = (m.attacks && m.attacks[0]) || null;
-      if (!atk) return;
+      // Première attaque disponible (usages restants)
+      let ai = -1;
+      for (let i = 0; i < m.attacks.length; i++) { if (m.attackUses[i] !== 0) { ai = i; break; } }
+      if (ai < 0) return;
+      const atk = m.attacks[ai];
       // Engagement si attaque de contact
       if (atk.range === 'contact' && !inContact(m, target)) {
         setContact(m, target, true);
@@ -243,6 +266,7 @@
       } else {
         resolveAttack(m, target, atk);
       }
+      if (m.attackUses[ai] !== null) m.attackUses[ai] = Math.max(0, m.attackUses[ai] - 1);
       m.used.action = true;
     });
     checkOutcome();
@@ -264,6 +288,7 @@
   function maxBy(arr, f) { return arr.reduce(function (a, b) { return f(b) > f(a) ? b : a; }); }
 
   function endTurn() {
+    pendingAttack = null; stateMenuFor = null;
     const c = combat();
     // Fuite des adversaires
     activeOf('monster').forEach(function (m) {
@@ -407,6 +432,11 @@
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
+      (pendingAttack ? (function () {
+        const at = byId(pendingAttack.iid); const ak = at && at.attacks[pendingAttack.atkIndex];
+        return at && ak ? '<div class="targeting-banner">🎯 <b>' + esc(at.name) + '</b> — ' + esc(ak.name) +
+          ' : clique un adversaire pour frapper. <button id="cancel-target" class="ghost xs">Annuler</button></div>' : '';
+      })() : '') +
       '<div class="combat-cols">' +
         '<div class="combat-col"><h3>Héros</h3><div id="col-heroes"></div></div>' +
         '<div class="combat-col"><h3>Adversaires</h3><div id="col-monsters"></div></div>' +
@@ -423,6 +453,8 @@
     $('#cb-end').addEventListener('click', function () {
       if (confirm('Terminer et quitter ce combat ?')) endCombat(false);
     });
+    const ct = $('#cancel-target');
+    if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
   }
 
   function activeColumn(side) {
@@ -451,6 +483,11 @@
     const phase = combat().phase;
     const canAct = !dead && !combat().outcome &&
       ((c.side === 'hero' && phase === 'heroes') || false);
+    // Cible valide pendant le ciblage au clic
+    if (pendingAttack && !dead) {
+      const attacker = byId(pendingAttack.iid);
+      if (attacker && attacker.side !== c.side) cls.push('targetable');
+    }
 
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
@@ -468,13 +505,21 @@
       '<div class="cc-states">' + statesBadges(c) +
         '<span class="state-add" data-iid="' + c.iid + '">+ état</span></div>';
 
+    // Menu d'ajout d'état (ouvert au clic)
+    if (stateMenuFor === c.iid && !dead) {
+      const opts = [['affaibli', 'Affaibli'], ['auSol', 'Au sol'], ['feu', 'Feu'],
+        ['blindage', 'Blindage'], ['onde', 'Onde'], ['ciblage', 'Ciblage']];
+      html += '<div class="state-menu">' + opts.map(function (o) {
+        return '<button class="ghost xs set-state" data-iid="' + c.iid + '" data-state="' + o[0] + '">' + o[1] + '</button>';
+      }).join('') + '</div>';
+    }
+
     if (!dead) {
-      // PV rapides
-      html += '<div class="cc-quick">' +
-        '<button class="ghost xs" data-dmg="-1" data-iid="' + c.iid + '">−1</button>' +
-        '<button class="ghost xs" data-dmg="-3" data-iid="' + c.iid + '">−3</button>' +
-        '<button class="ghost xs" data-dmg="1" data-iid="' + c.iid + '">+1</button>' +
-        '<button class="ghost xs" data-dmg="3" data-iid="' + c.iid + '">+3</button>' +
+      html += '<div class="cc-pv-edit"><span class="pv-label">PV</span>' +
+        '<button class="ghost xs" data-dmg="-3" data-iid="' + c.iid + '" title="Retirer 3 PV">−3</button>' +
+        '<button class="ghost xs" data-dmg="-1" data-iid="' + c.iid + '" title="Retirer 1 PV">−1</button>' +
+        '<button class="ghost xs" data-dmg="1" data-iid="' + c.iid + '" title="Soigner 1 PV">+1</button>' +
+        '<button class="ghost xs" data-dmg="3" data-iid="' + c.iid + '" title="Soigner 3 PV">+3</button>' +
         '</div>';
     }
 
@@ -484,32 +529,80 @@
         '<span class="act-flag ' + (usedA ? 'used' : '') + '">Action</span>' +
         '<span class="act-flag ' + (usedM ? 'used' : '') + '">Mouv./Analyse</span>' +
         '<span class="act-flag ' + (usedO ? 'used' : '') + '">Objet</span></div>';
-      // Attaque
-      html += '<div class="cc-attack">' +
-        '<select class="atk-select" data-iid="' + c.iid + '"' + (usedA ? ' disabled' : '') + '>' +
-          c.attacks.map(function (a, i) { return '<option value="' + i + '">' + esc(a.name) + ' ' +
-            (a.range === 'distance' ? '🏹' : '⚔') + (a.targets === 'all' ? ' (toutes)' : '') + '</option>'; }).join('') +
-        '</select>' +
-        '<select class="tgt-select" data-iid="' + c.iid + '"' + (usedA ? ' disabled' : '') + '>' +
-          activeOf('monster').map(function (e) { return '<option value="' + e.iid + '">' + esc(e.name) + '</option>'; }).join('') +
-        '</select>' +
-        '<button class="primary xs do-attack" data-iid="' + c.iid + '"' + (usedA ? ' disabled' : '') + '>Attaquer</button>' +
-        '</div>' +
-        '<div class="cc-secondary">' +
-          '<button class="ghost xs do-analyse" data-iid="' + c.iid + '"' + (usedM ? ' disabled' : '') + '>Analyse (+2 XP)</button>' +
-          '<button class="ghost xs do-object" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + '>Objet</button>' +
-          '<button class="ghost xs do-engage" data-iid="' + c.iid + '"' + (usedM ? ' disabled' : '') + '>Engager/Rompre</button>' +
+      // Attaques en chips bleus (Action). Clic = choisir la cible.
+      html += '<div class="cc-attacks">' + c.attacks.map(function (a, i) {
+        const uses = c.attackUses[i];
+        const depleted = uses === 0;
+        const blocked = depleted || (!a.freeAction && usedA);
+        const selected = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i;
+        const meta = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
+        if (a.targets === 'all') meta.push('toutes');
+        if (a.freeAction) meta.push('gratuite');
+        return '<button class="atk-chip ' + (selected ? 'selected' : '') + '" data-iid="' + c.iid + '" data-atk="' + i + '"' +
+          (blocked ? ' disabled' : '') + '>' +
+          '<span class="atk-chip-name">' + esc(a.name) + '</span>' +
+          Inventory.poolBadges(a.dice) +
+          (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
+          '<span class="atk-chip-meta">' + meta.join(' · ') + '</span>' +
+        '</button>';
+      }).join('') + '</div>';
+      // Contacts (mêlée) : un chip par adversaire, surligné si au contact
+      const enemies = activeOf('monster');
+      if (enemies.length) {
+        html += '<div class="cc-contacts"><span class="pv-label" title="Au contact = mêlée. Rompre le contact subit les dégâts-choc.">Au contact</span>' +
+          enemies.map(function (e) {
+            return '<button class="contact-chip ' + (inContact(c, e) ? 'on' : '') + '" data-iid="' + c.iid +
+              '" data-enemy="' + e.iid + '"' + (c.used.move && !inContact(c, e) ? '' : '') + '>' + esc(e.name) + '</button>';
+          }).join('') + '</div>';
+      }
+      html += '<div class="cc-secondary">' +
+        '<button class="ghost xs do-analyse" data-iid="' + c.iid + '"' + (usedM ? ' disabled' : '') + '>Analyse (+2 XP)</button>' +
+        '<button class="ghost xs do-object" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + '>Objet</button>' +
         '</div>';
     }
     html += '</div>';
     return html;
   }
 
+  // Exécute une attaque de héros (consomme usage + action sauf si gratuite)
+  function execHeroAttack(attacker, atkIndex, target) {
+    const atk = attacker.attacks[atkIndex];
+    if (!atk) return;
+    if (attacker.attackUses[atkIndex] === 0) return;
+    if (!atk.freeAction && attacker.used.action) return;
+    let targets;
+    if (atk.targets === 'all') {
+      targets = activeOf('monster').filter(function (e) { return atk.range === 'contact' ? true : true; });
+    } else {
+      targets = target ? [target] : [];
+    }
+    targets.forEach(function (t) {
+      if (atk.range === 'contact' && !inContact(attacker, t)) setContact(attacker, t, true);
+      resolveAttack(attacker, t, atk);
+    });
+    if (attacker.attackUses[atkIndex] !== null) {
+      attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
+    }
+    if (!atk.freeAction) attacker.used.action = true;
+    pendingAttack = null;
+    checkOutcome(); Store.save(); render();
+  }
+
   function wireCard(c) {
     const root = $('#combat-root');
-    root.querySelectorAll('[data-iid="' + c.iid + '"]').forEach(function () {});
-    // PV rapides
-    root.querySelectorAll('.cc-quick [data-iid="' + c.iid + '"]').forEach(function (b) {
+    const card = root.querySelector('.combat-card[data-iid="' + c.iid + '"]');
+
+    // Ciblage au clic : cette carte est une cible valide
+    if (card && card.classList.contains('targetable') && pendingAttack) {
+      card.addEventListener('click', function (e) {
+        if (e.target.closest('button')) return; // laisse les boutons internes agir
+        const attacker = byId(pendingAttack.iid);
+        if (attacker) execHeroAttack(attacker, pendingAttack.atkIndex, c);
+      });
+    }
+
+    // PV +/- (édition manuelle)
+    root.querySelectorAll('.cc-pv-edit [data-iid="' + c.iid + '"]').forEach(function (b) {
       b.addEventListener('click', function () {
         const d = parseInt(b.getAttribute('data-dmg'), 10);
         c.pv = Math.max(0, Math.min(c.maxPv, c.pv + d));
@@ -523,36 +616,45 @@
         c.states[b.getAttribute('data-state')] = false; Store.save(); render();
       });
     });
-    // Ajouter un état
+    // Ouvrir/fermer le menu d'état
     const add = root.querySelector('.state-add[data-iid="' + c.iid + '"]');
     if (add) add.addEventListener('click', function () {
-      const choice = prompt('État à appliquer : affaibli, ausol, feu, blindage, onde, ciblage');
-      if (!choice) return;
-      const map = { affaibli: 'affaibli', ausol: 'auSol', feu: 'feu', blindage: 'blindage', onde: 'onde', ciblage: 'ciblage' };
-      const key = map[choice.toLowerCase().trim()];
-      if (!key) return;
-      if (key === 'blindage') { ['affaibli', 'auSol', 'feu'].forEach(function (s) { c.states[s] = false; }); }
-      c.states[key] = true; Store.save(); render();
+      stateMenuFor = (stateMenuFor === c.iid) ? null : c.iid; render();
+    });
+    root.querySelectorAll('.set-state[data-iid="' + c.iid + '"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const key = b.getAttribute('data-state');
+        if (key === 'blindage') { ['affaibli', 'auSol', 'feu'].forEach(function (s) { c.states[s] = false; }); }
+        c.states[key] = true; stateMenuFor = null; Store.save(); render();
+      });
     });
 
-    if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active') {
-      const atkBtn = root.querySelector('.do-attack[data-iid="' + c.iid + '"]');
-      if (atkBtn) atkBtn.addEventListener('click', function () {
-        const ai = parseInt(root.querySelector('.atk-select[data-iid="' + c.iid + '"]').value, 10);
-        const tid = root.querySelector('.tgt-select[data-iid="' + c.iid + '"]').value;
-        const atk = c.attacks[ai];
-        const target = byId(tid);
-        if (!atk || !target) return;
-        if (atk.range === 'contact' && !inContact(c, target)) { setContact(c, target, true); }
-        if (atk.targets === 'all') {
-          activeOf('monster').forEach(function (e) {
-            if (atk.range === 'contact' ? inContact(c, e) : true) resolveAttack(c, e, atk);
-          });
-        } else {
-          resolveAttack(c, target, atk);
-        }
-        c.used.action = true;
-        checkOutcome(); Store.save(); render();
+    if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active' && !combat().outcome) {
+      // Chips d'attaque
+      root.querySelectorAll('.atk-chip[data-iid="' + c.iid + '"]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const i = parseInt(b.getAttribute('data-atk'), 10);
+          const atk = c.attacks[i];
+          if (!atk) return;
+          if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i) {
+            pendingAttack = null; render(); return; // re-clic = annuler
+          }
+          if (atk.targets === 'all') { execHeroAttack(c, i, null); }
+          else { pendingAttack = { iid: c.iid, atkIndex: i }; stateMenuFor = null; render(); }
+        });
+      });
+      // Contacts
+      root.querySelectorAll('.contact-chip[data-iid="' + c.iid + '"]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const m = byId(b.getAttribute('data-enemy'));
+          if (!m) return;
+          const was = inContact(c, m);
+          setContact(c, m, !was);
+          if (was) { log(c.name + ' rompt le contact avec ' + m.name + '.', 'move'); dchocFrom(m, c); }
+          else { log(c.name + ' engage ' + m.name + '.', 'move'); }
+          c.used.move = true;
+          checkOutcome(); Store.save(); render();
+        });
       });
       const ana = root.querySelector('.do-analyse[data-iid="' + c.iid + '"]');
       if (ana) ana.addEventListener('click', function () {
@@ -563,29 +665,7 @@
       if (obj) obj.addEventListener('click', function () {
         c.used.object = true; log(c.name + ' utilise un objet.', 'move'); Store.save(); render();
       });
-      const eng = root.querySelector('.do-engage[data-iid="' + c.iid + '"]');
-      if (eng) eng.addEventListener('click', function () { engagePrompt(c); });
     }
-  }
-
-  function engagePrompt(hero) {
-    const monsters = activeOf('monster');
-    if (!monsters.length) return;
-    const lines = monsters.map(function (m, i) { return (i + 1) + ') ' + (inContact(hero, m) ? '[contact] ' : '') + m.name; });
-    const ans = prompt('Engager / rompre le contact avec :\n' + lines.join('\n') + '\n\nNuméro :');
-    const idx = parseInt(ans, 10) - 1;
-    const m = monsters[idx];
-    if (!m) return;
-    const wasContact = inContact(hero, m);
-    setContact(hero, m, !wasContact);
-    if (wasContact) { // rompre le contact → dégâts-choc de l'adversaire
-      log(hero.name + ' rompt le contact avec ' + m.name + '.', 'move');
-      dchocFrom(m, hero);
-    } else {
-      log(hero.name + ' engage ' + m.name + '.', 'move');
-    }
-    hero.used.move = true;
-    checkOutcome(); Store.save(); render();
   }
 
   function renderPhaseControls() {

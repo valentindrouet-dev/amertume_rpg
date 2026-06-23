@@ -34,6 +34,7 @@
 
     <!-- ============ HÉROS ============ -->
     <section id="tab-heroes" class="tab-panel">
+      <div id="progress-root"></div>
       <div class="card">
         <div class="card-head">
           <h2>Roster de héros</h2>
@@ -58,6 +59,15 @@
             <option value="solitaire">Solitaire</option>
             <option value="alpha">Alpha</option>
             <option value="boss">Boss</option>
+          </select>
+          <select id="monster-filter-family">
+            <option value="">Toutes familles</option>
+          </select>
+          <select id="monster-sort">
+            <option value="danger">Tri : danger ↓</option>
+            <option value="name">Tri : nom</option>
+            <option value="type">Tri : type</option>
+            <option value="family">Tri : famille</option>
           </select>
         </div>
         <div id="monster-list" class="roster-list"></div>
@@ -231,7 +241,11 @@
       </div>
       <form id="monster-form" class="item-form">
         <input type="hidden" id="m-id" />
-        <label>Nom <input type="text" id="m-name" required placeholder="Nom du monstre" /></label>
+        <div class="form-row">
+          <label>Nom <input type="text" id="m-name" required placeholder="Nom du monstre" /></label>
+          <label>Famille <input type="text" id="m-family" list="family-list" placeholder="Mort-vivant, Bête…" /></label>
+        </div>
+        <datalist id="family-list"></datalist>
         <div class="stat-grid">
           <label>PV <input type="number" id="m-pv" min="1" value="6" /></label>
           <label>DEF <input type="number" id="m-def" min="0" value="3" /></label>

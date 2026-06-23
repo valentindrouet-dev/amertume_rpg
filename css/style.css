@@ -1,19 +1,20 @@
 :root {
-  --bg: #14110f;
-  --bg-2: #1d1916;
-  --panel: #241f1b;
-  --panel-2: #2c2621;
-  --border: #3a322b;
-  --text: #ece3d6;
-  --muted: #9a8d7c;
-  --accent: #b5462f;       /* rouge brûlé "amertume" */
-  --accent-2: #d98a3d;     /* ambre */
+  --bg: #1b1714;
+  --bg-2: #2c2419;
+  --panel: #362b22;
+  --panel-2: #42352a;
+  --border: #504338;
+  --text: #f1e9dc;
+  --muted: #b3a594;
+  --accent: #c14e35;       /* rouge brûlé "amertume" */
+  --accent-2: #e2974a;     /* ambre */
+  --action: #4d8ed1;       /* bleu Action (talents bleus) */
   --good: #6fae6f;
-  --bad: #c8533c;
+  --bad: #d75d44;
   --radius: 10px;
 
-  --die-white: #e9e4d8;
-  --die-bone: #d8b27a;
+  --die-white: #ece7db;
+  --die-bone: #dcb87f;
   --die-red: #c0392b;
   --die-blue: #3f7bc0;
   --die-green: #5fa45f;
@@ -469,3 +470,95 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 main { padding: 1.5rem 1.25rem 3rem; }
 .card { padding: 1.2rem 1.3rem 1.4rem; }
 .card-head { margin-bottom: 1rem; }
+
+/* ===================================================================
+   v3 — couleurs plus claires, compacité, attaques bleues, XP/niveaux
+   =================================================================== */
+
+/* Cadres plus clairs */
+.roster-card { background: linear-gradient(180deg, var(--panel) 0%, #2f2519 100%); }
+.combat-card, .card, .setup-row, .stat-pill, .atk-badge { }
+
+/* ---- Compacité générale des cartes de roster ---- */
+.roster-card { padding: .85rem 1rem 1rem; border-radius: 12px; }
+.roster-head { padding-bottom: .55rem; gap: .4rem; }
+.roster-name { font-size: 1.05rem; }
+.roster-section { margin-top: .6rem; }
+.roster-label { margin-bottom: .3rem; }
+.stat-pills { gap: .35rem; }
+.stat-pill { padding: .22rem .5rem; font-size: .78rem; }
+.stat-pill b { font-size: .85rem; }
+
+/* ---- Bestiaire : cartes compactes, toujours visibles, peu de retours ligne ---- */
+#monster-list.roster-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .7rem; }
+#monster-list .roster-card { padding: .7rem .85rem; }
+#monster-list .roster-head { padding-bottom: .45rem; }
+#monster-list .roster-name { font-size: 1rem; }
+#monster-list .roster-section { margin-top: .5rem; }
+
+/* ---- Armurerie : lignes denses ---- */
+#item-list.roster-list { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .55rem; }
+.armory-card { padding: .55rem .7rem !important; border-radius: 9px; }
+.armory-card .roster-head { padding-bottom: 0; margin-bottom: 0; border-bottom: none; gap: .35rem; }
+.armory-card .roster-name { font-size: .95rem; }
+.armory-card .roster-head .tag { font-size: .66rem; padding: .1rem .4rem; }
+.armory-card .armory-line { margin-top: .45rem; gap: .35rem; }
+.armory-card .armory-line .stat-pill { padding: .15rem .4rem; font-size: .72rem; }
+.armory-card .roster-notes { margin-top: .45rem; padding-top: .45rem; font-size: .76rem; }
+.armory-card .ghost.small { padding: .25rem .5rem; font-size: .76rem; }
+
+/* ---- Tri / filtres ---- */
+.filters select, .filters input { min-width: 0; }
+
+/* ---- Attaques = Actions (bleu) ---- */
+.atk-badge { border-left: 3px solid var(--action); }
+.atk-chip {
+  display: inline-flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  background: rgba(77, 142, 209, .14);
+  border: 1px solid var(--action);
+  color: var(--text);
+  border-radius: 9px; padding: .45rem .6rem; cursor: pointer;
+  font-size: .86rem; text-align: left; width: 100%;
+}
+.atk-chip:hover:not(:disabled) { background: rgba(77, 142, 209, .26); }
+.atk-chip:disabled { opacity: .4; cursor: not-allowed; }
+.atk-chip.selected { background: var(--action); color: #fff; box-shadow: 0 0 0 2px rgba(77,142,209,.4); }
+.atk-chip-name { font-weight: 600; margin-right: auto; }
+.atk-chip-meta { font-size: .7rem; color: var(--muted); }
+.atk-chip.selected .atk-chip-meta { color: rgba(255,255,255,.8); }
+.atk-uses { font-size: .7rem; color: var(--accent-2); font-weight: 700; }
+.cc-attacks { display: flex; flex-direction: column; gap: .4rem; margin: .5rem 0; }
+
+/* Mode ciblage : surligne les cibles valides */
+.combat-card.targetable { outline: 2px dashed var(--action); outline-offset: 2px; cursor: crosshair; }
+.combat-card.targetable:hover { outline-style: solid; background: rgba(77,142,209,.08); }
+.targeting-banner {
+  background: rgba(77,142,209,.15); border: 1px solid var(--action);
+  border-radius: 8px; padding: .5rem .75rem; margin-bottom: .8rem;
+  display: flex; align-items: center; gap: .6rem; font-size: .9rem;
+}
+
+/* Boutons PV : libellé clair */
+.cc-pv-edit { display: flex; align-items: center; gap: .35rem; margin-bottom: .5rem; flex-wrap: wrap; }
+.cc-pv-edit .pv-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-right: .15rem; }
+
+/* ---- Progression du groupe (XP / niveaux) ---- */
+.progress-card { background: linear-gradient(135deg, #3a2c1d, #2c2218); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem; margin-bottom: 1.1rem; }
+.progress-top { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.level-badge { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 60px; height: 60px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 700; flex: none; }
+.level-badge .lvl-num { font-size: 1.5rem; line-height: 1; }
+.level-badge .lvl-lbl { font-size: .6rem; text-transform: uppercase; letter-spacing: .05em; }
+.progress-info { flex: 1; min-width: 200px; }
+.progress-info .pi-line { display: flex; justify-content: space-between; font-size: .85rem; margin-bottom: .3rem; }
+.xp-bar { height: 12px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.xp-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .4s; }
+.progress-actions { display: flex; gap: .4rem; align-items: center; margin-top: .8rem; flex-wrap: wrap; }
+.points-pill { background: var(--accent-2); color: #2a1c08; font-weight: 700; border-radius: 8px; padding: .25rem .6rem; font-size: .85rem; }
+
+/* Contacts & menu d'état en combat */
+.cc-contacts { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; margin: .45rem 0; }
+.contact-chip { font-size: .76rem; padding: .25rem .55rem; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-2); color: var(--muted); cursor: pointer; }
+.contact-chip:hover { border-color: var(--accent-2); }
+.contact-chip.on { border-color: var(--accent); color: var(--accent-2); background: rgba(193,78,53,.14); }
+.state-menu { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .5rem; padding: .4rem; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; }
+.atk-usage { margin-top: .3rem; }
