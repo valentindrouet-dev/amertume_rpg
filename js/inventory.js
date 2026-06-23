@@ -16,7 +16,7 @@
       const wrap = document.createElement('div');
       wrap.className = 'stepper die-' + color;
       wrap.innerHTML =
-        '<span class="die-chip" title="' + t.label + '">' + t.emoji + '</span>' +
+        '<span class="die-sq die-' + color + '" title="' + t.label + '"></span>' +
         '<button type="button" class="step-btn" data-act="dec">−</button>' +
         '<span class="step-val">' + (pool[color] || 0) + '</span>' +
         '<button type="button" class="step-btn" data-act="inc">+</button>';
@@ -94,6 +94,11 @@
       '</div>';
     }
 
+    function sepHtml(label, n, sub) {
+      return '<div class="armory-sep' + (sub ? ' armory-subsep' : '') + '">' + label +
+        ' <span class="armory-sep-count">' + n + '</span></div>';
+    }
+
     // Regroupe par catégorie avec un séparateur visuel
     const GROUP = [['weapon', 'Armes'], ['armor', 'Armures'], ['ammo', 'Munitions'],
       ['object', 'Objets'], ['misc', 'Divers']];
@@ -101,9 +106,16 @@
     GROUP.forEach(function (g) {
       const group = items.filter(function (i) { return i.category === g[0]; });
       if (!group.length) return;
-      html += '<div class="armory-sep">' + g[1] +
-        ' <span class="armory-sep-count">' + group.length + '</span></div>';
-      html += group.map(cardHtml).join('');
+      html += sepHtml(g[1], group.length, false);
+      if (g[0] === 'weapon') {
+        // Sous-séparation contact / distance
+        const contact = group.filter(function (i) { return !i.ranged; });
+        const distance = group.filter(function (i) { return i.ranged; });
+        if (contact.length) { html += sepHtml('⚔ Contact', contact.length, true) + contact.map(cardHtml).join(''); }
+        if (distance.length) { html += sepHtml('🏹 Distance', distance.length, true) + distance.map(cardHtml).join(''); }
+      } else {
+        html += group.map(cardHtml).join('');
+      }
     });
     list.innerHTML = html;
 

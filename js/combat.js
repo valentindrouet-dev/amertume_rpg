@@ -19,6 +19,7 @@
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
 
   const SOCLE_RANK = { small: 0, medium: 1, large: 2, huge: 3 };
+  function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 
   function combat() { return Store.state.combat; }
 
@@ -33,13 +34,13 @@
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
       side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: h.endu || 1,
-      maxPv: Combatants.heroPv(h), pv: Combatants.heroPv(h),
+      maxPv: Combatants.heroPv(h), pv: Combatants.heroCurPv(h),
       def: Combatants.heroDef(h), damage: h.damage, xp: 0, type: 'hero',
       menace: null, esquive: false, rapide: !!h.rapide, socle: 'medium',
       attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
-      contact: [], status: 'active',
+      contact: [], status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
     };
   }
 
@@ -83,7 +84,18 @@
     render();
   }
 
+  // Écrit les PV des instances héros vers leurs fiches (persistance entre combats)
+  function persistHeroPv() {
+    if (!combat()) return;
+    combat().combatants.forEach(function (c) {
+      if (c.side !== 'hero') return;
+      const tpl = Store.state.heroes.find(function (h) { return h.id === c.templateId; });
+      if (tpl) tpl.pv = c.pv;
+    });
+  }
+
   function endCombat(finalize) {
+    persistHeroPv();
     if (finalize && combat()) {
       const xp = totalXp();
       const before = Store.levelInfo(Store.state.party.xp);
@@ -97,7 +109,7 @@
     Store.state.combat = null;
     Store.save();
     render();
-    if (window.Combatants) Combatants.renderProgress();
+    if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
   }
 
   // ---------- Utilitaires ----------
@@ -129,6 +141,15 @@
   // Nom lisible d'une attaque (retire le préfixe « Mêlée — » / « Distance — »)
   function attackLabel(atk) { return (atk.name || 'attaque').replace(/^(Mêlée|Distance) — /, ''); }
 
+  // ----- Formatage coloré pour le journal -----
+  function dnum(value, color) { return '<span class="dnum d-' + color + '">' + value + '</span>'; }
+  function diceSeq(dice) {
+    return dice.map(function (d) { return dnum(d.value, d.color); }).join('<span class="dplus">+</span>');
+  }
+  function amt(n, cls) { return '<span class="lamt ' + cls + '">' + n + '</span>'; }
+  function nm(x) { return esc(x); }                       // nom (échappé)
+  function wname(name) { return '<span class="lwho">' + esc(name) + '</span>'; }
+
   // ---------- Résolution d'une attaque ----------
   function dchocFrom(monster, hero) {
     // Un adversaire inflige ses dégâts-choc (sauf affaibli/coma)
@@ -136,7 +157,7 @@
     const dmg = monster.damage || 0;
     if (dmg <= 0) return 0;
     hero.pv = Math.max(0, hero.pv - dmg);
-    log(monster.name + ' inflige ' + dmg + ' dégâts-choc à ' + hero.name + '.', 'dchoc');
+    log(wname(monster.name) + ' inflige ' + amt(dmg, 'dmg') + ' dégâts-choc à ' + wname(hero.name) + '.', 'dchoc');
     checkComa(hero);
     return dmg;
   }
@@ -155,11 +176,11 @@
     if (target.states.onde && list.length) {
       const ignored = list.shift();
       target.states.onde = false;
-      log(target.name + ' utilise Onde et ignore ' + stateLabel(ignored) + '.', 'state');
+      log(wname(target.name) + ' utilise Onde et ignore <span class="lstate">' + stateLabel(ignored) + '</span>.', 'state');
     }
     list.forEach(function (s) {
       target.states[s] = true;
-      log(target.name + ' subit ' + stateLabel(s) + '.', 'state');
+      log(wname(target.name) + ' subit <span class="lstate">' + stateLabel(s) + '</span>.', 'state');
     });
   }
 
@@ -191,23 +212,25 @@
       }
     }
 
-    const diceStr = res.dice.map(function (d) { return D.DICE_TYPES[d.color].emoji + d.value; }).join(' ');
-    const label = attackLabel(atk);
+    const diceStr = '<span class="ldice">(' + diceSeq(res.dice) + ')</span>';
+    const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
     if (res.echec) {
-      log(attacker.name + ' rate son attaque (' + label + ') contre ' + target.name + ' — Échec (' + diceStr + ').', 'attack');
+      log(wname(attacker.name) + ' rate son attaque (' + label + ') contre ' + wname(target.name) +
+        ' — <span class="lfail">Échec</span> ' + diceStr + '.', 'attack');
       return;
     }
     if (negated) {
-      log('L’attaque de ' + attacker.name + ' contre ' + target.name + ' est annulée (' + reason + ').', 'attack');
+      log('L’attaque de ' + wname(attacker.name) + ' contre ' + wname(target.name) +
+        ' est annulée (<span class="lstate">' + reason + '</span>).', 'attack');
       return;
     }
 
     if (res.pvLost > 0) target.pv = Math.max(0, target.pv - res.pvLost);
     if (res.pvHealed > 0) target.pv = Math.min(target.maxPv, target.pv + res.pvHealed);
-    log(attacker.name + ' attaque ' + target.name + ' avec ' + label +
-        (res.critique ? ' — CRITIQUE !' : '') + ' : ' +
-        (res.pvLost > 0 ? res.pvLost + ' PV infligés' : 'aucun dégât') +
-        ' (' + diceStr + ').', res.critique ? 'crit' : 'attack');
+    log(wname(attacker.name) + ' attaque ' + wname(target.name) + ' avec ' + label +
+        (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' : ' +
+        (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' PV infligés' : 'aucun dégât') +
+        ' ' + diceStr + '.', res.critique ? 'crit' : 'attack');
     applyStates(attacker, target, atk);
     checkComa(target);
   }
@@ -218,7 +241,7 @@
     if (c.status === 'active' && c.pv <= 0) {
       c.status = 'coma';
       c.pv = 0;
-      log(c.side === 'monster' ? (c.name + ' est vaincu (coma) !') : (c.name + ' sombre dans le coma…'),
+      log(c.side === 'monster' ? (wname(c.name) + ' est vaincu (coma) !') : (wname(c.name) + ' sombre dans le coma…'),
         c.side === 'monster' ? 'kill' : 'down');
     }
   }
@@ -268,7 +291,7 @@
       const atk = m.attacks[ai];
       if (atk.range === 'contact' && !inContact(m, target)) {
         setContact(m, target, true);
-        log(m.name + ' engage ' + target.name + '.', 'move');
+        log(wname(m.name) + ' engage ' + wname(target.name) + '.', 'move');
       }
       applyAttack(m, ai, target);
     });
@@ -304,11 +327,11 @@
         if (m.states.feu) {
           const v = 1 + Math.floor(Math.random() * 6); // ⬛ avant de fuir
           m.pv = Math.max(0, m.pv - v);
-          log(m.name + ' subit ' + v + ' (Feu ⬛) avant de fuir.', 'state');
+          log(wname(m.name) + ' subit ' + amt(v, 'dmg') + ' (Feu ⬛) avant de fuir.', 'state');
           if (m.pv <= 0) { checkComa(m); return; }
         }
         m.status = 'fled';
-        log(m.name + ' fuit le combat.', 'turn');
+        log(wname(m.name) + ' fuit le combat.', 'turn');
       }
     });
     checkOutcome();
@@ -409,7 +432,12 @@
     root.innerHTML =
       '<div class="layout">' +
         '<div class="card">' +
-          '<div class="card-head"><h2>Héros engagés</h2></div>' +
+          '<div class="card-head"><h2>Héros engagés</h2>' +
+            '<div class="rest-actions">' +
+              '<button id="rest-short" class="ghost small" title="Endu × 🟩 par héros">🏕️ Repos court</button>' +
+              '<button id="rest-long" class="ghost small" title="PV au maximum">🌙 Repos long</button>' +
+            '</div>' +
+          '</div>' +
           '<div id="setup-heroes" class="setup-list"></div>' +
         '</div>' +
         '<div class="card">' +
@@ -431,17 +459,31 @@
     const hbox = $('#setup-heroes');
     if (!heroes.length) hbox.innerHTML = '<p class="empty">Crée d\'abord un héros dans l\'onglet Héros.</p>';
     else hbox.innerHTML = heroes.map(function (h) {
-      return '<label class="setup-row"><input type="checkbox" data-hero="' + h.id + '"' +
+      const cur = Combatants.heroCurPv(h), max = Combatants.heroPv(h);
+      const low = cur < max;
+      return '<label class="setup-row' + (h.klass ? ' klass-' + slug(h.klass) : '') + '"><input type="checkbox" data-hero="' + h.id + '"' +
         (setupHeroes[h.id] ? ' checked' : '') + '>' +
-        '<span class="setup-name">' + esc(h.name) + '</span>' +
+        '<span class="setup-name">' + esc(h.name) + (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
         '<span class="stat-pills compact">' +
-          '<span class="stat-pill">❤ ' + Combatants.heroPv(h) + '</span>' +
+          '<span class="stat-pill' + (low ? ' pv-low' : '') + '">❤ ' + cur + '/' + max + '</span>' +
           '<span class="stat-pill">🛡 ' + Combatants.heroDef(h) + '</span>' +
           '<span class="stat-pill">⚔ ' + h.damage + '</span>' +
         '</span></label>';
     }).join('');
     hbox.querySelectorAll('[data-hero]').forEach(function (cb) {
       cb.addEventListener('change', function () { setupHeroes[cb.getAttribute('data-hero')] = cb.checked; updateStartBtn(); });
+    });
+    $('#rest-short').addEventListener('click', function () {
+      const lines = Combatants.heroRestShort();
+      renderSetup(root);
+      if (window.Combatants) Combatants.renderHeroes();
+      alert('🏕️ Repos court\n\n' + lines.join('\n'));
+    });
+    $('#rest-long').addEventListener('click', function () {
+      Combatants.heroRestLong();
+      renderSetup(root);
+      if (window.Combatants) Combatants.renderHeroes();
+      alert('🌙 Repos long : tous les héros sont à PV maximum.');
     });
 
     // Sélecteur de monstres
@@ -560,6 +602,7 @@
     const dead = c.status !== 'active';
     const cls = ['combat-card', 'side-' + c.side];
     if (c.klass) cls.push('klass-' + c.klass.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''));
+    if (c.side === 'monster' && c.type) cls.push('type-' + c.type);
     if (dead) cls.push('is-' + c.status);
     const phase = combat().phase;
     const canAct = !dead && !combat().outcome &&
@@ -733,8 +776,8 @@
           if (!m) return;
           const was = inContact(c, m);
           setContact(c, m, !was);
-          if (was) { log(c.name + ' rompt le contact avec ' + m.name + '.', 'move'); dchocFrom(m, c); }
-          else { log(c.name + ' engage ' + m.name + '.', 'move'); }
+          if (was) { log(wname(c.name) + ' rompt le contact avec ' + wname(m.name) + '.', 'move'); dchocFrom(m, c); }
+          else { log(wname(c.name) + ' engage ' + wname(m.name) + '.', 'move'); }
           c.used.move = true;
           checkOutcome(); Store.save(); render();
         });
@@ -742,11 +785,11 @@
       const ana = root.querySelector('.do-analyse[data-iid="' + c.iid + '"]');
       if (ana) ana.addEventListener('click', function () {
         combat().bonusXp = (combat().bonusXp || 0) + 2; c.used.move = true;
-        log(c.name + ' analyse un adversaire (+2 XP).', 'move'); Store.save(); render();
+        log(wname(c.name) + ' analyse un adversaire (' + amt('+2', 'heal') + ' XP).', 'move'); Store.save(); render();
       });
       const obj = root.querySelector('.do-object[data-iid="' + c.iid + '"]');
       if (obj) obj.addEventListener('click', function () {
-        c.used.object = true; log(c.name + ' utilise un objet.', 'move'); Store.save(); render();
+        c.used.object = true; log(wname(c.name) + ' utilise un objet.', 'move'); Store.save(); render();
       });
     }
   }
@@ -759,10 +802,11 @@
       const n = Math.max(1, h.endu || 1);
       const rolls = [];
       let heal = 0;
-      for (let i = 0; i < n; i++) { const v = 1 + Math.floor(Math.random() * 6); rolls.push('🟩' + v); heal += v; }
+      for (let i = 0; i < n; i++) { const v = 1 + Math.floor(Math.random() * 6); rolls.push(dnum(v, 'green')); heal += v; }
       const before = h.pv;
       h.pv = Math.min(h.maxPv, h.pv + heal);
-      log(h.name + ' prend un repos court et récupère ' + (h.pv - before) + ' PV (' + rolls.join(' ') + ').', 'heal');
+      log(wname(h.name) + ' prend un repos court et récupère ' + amt(h.pv - before, 'heal') + ' PV ' +
+        '<span class="ldice">(' + rolls.join('<span class="dplus">+</span>') + ')</span>.', 'heal');
     });
     c.restDone = true;
     Store.save(); render();
@@ -796,9 +840,10 @@
   function renderLog() {
     const box = $('#combat-log');
     if (!combat().log.length) { box.innerHTML = '<p class="empty">—</p>'; return; }
+    // e.text contient du HTML pré-échappé (noms échappés à la construction)
     box.innerHTML = combat().log.map(function (e) {
       return '<div class="log-row log-' + e.kind + '"><span class="log-turn">T' + e.turn + '</span>' +
-        esc(e.text) + '</div>';
+        e.text + '</div>';
     }).join('');
   }
 

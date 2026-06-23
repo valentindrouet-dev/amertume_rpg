@@ -112,6 +112,28 @@
   };
   function classPv(h) { return CLASS_PV[h.klass] || 0; }
   function heroPv(h) { return Math.max(1, (h.vie || 0) * (h.endu || 0) + (h.pvBonus || 0) + classPv(h)); }
+  // PV courants persistants (null/absent = pleins)
+  function heroCurPv(h) {
+    const m = heroPv(h);
+    return (typeof h.pv === 'number') ? Math.max(0, Math.min(m, h.pv)) : m;
+  }
+  // Repos court : Endu × 🟩 (somme de dés). Repos long : tout au max.
+  function heroRestShort() {
+    const lines = [];
+    Store.state.heroes.forEach(function (h) {
+      const m = heroPv(h), cur = heroCurPv(h), n = Math.max(1, h.endu || 1);
+      let heal = 0; const rolls = [];
+      for (let i = 0; i < n; i++) { const v = 1 + Math.floor(Math.random() * 6); rolls.push(v); heal += v; }
+      h.pv = Math.min(m, cur + heal);
+      lines.push(h.name + ' : +' + (h.pv - cur) + ' PV (' + rolls.join('+') + ' = ' + heal + ')');
+    });
+    Store.save();
+    return lines;
+  }
+  function heroRestLong() {
+    Store.state.heroes.forEach(function (h) { h.pv = heroPv(h); });
+    Store.save();
+  }
   function itemById(id) { return Store.state.items.find(function (i) { return i.id === id; }); }
 
   function heroWeapons(eq) {
@@ -175,9 +197,7 @@
     root.innerHTML =
       '<div class="progress-card">' +
         '<div class="progress-top">' +
-          '<div class="level-badge"><button class="lvl-step" data-lvl="-1" title="Niveau −">▾</button>' +
-            '<span class="lvl-num">' + info.level + '</span><span class="lvl-lbl">Niveau</span>' +
-            '<button class="lvl-step" data-lvl="1" title="Niveau +">▴</button></div>' +
+          '<div class="level-badge"><span class="lvl-num">' + info.level + '</span><span class="lvl-lbl">Niveau</span></div>' +
           '<div class="progress-info">' +
             '<div class="pi-line"><span>✦ <b>' + info.xp + '</b> XP partagée</span>' +
               '<span class="points-pill">' + info.points + ' pts de talent</span></div>' +
@@ -186,6 +206,16 @@
           '</div>' +
         '</div>' +
         '<div class="progress-actions">' +
+          '<div class="level-control">' +
+            '<button class="ghost lvl-btn" data-lvl="-1">− Niveau</button>' +
+            '<select id="level-select" class="level-select">' +
+              [1, 2, 3, 4, 5, 6, 7].map(function (n) {
+                return '<option value="' + n + '"' + (n === info.level ? ' selected' : '') + '>Niveau ' + n + '</option>';
+              }).join('') +
+            '</select>' +
+            '<button class="ghost lvl-btn" data-lvl="1">Niveau +</button>' +
+          '</div>' +
+          '<span class="prog-sep"></span>' +
           '<span class="hint">XP :</span>' +
           '<button class="ghost small" data-xp="-10">−10</button>' +
           '<button class="ghost small" data-xp="-1">−1</button>' +
@@ -195,6 +225,8 @@
           '<button class="ghost small" id="xp-reset">Réinitialiser</button>' +
         '</div>' +
       '</div>';
+    const lsel = $('#level-select');
+    if (lsel) lsel.addEventListener('change', function () { setLevel(parseInt(lsel.value, 10)); });
     root.querySelectorAll('[data-lvl]').forEach(function (b) {
       b.addEventListener('click', function () {
         setLevel(Store.levelInfo(Store.state.party.xp).level + parseInt(b.getAttribute('data-lvl'), 10));
@@ -241,7 +273,7 @@
           '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>' +
         '</div>' +
         '<div class="stat-pills">' +
-          '<span class="stat-pill">❤ <b>' + heroPv(h) + '</b> PV</span>' +
+          '<span class="stat-pill">❤ <b>' + heroCurPv(h) + '</b> / ' + heroPv(h) + ' PV</span>' +
           '<span class="stat-pill">🛡 DEF <b>' + heroDef(h) + '</b></span>' +
           '<span class="stat-pill">⚔ Dég. <b>' + h.damage + '</b></span>' +
         '</div>' +
@@ -415,6 +447,7 @@
           (m.rapide ? '<span class="tag">Rapide</span>' : '') +
           (m.esquive ? '<span class="tag">Esq. 6+</span>' : '') +
           '<button class="ghost small" data-edit-monster="' + m.id + '">Éditer</button>' +
+          '<button class="ghost small del-btn" data-del-monster="' + m.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="stat-pills">' +
           '<span class="stat-pill">❤ <b>' + m.pv + '</b></span>' +
@@ -432,6 +465,16 @@
     }).join('');
     list.querySelectorAll('[data-edit-monster]').forEach(function (b) {
       b.addEventListener('click', function () { openMonsterModal(b.getAttribute('data-edit-monster')); });
+    });
+    list.querySelectorAll('[data-del-monster]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const id = b.getAttribute('data-del-monster');
+        const m = Store.state.monsters.find(function (x) { return x.id === id; });
+        if (m && confirm('Supprimer « ' + m.name + ' » du bestiaire ?')) {
+          Store.state.monsters = Store.state.monsters.filter(function (x) { return x.id !== id; });
+          Store.save(); renderMonsters();
+        }
+      });
     });
   }
 
@@ -557,6 +600,9 @@
     renderMonsters: renderMonsters,
     renderProgress: renderProgress,
     heroPv: heroPv,
+    heroCurPv: heroCurPv,
+    heroRestShort: heroRestShort,
+    heroRestLong: heroRestLong,
     heroDef: heroDef,
     heroCombatAttacks: heroCombatAttacks,
     attacksSummary: attacksSummary,

@@ -641,3 +641,102 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .lvl-step { background: transparent; border: none; color: rgba(255,255,255,.7); cursor: pointer; font-size: .7rem; line-height: .7; padding: 0; }
 .lvl-step:hover { color: #fff; }
 .level-badge .lvl-num { font-size: 1.4rem; }
+
+/* ===================================================================
+   v5 — journal coloré, combat clair, couleurs classes/dangerosité
+   =================================================================== */
+
+/* ----- Journal : chiffres de dés colorés + montants ----- */
+.dnum { font-weight: 700; font-variant-numeric: tabular-nums; padding: 0 1px; }
+.dnum.d-white  { color: #e8e1d0; }
+.dnum.d-bone   { color: #e0bd86; }
+.dnum.d-red    { color: #ef7a68; }
+.dnum.d-blue   { color: #79afe6; }
+.dnum.d-green  { color: #84cf84; }
+.dnum.d-black  { color: #d7d7d7; }
+.dnum.d-yellow { color: #e4d35f; }
+.dplus { color: var(--muted); margin: 0 1px; font-weight: 400; }
+.ldice { color: var(--muted); font-size: .92em; }
+.lamt { font-weight: 800; font-variant-numeric: tabular-nums; }
+.lamt.dmg { color: #ef7a68; }
+.lamt.heal { color: #84cf84; }
+.lwho { font-weight: 700; color: var(--text); }
+.lwpn { font-style: italic; color: var(--accent-2); }
+.lcrit { color: #ffd166; font-weight: 800; }
+.lfail { color: var(--bad); font-weight: 700; }
+.lstate { color: var(--accent-2); font-weight: 600; }
+.log-row { line-height: 1.5; }
+
+/* ----- Repos & progression ----- */
+.rest-actions { display: flex; gap: .4rem; }
+.level-control { display: inline-flex; align-items: center; gap: .4rem; }
+.lvl-btn { padding: .4rem .7rem; font-weight: 600; }
+.level-select { width: auto; padding: .4rem .5rem; font-weight: 600; }
+.prog-sep { width: 1px; height: 26px; background: var(--border); margin: 0 .35rem; }
+.progress-actions { gap: .5rem; }
+
+/* Steppers : carré de dé au lieu d'emoji */
+.stepper .die-sq { width: 20px; height: 20px; }
+
+/* Pastilles PV basses (setup) */
+.stat-pill.pv-low { color: #ef7a68; border-color: #c0563f; }
+.setup-row { border-left: 3px solid transparent; }
+.setup-class { font-size: .68rem; color: var(--action); font-weight: 600; margin-left: .35rem; }
+.setup-row.klass-apothicaire { border-left-color: #7bbf6a; }
+.setup-row.klass-artificier  { border-left-color: #d9a94a; }
+.setup-row.klass-chasseur    { border-left-color: #74b85e; }
+.setup-row.klass-destructeur { border-left-color: #d36a52; }
+.setup-row.klass-deviant     { border-left-color: #9d7fc4; }
+.setup-row.klass-gardien     { border-left-color: #6f9fd6; }
+.setup-row.klass-lamevent    { border-left-color: #5cb6a6; }
+.setup-row.klass-pyromane    { border-left-color: #e08a4a; }
+
+/* Sous-séparateurs d'armurerie (contact/distance) */
+.armory-subsep { font-size: .66rem; color: var(--muted); margin: .45rem 0 .1rem; }
+.armory-subsep::after { background: var(--border); }
+.del-btn { color: var(--bad) !important; }
+.del-btn:hover { background: var(--bad) !important; color: #fff !important; border-color: var(--bad) !important; }
+
+/* ===== Cartes de COMBAT en surface claire ===== */
+.combat-card { background: #efe4cf; color: #33271a; border: 1px solid #cdb98f; }
+.combat-card .roster-name { color: #2a1d10; }
+.combat-card .stat-pill { background: rgba(255,255,255,.55); color: #4a3a23; border-color: rgba(80,55,20,.25); }
+.combat-card .stat-pill b { color: #2a1d10; }
+.combat-card .tag { background: rgba(80,55,20,.1); color: #5a4527; border-color: rgba(80,55,20,.28); }
+.combat-card .tag.class-tag { color: #2c5a93; border-color: #7ba6da; background: rgba(111,159,214,.2); }
+.combat-card .tag.dead { color: #b8442f; border-color: #b8442f; background: rgba(184,68,47,.12); }
+.combat-card .pv-bar { background: rgba(40,28,14,.55); }
+.combat-card .pv-text { color: #fff; }
+.combat-card .ghost.xs, .combat-card .ghost.small { background: rgba(255,255,255,.5); color: #3a2c19; border-color: rgba(80,55,20,.3); }
+.combat-card .ghost.xs:hover, .combat-card .ghost.small:hover { border-color: var(--accent); }
+.combat-card .state-add { color: #7c6646; border-color: rgba(80,55,20,.4); }
+.combat-card .pv-label, .combat-card .act-flag { color: #6f5c3f; }
+.combat-card .act-flag { border-color: rgba(80,55,20,.3); }
+.combat-card .atk-chip { color: #22466b; background: rgba(77,142,209,.16); }
+.combat-card .atk-chip:hover:not(:disabled) { background: rgba(77,142,209,.3); }
+.combat-card .atk-chip.selected { color: #fff; background: var(--action); }
+.combat-card .atk-chip-meta { color: #5d7a96; }
+.combat-card .atk-uses { color: #9a5a1c; }
+.combat-card .contact-chip { background: rgba(80,55,20,.1); color: #5a4527; border-color: rgba(80,55,20,.28); }
+.combat-card .contact-chip.on { background: rgba(193,78,53,.18); color: #9a3d20; border-color: var(--accent); }
+.combat-card .state-menu { background: rgba(255,255,255,.5); border-color: rgba(80,55,20,.25); }
+
+/* Héros en combat : pastel de classe */
+.combat-card.klass-apothicaire { background: #dfeccf; }
+.combat-card.klass-artificier  { background: #f3e6c6; }
+.combat-card.klass-chasseur    { background: #d9ead0; }
+.combat-card.klass-destructeur { background: #f2d9d1; }
+.combat-card.klass-deviant     { background: #e6dcef; }
+.combat-card.klass-gardien     { background: #d7e3f1; }
+.combat-card.klass-lamevent    { background: #d4ebe6; }
+.combat-card.klass-pyromane    { background: #f6ddc6; }
+
+/* Monstres selon la dangerosité (roster + combat) */
+.roster-card.type-standard, .combat-card.type-standard { background: #e7e3d8; border-left: 4px solid #8d8676 !important; }
+.roster-card.type-alpha, .combat-card.type-alpha       { background: #f3e8c8; border-left: 4px solid #c79a3a !important; }
+.roster-card.type-solitaire, .combat-card.type-solitaire { background: #f2d8d2; border-left: 4px solid #c0392b !important; }
+.roster-card.type-boss, .combat-card.type-boss         { background: #e7dcf1; border-left: 4px solid #8a5cc4 !important; }
+.roster-card.type-standard .tag.type, .combat-card.type-standard .tag.type { color: #5c5a52; border-color: #9b968a; background: rgba(141,134,118,.18); }
+.roster-card.type-alpha .tag.type, .combat-card.type-alpha .tag.type { color: #9a6c12; border-color: #c79a3a; background: rgba(199,154,58,.2); }
+.roster-card.type-solitaire .tag.type, .combat-card.type-solitaire .tag.type { color: #b03224; border-color: #c0392b; background: rgba(192,57,43,.16); }
+.roster-card.type-boss .tag.type, .combat-card.type-boss .tag.type { color: #6e3fb0; border-color: #8a5cc4; background: rgba(138,92,196,.18); }
