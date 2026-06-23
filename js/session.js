@@ -614,7 +614,11 @@
       detail.loot.forEach(function (L) {
         ses.acquiredItems[L.itemId] = (ses.acquiredItems[L.itemId] || 0) + L.qty;
         const hid = (L.toHeroId && ses.heroIds.indexOf(L.toHeroId) >= 0) ? L.toHeroId : ses.heroIds[0];
-        if (hid) { if (!ses.heroOwned[hid]) ses.heroOwned[hid] = {}; ses.heroOwned[hid][L.itemId] = true; }
+        if (hid) {
+          if (!ses.heroOwned[hid]) ses.heroOwned[hid] = {};
+          const cur = Number(ses.heroOwned[hid][L.itemId]) || 0; // un doublon augmente la quantité
+          ses.heroOwned[hid][L.itemId] = cur + (L.qty || 1);
+        }
       });
     }
     save();
@@ -772,17 +776,17 @@
       if (!ses.heroOwned[heroId]) {
         const set = {};
         const h0 = Store.state.heroes.find(function (x) { return x.id === heroId; });
-        if (h0) Combatants.heroGear(h0).forEach(function (it) { set[it.id] = true; });
+        if (h0) Combatants.heroGear(h0).forEach(function (it) { set[it.id] = (set[it.id] || 0) + 1; });
         ses.heroOwned[heroId] = set;
         delete ses.startGear; delete ses.ownedItems; // purge des anciens sets de groupe
         save();
       }
-      Object.keys(ses.heroOwned[heroId]).forEach(function (id) { owned[id] = true; });
+      Object.keys(ses.heroOwned[heroId]).forEach(function (id) { owned[id] = Number(ses.heroOwned[heroId][id]) || 1; });
     }
-    // Toujours inclure ce que CE héros porte actuellement (pour pouvoir le déséquiper)
+    // Toujours inclure ce que CE héros porte actuellement (au moins 1)
     const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
-    if (h) Combatants.heroGear(h).forEach(function (it) { owned[it.id] = true; });
-    return owned;
+    if (h) Combatants.heroGear(h).forEach(function (it) { if (!owned[it.id]) owned[it.id] = 1; });
+    return owned; // { itemId: quantité }
   }
 
   // Crée une nouvelle partie avec les aventuriers choisis et lance la narration
@@ -806,7 +810,7 @@
     heroIds.forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       const set = {};
-      if (h) Combatants.heroGear(h).forEach(function (it) { set[it.id] = true; });
+      if (h) Combatants.heroGear(h).forEach(function (it) { set[it.id] = (set[it.id] || 0) + 1; });
       heroOwned[hid] = set;
     });
     const ses = {

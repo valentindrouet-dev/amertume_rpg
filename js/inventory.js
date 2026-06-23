@@ -156,9 +156,11 @@
       if (!mine.length) { html += '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement personnel.</p>'; return; }
       html += mine.map(function (i) {
         const eq = isEquipped(e, i);
+        const qty = Number(owned[i.id]) || 1;
         return '<label class="inv-equip-row' + (eq ? ' equipped' : '') + '">' +
           '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (eq ? ' checked' : '') + '>' +
-          itemCardHtml(i, false) +
+          '<div class="inv-item-wrap">' + itemCardHtml(i, false) +
+            (qty > 1 ? '<span class="inv-qty">×' + qty + '</span>' : '') + '</div>' +
         '</label>';
       }).join('');
     });

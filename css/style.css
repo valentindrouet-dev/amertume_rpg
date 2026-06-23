@@ -1674,3 +1674,13 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   color: var(--text); cursor: pointer; font-weight: 600; }
 .hw-skill:hover { border-color: var(--accent-2); }
 .hw-skill.selected { background: var(--action); color: #fff; border-color: var(--action); }
+
+/* ===================================================================
+   v2.30 — Inventaire : quantité (×N) d'un équipement possédé en double
+   =================================================================== */
+.inv-equip-row > .inv-item-wrap { flex: 1; position: relative; }
+.inv-item-wrap > .roster-card { margin: 0; }
+.inv-equip-row.equipped .roster-card { outline: 2px solid var(--action); outline-offset: 1px; }
+.inv-qty { position: absolute; top: -7px; right: -7px; background: var(--accent); color: #fff;
+  font-size: .72rem; font-weight: 800; border-radius: 11px; padding: .05rem .45rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35); }
