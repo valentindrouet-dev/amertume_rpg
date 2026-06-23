@@ -187,10 +187,10 @@
   function normalizeEquip(eq) {
     eq = eq || {};
     if (eq.mainG !== undefined || eq.mainD !== undefined || eq.objectId !== undefined) {
-      return { mainG: eq.mainG || null, mainD: eq.mainD || null, armorId: eq.armorId || null, objectId: eq.objectId || null };
+      return { mainG: eq.mainG || null, mainD: eq.mainD || null, armorId: eq.armorId || null, objectId: eq.objectId || null, twoH: !!eq.twoH };
     }
     const w = eq.weapons || [];
-    return { mainD: w[0] || null, mainG: w[1] || (eq.shieldId || null), armorId: eq.armorId || null, objectId: null };
+    return { mainD: w[0] || null, mainG: w[1] || (eq.shieldId || null), armorId: eq.armorId || null, objectId: null, twoH: false };
   }
 
   // Tout l'équipement porté (armes + armure + objet), modèle normalisé
@@ -876,6 +876,7 @@
     adventureHeroes: adventureHeroes,
     prebuiltHeroes: prebuiltHeroes,
     heroGear: heroGear,
+    normalizeEquip: normalizeEquip,
     heroPv: heroPv,
     heroCurPv: heroCurPv,
     heroRestShort: heroRestShort,

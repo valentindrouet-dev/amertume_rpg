@@ -75,6 +75,45 @@
   }
 
   // ---- Inventaire d'une session de jeu : par aventurier, lecture seule ----
+  const byId = function (id) { return Store.state.items.find(function (i) { return i.id === id; }); };
+
+  // ----- Équipement (modèle mainG / mainD / armorId / objectId + drapeau 2 mains) -----
+  function normEq(h) { return Combatants.normalizeEquip(h.equipment || {}); }
+  function isEquipped(e, item) {
+    return e.mainG === item.id || e.mainD === item.id || e.armorId === item.id || e.objectId === item.id;
+  }
+  function handsUsed(e) { return e.twoH ? 2 : ((e.mainG ? 1 : 0) + (e.mainD ? 1 : 0)); }
+  function isHandItem(item) { return item.category === 'weapon' || (item.category === 'armor' && item.slot === 'shield'); }
+
+  function equipItem(h, item) {
+    const e = normEq(h);
+    if (isHandItem(item)) {
+      // Les armes occupent main droite puis main gauche (ou les deux si arme à 2 mains)
+      if (item.hands === 2) {
+        if (handsUsed(e) > 0) { alert('Les deux mains de ' + h.name + ' sont occupées.'); return false; }
+        e.mainD = item.id; e.mainG = null; e.twoH = true;
+      } else {
+        if (handsUsed(e) >= 2) { alert('Les deux mains de ' + h.name + ' sont occupées.'); return false; }
+        if (!e.mainD && !e.twoH) e.mainD = item.id;
+        else if (!e.mainG) e.mainG = item.id;
+        else { alert('Les deux mains de ' + h.name + ' sont occupées.'); return false; }
+      }
+    } else if (item.category === 'armor') {
+      e.armorId = item.id;
+    } else {
+      e.objectId = item.id;
+    }
+    h.equipment = e; return true;
+  }
+  function unequipItem(h, item) {
+    const e = normEq(h);
+    if (e.mainD === item.id) { e.mainD = null; e.twoH = false; }
+    if (e.mainG === item.id) e.mainG = null;
+    if (e.armorId === item.id) e.armorId = null;
+    if (e.objectId === item.id) e.objectId = null;
+    h.equipment = e;
+  }
+
   function renderPlayer(advId) {
     const list = $('#item-list');
     if (!list) return;
@@ -83,17 +122,41 @@
       list.innerHTML = '<p class="empty">Aucun aventurier : crée ton groupe d\'abord.</p>';
       return;
     }
+    // Objets équipables disponibles (armes, armures, objets) en stock
+    const equippable = Store.state.items.filter(function (i) {
+      return (i.qty == null || i.qty > 0) &&
+        (i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc');
+    });
     let html = '';
     heroes.forEach(function (h) {
-      // Modèle d'équipement normalisé (armes G/D + armure + objet)
-      const gear = (window.Combatants && Combatants.heroGear) ? Combatants.heroGear(h) : [];
+      const e = normEq(h);
+      const hands = handsUsed(e);
       html += '<div class="inv-hero-sep">' + escapeHtml(h.name) +
-        (h.klass ? ' <span class="hint">' + escapeHtml(h.klass) + '</span>' : '') + '</div>';
-      html += gear.length
-        ? gear.map(function (i) { return itemCardHtml(i, false); }).join('')
-        : '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement obtenu.</p>';
+        (h.klass ? ' <span class="hint">' + escapeHtml(h.klass) + '</span>' : '') +
+        ' <span class="inv-hands">✋ ' + hands + '/2 · 🛡 DEF ' + Combatants.heroDef(h) + '</span></div>';
+      if (!equippable.length) { html += '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement disponible.</p>'; return; }
+      html += equippable.map(function (i) {
+        const eq = isEquipped(e, i);
+        return '<label class="inv-equip-row' + (eq ? ' equipped' : '') + '">' +
+          '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (eq ? ' checked' : '') + '>' +
+          itemCardHtml(i, false) +
+        '</label>';
+      }).join('');
     });
     list.innerHTML = html;
+
+    list.querySelectorAll('.inv-equip-cb').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        const h = Store.state.heroes.find(function (x) { return x.id === cb.getAttribute('data-hero'); });
+        const item = byId(cb.getAttribute('data-item'));
+        if (!h || !item) return;
+        if (cb.checked) { if (!equipItem(h, item)) { cb.checked = false; return; } }
+        else unequipItem(h, item);
+        Store.save();
+        document.dispatchEvent(new CustomEvent('equipment-changed'));
+        renderPlayer(advId);
+      });
+    });
   }
 
   // Moyenne d'un pool de dés (3,5 par dé)

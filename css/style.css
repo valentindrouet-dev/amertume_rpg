@@ -1525,3 +1525,12 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 /* Fiche d'aventurier cliquable (mode Joueur) */
 .hero-card.clickable-sheet { cursor: pointer; transition: box-shadow .12s, transform .12s; }
 .hero-card.clickable-sheet:hover { box-shadow: 0 3px 12px rgba(0,0,0,.18); transform: translateY(-1px); }
+
+/* ===================================================================
+   v2.14 — Inventaire joueur : équiper via cases à cocher
+   =================================================================== */
+.inv-hands { font-size: .75rem; color: var(--muted); font-weight: 600; margin-left: .4rem; }
+.inv-equip-row { display: flex; align-items: center; gap: .5rem; cursor: pointer; margin-bottom: .4rem; }
+.inv-equip-row .inv-equip-cb { flex: 0 0 auto; width: 18px; height: 18px; cursor: pointer; }
+.inv-equip-row > .roster-card { flex: 1; margin: 0; }
+.inv-equip-row.equipped > .roster-card { outline: 2px solid var(--action); outline-offset: 1px; }
