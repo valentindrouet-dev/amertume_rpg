@@ -359,8 +359,21 @@
     } else {
       // exploration / interaction : choix ou avancer
       if (scene.choices && scene.choices.length) {
+        const DIFF = { facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile' };
         box.innerHTML = '<div class="ses-choices">' +
-          scene.choices.map(function (ch) {
+          scene.choices.map(function (ch, i) {
+            if (ch.skillTest) {
+              const bh = bestHeroForSkill(ses, ch.skill);
+              const helper = bh.hero
+                ? '<div class="ses-choice-help">🎲 ' + esc(bh.hero.name) + ' — ' + esc(ch.skill || '') + ' +' + bh.bonus + ' · ' + (DIFF[ch.difficulty] || 'Moyen') + '</div>'
+                : '<div class="ses-choice-help">Aucun aventurier disponible pour ce test</div>';
+              return '<div class="ses-choice">' +
+                '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '">' +
+                  esc(ch.label) + ' <span class="choice-skill">(Compétence) ' + esc(ch.skill || '') + '</span></button>' +
+                helper +
+                (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
+              '</div>';
+            }
             return '<div class="ses-choice">' +
               '<button class="ses-choice-btn choice-type-' + (ch.choiceType || 'neutre') + '" data-target="' + ch.targetSceneId + '">' + esc(ch.label) + '</button>' +
               (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
@@ -369,6 +382,8 @@
         '</div>';
         box.querySelectorAll('.ses-choice-btn').forEach(function (b) {
           b.addEventListener('click', function () {
+            const ci = b.getAttribute('data-ci');
+            if (ci !== null) { runSkillTest(ses, adv, scene, scene.choices[+ci]); return; }
             const targetId = b.getAttribute('data-target');
             ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent, targetSceneId: targetId });
             navigateTo(ses, adv, targetId);
@@ -382,6 +397,51 @@
       }
     }
 
+  }
+
+  // ----- Tests de compétence -----
+  const SKILL_DIFF = { facile: 1, moyen: 2, difficile: 3 };
+  // Aventurier du groupe ayant le meilleur bonus dans la compétence
+  function bestHeroForSkill(ses, skill) {
+    let best = null, bestVal = -1;
+    (ses.heroIds || []).forEach(function (hid) {
+      const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      if (!h) return;
+      const v = (h.skills && h.skills[skill]) || 0;
+      if (v > bestVal) { bestVal = v; best = h; }
+    });
+    return { hero: best, bonus: Math.max(0, bestVal) };
+  }
+  // 1d6 + 1d6 par point de compétence ; réussite = dé à 4+ ; les 6 sont explosifs
+  function rollSkill(bonus) {
+    let toRoll = 1 + bonus, successes = 0, rolls = [], guard = 0;
+    while (toRoll > 0 && guard++ < 60) {
+      let next = 0;
+      for (let i = 0; i < toRoll; i++) {
+        const r = 1 + Math.floor(Math.random() * 6);
+        rolls.push(r);
+        if (r >= 4) successes++;
+        if (r === 6) next++;
+      }
+      toRoll = next;
+    }
+    return { successes: successes, rolls: rolls };
+  }
+  function runSkillTest(ses, adv, scene, ch) {
+    if (!ch) return;
+    const skill = ch.skill || 'Force';
+    const diff = ch.difficulty || 'moyen';
+    const need = SKILL_DIFF[diff] || 2;
+    const bh = bestHeroForSkill(ses, skill);
+    const res = rollSkill(bh.bonus);
+    const passed = res.successes >= need;
+    const who = bh.hero ? bh.hero.name : 'Le groupe';
+    alert(who + ' effectue un test de ' + skill + ' : ' + res.successes + ' réussite(s) = ' + (passed ? 'Réussite' : 'Échec') + '.\n\n' +
+      (passed ? 'Vous avez réussi le test.' : 'Vous avez échoué le test.') +
+      '\n\nDés (' + (1 + bh.bonus) + ' + explosifs) : ' + res.rolls.join(', '));
+    const target = passed ? ch.successSceneId : ch.failSceneId;
+    ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: ch.label + ' [test ' + skill + ']', targetSceneId: target, success: passed });
+    navigateTo(ses, adv, target);
   }
 
   function navigateTo(ses, adv, sceneId) {
@@ -631,12 +691,22 @@
 
     const rows = heroes.map(function (h) {
       const checked = setupSel[h.id] ? ' checked' : '';
-      return '<label class="setup-row' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' +
+      const weapons = Combatants.heroGear(h).filter(function (it) { return it.category === 'weapon'; }).map(function (it) { return it.name; });
+      const skills = Object.keys(h.skills || {}).filter(function (k) { return (h.skills[k] || 0) > 0; })
+        .map(function (k) { return k + ' +' + h.skills[k]; });
+      return '<label class="setup-row hero-pick' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' +
         '<input type="checkbox" data-hero="' + h.id + '"' + checked + '>' +
-        '<span class="setup-name">' + esc(h.name) +
-          (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
-        '<span class="stat-pills compact"><span class="stat-pill">❤ ' + Combatants.heroPv(h) + '</span>' +
-          '<span class="stat-pill">⚔ ' + h.damage + '</span></span>' +
+        '<div class="hero-pick-body">' +
+          '<div class="hero-pick-top"><span class="setup-name">' + esc(h.name) + '</span>' +
+            (h.klass ? '<span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</div>' +
+          '<div class="hero-pick-stats">' +
+            '<span class="stat-pill">❤ ' + Combatants.heroPv(h) + '</span>' +
+            '<span class="stat-pill">🛡 ' + Combatants.heroDef(h) + '</span>' +
+            '<span class="stat-pill">⚔ +' + h.damage + '</span>' +
+          '</div>' +
+          '<div class="hero-pick-line"><b>Armes :</b> ' + esc(weapons.length ? weapons.join(', ') : '—') + '</div>' +
+          (skills.length ? '<div class="hero-pick-line"><b>Compétences :</b> ' + esc(skills.join(' · ')) + '</div>' : '') +
+        '</div>' +
       '</label>';
     }).join('');
 

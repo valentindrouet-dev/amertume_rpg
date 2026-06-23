@@ -23,6 +23,7 @@
   // ---------- Données ----------
   let adventures = [];
   let collapsedChapters = {}; // { chapterId: true } — état enroulé dans l'éditeur
+  const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
 
   const BLOCK_TYPES = [
     { value: 'narrative', label: 'Narratif (italique)' },
@@ -121,7 +122,12 @@
       if (scene.defeatSceneId) links.push({ label: 'défaite', targetId: scene.defeatSceneId });
     } else if (scene.type === 'exploration' || scene.type === 'interaction') {
       (scene.choices || []).forEach(function (c) {
-        if (c.targetSceneId) links.push({ label: '« ' + (c.label || 'choix') + ' »', targetId: c.targetSceneId });
+        if (c.skillTest) {
+          if (c.successSceneId) links.push({ label: '« ' + (c.label || 'choix') + ' » ✓', targetId: c.successSceneId });
+          if (c.failSceneId) links.push({ label: '« ' + (c.label || 'choix') + ' » ✗', targetId: c.failSceneId });
+        } else if (c.targetSceneId) {
+          links.push({ label: '« ' + (c.label || 'choix') + ' »', targetId: c.targetSceneId });
+        }
       });
       if (scene.nextSceneId) links.push({ label: 'suite', targetId: scene.nextSceneId });
     } else if (scene.type !== 'fin') {
@@ -534,13 +540,27 @@
       const typeOpts = CHOICE_TYPES.map(function (t) {
         return '<option value="' + t.value + '"' + ((ch.choiceType || 'neutre') === t.value ? ' selected' : '') + '>' + esc(t.label) + '</option>';
       }).join('');
+      const skillOpts = SKILLS.map(function (s) {
+        return '<option value="' + s + '"' + (ch.skill === s ? ' selected' : '') + '>' + s + '</option>';
+      }).join('');
+      const diffOpts = [['facile', 'Facile (1)'], ['moyen', 'Moyen (2)'], ['difficile', 'Difficile (3)']].map(function (d) {
+        return '<option value="' + d[0] + '"' + ((ch.difficulty || 'moyen') === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
+      }).join('');
       return '<div class="adv-choice-row" data-ci="' + i + '">' +
         '<div class="adv-choice-main">' +
           '<input type="text" class="ch-label" value="' + esc(ch.label) + '" placeholder="Texte du choix" />' +
           '<select class="ch-type choice-type-' + (ch.choiceType || 'neutre') + '">' + typeOpts + '</select>' +
-          '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId) + '</select>' +
+          '<label class="ch-istest-lbl"><input type="checkbox" class="ch-istest"' + (ch.skillTest ? ' checked' : '') + '> Test de compétence</label>' +
           '<button type="button" class="icon-btn ch-del" title="Supprimer ce choix">✕</button>' +
         '</div>' +
+        (ch.skillTest
+          ? '<div class="adv-choice-test">' +
+              '<select class="ch-skill">' + skillOpts + '</select>' +
+              '<select class="ch-diff">' + diffOpts + '</select>' +
+              '<label class="ch-mini">Réussite →<select class="ch-success">' + sceneTargetOptions(allScenes, ch.successSceneId) + '</select></label>' +
+              '<label class="ch-mini">Échec →<select class="ch-fail">' + sceneTargetOptions(allScenes, ch.failSceneId) + '</select></label>' +
+            '</div>'
+          : '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId) + '</select>') +
         '<input type="text" class="ch-desc" value="' + esc(ch.description || '') + '" ' +
           'placeholder="Description / contexte affiché aux joueurs sous le choix (optionnel)" />' +
       '</div>';
@@ -554,6 +574,25 @@
       sel.onchange = function () {
         scene.choices[i].choiceType = this.value;
         this.className = 'ch-type choice-type-' + this.value;
+      };
+    });
+    box.querySelectorAll('.ch-istest').forEach(function (cb, i) {
+      cb.onchange = function () { scene.choices[i].skillTest = this.checked; if (this.checked && !scene.choices[i].skill) scene.choices[i].skill = SKILLS[0]; renderChoicesEditor(scene, adv); };
+    });
+    box.querySelectorAll('.ch-skill').forEach(function (sel, i) {
+      sel.onchange = function () { scene.choices[i].skill = this.value; };
+    });
+    box.querySelectorAll('.ch-diff').forEach(function (sel, i) {
+      sel.onchange = function () { scene.choices[i].difficulty = this.value; };
+    });
+    box.querySelectorAll('.ch-success').forEach(function (sel, i) {
+      sel.onchange = function () {
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[i].successSceneId = id; })) renderChoicesEditor(scene, adv);
+      };
+    });
+    box.querySelectorAll('.ch-fail').forEach(function (sel, i) {
+      sel.onchange = function () {
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[i].failSceneId = id; })) renderChoicesEditor(scene, adv);
       };
     });
     box.querySelectorAll('.ch-desc').forEach(function (inp, i) {

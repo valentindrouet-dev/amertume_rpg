@@ -1591,3 +1591,21 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .adv-ch-toggle { font-size: .9rem; }
 .adv-ch-count { font-size: .75rem; color: var(--muted); white-space: nowrap; }
 .adv-chapter.collapsed { opacity: .9; }
+
+/* ===================================================================
+   v2.22 — Tests de compétence + fiche d'aventurier à la sélection
+   =================================================================== */
+.ch-istest-lbl { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap; }
+.adv-choice-test { display: flex; gap: .45rem; flex-wrap: wrap; align-items: center; margin: .35rem 0; }
+.adv-choice-test .ch-mini { display: inline-flex; align-items: center; gap: .25rem; font-size: .76rem; color: var(--muted); }
+
+.choice-skill { font-size: .72rem; font-weight: 700; opacity: .9; }
+.ses-choice-btn.skill-test::before { content: "🎲 "; }
+.ses-choice-help { font-size: .78rem; color: var(--muted); margin-top: .2rem; padding-left: .2rem; }
+
+.hero-pick { align-items: flex-start; }
+.hero-pick-body { flex: 1; display: flex; flex-direction: column; gap: .25rem; }
+.hero-pick-top { display: flex; align-items: center; gap: .4rem; }
+.hero-pick-stats { display: flex; gap: .35rem; flex-wrap: wrap; }
+.hero-pick-line { font-size: .78rem; color: var(--muted); }
+.hero-pick-line b { color: var(--text); font-weight: 600; }
