@@ -1360,3 +1360,53 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .setup-zone-head, .adv-zone-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; flex-wrap: wrap; }
 .zone-name-input { flex: 1; min-width: 120px; font-weight: 700; }
 .zone-start { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap; }
+
+/* ===================================================================
+   v2.11 — Combat : chips, cimetière, schéma, sbires
+   =================================================================== */
+.atk-chip-main { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-right: auto; }
+.atk-chip-name { font-weight: 600; margin-right: 0; }
+.atk-chip-range { font-size: .62rem; font-weight: 500; color: var(--muted); opacity: .9; }
+.combat-card .atk-chip-range { color: #5d7a96; }
+.atk-chip.selected .atk-chip-range { color: rgba(255,255,255,.85); }
+.atk-chip-figs { display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+
+/* Mouvement : même style que les attaques, mais brun, sans emoji */
+.move-chip {
+  display: inline-flex; align-items: center; gap: .5rem; width: 100%; text-align: left;
+  border-radius: 9px; padding: .45rem .6rem; cursor: pointer; font-size: .86rem; margin-top: .1rem;
+  background: rgba(140,94,42,.16); border: 1px solid #8c5e2a; color: #6b4a1e;
+}
+.move-chip:hover:not(:disabled) { background: rgba(140,94,42,.3); }
+.move-chip:disabled { opacity: .4; cursor: not-allowed; }
+.move-chip.selected { background: #8c5e2a; color: #fff; }
+.move-chip .atk-chip-range { color: #8a6a3a; }
+.move-chip.selected .atk-chip-range { color: rgba(255,255,255,.85); }
+
+/* Attaques des adversaires affichées sur leur carte */
+.cc-enemy-atks { display: flex; flex-direction: column; gap: 2px; margin-top: .35rem; }
+.enemy-atk { font-size: .72rem; }
+.enemy-atk em { font-style: normal; font-size: .64rem; color: var(--muted); margin-left: .25rem; }
+.combat-card.side-monster .enemy-atk em { color: #7a5a3a; }
+
+/* Aventuriers côte à côte dans une zone */
+.hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+@media (max-width: 560px) { .hero-grid { grid-template-columns: 1fr; } }
+
+/* Cimetière compact (adversaires vaincus / enfuis) */
+.combat-cemetery { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin: .35rem 0; }
+.combat-cemetery:empty { display: none; }
+.cem-label { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.cem-chip { font-size: .72rem; color: var(--muted); background: rgba(0,0,0,.06); border: 1px solid var(--border); border-radius: 8px; padding: .05rem .4rem; }
+.cem-chip em { font-style: normal; opacity: .7; }
+
+/* Mini-schéma de combat (aperçu avant lancement) */
+.combat-preview { display: grid; gap: .5rem; margin: .4rem 0; }
+.combat-preview.zc-1 { grid-template-columns: 1fr; }
+.combat-preview.zc-2, .combat-preview.zc-3, .combat-preview.zc-4 { grid-template-columns: 1fr 1fr; }
+.preview-zone { border: 1px solid var(--border); border-radius: 10px; padding: .5rem; background: rgba(0,0,0,.03); }
+.preview-zone.hero-start { border-color: var(--action); background: rgba(77,142,209,.08); }
+.pz-name { font-weight: 700; font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); margin-bottom: .35rem; }
+.pz-heroes { font-size: .8rem; font-weight: 600; color: var(--action); margin-bottom: .25rem; }
+.pz-mon { display: inline-block; font-size: .78rem; background: rgba(192,86,63,.14); border: 1px solid rgba(192,86,63,.4); border-radius: 8px; padding: .05rem .4rem; margin: .1rem .2rem .1rem 0; }
+.pz-empty { color: var(--muted); }

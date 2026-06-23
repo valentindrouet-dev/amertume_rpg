@@ -395,17 +395,38 @@
     render();
   }
 
+  // Zones d'une scène de combat (migration de l'ancien format plat si besoin)
+  function sceneZones(scene) {
+    if (Array.isArray(scene.combatZones) && scene.combatZones.length) return scene.combatZones;
+    const refs = (scene.monsterRefs || []).filter(function (r) { return r.monsterId; });
+    return [
+      { name: 'Zone des aventuriers', monsterRefs: [], heroStart: true },
+      { name: 'Adversaires', monsterRefs: refs },
+    ];
+  }
+
   function renderCombatScene(box, scene, adv, ses) {
-    const monsterRefs = (scene.monsterRefs || []).filter(function (r) { return r.monsterId; });
-    const monsterNames = monsterRefs.map(function (r) {
-      const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
-      return (m ? m.name : '?') + (r.count > 1 ? ' ×' + r.count : '');
-    }).join(', ');
+    const zones = sceneZones(scene);
+    // Mini-schéma des zones : adversaires par zone + position de départ des aventuriers
+    const preview = '<div class="combat-preview zc-' + Math.max(1, zones.length) + '">' +
+      zones.map(function (z) {
+        const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
+          const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
+          return '<span class="pz-mon">' + esc(m ? m.name : '?') + (r.count > 1 ? ' ×' + r.count : '') + '</span>';
+        }).join('');
+        return '<div class="preview-zone' + (z.heroStart ? ' hero-start' : '') + '">' +
+          '<div class="pz-name">' + esc(z.name || 'Zone') + '</div>' +
+          (z.heroStart ? '<div class="pz-heroes">🛡 Aventuriers</div>' : '') +
+          (mons || (z.heroStart ? '' : '<span class="pz-empty">—</span>')) +
+        '</div>';
+      }).join('') +
+    '</div>';
 
     box.innerHTML =
       '<div class="ses-combat-block">' +
-        '<p>Adversaires : <strong>' + esc(monsterNames || '(aucun défini)') + '</strong></p>' +
-        '<div style="display:flex;gap:.5rem;flex-wrap:wrap">' +
+        '<p class="hint">Disposition du combat :</p>' +
+        preview +
+        '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">' +
           '<button class="primary" id="ses-start-combat">⚔ Lancer le combat</button>' +
           (scene.outcomeSceneId
             ? '<button class="ghost" id="ses-skip-victory">Passer (victoire)</button>' : '') +
@@ -428,9 +449,12 @@
   }
 
   function launchSessionCombat(scene, adv, ses) {
-    // Préparer les données de combat
-    const refs = (scene.monsterRefs || []).filter(function (r) { return r.monsterId; });
-    if (!refs.length) { alert('Aucun monstre défini pour ce combat.'); return; }
+    // Préparer les données de combat (zones)
+    const zones = sceneZones(scene);
+    const monsterCount = zones.reduce(function (n, z) {
+      return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).reduce(function (s, r) { return s + (r.count || 1); }, 0);
+    }, 0);
+    if (!monsterCount) { alert('Aucun monstre défini pour ce combat.'); return; }
     if (!ses.heroIds.length) { alert('Aucun héros engagé dans cette aventure.'); return; }
 
     // Synchroniser les PV de session vers les fiches héros (le combat lira h.pv)
@@ -453,7 +477,7 @@
     // Le combat se déroule DANS le panneau Session, avec les héros de l'aventure.
     const root = $('#session-root');
     root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
-    Combat.startInSession(ses.heroIds, { combatZones: scene.combatZones, monsterRefs: refs }, ctx, '#session-combat-root');
+    Combat.startInSession(ses.heroIds, { combatZones: zones }, ctx, '#session-combat-root');
   }
 
   function renderRewardScene(box, scene, adv, ses) {

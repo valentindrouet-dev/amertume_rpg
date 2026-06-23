@@ -150,6 +150,22 @@
     });
   }
 
+  // Abandon (mode aventure) = défaite : les adversaires jouent un dernier tour,
+  // puis les survivants s'enfuient (ils ne rapportent pas d'XP), et on file vers la scène Défaite.
+  function forfeitCombat() {
+    const c = combat();
+    if (!c) return;
+    pendingAttack = null; pendingMove = null;
+    c.phase = 'monsters';
+    log('Vous renoncez au combat — dernier assaut des adversaires.', 'turn');
+    monstersActCore();
+    activeOf('monster').forEach(function (m) { m.status = 'fled'; });
+    log('Les adversaires survivants s\'enfuient.', 'turn');
+    c.outcome = 'defeat';
+    Store.save();
+    endCombat(false); // dispatch la défaite à la session
+  }
+
   function endCombat(finalize) {
     const isSession = combatKey === 'combat';
     if (isSession) persistHeroPv(); // un combat de test n'altère pas les PV réels
@@ -770,6 +786,7 @@
           '</div>';
         }).join('') +
       '</div>' +
+      '<div id="combat-cemetery" class="combat-cemetery"></div>' +
       '<div class="phase-controls" id="phase-controls"></div>' +
       '<div class="card"><div class="card-head"><h3>Journal de combat</h3></div>' +
         '<div id="combat-log" class="combat-log"></div></div>';
@@ -779,7 +796,12 @@
     renderLog();
 
     $('#cb-end').addEventListener('click', function () {
-      if (confirm('Terminer et quitter ce combat ?')) endCombat(false);
+      const isSession = combatKey === 'combat' && Store.state.sessionCombat;
+      if (isSession) {
+        if (confirm('Terminer ce combat ? Vos adversaires agiront une dernière fois et vous subirez les conséquences d\'une défaite.')) forfeitCombat();
+      } else {
+        if (confirm('Terminer et quitter ce combat ?')) endCombat(false);
+      }
     });
     const ct = $('#cancel-target');
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
@@ -825,11 +847,13 @@
     zones().forEach(function (z, zi) {
       const box = $('#zone-cards-' + zi);
       if (!box) return;
-      const here = combat().combatants.filter(function (c) { return c.zone === zi; });
-      const heroes = here.filter(function (c) { return c.side === 'hero'; });
-      const monsters = here.filter(function (c) { return c.side === 'monster'; })
+      // Les aventuriers restent dans leur zone (même au coma, grisés) ;
+      // les adversaires morts/enfuis partent au cimetière (hors zone).
+      const heroes = combat().combatants.filter(function (c) { return c.zone === zi && c.side === 'hero'; });
+      const monsters = combat().combatants.filter(function (c) { return c.zone === zi && c.side === 'monster' && c.status === 'active'; })
         .sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
-      let html = heroes.map(renderCard).join('');
+      // Aventuriers côte à côte (grille), pour gagner de la place
+      let html = heroes.length ? '<div class="hero-grid">' + heroes.map(renderCard).join('') + '</div>' : '';
       let i = 0;
       while (i < monsters.length) {
         const c = monsters[i];
@@ -842,8 +866,20 @@
         } else { html += renderCard(c); i++; }
       }
       box.innerHTML = html || '<p class="empty zone-empty">Zone vide</p>';
-      here.forEach(function (c) { wireCard(c); });
+      heroes.concat(monsters).forEach(function (c) { wireCard(c); });
     });
+    renderCemetery();
+  }
+
+  // Cimetière : adversaires vaincus ou enfuis (compact, hors zones)
+  function renderCemetery() {
+    const box = $('#combat-cemetery');
+    if (!box) return;
+    const dead = combat().combatants.filter(function (c) { return c.side === 'monster' && c.status !== 'active'; });
+    if (!dead.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<span class="cem-label">☠ Cimetière</span>' + dead.map(function (c) {
+      return '<span class="cem-chip">' + esc(c.name) + ' <em>' + (c.status === 'coma' ? 'vaincu' : 'a fui') + '</em></span>';
+    }).join('');
   }
 
   function statesBadges(c) {
@@ -889,51 +925,50 @@
           '</div>'
         : ''
       ) +
-      (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '');
+      (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '') +
+      (isEnemy && c.attacks && c.attacks.length
+        ? '<div class="cc-enemy-atks">' + c.attacks.map(function (a) {
+            return '<span class="enemy-atk">' + esc(attackLabel(a)) +
+              ' <em>' + (a.range === 'distance' ? 'distance' : 'contact') + '</em></span>';
+          }).join('') + '</div>'
+        : '');
 
     if (canAct) {
-      const usedA = c.used.action, usedO = c.used.object;
-      html += '<div class="cc-activation">' +
-        '<span class="act-flag ' + (usedA ? 'used' : '') + '">Action</span>' +
-        '<span class="act-flag ' + (usedO ? 'used' : '') + '">Objet</span></div>';
-      // Attaques en chips bleus (Action). Clic = choisir la cible.
+      const usedA = c.used.action;
       html += '<div class="cc-attacks">' + c.attacks.map(function (a, i) {
         const uses = c.attackUses[i];
         const depleted = uses === 0;
         const blocked = depleted || (!a.freeAction && usedA);
         const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i;
         const chipSel = isThisAtk && !pendingAttack.average;
-        const avgSel  = isThisAtk && !!pendingAttack.average;
-        const meta = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
-        if (a.targets === 'all') meta.push('toutes');
-        if (a.freeAction) meta.push('gratuite');
+        const rangeBits = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
+        if (a.targets === 'all') rangeBits.push('toutes');
+        if (a.freeAction) rangeBits.push('gratuite');
         const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
-        // Dégâts moyens = moyenne des dés de l'arme seulement (sans le bonus de dégâts)
-        const avgDmg = Math.round(avgDicePool(a.dice));
-        return '<div class="atk-row">' +
-          '<button class="atk-chip ' + (chipSel ? 'selected' : '') + '" data-iid="' + c.iid + '" data-atk="' + i + '"' +
+        return '<button class="atk-chip ' + (chipSel ? 'selected' : '') + '" data-iid="' + c.iid + '" data-atk="' + i + '"' +
             (blocked ? ' disabled' : '') + '>' +
-            '<span class="atk-chip-name">' + esc(a.name) + '</span>' +
-            Inventory.poolBadges(a.dice) +
-            (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
-            (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
-            '<span class="atk-chip-meta">' + meta.join(' · ') + '</span>' +
-          '</button>' +
-          '<button class="atk-avg' + (avgSel ? ' selected' : '') + '" data-iid="' + c.iid + '" data-atk-avg="' + i + '"' +
-            (blocked ? ' disabled' : '') + ' title="Dégâts moyens de l\'arme (≈ ' + avgDmg + ', sans bonus, avant DEF)">≈ ' + avgDmg + '</button>' +
-        '</div>';
-      }).join('') + '</div>';
-      html += '<div class="cc-secondary">' +
-        (zoneCount() > 1
-          ? '<button class="ghost xs do-move' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
-              (c.used.move ? ' disabled' : '') + ' title="Se déplacer vers une autre zone">🚶 Mouvement</button>'
-          : '') +
-        (heroHasAnalyse(c)
-          ? '<button class="ghost xs do-analyse" data-iid="' + c.iid + '"' + (usedA ? ' disabled' : '') +
-              ' title="Action : révèle DEF, Dégâts et XP de tous les adversaires">🔍 Analyser</button>'
-          : '') +
-        '<button class="ghost xs do-object" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + '>Objet</button>' +
-        '</div>';
+            '<span class="atk-chip-main">' +
+              '<span class="atk-chip-name">' + esc(a.name) + '</span>' +
+              '<span class="atk-chip-range">' + rangeBits.join(' · ') + '</span>' +
+            '</span>' +
+            '<span class="atk-chip-figs">' +
+              Inventory.poolBadges(a.dice) +
+              (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
+              (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
+            '</span>' +
+          '</button>';
+      }).join('') +
+      (zoneCount() > 1
+        ? '<button class="move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
+            (c.used.move ? ' disabled' : '') + '>' +
+            '<span class="atk-chip-main"><span class="atk-chip-name">Mouvement</span>' +
+            '<span class="atk-chip-range">changer de zone</span></span></button>'
+        : '') +
+      '</div>';
+      if (heroHasAnalyse(c)) {
+        html += '<div class="cc-secondary"><button class="ghost xs do-analyse" data-iid="' + c.iid + '"' +
+          (usedA ? ' disabled' : '') + ' title="Action : révèle DEF, Dégâts et XP de tous les adversaires">🔍 Analyser</button></div>';
+      }
     }
     html += '</div>';
     return html;

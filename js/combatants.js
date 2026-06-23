@@ -11,7 +11,7 @@
 
   const RANGE_LABEL = { contact: 'Contact', distance: 'Distance' };
   const MENACE_LABEL = { closest: 'Plus proche', pvLow: 'PV bas', pvHigh: 'PV haut', defLow: 'DEF basse' };
-  const TYPE_LABEL = { standard: 'Standard', solitaire: 'Solitaire', alpha: 'Alpha', boss: 'Boss' };
+  const TYPE_LABEL = { standard: 'Sbire', solitaire: 'Solitaire', alpha: 'Alpha', boss: 'Boss' };
   const CLASSES = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
     'Gardien', 'Lamevent', 'Pyromane'];
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
@@ -234,7 +234,7 @@
       if (!D.poolCount(pool)) return;
       const vicieuse = ws.some(function (w) { return (w.traits || []).indexOf('vicieuse') !== -1; });
       atks.push({
-        name: (range === 'contact' ? 'Mêlée' : 'Distance') + ' — ' + ws.map(function (w) { return w.name; }).join(' + '),
+        name: ws.map(function (w) { return w.name; }).join(' + '),
         dice: pool, range: range, targets: 'one', useOwnDamage: true,
         effects: Store.noStates(), vicieuse: vicieuse,
       });
