@@ -20,6 +20,7 @@
 
   var COLLECTION = 'amertume_snapshots';
   var PUB_KEY = 'amertume_pub_id'; // id de publication réutilisé (lien stable)
+  var PUB_AT_KEY = 'amertume_pub_at'; // horodatage de la dernière publication
   var db = null;
   var ready = false;
 
@@ -67,9 +68,18 @@
     db.collection(COLLECTION).doc(id).set(bundle)
       .then(function () {
         global.localStorage.setItem(PUB_KEY, id);
+        global.localStorage.setItem(PUB_AT_KEY, String(bundle.publishedAt));
         if (cb) cb(null, id, bundle);
       })
       .catch(function (e) { if (cb) cb(e); });
+  }
+
+  // État de la dernière publication (depuis ce navigateur) : { id, at } ou null
+  function lastPublished() {
+    var id = global.localStorage.getItem(PUB_KEY);
+    if (!id) return null;
+    var at = parseInt(global.localStorage.getItem(PUB_AT_KEY), 10);
+    return { id: id, at: isNaN(at) ? null : at };
   }
 
   function load(id, cb) {
@@ -101,6 +111,7 @@
     applyBundle: applyBundle,
     parsePubId: parsePubId,
     shareLink: shareLink,
+    lastPublished: lastPublished,
     isReady: function () { return ready; },
   };
 })(window);
