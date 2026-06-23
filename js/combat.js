@@ -225,8 +225,9 @@
     const isSession = combatKey === 'combat';
     const sessionCtx = isSession ? (Store.state.sessionCombat || null) : null;
     const outcomeLabel = c.outcome || null;
-    const gained = c.finalize ? totalXp() : 0;
-    if (c.finalize && !isSession) Store.state.party.xp = (Store.state.party.xp || 0) + gained;
+    // L'XP des adversaires tués est toujours accordée, même en cas de défaite
+    const gained = totalXp();
+    if (!isSession) Store.state.party.xp = (Store.state.party.xp || 0) + gained;
     // Butin récupéré : ajouté à l'inventaire du groupe (combat d'aventure uniquement)
     const loot = (isSession && c.lootResults) ? c.lootResults : [];
     loot.forEach(function (L) {
@@ -705,7 +706,7 @@
     const out = c.outcome || 'end';
     const killed = c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; });
     const fled = c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'fled'; });
-    const xp = c.finalize ? totalXp() : 0;
+    const xp = totalXp(); // XP des adversaires tués (accordée même en défaite)
     // Tableau des combattants : aventuriers puis adversaires ayant agi/subi
     const parts = c.combatants.filter(function (x) { return x.side === 'hero' || x.dmgDealt > 0 || x.dmgTaken > 0; });
     parts.sort(function (a, b) { return (a.side === 'hero' ? 0 : 1) - (b.side === 'hero' ? 0 : 1) || b.dmgDealt - a.dmgDealt; });

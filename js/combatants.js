@@ -374,7 +374,7 @@
         (h.rapide ? '<span class="tag">Rapide</span>' : '') +
       '</div>' +
       '<div class="hero-stat-row">' +
-        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroCurPv(h) + ' / ' + heroPv(h) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(h) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + h.damage + '</span></div>' +
       '</div>' +
@@ -415,9 +415,9 @@
           '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="hero-stat-row">' +
-          '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroCurPv(h) + ' / ' + heroPv(h) + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(h) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
-          '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">' + h.damage + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + h.damage + '</span></div>' +
         '</div>' +
         // En mode Joueur, l'équipement n'est pas affiché ici (doublon avec l'onglet Inventaire)
         (player ? '' :
@@ -460,9 +460,9 @@
     const gear = [e.mainG, e.mainD, e.armorId, e.objectId].map(itemById).filter(Boolean).map(function (it) { return it.name; });
     return (h.klass ? '<div class="sheet-class class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</div>' : '') +
       '<div class="hero-stat-row">' +
-        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroCurPv(h) + ' / ' + heroPv(h) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(h) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
-        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">' + h.damage + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + h.damage + '</span></div>' +
       '</div>' +
       '<div class="roster-section"><div class="roster-label">Équipement</div>' +
         '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div></div>' +
