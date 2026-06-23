@@ -288,7 +288,10 @@
       if (scene.choices && scene.choices.length) {
         box.innerHTML = '<div class="ses-choices">' +
           scene.choices.map(function (ch) {
-            return '<button class="ses-choice-btn ghost" data-target="' + ch.targetSceneId + '">' + esc(ch.label) + '</button>';
+            return '<div class="ses-choice">' +
+              '<button class="ses-choice-btn ghost" data-target="' + ch.targetSceneId + '">' + esc(ch.label) + '</button>' +
+              (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
+            '</div>';
           }).join('') +
         '</div>';
         box.querySelectorAll('.ses-choice-btn').forEach(function (b) {

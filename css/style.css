@@ -832,7 +832,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 }
 
 /* Couleurs par type de scène */
-.type-description  { color: #8d8676; background: rgba(141,134,118,.16); border: 1px solid rgba(141,134,118,.3); border-radius: 5px; }
+.type-description  { color: #b07a2e; background: rgba(176,122,46,.16); border: 1px solid rgba(176,122,46,.38); border-radius: 5px; }
 .type-exploration { color: #4a8dd6; background: rgba(74,141,214,.14); border: 1px solid rgba(74,141,214,.3); border-radius: 5px; }
 .type-interaction  { color: #6aab6a; background: rgba(106,171,106,.14); border: 1px solid rgba(106,171,106,.3); border-radius: 5px; }
 .type-combat       { color: #d65c40; background: rgba(214,92,64,.14);  border: 1px solid rgba(214,92,64,.3);  border-radius: 5px; }
@@ -973,3 +973,47 @@ body.mode-home main { display: none; }
 /* Accent visuel pour distinguer les deux interfaces */
 body.mode-admin .topbar  { border-bottom: 2px solid #b5468a; }
 body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
+
+/* ===================================================================
+   v2.01 — Version, arborescence de scènes, choix décrits, ordre des blocs
+   =================================================================== */
+
+/* ---- Numéro de version sous le titre ---- */
+.brand-text { display: flex; flex-direction: column; line-height: 1; }
+.brand-version { font-size: .68rem; color: var(--muted); letter-spacing: .04em; margin-top: 1px; }
+.home-brand .brand-version { display: block; font-size: .8rem; margin-top: .2rem; }
+
+/* ---- Liste de scènes : item + ligne cliquable + outils ---- */
+.adv-scene-item { margin-bottom: .35rem; }
+.adv-scene-row { cursor: pointer; transition: border-color .12s, background .12s; }
+.adv-scene-row:hover { border-color: var(--accent-2); background: rgba(226,151,74,.06); }
+.adv-scene-title { flex: 1; }
+.adv-scene-tools { display: flex; align-items: center; gap: .15rem; margin-left: auto; }
+.adv-scene-tools .icon-btn { font-size: .9rem; padding: .1rem .3rem; }
+.adv-scene-tools .icon-btn:disabled { opacity: .3; cursor: default; }
+
+/* ---- Mini-arborescence : liens sortants d'une scène ---- */
+.adv-scene-links {
+  margin: .15rem 0 .2rem 1.6rem;
+  padding-left: .6rem;
+  border-left: 2px solid var(--border);
+  display: flex; flex-direction: column; gap: .1rem;
+}
+.adv-scene-link { font-size: .76rem; color: var(--muted); }
+.adv-scene-link .link-arrow { color: var(--accent-2); }
+.adv-scene-link .link-to { color: var(--text); }
+
+/* ---- Éditeur de choix : ligne principale + description ---- */
+.adv-choice-row { flex-direction: column; align-items: stretch; gap: .3rem; }
+.adv-choice-main { display: flex; align-items: center; gap: .4rem; }
+.adv-choice-main .ch-label { flex: 1; }
+.adv-choice-main .ch-target { flex: 1; }
+.adv-choice-row .ch-desc { font-size: .82rem; }
+
+/* ---- Affichage du choix en session : description sous le bouton ---- */
+.ses-choice { display: flex; flex-direction: column; gap: .15rem; }
+.ses-choice-desc { font-size: .82rem; color: var(--muted); font-style: italic; padding: 0 .2rem .2rem; }
+
+/* ---- Boutons d'ordre (blocs / scènes) ---- */
+.adv-block-row-head .block-up, .adv-block-row-head .block-down { font-size: .9rem; padding: .1rem .3rem; }
+.adv-block-row-head .icon-btn:disabled { opacity: .3; cursor: default; }

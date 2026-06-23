@@ -59,6 +59,64 @@
     return { id: Store.uid(), title: 'Nouvelle aventure', chapters: [] };
   }
 
+  // ---------- Utilitaires d'arborescence / navigation ----------
+  function buildAllScenes(adv) {
+    const arr = [];
+    adv.chapters.forEach(function (c) {
+      c.scenes.forEach(function (s) {
+        arr.push({ id: s.id, label: (c.title ? c.title + ' / ' : '') + (s.title || s.id.slice(-4)) });
+      });
+    });
+    return arr;
+  }
+  function sceneTitleMap(adv) {
+    const map = {};
+    adv.chapters.forEach(function (c) {
+      c.scenes.forEach(function (s) { map[s.id] = s.title || '(sans titre)'; });
+    });
+    return map;
+  }
+  function chapterOfScene(adv, sceneId) {
+    return adv.chapters.find(function (c) {
+      return c.scenes.some(function (s) { return s.id === sceneId; });
+    }) || null;
+  }
+  // Crée une scène liée dans le même chapitre que `fromSceneId` et renvoie son id
+  function createLinkedScene(adv, fromSceneId) {
+    const ch = chapterOfScene(adv, fromSceneId) || adv.chapters[0];
+    if (!ch) return null;
+    const ns = newScene();
+    ns.title = 'Nouvelle scène';
+    ch.scenes.push(ns);
+    save();
+    return ns.id;
+  }
+  function moveScene(a, chId, sceneId, dir) {
+    const ch = a.chapters.find(function (c) { return c.id === chId; });
+    if (!ch) return;
+    const i = ch.scenes.findIndex(function (s) { return s.id === sceneId; });
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ch.scenes.length) return;
+    const tmp = ch.scenes[i]; ch.scenes[i] = ch.scenes[j]; ch.scenes[j] = tmp;
+    save(); renderChapters(a);
+  }
+  // Liens sortants d'une scène (pour la mini-arborescence)
+  function sceneLinks(scene) {
+    const links = [];
+    if (scene.type === 'combat') {
+      if (scene.outcomeSceneId) links.push({ label: 'victoire', targetId: scene.outcomeSceneId });
+      if (scene.defeatSceneId) links.push({ label: 'défaite', targetId: scene.defeatSceneId });
+    } else if (scene.type === 'exploration' || scene.type === 'interaction') {
+      (scene.choices || []).forEach(function (c) {
+        if (c.targetSceneId) links.push({ label: '« ' + (c.label || 'choix') + ' »', targetId: c.targetSceneId });
+      });
+      if (scene.nextSceneId) links.push({ label: 'suite', targetId: scene.nextSceneId });
+    } else if (scene.type !== 'fin') {
+      if (scene.nextSceneId) links.push({ label: 'suite', targetId: scene.nextSceneId });
+    }
+    return links;
+  }
+
   // ---------- Persistance ----------
   function load() { adventures = Store.loadAdventures(); }
   function save() { Store.saveAdventures(adventures); }
@@ -173,7 +231,7 @@
           '<button class="icon-btn adv-del-ch" data-ch="' + ch.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="adv-scenes" id="scenes-' + ch.id + '">' +
-          renderScenesHTML(ch) +
+          renderScenesHTML(ch, a) +
         '</div>' +
         '<button class="ghost small adv-add-scene" data-ch="' + ch.id + '" style="margin:.4rem 0 .8rem">+ Scène</button>' +
       '</div>';
@@ -200,31 +258,62 @@
         save(); renderChapters(a);
       });
     });
-    box.querySelectorAll('.adv-edit-scene').forEach(function (b) {
-      b.addEventListener('click', function () {
-        openSceneModal(a, b.getAttribute('data-ch'), b.getAttribute('data-scene'));
+    // Cliquer sur une scène ouvre l'éditeur
+    box.querySelectorAll('.adv-scene-row').forEach(function (row) {
+      row.addEventListener('click', function () {
+        openSceneModal(a, row.getAttribute('data-ch'), row.getAttribute('data-scene'));
+      });
+    });
+    box.querySelectorAll('.sc-up').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        moveScene(a, b.getAttribute('data-ch'), b.getAttribute('data-scene'), -1);
+      });
+    });
+    box.querySelectorAll('.sc-down').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        moveScene(a, b.getAttribute('data-ch'), b.getAttribute('data-scene'), 1);
       });
     });
     box.querySelectorAll('.adv-del-scene').forEach(function (b) {
-      b.addEventListener('click', function () {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
         const ch = a.chapters.find(function (c) { return c.id === b.getAttribute('data-ch'); });
         if (!ch) return;
+        if (!confirm('Supprimer cette scène ?')) return;
         ch.scenes = ch.scenes.filter(function (s) { return s.id !== b.getAttribute('data-scene'); });
         save(); renderChapters(a);
       });
     });
   }
 
-  function renderScenesHTML(ch) {
+  function renderScenesHTML(ch, adv) {
     if (!ch.scenes.length) return '<p class="empty" style="padding:.3rem 0">Aucune scène.</p>';
+    const titles = sceneTitleMap(adv);
     return ch.scenes.map(function (s, si) {
       const typeLabel = (SCENE_TYPES.find(function (t) { return t.value === s.type; }) || {}).label || s.type;
-      return '<div class="adv-scene-row">' +
-        '<span class="adv-scene-num">' + (si + 1) + '</span>' +
-        '<span class="adv-scene-type type-' + s.type + '">' + typeLabel + '</span>' +
-        '<span class="adv-scene-title">' + esc(s.title || '(sans titre)') + '</span>' +
-        '<button class="ghost small adv-edit-scene" data-ch="' + ch.id + '" data-scene="' + s.id + '">Éditer</button>' +
-        '<button class="icon-btn adv-del-scene del-btn" data-ch="' + ch.id + '" data-scene="' + s.id + '">✕</button>' +
+      const links = sceneLinks(s);
+      const tree = links.length
+        ? '<div class="adv-scene-links">' + links.map(function (l) {
+            const t = titles[l.targetId] || '(scène inconnue)';
+            return '<div class="adv-scene-link"><span class="link-arrow">↳</span> ' +
+              esc(l.label) + ' <span class="link-to">→ ' + esc(t) + '</span></div>';
+          }).join('') + '</div>'
+        : '';
+      const last = si === ch.scenes.length - 1;
+      return '<div class="adv-scene-item">' +
+        '<div class="adv-scene-row" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Cliquer pour éditer">' +
+          '<span class="adv-scene-num">' + (si + 1) + '</span>' +
+          '<span class="adv-scene-type type-' + s.type + '">' + typeLabel + '</span>' +
+          '<span class="adv-scene-title">' + esc(s.title || '(sans titre)') + '</span>' +
+          '<span class="adv-scene-tools">' +
+            '<button type="button" class="icon-btn sc-up" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Monter"' + (si === 0 ? ' disabled' : '') + '>↑</button>' +
+            '<button type="button" class="icon-btn sc-down" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Descendre"' + (last ? ' disabled' : '') + '>↓</button>' +
+            '<button type="button" class="icon-btn adv-del-scene del-btn" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Supprimer">✕</button>' +
+          '</span>' +
+        '</div>' +
+        tree +
       '</div>';
     }).join('');
   }
@@ -237,14 +326,6 @@
     if (!ch) return;
     const scene = ch.scenes.find(function (s) { return s.id === sceneId; });
     if (!scene) return;
-
-    // Collect all scenes for target dropdowns
-    const allScenes = [];
-    adv.chapters.forEach(function (c) {
-      c.scenes.forEach(function (s) {
-        allScenes.push({ id: s.id, label: (c.title ? c.title + ' / ' : '') + (s.title || s.id.slice(-4)) });
-      });
-    });
 
     const modal = document.getElementById('scene-modal');
     modal.removeAttribute('hidden');
@@ -259,12 +340,12 @@
       scene.blocks.push({ id: Store.uid(), type: 'narrative', content: scene.text });
       scene.text = '';
     }
-    refreshSceneModalSections(scene, adv, allScenes);
+    refreshSceneModalSections(scene, adv);
     renderBlocksEditor(scene);
 
     typeSelect.onchange = function () {
       scene.type = typeSelect.value;
-      refreshSceneModalSections(scene, adv, allScenes);
+      refreshSceneModalSections(scene, adv);
     };
     document.getElementById('sm-title').oninput = function () { scene.title = this.value; };
     document.getElementById('sm-add-block').onclick = function () {
@@ -272,28 +353,42 @@
       renderBlocksEditor(scene);
     };
 
-    document.getElementById('sm-save').onclick = function () {
+    function closeModal() {
       save();
       modal.setAttribute('hidden', '');
       renderChapters(adv);
-    };
-    document.getElementById('sm-close').onclick = function () {
-      modal.setAttribute('hidden', '');
-      renderChapters(adv);
-    };
+    }
+    document.getElementById('sm-save').onclick = closeModal;
+    document.getElementById('sm-close').onclick = closeModal;
   }
 
   function sceneTargetOptions(allScenes, selectedId) {
     return '<option value="">(aucune)</option>' +
       allScenes.map(function (s) {
         return '<option value="' + s.id + '"' + (s.id === selectedId ? ' selected' : '') + '>' + esc(s.label) + '</option>';
-      }).join('');
+      }).join('') +
+      '<option value="__new__">+ Créer une nouvelle scène…</option>';
   }
 
-  function refreshSceneModalSections(scene, adv, allScenes) {
+  // Gère le choix d'une cible dans un menu déroulant, avec création à la volée.
+  // `assign(id)` enregistre la cible choisie ; renvoie true si une nouvelle scène
+  // a été créée (l'appelant doit rafraîchir l'éditeur).
+  function handleTargetSelect(value, scene, adv, assign) {
+    if (value === '__new__') {
+      const nid = createLinkedScene(adv, scene.id);
+      assign(nid || null);
+      save();
+      return true;
+    }
+    assign(value || null);
+    return false;
+  }
+
+  function refreshSceneModalSections(scene, adv) {
     const type = scene.type;
     const monsters = Store.state.monsters;
     const items = Store.state.items;
+    const allScenes = buildAllScenes(adv);
 
     // Choix / navigation
     const choicesBox = document.getElementById('sm-choices-section');
@@ -304,19 +399,31 @@
     // nextSceneId (exploration, interaction, reward)
     nextBox.style.display = (type === 'combat' || type === 'fin') ? 'none' : '';
     document.getElementById('sm-next').innerHTML = sceneTargetOptions(allScenes, scene.nextSceneId);
-    document.getElementById('sm-next').onchange = function () { scene.nextSceneId = this.value || null; };
+    document.getElementById('sm-next').onchange = function () {
+      if (handleTargetSelect(this.value, scene, adv, function (id) { scene.nextSceneId = id; })) {
+        refreshSceneModalSections(scene, adv);
+      }
+    };
 
     // Choices (exploration, interaction)
     choicesBox.style.display = (type === 'exploration' || type === 'interaction') ? '' : 'none';
-    renderChoicesEditor(scene, allScenes);
+    renderChoicesEditor(scene, adv);
 
     // Combat
     combatBox.style.display = type === 'combat' ? '' : 'none';
     if (type === 'combat') {
       document.getElementById('sm-outcome').innerHTML = sceneTargetOptions(allScenes, scene.outcomeSceneId);
       document.getElementById('sm-defeat').innerHTML = sceneTargetOptions(allScenes, scene.defeatSceneId);
-      document.getElementById('sm-outcome').onchange = function () { scene.outcomeSceneId = this.value || null; };
-      document.getElementById('sm-defeat').onchange = function () { scene.defeatSceneId = this.value || null; };
+      document.getElementById('sm-outcome').onchange = function () {
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.outcomeSceneId = id; })) {
+          refreshSceneModalSections(scene, adv);
+        }
+      };
+      document.getElementById('sm-defeat').onchange = function () {
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.defeatSceneId = id; })) {
+          refreshSceneModalSections(scene, adv);
+        }
+      };
       renderMonsterRefs(scene, monsters);
     }
 
@@ -339,9 +446,12 @@
         const typeOpts = BLOCK_TYPES.map(function (t) {
           return '<option value="' + t.value + '"' + (t.value === blk.type ? ' selected' : '') + '>' + esc(t.label) + '</option>';
         }).join('');
+        const last = i === scene.blocks.length - 1;
         return '<div class="adv-block-row">' +
           '<div class="adv-block-row-head">' +
             '<select class="block-type-sel">' + typeOpts + '</select>' +
+            '<button type="button" class="icon-btn block-up" title="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+            '<button type="button" class="icon-btn block-down" title="Descendre"' + (last ? ' disabled' : '') + '>↓</button>' +
             '<button type="button" class="icon-btn block-del" title="Supprimer ce bloc">✕</button>' +
           '</div>' +
           '<textarea class="block-content" rows="3">' + esc(blk.content || '') + '</textarea>' +
@@ -354,18 +464,37 @@
     box.querySelectorAll('.block-content').forEach(function (ta, i) {
       ta.oninput = function () { scene.blocks[i].content = this.value; };
     });
+    box.querySelectorAll('.block-up').forEach(function (b, i) {
+      b.onclick = function () {
+        if (i <= 0) return;
+        const t = scene.blocks[i - 1]; scene.blocks[i - 1] = scene.blocks[i]; scene.blocks[i] = t;
+        renderBlocksEditor(scene);
+      };
+    });
+    box.querySelectorAll('.block-down').forEach(function (b, i) {
+      b.onclick = function () {
+        if (i >= scene.blocks.length - 1) return;
+        const t = scene.blocks[i + 1]; scene.blocks[i + 1] = scene.blocks[i]; scene.blocks[i] = t;
+        renderBlocksEditor(scene);
+      };
+    });
     box.querySelectorAll('.block-del').forEach(function (b, i) {
       b.onclick = function () { scene.blocks.splice(i, 1); renderBlocksEditor(scene); };
     });
   }
 
-  function renderChoicesEditor(scene, allScenes) {
+  function renderChoicesEditor(scene, adv) {
     const box = document.getElementById('sm-choices');
+    const allScenes = buildAllScenes(adv);
     box.innerHTML = (scene.choices || []).map(function (ch, i) {
       return '<div class="adv-choice-row" data-ci="' + i + '">' +
-        '<input type="text" class="ch-label" value="' + esc(ch.label) + '" placeholder="Texte du choix" />' +
-        '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId) + '</select>' +
-        '<button type="button" class="icon-btn ch-del">✕</button>' +
+        '<div class="adv-choice-main">' +
+          '<input type="text" class="ch-label" value="' + esc(ch.label) + '" placeholder="Texte du choix" />' +
+          '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId) + '</select>' +
+          '<button type="button" class="icon-btn ch-del" title="Supprimer ce choix">✕</button>' +
+        '</div>' +
+        '<input type="text" class="ch-desc" value="' + esc(ch.description || '') + '" ' +
+          'placeholder="Description / contexte affiché aux joueurs sous le choix (optionnel)" />' +
       '</div>';
     }).join('') +
     '<button type="button" class="ghost small" id="sm-add-choice">+ Choix</button>';
@@ -373,16 +502,23 @@
     box.querySelectorAll('.ch-label').forEach(function (inp, i) {
       inp.oninput = function () { scene.choices[i].label = this.value; };
     });
+    box.querySelectorAll('.ch-desc').forEach(function (inp, i) {
+      inp.oninput = function () { scene.choices[i].description = this.value; };
+    });
     box.querySelectorAll('.ch-target').forEach(function (sel, i) {
-      sel.onchange = function () { scene.choices[i].targetSceneId = this.value || null; };
+      sel.onchange = function () {
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[i].targetSceneId = id; })) {
+          refreshSceneModalSections(scene, adv);
+        }
+      };
     });
     box.querySelectorAll('.ch-del').forEach(function (b, i) {
-      b.onclick = function () { scene.choices.splice(i, 1); renderChoicesEditor(scene, allScenes); };
+      b.onclick = function () { scene.choices.splice(i, 1); renderChoicesEditor(scene, adv); };
     });
     const addBtn = document.getElementById('sm-add-choice');
     if (addBtn) addBtn.onclick = function () {
-      scene.choices.push({ id: Store.uid(), label: '', targetSceneId: null });
-      renderChoicesEditor(scene, allScenes);
+      scene.choices.push({ id: Store.uid(), label: '', targetSceneId: null, description: '' });
+      renderChoicesEditor(scene, adv);
     };
   }
 

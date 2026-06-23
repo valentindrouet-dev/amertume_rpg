@@ -5,6 +5,9 @@
   'use strict';
   const $ = function (sel) { return document.querySelector(sel); };
 
+  // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
+  const APP_VERSION = 'v2.01';
+
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
   function safe(label, fn) {
     try { fn(); } catch (e) { console.error('[' + label + ']', e); }
@@ -82,6 +85,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.brand-version').forEach(function (el) { el.textContent = APP_VERSION; });
     safe('tabs', setupTabs);
     safe('backup', setupBackup);
     safe('inventory.init', Inventory.init);
