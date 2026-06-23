@@ -221,9 +221,8 @@
     return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   }
 
-  // Attaques dérivées des armes équipées (mêlée / distance, dés cumulés)
-  function heroDerivedAttacks(eq) {
-    const weapons = heroWeapons(eq);
+  // Attaques dérivées d'une liste d'armes (mêlée / distance, dés cumulés, effets de traits)
+  function weaponAttacks(weapons) {
     const groups = { contact: [], distance: [] };
     weapons.forEach(function (w) { (w.ranged ? groups.distance : groups.contact).push(w); });
     const atks = [];
@@ -232,14 +231,20 @@
       if (!ws.length) return;
       const pool = D.addPools.apply(null, ws.map(function (w) { return w.dice; }));
       if (!D.poolCount(pool)) return;
-      const vicieuse = ws.some(function (w) { return (w.traits || []).indexOf('vicieuse') !== -1; });
+      const traits = {};
+      ws.forEach(function (w) { (w.traits || []).forEach(function (t) { traits[t] = true; }); });
       atks.push({
         name: ws.map(function (w) { return w.name; }).join(' + '),
         dice: pool, range: range, targets: 'one', useOwnDamage: true,
-        effects: Store.noStates(), vicieuse: vicieuse,
+        effects: Store.noStates(), vicieuse: !!traits.vicieuse, jetable: !!traits.jetable,
       });
     });
     return atks;
+  }
+
+  // Attaques dérivées des armes équipées d'un aventurier
+  function heroDerivedAttacks(eq) {
+    return weaponAttacks(heroWeapons(eq));
   }
 
   // Attaques utilisées en combat : armes + spéciales (+ secours mains nues)
@@ -601,6 +606,35 @@
   // ================= MONSTRES =================
   let monsterAttacks = [];
   let monsterTalents = [];
+  let monsterEquip = [];   // [{ itemId, loot }]  armes/armures équipées
+  let monsterLoot = [];    // [{ itemId, loot, qty }]  butin du groupe
+
+  // Éditeur de loot (équipement de l'adversaire ou butin du groupe)
+  function buildLootEditor(container, list, opts) {
+    opts = opts || {};
+    function itemOpts(sel) {
+      const items = Store.state.items.filter(function (i) { return !opts.cats || opts.cats.indexOf(i.category) >= 0; });
+      return '<option value="">(choisir)</option>' + items.map(function (i) {
+        return '<option value="' + i.id + '"' + (i.id === sel ? ' selected' : '') + '>' + esc(i.name) + '</option>';
+      }).join('');
+    }
+    container.innerHTML = list.length ? list.map(function (row, idx) {
+      return '<div class="loot-row" data-i="' + idx + '">' +
+        '<select class="loot-item">' + itemOpts(row.itemId) + '</select>' +
+        '<label class="loot-pct">Loot <input type="number" class="loot-loot" min="0" max="100" value="' + (row.loot != null ? row.loot : 50) + '" />%</label>' +
+        (opts.withQty ? '<label class="loot-qty">×<input type="number" class="loot-q" min="1" value="' + (row.qty || 1) + '" /></label>' : '') +
+        '<button type="button" class="icon-btn loot-del">✕</button>' +
+      '</div>';
+    }).join('') : '<p class="hint">Aucun.</p>';
+    container.querySelectorAll('.loot-row').forEach(function (rowEl) {
+      const idx = +rowEl.getAttribute('data-i');
+      rowEl.querySelector('.loot-item').onchange = function () { list[idx].itemId = this.value; };
+      rowEl.querySelector('.loot-loot').oninput = function () { list[idx].loot = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); };
+      const q = rowEl.querySelector('.loot-q');
+      if (q) q.oninput = function () { list[idx].qty = Math.max(1, parseInt(this.value, 10) || 1); };
+      rowEl.querySelector('.loot-del').onclick = function () { list.splice(idx, 1); buildLootEditor(container, list, opts); };
+    });
+  }
 
   const TYPE_RANK = { standard: 0, alpha: 1, solitaire: 2, boss: 3 };
 
@@ -776,6 +810,10 @@
     $('#m-notes').value = isEdit ? (m.notes || '') : '';
     monsterAttacks = isEdit ? JSON.parse(JSON.stringify(m.attacks || [])) : [newAttack()];
     buildAttacksEditor($('#m-attacks'), monsterAttacks);
+    monsterEquip = isEdit ? JSON.parse(JSON.stringify(m.equipment || [])) : [];
+    buildLootEditor($('#m-equip'), monsterEquip, { cats: ['weapon', 'armor'] });
+    monsterLoot = isEdit ? JSON.parse(JSON.stringify(m.loot || [])) : [];
+    buildLootEditor($('#m-loot'), monsterLoot, { withQty: true });
     monsterTalents = isEdit ? JSON.parse(JSON.stringify(m.talents || [])) : [];
     buildTalentsEditor($('#m-talents'), monsterTalents);
     $('#btn-delete-monster').hidden = !isEdit;
@@ -801,6 +839,8 @@
       rapide: $('#m-rapide').checked,
       notes: $('#m-notes').value.trim(),
       attacks: monsterAttacks,
+      equipment: monsterEquip.filter(function (r) { return r.itemId; }),
+      loot: monsterLoot.filter(function (r) { return r.itemId; }),
       talents: monsterTalents,
     };
     if (existing) Object.assign(existing, data);
@@ -849,6 +889,12 @@
     $('#m-add-talent').addEventListener('click', function () {
       monsterTalents.push(newTalent()); buildTalentsEditor($('#m-talents'), monsterTalents);
     });
+    $('#m-add-equip').addEventListener('click', function () {
+      monsterEquip.push({ itemId: '', loot: 50 }); buildLootEditor($('#m-equip'), monsterEquip, { cats: ['weapon', 'armor'] });
+    });
+    $('#m-add-loot').addEventListener('click', function () {
+      monsterLoot.push({ itemId: '', loot: 50, qty: 1 }); buildLootEditor($('#m-loot'), monsterLoot, { withQty: true });
+    });
     $('#monster-search').addEventListener('input', renderMonsters);
     $('#monster-filter-type').addEventListener('change', renderMonsters);
     $('#monster-filter-family').addEventListener('change', renderMonsters);
@@ -877,6 +923,7 @@
     prebuiltHeroes: prebuiltHeroes,
     heroGear: heroGear,
     normalizeEquip: normalizeEquip,
+    weaponAttacks: weaponAttacks,
     heroPv: heroPv,
     heroCurPv: heroCurPv,
     heroRestShort: heroRestShort,

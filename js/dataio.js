@@ -119,14 +119,15 @@
     },
     monsters: {
       file: 'amertume-monstres.csv',
-      headers: ['id', 'name', 'type', 'socle', 'family', 'pv', 'def', 'damage', 'xp', 'menace', 'esquive', 'rapide', 'attacks', 'talents', 'notes'],
+      headers: ['id', 'name', 'type', 'socle', 'family', 'pv', 'def', 'damage', 'xp', 'menace', 'esquive', 'rapide', 'attacks', 'equipment', 'loot', 'talents', 'notes'],
       get: function () { return Store.state.monsters; },
       toRow: function (m) {
         return {
           id: m.id, name: m.name, type: m.type, socle: m.socle || 'medium', family: m.family || '',
           pv: m.pv, def: m.def, damage: m.damage, xp: m.xp, menace: m.menace || 'closest',
           esquive: bEnc(m.esquive), rapide: bEnc(m.rapide),
-          attacks: jEnc(m.attacks), talents: jEnc(m.talents), notes: m.notes || '',
+          attacks: jEnc(m.attacks), equipment: jEnc(m.equipment || []), loot: jEnc(m.loot || []),
+          talents: jEnc(m.talents), notes: m.notes || '',
         };
       },
       fromRow: function (r, prev) {
@@ -138,6 +139,7 @@
         m.damage = nDec(r.damage, 0); m.xp = nDec(r.xp, 0); m.menace = r.menace || 'closest';
         m.esquive = bDec(r.esquive); m.rapide = bDec(r.rapide);
         m.attacks = jDec(r.attacks, m.attacks || []); m.talents = jDec(r.talents, m.talents || []);
+        m.equipment = jDec(r.equipment, m.equipment || []); m.loot = jDec(r.loot, m.loot || []);
         m.notes = r.notes || '';
         return m;
       },

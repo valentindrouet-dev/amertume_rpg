@@ -546,6 +546,11 @@
     });
     // XP du combat attribuée à la session (décorrélée de l'XP du mode Admin)
     if (detail.xp) ses.party.xp = (ses.party.xp || 0) + detail.xp;
+    // Butin de combat : mémorisé pour être retiré au redémarrage de l'aventure
+    if (detail.loot && detail.loot.length) {
+      if (!ses.acquiredItems) ses.acquiredItems = {};
+      detail.loot.forEach(function (L) { ses.acquiredItems[L.itemId] = (ses.acquiredItems[L.itemId] || 0) + L.qty; });
+    }
     save();
 
     let targetId = null;

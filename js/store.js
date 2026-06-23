@@ -193,6 +193,8 @@
       (parsed.monsters || []).forEach(function (m) {
         if (typeof m.family === 'undefined') m.family = '';
         if (!Array.isArray(m.talents)) m.talents = [];
+        if (!Array.isArray(m.equipment)) m.equipment = [];
+        if (!Array.isArray(m.loot)) m.loot = [];
       });
       (parsed.items || []).forEach(function (i) {
         if (!i.dice) i.dice = AmertumeDice.emptyPool(); else i.dice = dice(i.dice);

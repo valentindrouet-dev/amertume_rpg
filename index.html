@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertume — Inventaire &amp; Dés</title>
-  <link rel="stylesheet" href="css/style.css?v=2.14" />
+  <link rel="stylesheet" href="css/style.css?v=2.15" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -349,8 +349,14 @@
           <label class="checkbox inline"><input type="checkbox" id="m-esquive" /> Esquive 6+</label>
           <label class="checkbox inline"><input type="checkbox" id="m-rapide" /> Rapide</label>
         </div>
-        <div class="attacks-head"><h3>Attaques</h3><button type="button" id="m-add-attack" class="ghost small">+ Attaque</button></div>
+        <div class="attacks-head"><h3>Attaques spéciales</h3><button type="button" id="m-add-attack" class="ghost small">+ Attaque</button></div>
         <div id="m-attacks" class="attacks-editor"></div>
+        <div class="attacks-head"><h3>Équipement (armes &amp; armures)</h3><button type="button" id="m-add-equip" class="ghost small">+ Équipement</button></div>
+        <p class="hint">Les armes équipées deviennent des attaques (avec leurs effets) ; les armures ajoutent de la DEF. Chaque pièce a un % de loot : chance que l'aventurier qui achève l'adversaire la récupère.</p>
+        <div id="m-equip" class="loot-editor"></div>
+        <div class="attacks-head"><h3>Butin du groupe</h3><button type="button" id="m-add-loot" class="ghost small">+ Butin</button></div>
+        <p class="hint">Objets gagnés par le groupe (selon le % de loot) à l'écran de récompense après le combat.</p>
+        <div id="m-loot" class="loot-editor"></div>
         <div class="attacks-head"><h3>Talents</h3><button type="button" id="m-add-talent" class="ghost small">+ Talent</button></div>
         <p class="hint">Les talents s'activent automatiquement en combat.</p>
         <div id="m-talents" class="talents-editor"></div>
@@ -495,17 +501,17 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.14"></script>
-  <script src="js/store.js?v=2.14"></script>
-  <script src="js/inventory.js?v=2.14"></script>
-  <script src="js/combatants.js?v=2.14"></script>
-  <script src="js/combat.js?v=2.14"></script>
-  <script src="js/classes.js?v=2.14"></script>
-  <script src="js/adventure.js?v=2.14"></script>
-  <script src="js/session.js?v=2.14"></script>
-  <script src="js/dataio.js?v=2.14"></script>
-  <script src="js/share.js?v=2.14"></script>
-  <script src="js/shell.js?v=2.14"></script>
-  <script src="js/main.js?v=2.14"></script>
+  <script src="js/dice.js?v=2.15"></script>
+  <script src="js/store.js?v=2.15"></script>
+  <script src="js/inventory.js?v=2.15"></script>
+  <script src="js/combatants.js?v=2.15"></script>
+  <script src="js/combat.js?v=2.15"></script>
+  <script src="js/classes.js?v=2.15"></script>
+  <script src="js/adventure.js?v=2.15"></script>
+  <script src="js/session.js?v=2.15"></script>
+  <script src="js/dataio.js?v=2.15"></script>
+  <script src="js/share.js?v=2.15"></script>
+  <script src="js/shell.js?v=2.15"></script>
+  <script src="js/main.js?v=2.15"></script>
 </body>
 </html>

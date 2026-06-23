@@ -60,12 +60,20 @@
   }
 
   function instFromMonster(m, i) {
-    const attacks = JSON.parse(JSON.stringify(m.attacks || []));
+    // Armes équipées → attaques spéciales (avec effets) ; armures équipées → DEF
+    const equipItems = (m.equipment || []).map(function (r) {
+      return Store.state.items.find(function (it) { return it.id === r.itemId; });
+    }).filter(Boolean);
+    const weapons = equipItems.filter(function (it) { return it.category === 'weapon'; });
+    const armorDef = equipItems.filter(function (it) { return it.category === 'armor'; })
+      .reduce(function (s, a) { return s + (a.def || 0); }, 0);
+    const derived = Combatants.weaponAttacks(weapons);
+    const attacks = derived.concat(JSON.parse(JSON.stringify(m.attacks || [])));
     return {
       iid: 'M' + i + '-' + m.id.slice(-4),
       side: 'monster', templateId: m.id, name: m.name,
       maxPv: m.pv, pv: m.pv,
-      def: m.def, damage: m.damage, xp: m.xp, type: m.type,
+      def: (m.def || 0) + armorDef, damage: m.damage, xp: m.xp, type: m.type,
       menace: m.menace, esquive: !!m.esquive, rapide: !!m.rapide, socle: m.socle,
       attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
@@ -181,10 +189,39 @@
       }
     });
     c.finalize = !!finalize;
+    c.lootResults = finalize ? rollLoot(c) : [];
     c.finished = true;
     pendingAttack = null; pendingMove = null; stateMenuFor = null;
     Store.save();
     renderSummary();
+  }
+
+  // Tirage du butin sur les adversaires vaincus
+  function rollLoot(c) {
+    const out = [];
+    c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; }).forEach(function (m) {
+      const tpl = Store.state.monsters.find(function (t) { return t.id === m.templateId; });
+      if (!tpl) return;
+      const killer = m.killedBy ? c.combatants.find(function (x) { return x.iid === m.killedBy; }) : null;
+      const killerName = (killer && killer.side === 'hero') ? killer.name : null;
+      // Équipement de l'adversaire → au tueur
+      (tpl.equipment || []).forEach(function (r) {
+        if (!r.itemId) return;
+        if (Math.random() * 100 < (r.loot != null ? r.loot : 0)) {
+          const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
+          if (it) out.push({ itemId: r.itemId, name: it.name, qty: 1, toName: killerName });
+        }
+      });
+      // Butin → au groupe
+      (tpl.loot || []).forEach(function (r) {
+        if (!r.itemId) return;
+        if (Math.random() * 100 < (r.loot != null ? r.loot : 0)) {
+          const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
+          if (it) out.push({ itemId: r.itemId, name: it.name, qty: r.qty || 1, toName: null });
+        }
+      });
+    });
+    return out;
   }
 
   // Quitte réellement le combat (après l'écran de résumé) et reprend l'aventure
@@ -196,6 +233,12 @@
     const outcomeLabel = c.outcome || null;
     const gained = c.finalize ? totalXp() : 0;
     if (c.finalize && !isSession) Store.state.party.xp = (Store.state.party.xp || 0) + gained;
+    // Butin récupéré : ajouté à l'inventaire du groupe (combat d'aventure uniquement)
+    const loot = (isSession && c.lootResults) ? c.lootResults : [];
+    loot.forEach(function (L) {
+      const it = Store.state.items.find(function (x) { return x.id === L.itemId; });
+      if (it) it.qty = (it.qty || 0) + L.qty;
+    });
     if (isSession) persistHeroPv();
     setCombat(null);
     if (isSession) Store.state.sessionCombat = null;
@@ -203,7 +246,8 @@
     if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
     if (sessionCtx && sessionCtx.sessionId) {
       window.dispatchEvent(new CustomEvent('adventure-combat-end', {
-        detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained }
+        detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained,
+          loot: loot.map(function (L) { return { itemId: L.itemId, qty: L.qty }; }) }
       }));
     } else {
       rootSel = '#combat-root';
@@ -364,6 +408,7 @@
         ' ' + diceStr + '.', res.critique ? 'crit' : 'attack');
     applyStates(attacker, target, atk);
     checkMonsterTalents(target, res.pvLost);
+    if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
     checkComa(target);
   }
 
@@ -690,6 +735,13 @@
           '<span class="cs-val">⚔️ Infligés</span><span class="cs-val">🩸 Subis</span></div>' +
         statRows() +
       '</div>' +
+      ((c.lootResults && c.lootResults.length)
+        ? '<div class="cs-group cs-lootg"><div class="cs-glabel">🎁 Butin récupéré</div><div class="cs-chips">' +
+            c.lootResults.map(function (L) {
+              return '<span class="cs-chip">' + esc(L.name) + (L.qty > 1 ? ' ×' + L.qty : '') +
+                (L.toName ? ' <em>→ ' + esc(L.toName) + '</em>' : ' <em>(groupe)</em>') + '</span>';
+            }).join('') + '</div></div>'
+        : '') +
       (killed.length ? '<div class="cs-group cs-killed"><div class="cs-glabel">💀 Adversaires détruits</div><div class="cs-chips">' + chips(killed) + '</div></div>' : '') +
       (fled.length ? '<div class="cs-group cs-fledg"><div class="cs-glabel">🏃 Adversaires en fuite</div><div class="cs-chips">' + chips(fled) + '</div></div>' : '') +
       (c.healLines && c.healLines.length
@@ -1126,6 +1178,7 @@
     }
     log(wname(attacker.name) + ' inflige les dégâts moyens de l\'arme via ' + label + ' sur ' + wname(target.name) +
       ' : ' + amt(pvLost, 'dmg') + ' PV <span class="lavg">(moy. des dés, sans bonus)</span>.', 'attack');
+    if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
     checkComa(target);
   }
 

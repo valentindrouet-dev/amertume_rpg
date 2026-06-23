@@ -1534,3 +1534,14 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .inv-equip-row .inv-equip-cb { flex: 0 0 auto; width: 18px; height: 18px; cursor: pointer; }
 .inv-equip-row > .roster-card { flex: 1; margin: 0; }
 .inv-equip-row.equipped > .roster-card { outline: 2px solid var(--action); outline-offset: 1px; }
+
+/* ===================================================================
+   v2.15 — Bestiaire : équipement & butin
+   =================================================================== */
+.loot-editor { display: flex; flex-direction: column; gap: .4rem; margin-bottom: .4rem; }
+.loot-row { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.loot-row .loot-item { flex: 1; min-width: 140px; }
+.loot-pct, .loot-qty { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: .25rem; }
+.loot-pct input { width: 58px; } .loot-qty input { width: 48px; }
+.cs-lootg .cs-chip { background: rgba(214,178,42,.16); border-color: rgba(214,178,42,.45); }
+.cs-chip em { font-style: normal; color: var(--muted); }
