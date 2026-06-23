@@ -354,3 +354,118 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .equip-pick-row { display: flex; align-items: center; gap: .45rem; font-size: .85rem; }
 .equip-pick-row input { width: auto; }
 #h-equip-preview { background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: .5rem .6rem; }
+
+/* ===================================================================
+   ERGONOMIE v2 — dés en carrés, pastilles de stats, cartes aérées
+   =================================================================== */
+
+/* ---- Dés : un carré par dé (deux dés = deux carrés) ---- */
+.dice-row { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; vertical-align: middle; }
+.die-sq {
+  position: relative;
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(0, 0, 0, .55);
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, .28), inset 0 2px 3px rgba(255, 255, 255, .18), 0 1px 2px rgba(0, 0, 0, .35);
+  flex: none;
+}
+.die-sq::after {
+  content: ''; position: absolute; inset: 0; margin: auto;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(0, 0, 0, .45);
+}
+.die-sq.die-white  { background: var(--die-white); }
+.die-sq.die-bone   { background: var(--die-bone); }
+.die-sq.die-red    { background: var(--die-red); }
+.die-sq.die-blue   { background: var(--die-blue); }
+.die-sq.die-green  { background: var(--die-green); }
+.die-sq.die-black  { background: var(--die-black); }
+.die-sq.die-yellow { background: var(--die-yellow); }
+.die-sq.die-red::after, .die-sq.die-blue::after, .die-sq.die-black::after { background: rgba(255, 255, 255, .6); }
+.die-sq.die-black { border-color: rgba(255, 255, 255, .32); }
+
+/* ---- Pastilles de statistiques ---- */
+.stat-pills { display: flex; flex-wrap: wrap; gap: .45rem; margin: .15rem 0 0; }
+.stat-pills.compact { gap: .3rem; }
+.stat-pill {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .82rem; line-height: 1;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .35rem .6rem; color: var(--muted);
+}
+.stat-pill b { color: var(--text); font-weight: 700; font-size: .9rem; }
+.stat-pills.compact .stat-pill { padding: .25rem .45rem; font-size: .78rem; }
+
+/* ---- Listes de roster (Héros / Bestiaire / Armurerie) ---- */
+.roster-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 1.1rem;
+}
+.roster-card {
+  background: linear-gradient(180deg, var(--panel) 0%, #211c18 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem 1.2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+  transition: border-color .15s, transform .15s, box-shadow .15s;
+}
+.roster-card:hover { border-color: #4d423a; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+.roster-card.type-boss { border-left: 4px solid var(--accent); }
+.roster-card.type-solitaire, .roster-card.type-alpha { border-left: 4px solid var(--accent-2); }
+
+.roster-head {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  padding-bottom: .8rem; margin-bottom: .2rem;
+  border-bottom: 1px solid var(--border);
+}
+.roster-name {
+  font-family: "Georgia", serif; font-size: 1.18rem; font-weight: 600;
+  color: var(--text); margin-right: auto; letter-spacing: .2px;
+}
+.roster-head .ghost.small { margin-left: auto; }
+.roster-meta { font-size: .76rem; color: var(--muted); margin-top: .5rem; font-style: italic; }
+
+.roster-section { margin-top: .95rem; }
+.roster-label {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--accent-2); font-weight: 700; margin-bottom: .45rem; opacity: .85;
+}
+.roster-gear { font-size: .9rem; color: var(--text); }
+.roster-notes {
+  margin-top: .8rem; padding-top: .7rem; border-top: 1px dashed var(--border);
+  font-size: .82rem; color: var(--muted); line-height: 1.45;
+}
+
+/* ---- Badges d'attaque ---- */
+.atk-badges { display: flex; flex-direction: column; gap: .5rem; }
+.atk-badge {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 9px; padding: .5rem .65rem;
+}
+.atk-badge-name { font-weight: 600; font-size: .9rem; color: var(--text); }
+.atk-badge-meta {
+  margin-left: auto; font-size: .72rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+/* ---- Armurerie ---- */
+.armory-card .armory-line {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: .85rem;
+}
+
+/* ---- Setup de combat : lignes héros / monstres ---- */
+.setup-row {
+  display: flex; align-items: center; gap: .7rem;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: .7rem .85rem;
+}
+.setup-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.setup-name { font-weight: 600; font-size: .98rem; margin-right: auto; }
+.setup-monster-add { gap: .5rem; }
+
+/* Un peu d'air général */
+main { padding: 1.5rem 1.25rem 3rem; }
+.card { padding: 1.2rem 1.3rem 1.4rem; }
+.card-head { margin-bottom: 1rem; }

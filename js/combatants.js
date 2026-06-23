@@ -77,10 +77,13 @@
   }
 
   function attacksSummary(attacks) {
-    return (attacks || []).map(function (a) {
-      return '<span class="atk-badge">' + esc(a.name) + ' ' + Inventory.poolBadges(a.dice) +
-        '<span class="hint"> ' + (RANGE_LABEL[a.range] || a.range) +
-        (a.targets === 'all' ? ' · toutes' : '') + '</span></span>';
+    if (!attacks || !attacks.length) return '<span class="hint">—</span>';
+    return attacks.map(function (a) {
+      return '<div class="atk-badge">' +
+        '<span class="atk-badge-name">' + esc(a.name) + '</span>' +
+        Inventory.poolBadges(a.dice) +
+        '<span class="atk-badge-meta">' + (RANGE_LABEL[a.range] || a.range) +
+        (a.targets === 'all' ? ' · toutes' : '') + '</span></div>';
     }).join('');
   }
 
@@ -152,14 +155,27 @@
       if (armor) gear.push(armor.name);
       if (shield) gear.push(shield.name);
       return '<div class="roster-card">' +
-        '<div class="roster-head"><strong>' + esc(h.name) + '</strong>' +
+        '<div class="roster-head">' +
+          '<span class="roster-name">' + esc(h.name) + '</span>' +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
-          '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button></div>' +
-        '<div class="stat-line">❤ ' + heroPv(h) + ' PV · 🛡 DEF ' + heroDef(h) + ' · ⚔ Dég. ' + h.damage +
-          ' <span class="hint">(Vie ' + h.vie + ' × Endu ' + h.endu + (h.pvBonus ? ' +' + h.pvBonus : '') + ')</span></div>' +
-        (gear.length ? '<div class="hint">🎒 ' + esc(gear.join(', ')) + '</div>' : '') +
-        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div>' +
-        (h.notes ? '<div class="hint">' + esc(h.notes) + '</div>' : '') +
+          '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>' +
+        '</div>' +
+        '<div class="stat-pills">' +
+          '<span class="stat-pill">❤ <b>' + heroPv(h) + '</b> PV</span>' +
+          '<span class="stat-pill">🛡 DEF <b>' + heroDef(h) + '</b></span>' +
+          '<span class="stat-pill">⚔ Dég. <b>' + h.damage + '</b></span>' +
+        '</div>' +
+        '<div class="roster-meta">Vie ' + h.vie + ' × Endu ' + h.endu +
+          (h.pvBonus ? ' +' + h.pvBonus + ' PV' : '') + '</div>' +
+        '<div class="roster-section">' +
+          '<div class="roster-label">Équipement</div>' +
+          '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div>' +
+        '</div>' +
+        '<div class="roster-section">' +
+          '<div class="roster-label">Attaques</div>' +
+          '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div>' +
+        '</div>' +
+        (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
       '</div>';
     }).join('');
     list.querySelectorAll('[data-edit-hero]').forEach(function (b) {
@@ -296,15 +312,25 @@
     }
     list.innerHTML = monsters.map(function (m) {
       return '<div class="roster-card type-' + m.type + '">' +
-        '<div class="roster-head"><strong>' + esc(m.name) + '</strong>' +
+        '<div class="roster-head">' +
+          '<span class="roster-name">' + esc(m.name) + '</span>' +
           '<span class="tag type">' + (TYPE_LABEL[m.type] || m.type) + '</span>' +
           (m.rapide ? '<span class="tag">Rapide</span>' : '') +
           (m.esquive ? '<span class="tag">Esq. 6+</span>' : '') +
-          '<button class="ghost small" data-edit-monster="' + m.id + '">Éditer</button></div>' +
-        '<div class="stat-line">❤ ' + m.pv + ' PV · 🛡 DEF ' + m.def + ' · ⚔ Dég. ' + m.damage +
-          ' · ✦ ' + m.xp + ' XP · 🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</div>' +
-        '<div class="atk-badges">' + attacksSummary(m.attacks) + '</div>' +
-        (m.notes ? '<div class="hint">' + esc(m.notes) + '</div>' : '') +
+          '<button class="ghost small" data-edit-monster="' + m.id + '">Éditer</button>' +
+        '</div>' +
+        '<div class="stat-pills">' +
+          '<span class="stat-pill">❤ <b>' + m.pv + '</b> PV</span>' +
+          '<span class="stat-pill">🛡 DEF <b>' + m.def + '</b></span>' +
+          '<span class="stat-pill">⚔ Dég. <b>' + m.damage + '</b></span>' +
+          '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
+          '<span class="stat-pill">🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</span>' +
+        '</div>' +
+        '<div class="roster-section">' +
+          '<div class="roster-label">Attaques</div>' +
+          '<div class="atk-badges">' + attacksSummary(m.attacks) + '</div>' +
+        '</div>' +
+        (m.notes ? '<div class="roster-notes">' + esc(m.notes) + '</div>' : '') +
       '</div>';
     }).join('');
     list.querySelectorAll('[data-edit-monster]').forEach(function (b) {

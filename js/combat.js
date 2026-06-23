@@ -335,8 +335,13 @@
     if (!heroes.length) hbox.innerHTML = '<p class="empty">Crée d\'abord un héros dans l\'onglet Héros.</p>';
     else hbox.innerHTML = heroes.map(function (h) {
       return '<label class="setup-row"><input type="checkbox" data-hero="' + h.id + '"' +
-        (setupHeroes[h.id] ? ' checked' : '') + '> <strong>' + esc(h.name) + '</strong>' +
-        '<span class="hint">❤ ' + Combatants.heroPv(h) + ' · 🛡 ' + h.def + ' · ⚔ ' + h.damage + '</span></label>';
+        (setupHeroes[h.id] ? ' checked' : '') + '>' +
+        '<span class="setup-name">' + esc(h.name) + '</span>' +
+        '<span class="stat-pills compact">' +
+          '<span class="stat-pill">❤ ' + Combatants.heroPv(h) + '</span>' +
+          '<span class="stat-pill">🛡 ' + Combatants.heroDef(h) + '</span>' +
+          '<span class="stat-pill">⚔ ' + h.damage + '</span>' +
+        '</span></label>';
     }).join('');
     hbox.querySelectorAll('[data-hero]').forEach(function (cb) {
       cb.addEventListener('change', function () { setupHeroes[cb.getAttribute('data-hero')] = cb.checked; updateStartBtn(); });
@@ -448,15 +453,18 @@
       ((c.side === 'hero' && phase === 'heroes') || false);
 
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
-      '<div class="cc-head"><strong>' + esc(c.name) + '</strong>' +
+      '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
         (c.type !== 'hero' ? '<span class="tag type">' + Combatants.TYPE_LABEL[c.type] + '</span>' : '') +
         (c.rapide ? '<span class="tag">Rapide</span>' : '') +
         (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
       '</div>' +
       '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
         '<span class="pv-text">' + c.pv + ' / ' + c.maxPv + ' PV</span></div>' +
-      '<div class="cc-stats hint">🛡 DEF ' + (c.states.auSol ? '0 (au sol)' : c.def) +
-        ' · ⚔ Dég. ' + c.damage + (c.type !== 'hero' ? ' · ✦ ' + c.xp + ' XP' : '') + '</div>' +
+      '<div class="stat-pills compact">' +
+        '<span class="stat-pill">🛡 DEF ' + (c.states.auSol ? '0' : c.def) + '</span>' +
+        '<span class="stat-pill">⚔ ' + c.damage + '</span>' +
+        (c.type !== 'hero' ? '<span class="stat-pill">✦ ' + c.xp + ' XP</span>' : '') +
+      '</div>' +
       '<div class="cc-states">' + statesBadges(c) +
         '<span class="state-add" data-iid="' + c.iid + '">+ état</span></div>';
 

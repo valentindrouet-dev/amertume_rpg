@@ -35,15 +35,19 @@
     });
   }
 
+  // Rend chaque dé comme un carré distinct (deux dés = deux carrés, même de même couleur)
   function poolBadges(pool) {
     pool = pool || {};
-    const parts = D.DICE_ORDER
-      .filter(function (c) { return (pool[c] || 0) > 0; })
-      .map(function (c) {
-        return '<span class="die-badge die-' + c + '">' + D.DICE_TYPES[c].emoji +
-               ' ×' + pool[c] + '</span>';
-      });
-    return parts.length ? parts.join('') : '<span class="hint">aucun dé</span>';
+    const squares = [];
+    D.DICE_ORDER.forEach(function (c) {
+      const n = pool[c] || 0;
+      for (let i = 0; i < n; i++) {
+        squares.push('<span class="die-sq die-' + c + '" title="' + D.DICE_TYPES[c].label + '"></span>');
+      }
+    });
+    return squares.length
+      ? '<span class="dice-row">' + squares.join('') + '</span>'
+      : '<span class="hint">aucun dé</span>';
   }
 
   const CAT_LABEL = {
@@ -73,20 +77,21 @@
       const traits = (i.traits || []).map(function (t) {
         return '<span class="tag">' + (t === 'jetable' ? 'Jetable' : t === 'vicieuse' ? 'Vicieuse' : t) + '</span>';
       }).join('');
-      return '<div class="roster-card">' +
+      return '<div class="roster-card armory-card">' +
         '<div class="roster-head">' +
-          '<strong>' + escapeHtml(i.name) + '</strong>' +
-          '<span class="tag">' + (CAT_LABEL[i.category] || i.category) + '</span>' +
+          '<span class="roster-name">' + escapeHtml(i.name) + '</span>' +
+          '<span class="tag type">' + (CAT_LABEL[i.category] || i.category) + '</span>' +
           (typeof i.price === 'number' && i.price ? '<span class="tag">' + i.price + ' po</span>' : '') +
           '<button class="ghost small" data-edit="' + i.id + '">Éditer</button>' +
         '</div>' +
-        (isWeapon ? '<div class="dice-pool-display">' + poolBadges(i.dice) +
-          '<span class="hint"> · ' + (i.hands === 2 ? '2 mains' : '1 main') +
-          (i.ranged ? ' · distance' : '') + '</span> ' + traits + '</div>' : '') +
-        (isArmor ? '<div class="hint">🛡 DEF ' + (i.def || 0) +
-          (i.slot === 'shield' ? ' · Bouclier (+' + (i.def || 0) + ')' : ' · Corps') + '</div>' : '') +
-        (i.effects ? '<div class="hint">⚡ ' + escapeHtml(i.effects) + '</div>' : '') +
-        (i.notes ? '<div class="hint">' + escapeHtml(i.notes) + '</div>' : '') +
+        (isWeapon ? '<div class="armory-line">' + poolBadges(i.dice) +
+          '<span class="stat-pill">' + (i.hands === 2 ? '2 mains' : '1 main') + '</span>' +
+          (i.ranged ? '<span class="stat-pill">distance</span>' : '<span class="stat-pill">contact</span>') +
+          traits + '</div>' : '') +
+        (isArmor ? '<div class="armory-line"><span class="stat-pill">🛡 DEF <b>' + (i.def || 0) + '</b></span>' +
+          '<span class="stat-pill">' + (i.slot === 'shield' ? 'Bouclier' : 'Corps') + '</span></div>' : '') +
+        (i.effects ? '<div class="roster-notes">⚡ ' + escapeHtml(i.effects) + '</div>' : '') +
+        (i.notes ? '<div class="roster-notes">' + escapeHtml(i.notes) + '</div>' : '') +
       '</div>';
     }).join('');
 
