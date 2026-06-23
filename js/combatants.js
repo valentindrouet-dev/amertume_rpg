@@ -101,7 +101,7 @@
     return attacks.map(function (a) {
       const meta = [RANGE_LABEL[a.range] || a.range];
       if (a.targets === 'all') meta.push('toutes cibles');
-      if (a.uses > 0) meta.push(a.uses + '×/combat');
+      if (a.uses > 0) meta.push(a.uses + '×/tour');
       if (a.freeAction) meta.push('gratuite');
       return '<div class="atk-badge">' +
         '<div class="atk-badge-line">' +
