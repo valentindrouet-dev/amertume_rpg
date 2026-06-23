@@ -607,14 +607,10 @@
     });
     // XP du combat attribuée à la session (décorrélée de l'XP du mode Admin)
     if (detail.xp) ses.party.xp = (ses.party.xp || 0) + detail.xp;
-    // Butin de combat : mémorisé pour être retiré au redémarrage de l'aventure
+    // Butin de combat : mémorisé (récupérable dans l'inventaire ; retiré au redémarrage)
     if (detail.loot && detail.loot.length) {
       if (!ses.acquiredItems) ses.acquiredItems = {};
-      if (!ses.ownedItems) ses.ownedItems = {};
-      detail.loot.forEach(function (L) {
-        ses.acquiredItems[L.itemId] = (ses.acquiredItems[L.itemId] || 0) + L.qty;
-        ses.ownedItems[L.itemId] = true; // récupérable/équipable dans l'inventaire
-      });
+      detail.loot.forEach(function (L) { ses.acquiredItems[L.itemId] = (ses.acquiredItems[L.itemId] || 0) + L.qty; });
     }
     save();
 
@@ -770,21 +766,31 @@
     return (activeSession && activeSession.party) ? (activeSession.party.xp || 0) : 0;
   }
 
-  // Objets possédés par le groupe pour cette aventure (équipement de départ + butin).
-  // Sert à n'afficher dans l'inventaire que ce que le groupe possède réellement.
+  // Objets possédés par le groupe pour cette aventure : équipement de DÉPART (figé)
+  // + butin de combat + équipement actuellement porté. Jamais cumulatif (pas de
+  // pollution : équiper puis déséquiper un objet quelconque ne l'ajoute pas).
   function ownedItems(advId) {
     load();
     let ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; }) || activeSession;
-    const gearOf = function (owned) {
-      Combatants.adventureHeroes(advId).forEach(function (h) {
-        Combatants.heroGear(h).forEach(function (it) { owned[it.id] = true; });
-      });
-    };
-    if (!ses) { const o = {}; gearOf(o); return o; }
-    if (!ses.ownedItems) ses.ownedItems = {};
-    gearOf(ses.ownedItems); // un objet une fois équipé reste possédé pour la partie
-    save();
-    return ses.ownedItems;
+    const owned = {};
+    if (ses) {
+      // Anciennes sessions sans startGear : on fige une fois l'équipement courant
+      if (!ses.startGear) {
+        ses.startGear = {};
+        Combatants.adventureHeroes(advId).forEach(function (h) {
+          Combatants.heroGear(h).forEach(function (it) { ses.startGear[it.id] = true; });
+        });
+        delete ses.ownedItems; // purge l'ancien set pollué
+        save();
+      }
+      Object.keys(ses.startGear).forEach(function (id) { owned[id] = true; });
+      Object.keys(ses.acquiredItems || {}).forEach(function (id) { if ((ses.acquiredItems[id] || 0) > 0) owned[id] = true; });
+    }
+    // Toujours inclure ce qui est actuellement équipé (pour pouvoir le déséquiper)
+    Combatants.adventureHeroes(advId).forEach(function (h) {
+      Combatants.heroGear(h).forEach(function (it) { owned[it.id] = true; });
+    });
+    return owned;
   }
 
   // Crée une nouvelle partie avec les aventuriers choisis et lance la narration
@@ -802,11 +808,11 @@
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (h) heroStates[hid] = { pv: Combatants.heroPv(h) };
     });
-    // Équipements de départ : l'inventaire de l'aventure ne propose que ces objets + le butin
-    const owned = {};
+    // Équipement de départ (figé) : l'inventaire ne propose que ça + le butin de combat
+    const startGear = {};
     heroIds.forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
-      if (h) Combatants.heroGear(h).forEach(function (it) { owned[it.id] = true; });
+      if (h) Combatants.heroGear(h).forEach(function (it) { startGear[it.id] = true; });
     });
     const ses = {
       id: Store.uid(), adventureId: advId, startedAt: Date.now(), status: 'active',
@@ -815,7 +821,7 @@
       visitedSceneIds: [firstSc.scene.id], choicesTaken: [],
       party: { xp: 0 },          // XP de la session, décorrélée de l'XP du mode Admin
       acquiredItems: {},
-      ownedItems: owned,
+      startGear: startGear,
     };
     sessions.push(ses); save();
     activeSession = ses;

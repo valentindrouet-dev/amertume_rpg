@@ -1609,3 +1609,12 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .hero-pick-stats { display: flex; gap: .35rem; flex-wrap: wrap; }
 .hero-pick-line { font-size: .78rem; color: var(--muted); }
 .hero-pick-line b { color: var(--text); font-weight: 600; }
+
+/* ===================================================================
+   v2.23 — Lisibilité des noms d'adversaires dans l'aperçu (texte clair)
+   =================================================================== */
+.pz-mon { color: var(--text); background: rgba(0,0,0,.20); border: 1px solid var(--border); }
+.pz-mon.ztype-sbire     { color: #d8d2c4; background: rgba(155,150,138,.18); border-color: rgba(155,150,138,.55); }
+.pz-mon.ztype-alpha     { color: #e2974a; background: rgba(217,131,36,.16);  border-color: rgba(217,131,36,.55); }
+.pz-mon.ztype-solitaire { color: #e58368; background: rgba(192,57,43,.18);   border-color: rgba(192,57,43,.55); }
+.pz-mon.ztype-boss      { color: #bd9be0; background: rgba(124,82,168,.18);   border-color: rgba(124,82,168,.55); }
