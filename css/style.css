@@ -740,3 +740,58 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .roster-card.type-alpha .tag.type, .combat-card.type-alpha .tag.type { color: #9a6c12; border-color: #c79a3a; background: rgba(199,154,58,.2); }
 .roster-card.type-solitaire .tag.type, .combat-card.type-solitaire .tag.type { color: #b03224; border-color: #c0392b; background: rgba(192,57,43,.16); }
 .roster-card.type-boss .tag.type, .combat-card.type-boss .tag.type { color: #6e3fb0; border-color: #8a5cc4; background: rgba(138,92,196,.18); }
+
+/* ===================================================================
+   v6 — bonus de dégâts, dégâts moyens, talents de monstres
+   =================================================================== */
+
+/* Bonus de dégâts (+N) dans le chip d'attaque */
+.atk-dmg {
+  font-size: .76rem; font-weight: 700;
+  color: #9a5e1c; background: rgba(226,151,74,.18);
+  border: 1px solid rgba(226,151,74,.35); border-radius: 5px;
+  padding: .1rem .35rem;
+}
+.combat-card .atk-dmg { color: #9a5a1c; }
+
+/* Ligne d'attaque : chip dé + bouton moy. côte-à-côte */
+.atk-row { display: flex; gap: .35rem; align-items: stretch; }
+.atk-row .atk-chip { flex: 1; }
+
+/* Bouton dégâts moyens (≈) */
+.atk-avg {
+  flex: none;
+  background: rgba(111,174,111,.12);
+  border: 1px solid var(--good); color: var(--good);
+  border-radius: 8px; padding: .3rem .55rem;
+  cursor: pointer; font-size: .83rem; font-weight: 700; white-space: nowrap;
+}
+.atk-avg:hover:not(:disabled) { background: rgba(111,174,111,.26); }
+.atk-avg:disabled { opacity: .4; cursor: not-allowed; }
+.atk-avg.selected { background: var(--good); color: #fff; }
+.combat-card .atk-avg { border-color: #5a9e5a; color: #3a8a3a; }
+.combat-card .atk-avg:hover:not(:disabled) { background: rgba(90,158,90,.2); }
+.combat-card .atk-avg.selected { background: #5a9e5a; color: #fff; }
+
+/* Label "moy. garantie" dans le journal */
+.lavg { font-size: .8em; color: var(--good); font-style: italic; }
+
+/* ---- Talents de monstres ---- */
+.talent-row {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .5rem .65rem; margin-bottom: .35rem;
+}
+.talent-row select { flex: 1; min-width: 200px; }
+.tl-param-label { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.talent-row input[type="number"] { width: 60px; }
+.talents-editor { margin: .35rem 0 .5rem; }
+.talent-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .1rem; }
+.talent-badge {
+  display: inline-block;
+  background: rgba(193,78,53,.12); border: 1px solid rgba(193,78,53,.35);
+  color: #a94020; border-radius: 6px; padding: .2rem .55rem;
+  font-size: .74rem; font-weight: 600;
+}
+/* Dans les cartes de roster claires */
+.roster-card .talent-badge { color: #8a3218; background: rgba(193,78,53,.14); border-color: rgba(193,78,53,.4); }

@@ -412,8 +412,78 @@
 
   // ================= MONSTRES =================
   let monsterAttacks = [];
+  let monsterTalents = [];
 
   const TYPE_RANK = { standard: 0, alpha: 1, solitaire: 2, boss: 3 };
+
+  // Talents structurés disponibles
+  const TALENT_DEFS = [
+    { id: 'flee_on_big_hit',    label: 'Fuite si X+ dégâts en un coup', paramKey: 'threshold', paramLabel: 'Seuil', defaultVal: 10 },
+    { id: 'ally_contact_bonus', label: '+X dégâts par allié au contact', paramKey: 'bonus',     paramLabel: 'Bonus/allié', defaultVal: 1  },
+  ];
+
+  function newTalent() {
+    return { trigger: 'flee_on_big_hit', threshold: 10, bonus: 1 };
+  }
+
+  function buildTalentsEditor(container, talents) {
+    container.innerHTML = '';
+    if (!talents.length) {
+      container.innerHTML = '<p class="hint">Aucun talent.</p>';
+      return;
+    }
+    talents.forEach(function (t, idx) {
+      if (!t.trigger) t.trigger = TALENT_DEFS[0].id;
+      const row = document.createElement('div');
+      row.className = 'talent-row';
+      row.innerHTML =
+        '<select class="tl-trigger">' +
+          TALENT_DEFS.map(function (d) {
+            return '<option value="' + d.id + '"' + (t.trigger === d.id ? ' selected' : '') + '>' + esc(d.label) + '</option>';
+          }).join('') +
+        '</select>' +
+        '<span class="tl-param-label"></span>' +
+        '<input type="number" class="tl-param" min="1" style="width:60px">' +
+        '<button type="button" class="icon-btn tl-del" title="Supprimer">✕</button>';
+
+      const selEl  = row.querySelector('.tl-trigger');
+      const lblEl  = row.querySelector('.tl-param-label');
+      const paramIn = row.querySelector('.tl-param');
+
+      function syncParam() {
+        const def = TALENT_DEFS.find(function (d) { return d.id === t.trigger; }) || TALENT_DEFS[0];
+        lblEl.textContent = def.paramLabel + ' ';
+        paramIn.value = (t[def.paramKey] !== undefined) ? t[def.paramKey] : def.defaultVal;
+      }
+      syncParam();
+
+      selEl.addEventListener('change', function () {
+        t.trigger = selEl.value;
+        const def = TALENT_DEFS.find(function (d) { return d.id === t.trigger; }) || TALENT_DEFS[0];
+        if (t[def.paramKey] === undefined) t[def.paramKey] = def.defaultVal;
+        syncParam();
+      });
+      paramIn.addEventListener('input', function () {
+        const def = TALENT_DEFS.find(function (d) { return d.id === t.trigger; }) || TALENT_DEFS[0];
+        t[def.paramKey] = Math.max(1, parseInt(paramIn.value, 10) || 1);
+      });
+      row.querySelector('.tl-del').addEventListener('click', function () {
+        talents.splice(idx, 1);
+        buildTalentsEditor(container, talents);
+      });
+      container.appendChild(row);
+    });
+  }
+
+  function talentsSummary(talents) {
+    if (!talents || !talents.length) return '';
+    return talents.map(function (t) {
+      const def = TALENT_DEFS.find(function (d) { return d.id === t.trigger; });
+      if (!def) return '';
+      const val = (t[def.paramKey] !== undefined) ? t[def.paramKey] : def.defaultVal;
+      return '<span class="talent-badge">' + esc(def.label.replace('X', val)) + '</span>';
+    }).join('');
+  }
 
   function renderMonsters() {
     const list = $('#monster-list');
@@ -460,6 +530,7 @@
           '<div class="roster-label">Attaques</div>' +
           '<div class="atk-badges">' + attacksSummary(m.attacks) + '</div>' +
         '</div>' +
+        (m.talents && m.talents.length ? '<div class="roster-section"><div class="roster-label">Talents</div><div class="talent-badges">' + talentsSummary(m.talents) + '</div></div>' : '') +
         (m.notes ? '<div class="roster-notes">' + esc(m.notes) + '</div>' : '') +
       '</div>';
     }).join('');
@@ -516,6 +587,8 @@
     $('#m-notes').value = isEdit ? (m.notes || '') : '';
     monsterAttacks = isEdit ? JSON.parse(JSON.stringify(m.attacks || [])) : [newAttack()];
     buildAttacksEditor($('#m-attacks'), monsterAttacks);
+    monsterTalents = isEdit ? JSON.parse(JSON.stringify(m.talents || [])) : [];
+    buildTalentsEditor($('#m-talents'), monsterTalents);
     $('#btn-delete-monster').hidden = !isEdit;
     $('#monster-modal').hidden = false;
     $('#m-name').focus();
@@ -539,6 +612,7 @@
       rapide: $('#m-rapide').checked,
       notes: $('#m-notes').value.trim(),
       attacks: monsterAttacks,
+      talents: monsterTalents,
     };
     if (existing) Object.assign(existing, data);
     else Store.state.monsters.push(data);
@@ -577,6 +651,9 @@
     $('#monster-form').addEventListener('submit', saveMonster);
     $('#m-add-attack').addEventListener('click', function () {
       monsterAttacks.push(newAttack()); buildAttacksEditor($('#m-attacks'), monsterAttacks);
+    });
+    $('#m-add-talent').addEventListener('click', function () {
+      monsterTalents.push(newTalent()); buildTalentsEditor($('#m-talents'), monsterTalents);
     });
     $('#monster-search').addEventListener('input', renderMonsters);
     $('#monster-filter-type').addEventListener('change', renderMonsters);

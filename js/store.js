@@ -190,7 +190,10 @@
         if (typeof a.uses === 'undefined') a.uses = 0;        // 0 = illimité
         if (typeof a.freeAction === 'undefined') a.freeAction = false;
       }
-      (parsed.monsters || []).forEach(function (m) { if (typeof m.family === 'undefined') m.family = ''; });
+      (parsed.monsters || []).forEach(function (m) {
+        if (typeof m.family === 'undefined') m.family = '';
+        if (!Array.isArray(m.talents)) m.talents = [];
+      });
       (parsed.items || []).forEach(function (i) {
         if (!i.dice) i.dice = AmertumeDice.emptyPool(); else i.dice = dice(i.dice);
         if (!i.traits) i.traits = [];

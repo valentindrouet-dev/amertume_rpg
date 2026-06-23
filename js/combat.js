@@ -196,7 +196,9 @@
     if (attacker.status !== 'active') return; // peut être tombé au coma sur dégâts-choc
 
     const pool = Object.assign(D.emptyPool(), atk.dice);
-    const dmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
+    const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
+    const talentBonus = getTalentDmgBonus(attacker, target);
+    const dmg = baseDmg + talentBonus;
     const def = target.states.auSol ? 0 : target.def;
     const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn });
 
@@ -232,6 +234,7 @@
         (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' PV infligés' : 'aucun dégât') +
         ' ' + diceStr + '.', res.critique ? 'crit' : 'attack');
     applyStates(attacker, target, atk);
+    checkMonsterTalents(target, res.pvLost);
     checkComa(target);
   }
 
@@ -244,6 +247,42 @@
       log(c.side === 'monster' ? (wname(c.name) + ' est vaincu (coma) !') : (wname(c.name) + ' sombre dans le coma…'),
         c.side === 'monster' ? 'kill' : 'down');
     }
+  }
+
+  // Vérifie les talents "flee_on_big_hit" du monstre cible après avoir subi pvLost PV
+  function checkMonsterTalents(target, pvLost) {
+    if (!pvLost || target.side !== 'monster' || target.status !== 'active') return;
+    const tpl = Store.state.monsters.find(function (m) { return m.id === target.templateId; });
+    if (!tpl || !Array.isArray(tpl.talents)) return;
+    tpl.talents.forEach(function (t) {
+      if (t.trigger === 'flee_on_big_hit' && pvLost >= (t.threshold || 0) && target.status === 'active') {
+        target.status = 'fled';
+        log(wname(target.name) + ' prend la fuite ! (talent : reçu ' + amt(pvLost, 'dmg') + ' ≥ ' + t.threshold + ')', 'turn');
+      }
+    });
+  }
+
+  // Retourne le bonus de dégâts provenant des talents "ally_contact_bonus" de l'attaquant
+  function getTalentDmgBonus(attacker, target) {
+    if (attacker.side !== 'monster') return 0;
+    const tpl = Store.state.monsters.find(function (m) { return m.id === attacker.templateId; });
+    if (!tpl || !Array.isArray(tpl.talents)) return 0;
+    let bonus = 0;
+    tpl.talents.forEach(function (t) {
+      if (t.trigger === 'ally_contact_bonus') {
+        const allies = combat().combatants.filter(function (c) {
+          return c.side === 'monster' && c.iid !== attacker.iid && c.status === 'active' &&
+                 c.contact.indexOf(target.iid) !== -1;
+        });
+        if (allies.length > 0) {
+          const b = allies.length * (t.bonus || 1);
+          bonus += b;
+          log(wname(attacker.name) + ' gagne <span class="atk-dmg">+' + b + '</span> dégâts (talent : ' +
+            allies.length + ' allié(s) au contact).', 'state');
+        }
+      }
+    });
+    return bonus;
   }
 
   function checkOutcome() {
@@ -557,6 +596,7 @@
       (pendingAttack ? (function () {
         const at = byId(pendingAttack.iid); const ak = at && at.attacks[pendingAttack.atkIndex];
         return at && ak ? '<div class="targeting-banner">🎯 <b>' + esc(at.name) + '</b> — ' + esc(ak.name) +
+          (pendingAttack.average ? ' <span class="lavg">(dégâts moyens)</span>' : '') +
           ' : clique un adversaire pour frapper. <button id="cancel-target" class="ghost xs">Annuler</button></div>' : '';
       })() : '') +
       '<div class="combat-cols">' +
@@ -659,17 +699,26 @@
         const uses = c.attackUses[i];
         const depleted = uses === 0;
         const blocked = depleted || (!a.freeAction && usedA);
-        const selected = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i;
+        const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i;
+        const chipSel = isThisAtk && !pendingAttack.average;
+        const avgSel  = isThisAtk && !!pendingAttack.average;
         const meta = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
         if (a.targets === 'all') meta.push('toutes');
         if (a.freeAction) meta.push('gratuite');
-        return '<button class="atk-chip ' + (selected ? 'selected' : '') + '" data-iid="' + c.iid + '" data-atk="' + i + '"' +
-          (blocked ? ' disabled' : '') + '>' +
-          '<span class="atk-chip-name">' + esc(a.name) + '</span>' +
-          Inventory.poolBadges(a.dice) +
-          (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
-          '<span class="atk-chip-meta">' + meta.join(' · ') + '</span>' +
-        '</button>';
+        const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
+        const avgTotal = Math.round(avgDicePool(a.dice)) + (showDmg ? c.damage : 0);
+        return '<div class="atk-row">' +
+          '<button class="atk-chip ' + (chipSel ? 'selected' : '') + '" data-iid="' + c.iid + '" data-atk="' + i + '"' +
+            (blocked ? ' disabled' : '') + '>' +
+            '<span class="atk-chip-name">' + esc(a.name) + '</span>' +
+            Inventory.poolBadges(a.dice) +
+            (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
+            (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
+            '<span class="atk-chip-meta">' + meta.join(' · ') + '</span>' +
+          '</button>' +
+          '<button class="atk-avg' + (avgSel ? ' selected' : '') + '" data-iid="' + c.iid + '" data-atk-avg="' + i + '"' +
+            (blocked ? ' disabled' : '') + ' title="Dégâts moyens garantis (≈ ' + avgTotal + ' avant DEF)">≈ ' + avgTotal + '</button>' +
+        '</div>';
       }).join('') + '</div>';
       // Contacts (mêlée) : un chip par adversaire, surligné si au contact
       const enemies = activeOf('monster');
@@ -714,6 +763,53 @@
     checkOutcome(); Store.save(); render();
   }
 
+  // Résout les dégâts moyens garantis (sans dé, sans risque d'échec)
+  function resolveAverageAttack(attacker, target, atk) {
+    if (target.status !== 'active') return;
+    if (atk.range === 'distance' && attacker.side === 'hero') {
+      attacker.contact.forEach(function (iid) {
+        const m = byId(iid);
+        if (m && m.side === 'monster') dchocFrom(m, attacker);
+      });
+    }
+    if (attacker.status !== 'active') return;
+    const avgDice = Math.round(avgDicePool(atk.dice));
+    const dmgBonus = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
+    const def = target.states.auSol ? 0 : target.def;
+    const pvLost = Math.max(0, avgDice + dmgBonus - def);
+    const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
+    if (pvLost > 0) {
+      target.pv = Math.max(0, target.pv - pvLost);
+      checkMonsterTalents(target, pvLost);
+    }
+    log(wname(attacker.name) + ' inflige les dégâts moyens via ' + label + ' sur ' + wname(target.name) +
+      ' : ' + amt(pvLost, 'dmg') + ' PV <span class="lavg">(moy. garantie, sans dé)</span>.', 'attack');
+    checkComa(target);
+  }
+
+  function applyAverageAttack(attacker, atkIndex, target) {
+    const atk = attacker.attacks[atkIndex];
+    if (!atk) return;
+    if (attacker.attackUses[atkIndex] === 0) return;
+    if (!atk.freeAction && attacker.used.action) return;
+    const enemySide = attacker.side === 'hero' ? 'monster' : 'hero';
+    const targets = (atk.targets === 'all') ? activeOf(enemySide).slice() : (target ? [target] : []);
+    targets.forEach(function (t) {
+      if (atk.range === 'contact' && !inContact(attacker, t)) setContact(attacker, t, true);
+      resolveAverageAttack(attacker, t, atk);
+    });
+    if (attacker.attackUses[atkIndex] !== null) {
+      attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
+    }
+    if (!atk.freeAction) attacker.used.action = true;
+  }
+
+  function execHeroAverageAttack(attacker, atkIndex, target) {
+    applyAverageAttack(attacker, atkIndex, target);
+    pendingAttack = null;
+    checkOutcome(); Store.save(); render();
+  }
+
   function wireCard(c) {
     const root = $('#combat-root');
     const card = root.querySelector('.combat-card[data-iid="' + c.iid + '"]');
@@ -723,7 +819,9 @@
       card.addEventListener('click', function (e) {
         if (e.target.closest('button')) return; // laisse les boutons internes agir
         const attacker = byId(pendingAttack.iid);
-        if (attacker) execHeroAttack(attacker, pendingAttack.atkIndex, c);
+        if (!attacker) return;
+        if (pendingAttack.average) execHeroAverageAttack(attacker, pendingAttack.atkIndex, c);
+        else execHeroAttack(attacker, pendingAttack.atkIndex, c);
       });
     }
 
@@ -756,17 +854,30 @@
     });
 
     if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active' && !combat().outcome) {
-      // Chips d'attaque
+      // Chips d'attaque (dé)
       root.querySelectorAll('.atk-chip[data-iid="' + c.iid + '"]').forEach(function (b) {
         b.addEventListener('click', function () {
           const i = parseInt(b.getAttribute('data-atk'), 10);
           const atk = c.attacks[i];
           if (!atk) return;
-          if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i) {
+          if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average) {
             pendingAttack = null; render(); return; // re-clic = annuler
           }
           if (atk.targets === 'all') { execHeroAttack(c, i, null); }
-          else { pendingAttack = { iid: c.iid, atkIndex: i }; stateMenuFor = null; render(); }
+          else { pendingAttack = { iid: c.iid, atkIndex: i, average: false }; stateMenuFor = null; render(); }
+        });
+      });
+      // Chips dégâts moyens (≈)
+      root.querySelectorAll('.atk-avg[data-iid="' + c.iid + '"]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const i = parseInt(b.getAttribute('data-atk-avg'), 10);
+          const atk = c.attacks[i];
+          if (!atk) return;
+          if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && pendingAttack.average) {
+            pendingAttack = null; render(); return; // re-clic = annuler
+          }
+          if (atk.targets === 'all') { execHeroAverageAttack(c, i, null); }
+          else { pendingAttack = { iid: c.iid, atkIndex: i, average: true }; stateMenuFor = null; render(); }
         });
       });
       // Contacts
