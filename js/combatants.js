@@ -790,35 +790,59 @@
 
   const TYPE_RANK = { standard: 0, alpha: 1, solitaire: 2, boss: 3 };
 
-  // Talents structurés disponibles
-  const TALENT_DEFS = [
-    { id: 'flee_on_big_hit',    label: 'Fuite si X+ dégâts en un coup', paramKey: 'threshold', paramLabel: 'Seuil', defaultVal: 10 },
-    { id: 'flee_after_turns',   label: 'Fuite après le tour X',          paramKey: 'turns',     paramLabel: 'Après tour', defaultVal: 3 },
-    { id: 'ally_contact_bonus', label: '+X dégâts par allié au contact', paramKey: 'bonus',     paramLabel: 'Bonus/allié', defaultVal: 1  },
+  // Déclencheurs du moteur de combat (registre fixe). Chaque talent du
+  // catalogue (CRAINTIF, FUYARD, HORDE…) se rattache à l'un d'eux ; le champ X
+  // (variable, ajusté par monstre) est stocké sous la clé paramKey du trigger.
+  const TRIGGER_DEFS = [
+    { id: 'flee_on_big_hit',    label: 'Fuite si X+ dégâts en un coup', paramKey: 'threshold', paramLabel: 'Seuil dégâts', defaultVal: 10 },
+    { id: 'flee_after_turns',   label: 'Fuite après le tour X',          paramKey: 'turns',     paramLabel: 'Après tour',   defaultVal: 3  },
+    { id: 'ally_contact_bonus', label: '+X dégâts par allié dans sa zone', paramKey: 'bonus',   paramLabel: 'Bonus/allié',  defaultVal: 1  },
   ];
+  function triggerDef(id) {
+    return TRIGGER_DEFS.find(function (d) { return d.id === id; }) || TRIGGER_DEFS[0];
+  }
+  function montalentCatalog() { return Store.loadMonsterTalents(); }
+  function catalogEntry(catId, trigger) {
+    const cat = montalentCatalog();
+    return cat.find(function (c) { return c.id === catId; }) ||
+           cat.find(function (c) { return c.trigger === trigger; }) || cat[0] || null;
+  }
 
+  // Crée un talent de monstre à partir d'une entrée du catalogue
   function newTalent() {
-    return { trigger: 'flee_on_big_hit', threshold: 10, bonus: 1 };
+    const cat = montalentCatalog();
+    const entry = cat[0] || { id: 'flee', trigger: 'flee_on_big_hit', defaultVal: 10 };
+    const def = triggerDef(entry.trigger);
+    const t = { catId: entry.id, trigger: entry.trigger };
+    t[def.paramKey] = (entry.defaultVal !== undefined) ? entry.defaultVal : def.defaultVal;
+    return t;
   }
 
   function buildTalentsEditor(container, talents) {
     container.innerHTML = '';
+    const cat = montalentCatalog();
+    if (!cat.length) {
+      container.innerHTML = '<p class="hint">Aucun talent au catalogue. Crée-en dans l\'onglet « Talents Adv. ».</p>';
+      return;
+    }
     if (!talents.length) {
       container.innerHTML = '<p class="hint">Aucun talent.</p>';
       return;
     }
     talents.forEach(function (t, idx) {
-      if (!t.trigger) t.trigger = TALENT_DEFS[0].id;
+      // Rattache au catalogue (compat. ancien format sans catId)
+      let entry = catalogEntry(t.catId, t.trigger);
+      if (entry) { t.catId = entry.id; t.trigger = entry.trigger; }
       const row = document.createElement('div');
       row.className = 'talent-row';
       row.innerHTML =
         '<select class="tl-trigger">' +
-          TALENT_DEFS.map(function (d) {
-            return '<option value="' + d.id + '"' + (t.trigger === d.id ? ' selected' : '') + '>' + esc(d.label) + '</option>';
+          cat.map(function (c) {
+            return '<option value="' + c.id + '"' + (t.catId === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>';
           }).join('') +
         '</select>' +
         '<span class="tl-param-label"></span>' +
-        '<input type="number" class="tl-param" min="1" style="width:60px">' +
+        '<input type="number" class="tl-param" min="0" style="width:60px">' +
         '<button type="button" class="icon-btn tl-del" title="Supprimer">✕</button>';
 
       const selEl  = row.querySelector('.tl-trigger');
@@ -826,21 +850,24 @@
       const paramIn = row.querySelector('.tl-param');
 
       function syncParam() {
-        const def = TALENT_DEFS.find(function (d) { return d.id === t.trigger; }) || TALENT_DEFS[0];
+        const def = triggerDef(t.trigger);
         lblEl.textContent = def.paramLabel + ' ';
         paramIn.value = (t[def.paramKey] !== undefined) ? t[def.paramKey] : def.defaultVal;
       }
       syncParam();
 
       selEl.addEventListener('change', function () {
-        t.trigger = selEl.value;
-        const def = TALENT_DEFS.find(function (d) { return d.id === t.trigger; }) || TALENT_DEFS[0];
-        if (t[def.paramKey] === undefined) t[def.paramKey] = def.defaultVal;
+        const e = catalogEntry(selEl.value, null);
+        const oldKey = triggerDef(t.trigger).paramKey;
+        t.catId = e.id; t.trigger = e.trigger;
+        const def = triggerDef(t.trigger);
+        if (def.paramKey !== oldKey) delete t[oldKey];
+        if (t[def.paramKey] === undefined) t[def.paramKey] = (e.defaultVal !== undefined) ? e.defaultVal : def.defaultVal;
         syncParam();
       });
       paramIn.addEventListener('input', function () {
-        const def = TALENT_DEFS.find(function (d) { return d.id === t.trigger; }) || TALENT_DEFS[0];
-        t[def.paramKey] = Math.max(1, parseInt(paramIn.value, 10) || 1);
+        const def = triggerDef(t.trigger);
+        t[def.paramKey] = Math.max(0, parseInt(paramIn.value, 10) || 0);
       });
       row.querySelector('.tl-del').addEventListener('click', function () {
         talents.splice(idx, 1);
@@ -853,11 +880,60 @@
   function talentsSummary(talents) {
     if (!talents || !talents.length) return '';
     return talents.map(function (t) {
-      const def = TALENT_DEFS.find(function (d) { return d.id === t.trigger; });
-      if (!def) return '';
+      const entry = catalogEntry(t.catId, t.trigger);
+      if (!entry) return '';
+      const def = triggerDef(entry.trigger);
       const val = (t[def.paramKey] !== undefined) ? t[def.paramKey] : def.defaultVal;
-      return '<span class="talent-badge">' + esc(def.label.replace('X', val)) + '</span>';
+      return '<span class="talent-badge">' + esc(entry.name) + ' ' + val + '</span>';
     }).join('');
+  }
+
+  // ---------- Onglet « Talents Adv. » (catalogue MJ/Admin) ----------
+  function renderTalentsAdv() {
+    const list = $('#talentadv-list');
+    if (!list) return;
+    const cat = montalentCatalog();
+    if (!cat.length) {
+      list.innerHTML = '<p class="empty">Aucun talent. Ajoute-en un avec le bouton ci-dessus.</p>';
+      return;
+    }
+    list.innerHTML = cat.map(function (c, i) {
+      const def = triggerDef(c.trigger);
+      return '<div class="talentadv-card" data-i="' + i + '">' +
+        '<div class="ta-row">' +
+          '<input type="text" class="ta-name" value="' + esc(c.name) + '" placeholder="NOM" />' +
+          '<select class="ta-trigger">' +
+            TRIGGER_DEFS.map(function (d) {
+              return '<option value="' + d.id + '"' + (c.trigger === d.id ? ' selected' : '') + '>' + esc(d.label) + '</option>';
+            }).join('') +
+          '</select>' +
+          '<label class="ta-default">X par défaut <input type="number" class="ta-defval" min="0" value="' + (c.defaultVal !== undefined ? c.defaultVal : def.defaultVal) + '" style="width:60px" /></label>' +
+          '<button type="button" class="icon-btn ta-del" title="Supprimer">✕</button>' +
+        '</div>' +
+        '<input type="text" class="ta-desc" value="' + esc(c.desc || '') + '" placeholder="Description (X = valeur variable)" />' +
+      '</div>';
+    }).join('');
+
+    function commit() { Store.saveMonsterTalents(cat); }
+
+    list.querySelectorAll('.talentadv-card').forEach(function (card) {
+      const i = +card.getAttribute('data-i');
+      card.querySelector('.ta-name').addEventListener('input', function () { cat[i].name = this.value; commit(); });
+      card.querySelector('.ta-trigger').addEventListener('change', function () { cat[i].trigger = this.value; commit(); });
+      card.querySelector('.ta-defval').addEventListener('input', function () { cat[i].defaultVal = Math.max(0, parseInt(this.value, 10) || 0); commit(); });
+      card.querySelector('.ta-desc').addEventListener('input', function () { cat[i].desc = this.value; commit(); });
+      card.querySelector('.ta-del').addEventListener('click', function () {
+        if (!confirm('Supprimer ce talent du catalogue ?')) return;
+        cat.splice(i, 1); commit(); renderTalentsAdv();
+      });
+    });
+  }
+
+  function addMonsterTalentToCatalog() {
+    const cat = montalentCatalog();
+    cat.push({ id: 'tal_' + Store.uid(), name: 'NOUVEAU', trigger: 'flee_on_big_hit', defaultVal: 10, desc: '' });
+    Store.saveMonsterTalents(cat);
+    renderTalentsAdv();
   }
 
   function renderMonsters() {
@@ -1063,6 +1139,10 @@
       }
     });
 
+    // Talents Adverses (catalogue)
+    const addTal = $('#btn-add-talentadv');
+    if (addTal) addTal.addEventListener('click', addMonsterTalentToCatalog);
+
     renderHeroes();
     renderMonsters();
   }
@@ -1071,6 +1151,7 @@
     init: init,
     renderHeroes: renderHeroes,
     renderMonsters: renderMonsters,
+    renderTalentsAdv: renderTalentsAdv,
     renderProgress: renderProgress,
     openHeroModal: openHeroModal,
     openHeroSheet: openHeroSheet,

@@ -310,6 +310,27 @@
     try { global.localStorage.setItem(CLS_KEY, JSON.stringify(classes)); } catch (e) {}
   }
 
+  // ---------- Talents adverses (catalogue MJ/Admin) ----------
+  // Chaque talent du catalogue se rattache à un déclencheur du moteur de combat
+  // (trigger). Le champ X est variable, ajustable par monstre dans son éditeur.
+  const MONTALENT_KEY = 'amertume_montalents_v1';
+  const DEFAULT_MONTALENTS = [
+    { id: 'craintif', name: 'CRAINTIF', trigger: 'flee_on_big_hit',    defaultVal: 10, desc: 'Fuite si X+ dégâts en une seule attaque.' },
+    { id: 'fuyard',   name: 'FUYARD',   trigger: 'flee_after_turns',   defaultVal: 3,  desc: 'Fuit le combat après le tour X.' },
+    { id: 'horde',    name: 'HORDE',    trigger: 'ally_contact_bonus', defaultVal: 1,  desc: '+X dégâts par allié dans sa zone.' },
+  ];
+  function loadMonsterTalents() {
+    try {
+      const raw = global.localStorage.getItem(MONTALENT_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_MONTALENTS));
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : JSON.parse(JSON.stringify(DEFAULT_MONTALENTS));
+    } catch (e) { return JSON.parse(JSON.stringify(DEFAULT_MONTALENTS)); }
+  }
+  function saveMonsterTalents(talents) {
+    try { global.localStorage.setItem(MONTALENT_KEY, JSON.stringify(talents)); } catch (e) {}
+  }
+
   global.Store = {
     uid: uid,
     noStates: noStates,
@@ -332,6 +353,8 @@
     saveSessions: saveSessions,
     loadClasses: loadClasses,
     saveClasses: saveClasses,
+    loadMonsterTalents: loadMonsterTalents,
+    saveMonsterTalents: saveMonsterTalents,
     loadUnlocked: loadUnlocked,
     saveUnlocked: saveUnlocked,
   };

@@ -18,6 +18,7 @@
   // État d'interaction du plateau
   let pendingAttack = null;   // { iid, atkIndex } quand on choisit une cible au clic
   let pendingMove = null;     // iid du combattant en cours de déplacement
+  let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let rootSel = '#combat-root'; // cible de rendu (redirigée pendant un combat de session)
 
@@ -29,13 +30,6 @@
   let combatKey = 'combat';
   function combat() { return Store.state[combatKey]; }
   function setCombat(v) { Store.state[combatKey] = v; }
-
-  // Un aventurier dispose de l'action Analyser si sa classe possède le talent « Analyse »
-  function heroHasAnalyse(c) {
-    if (!c || c.side !== 'hero') return false;
-    const k = (Store.loadClasses() || []).find(function (x) { return x.name === c.klass; });
-    return !!(k && Array.isArray(k.talents) && k.talents.some(function (t) { return /analyse/i.test(t.name || ''); }));
-  }
 
   // ---------- Construction des instances ----------
   // Compteurs d'usages par attaque (null = illimité)
@@ -922,7 +916,7 @@
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
-      '<div class="targeting-banner' + ((pendingAttack || pendingMove) ? ' active' : '') + '">' + bannerHtml() + '</div>' +
+      '<div class="targeting-banner' + ((pendingAttack || pendingMove || pendingAnalyze) ? ' active' : '') + '">' + bannerHtml() + '</div>' +
       '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
         zones().map(function (z, zi) {
           return '<div class="combat-zone ' + zoneColorClass(zi) + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
@@ -952,6 +946,8 @@
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
     const cm = $('#cancel-move');
     if (cm) cm.addEventListener('click', function () { pendingMove = null; render(); });
+    const ca = $('#cancel-analyze');
+    if (ca) ca.addEventListener('click', function () { pendingAnalyze = null; render(); });
 
     // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement
     root.querySelectorAll('.combat-zone').forEach(function (zEl) {
@@ -965,6 +961,11 @@
 
   // Contenu de la bannière de ciblage / déplacement (toujours présente : pas de saut d'UI)
   function bannerHtml() {
+    if (pendingAnalyze) {
+      const an = byId(pendingAnalyze);
+      return '🔍 <b>' + esc(an ? an.name : '') + '</b> analyse — <b>clique l\'adversaire à examiner</b>. ' +
+        '<button id="cancel-analyze" class="ghost xs">Annuler</button>';
+    }
     if (pendingMove) {
       const mv = byId(pendingMove);
       return '🚶 <b>' + esc(mv ? mv.name : '') + '</b> — <b>clique la zone de destination</b>. ' +
@@ -1048,11 +1049,12 @@
     const phase = combat().phase;
     const canAct = !dead && !combat().outcome &&
       ((c.side === 'hero' && phase === 'heroes') || false);
-    // Cible valide pendant le ciblage au clic
+    // Cible valide pendant le ciblage au clic (attaque ou analyse)
     if (pendingAttack && !dead) {
       const attacker = byId(pendingAttack.iid);
       if (attacker && attacker.side !== c.side) cls.push('targetable');
     }
+    if (pendingAnalyze && !dead && c.side === 'monster') cls.push('targetable');
 
     const isEnemy = c.side === 'monster';
     const known = !isEnemy || c.analyzed;   // stats ennemies cachées avant Analyse
@@ -1110,22 +1112,23 @@
             '</span>' +
           '</button>';
       }).join('') + '</div>';
-      // Mouvement (demi-largeur) + Objet équipé, côte à côte
+      // Mouvement / Objet / Analyse, sur une même ligne (boutons compacts).
+      // Mouvement et Analyse partagent la même ressource (c.used.move) : faire
+      // l'un consomme l'autre — « s'il analyse il ne peut plus bouger ».
       const usedO = c.used.object;
-      html += '<div class="cc-move-row">' +
+      const usedMv = c.used.move;
+      html += '<div class="cc-move-row tri">' +
         (zoneCount() > 1
-          ? '<button class="move-chip do-move half' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
-              (c.used.move ? ' disabled' : '') + '>' +
-              '<span class="atk-chip-main"><span class="atk-chip-name">Mouvement</span>' +
-              '<span class="atk-chip-range">changer de zone</span></span></button>'
+          ? '<button class="move-chip do-move third' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
+              (usedMv ? ' disabled' : '') + ' title="Changer de zone">' +
+              '<span class="atk-chip-main"><span class="atk-chip-name">Mouv.</span></span></button>'
           : '') +
-        '<button class="obj-chip do-object half" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + '>' +
-          '<span class="atk-chip-main"><span class="atk-chip-name">Utiliser Obj. équipé</span></span></button>' +
+        '<button class="obj-chip do-object third" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">' +
+          '<span class="atk-chip-main"><span class="atk-chip-name">Objet</span></span></button>' +
+        '<button class="ana-chip do-analyse third' + (pendingAnalyze === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
+          (usedMv ? ' disabled' : '') + ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">' +
+          '<span class="atk-chip-main"><span class="atk-chip-name">Analyse</span></span></button>' +
       '</div>';
-      if (heroHasAnalyse(c)) {
-        html += '<div class="cc-secondary"><button class="ghost xs do-analyse" data-iid="' + c.iid + '"' +
-          (usedA ? ' disabled' : '') + ' title="Action : révèle DEF, Dégâts et XP de tous les adversaires">🔍 Analyser</button></div>';
-      }
     }
     html += '</div>';
     return html;
@@ -1204,6 +1207,20 @@
     const root = $(rootSel);
     const card = root.querySelector('.combat-card[data-iid="' + c.iid + '"]');
 
+    // Analyse au clic : révèle les infos de l'adversaire ciblé
+    if (card && card.classList.contains('targetable') && pendingAnalyze && c.side === 'monster') {
+      card.addEventListener('click', function (e) {
+        if (e.target.closest('button')) return;
+        const hero = byId(pendingAnalyze);
+        pendingAnalyze = null;
+        if (!hero || hero.used.move) { render(); return; }
+        c.analyzed = true;
+        hero.used.move = true; // analyser consomme la ressource de mouvement
+        log(wname(hero.name) + ' analyse ' + wname(c.name) + ' : DEF, Dégâts et XP révélés.', 'move');
+        Store.save(); render();
+      });
+    }
+
     // Ciblage au clic : cette carte est une cible valide
     if (card && card.classList.contains('targetable') && pendingAttack) {
       card.addEventListener('click', function (e) {
@@ -1230,14 +1247,13 @@
       });
     });
     if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active' && !combat().outcome) {
-      // Action Analyser (talent) : révèle les caractéristiques de tous les adversaires
+      // Action Analyser : arme l'analyse, puis on clique l'adversaire à examiner.
+      // Consomme la même ressource que le mouvement (exclusivité mouvement/analyse).
       const anaBtn = root.querySelector('.do-analyse[data-iid="' + c.iid + '"]');
       if (anaBtn) anaBtn.addEventListener('click', function () {
-        if (c.used.action) return;
-        combat().combatants.forEach(function (m) { if (m.side === 'monster') m.analyzed = true; });
-        c.used.action = true;
-        log(wname(c.name) + ' analyse les adversaires : DEF, Dégâts et XP révélés.', 'move');
-        Store.save(); render();
+        if (c.used.move) return;
+        pendingAnalyze = (pendingAnalyze === c.iid) ? null : c.iid;
+        pendingAttack = null; pendingMove = null; render();
       });
       // Chips d'attaque (dé)
       root.querySelectorAll('.atk-chip[data-iid="' + c.iid + '"]').forEach(function (b) {
@@ -1249,7 +1265,7 @@
             pendingAttack = null; render(); return; // re-clic = annuler
           }
           if (atk.targets === 'all') { execHeroAttack(c, i, null); }
-          else { pendingAttack = { iid: c.iid, atkIndex: i, average: false }; stateMenuFor = null; render(); }
+          else { pendingAttack = { iid: c.iid, atkIndex: i, average: false }; pendingAnalyze = null; stateMenuFor = null; render(); }
         });
       });
       // Chips dégâts moyens (≈)
@@ -1262,7 +1278,7 @@
             pendingAttack = null; render(); return; // re-clic = annuler
           }
           if (atk.targets === 'all') { execHeroAverageAttack(c, i, null); }
-          else { pendingAttack = { iid: c.iid, atkIndex: i, average: true }; stateMenuFor = null; render(); }
+          else { pendingAttack = { iid: c.iid, atkIndex: i, average: true }; pendingAnalyze = null; stateMenuFor = null; render(); }
         });
       });
       const obj = root.querySelector('.do-object[data-iid="' + c.iid + '"]');
@@ -1274,7 +1290,7 @@
       if (mv) mv.addEventListener('click', function () {
         if (c.used.move) return;
         pendingMove = (pendingMove === c.iid) ? null : c.iid;
-        pendingAttack = null; render();
+        pendingAttack = null; pendingAnalyze = null; render();
       });
     }
   }

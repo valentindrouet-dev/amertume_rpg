@@ -796,6 +796,18 @@ main { padding: 1.5rem 1.25rem 3rem; }
 /* Dans les cartes de roster claires */
 .roster-card .talent-badge { color: #8a3218; background: rgba(193,78,53,.14); border-color: rgba(193,78,53,.4); }
 
+/* ---- Catalogue Talents Adverses (onglet MJ) ---- */
+.talentadv-list { display: flex; flex-direction: column; gap: .5rem; margin-top: .5rem; }
+.talentadv-card {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: .6rem .7rem; display: flex; flex-direction: column; gap: .45rem;
+}
+.talentadv-card .ta-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.talentadv-card .ta-name { font-weight: 700; text-transform: uppercase; width: 150px; }
+.talentadv-card .ta-trigger { flex: 1; min-width: 220px; }
+.talentadv-card .ta-default { font-size: .78rem; color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: .35rem; }
+.talentadv-card .ta-desc { width: 100%; font-size: .84rem; }
+
 /* ===================================================================
    v7 — Aventures & Sessions
    =================================================================== */
@@ -1424,6 +1436,9 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 /* Rangée Mouvement + Objet (demi-largeur chacun) */
 .cc-move-row { display: flex; gap: .4rem; margin-top: .1rem; }
 .cc-move-row .half { flex: 1; }
+.cc-move-row .third { flex: 1; min-width: 0; }
+.cc-move-row.tri .atk-chip-main { align-items: center; }
+.cc-move-row.tri .atk-chip-name { font-size: .8rem; }
 .obj-chip {
   display: inline-flex; align-items: center; gap: .5rem; text-align: left;
   border-radius: 9px; padding: .45rem .6rem; cursor: pointer; font-size: .86rem;
@@ -1432,6 +1447,16 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .obj-chip:hover:not(:disabled) { background: rgba(95,164,95,.3); }
 .obj-chip:disabled { opacity: .4; cursor: not-allowed; }
 .obj-chip .atk-chip-range { color: #5a8a5a; }
+
+/* Bouton Analyse (révèle l'adversaire ciblé) — violet, partage la ressource du mouvement */
+.ana-chip {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem; text-align: center;
+  border-radius: 9px; padding: .45rem .6rem; cursor: pointer; font-size: .86rem;
+  background: rgba(124,92,164,.16); border: 1px solid #7c5ca4; color: #5a3e82;
+}
+.ana-chip:hover:not(:disabled) { background: rgba(124,92,164,.3); }
+.ana-chip:disabled { opacity: .4; cursor: not-allowed; }
+.ana-chip.selected { background: #7c5ca4; color: #fff; }
 
 /* Cimetière un peu plus visible */
 .combat-cemetery { margin: .5rem 0; padding: .35rem .5rem; border: 1px dashed var(--border); border-radius: 9px; background: rgba(0,0,0,.05); }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertume — Inventaire &amp; Dés</title>
-  <link rel="stylesheet" href="css/style.css?v=2.31" />
+  <link rel="stylesheet" href="css/style.css?v=2.32" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -47,6 +47,7 @@
       <button class="tab" data-tab="classes" data-modes="admin">Classes</button>
       <button class="tab" data-tab="armory" data-modes="admin">Armurerie</button>
       <button class="tab" data-tab="bestiary" data-modes="admin">Bestiaire</button>
+      <button class="tab" data-tab="talentadv" data-modes="admin">Talents Adv.</button>
       <button class="tab" data-tab="session" data-modes="admin">Session</button>
       <button class="tab" data-tab="combat" data-modes="admin">Combat Test</button>
     </nav>
@@ -112,6 +113,18 @@
           </select>
         </div>
         <div id="monster-list" class="roster-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ TALENTS ADVERSES (catalogue MJ) ============ -->
+    <section id="tab-talentadv" class="tab-panel">
+      <div class="card">
+        <div class="card-head">
+          <h2>Talents Adverses</h2>
+          <button id="btn-add-talentadv" class="primary">+ Nouveau talent</button>
+        </div>
+        <p class="hint">Crée ici les talents que tu pourras attribuer aux adversaires dans leur éditeur. Le <b>X</b> est une valeur variable, ajustée par monstre. Chaque talent se rattache à un effet du moteur de combat.</p>
+        <div id="talentadv-list" class="talentadv-list"></div>
       </div>
     </section>
 
@@ -517,17 +530,17 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.31"></script>
-  <script src="js/store.js?v=2.31"></script>
-  <script src="js/inventory.js?v=2.31"></script>
-  <script src="js/combatants.js?v=2.31"></script>
-  <script src="js/combat.js?v=2.31"></script>
-  <script src="js/classes.js?v=2.31"></script>
-  <script src="js/adventure.js?v=2.31"></script>
-  <script src="js/session.js?v=2.31"></script>
-  <script src="js/dataio.js?v=2.31"></script>
-  <script src="js/share.js?v=2.31"></script>
-  <script src="js/shell.js?v=2.31"></script>
-  <script src="js/main.js?v=2.31"></script>
+  <script src="js/dice.js?v=2.32"></script>
+  <script src="js/store.js?v=2.32"></script>
+  <script src="js/inventory.js?v=2.32"></script>
+  <script src="js/combatants.js?v=2.32"></script>
+  <script src="js/combat.js?v=2.32"></script>
+  <script src="js/classes.js?v=2.32"></script>
+  <script src="js/adventure.js?v=2.32"></script>
+  <script src="js/session.js?v=2.32"></script>
+  <script src="js/dataio.js?v=2.32"></script>
+  <script src="js/share.js?v=2.32"></script>
+  <script src="js/shell.js?v=2.32"></script>
+  <script src="js/main.js?v=2.32"></script>
 </body>
 </html>
