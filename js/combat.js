@@ -1067,10 +1067,11 @@
           '<span class="pv-text">' + pvText + '</span></div>' +
         (known ? '<span class="def-badge">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' : '') +
       '</div>' +
-      (known
+      // Aventuriers : pas de pastille « Dégâts » (les dégâts figurent déjà sur les attaques)
+      (known && isEnemy
         ? '<div class="stat-pills compact">' +
             '<span class="stat-pill">Dégâts ' + c.damage + '</span>' +
-            (isEnemy ? '<span class="stat-pill">XP ' + c.xp + '</span>' : '') +
+            '<span class="stat-pill">XP ' + c.xp + '</span>' +
           '</div>'
         : ''
       ) +
