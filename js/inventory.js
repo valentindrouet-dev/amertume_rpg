@@ -122,11 +122,16 @@
       list.innerHTML = '<p class="empty">Aucun aventurier : crée ton groupe d\'abord.</p>';
       return;
     }
-    // Objets équipables disponibles (armes, armures, objets) en stock
+    // Seuls les objets possédés par le groupe (équipement de départ + butin de combat)
+    const owned = (window.Session && Session.ownedItems) ? Session.ownedItems(advId) : {};
     const equippable = Store.state.items.filter(function (i) {
-      return (i.qty == null || i.qty > 0) &&
+      return owned[i.id] &&
         (i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc');
     });
+    if (!equippable.length) {
+      list.innerHTML = '<p class="empty">Aucun équipement possédé. L\'équipement de départ des aventuriers et le butin des combats apparaîtront ici.</p>';
+      return;
+    }
     let html = '';
     heroes.forEach(function (h) {
       const e = normEq(h);
