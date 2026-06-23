@@ -490,7 +490,103 @@
       (parseInt($('#h-pvbonus').value, 10) || 0) + cBonus);
   }
 
+  // ----- Assistant de création (mode Joueur) : Nom → Classe → Équipement → Compétences -----
+  let wiz = null;
+  const WIZ_STEPS = ['Nom', 'Classe', 'Équipement', 'Compétences'];
+  function openHeroWizard(advId) {
+    wiz = { advId: advId, step: 0, name: '', klass: '', equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, skills: [] };
+    $('#hero-wizard-modal').hidden = false;
+    renderWizard();
+  }
+  function updateWizNav() {
+    let ok = true;
+    if (wiz.step === 0) ok = !!wiz.name.trim();
+    else if (wiz.step === 1) ok = !!wiz.klass;
+    else if (wiz.step === 3) ok = wiz.skills.length === 2;
+    const nb = $('#hw-next'); if (nb) nb.disabled = !ok;
+  }
+  function renderWizard() {
+    const body = $('#hw-body');
+    $('#hw-steps').innerHTML = WIZ_STEPS.map(function (s, i) {
+      return '<span class="hw-step' + (i === wiz.step ? ' active' : '') + (i < wiz.step ? ' done' : '') + '">' + (i + 1) + '. ' + s + '</span>';
+    }).join('');
+    if (wiz.step === 0) {
+      body.innerHTML = '<label>Nom de l\'aventurier<input type="text" id="hw-name" value="' + esc(wiz.name) + '" placeholder="Son nom…" /></label>';
+      const inp = $('#hw-name');
+      inp.oninput = function () { wiz.name = this.value; updateWizNav(); };
+      setTimeout(function () { inp.focus(); }, 0);
+    } else if (wiz.step === 1) {
+      const classes = Store.loadClasses();
+      body.innerHTML = '<p class="hint">Choisis une classe.</p><div class="hw-class-list">' +
+        (classes.length ? classes.map(function (c) {
+          return '<button type="button" class="hw-class klass-' + classSlug(c.name) + (wiz.klass === c.name ? ' selected' : '') + '" data-class="' + esc(c.name) + '">' +
+            '<span class="hw-class-name">' + esc(c.name) + '</span><span class="hw-class-pv">PV +' + (CLASS_PV[c.name] || 0) + '</span></button>';
+        }).join('') : '<p class="empty">Aucune classe définie.</p>') + '</div>';
+      body.querySelectorAll('.hw-class').forEach(function (b) {
+        b.onclick = function () { wiz.klass = this.getAttribute('data-class'); renderWizard(); };
+      });
+    } else if (wiz.step === 2) {
+      const items = Store.state.items;
+      const hands = items.filter(function (i) { return i.category === 'weapon' || (i.category === 'armor' && i.slot === 'shield'); });
+      const bodies = items.filter(function (i) { return i.category === 'armor' && (i.slot || 'body') === 'body'; });
+      const objects = items.filter(function (i) { return i.category === 'object' || i.category === 'misc'; });
+      body.innerHTML = '<p class="hint">Équipement de départ (facultatif).</p>' +
+        '<div class="form-row"><label>Main droite<select id="hw-maind"></select></label>' +
+        '<label>Main gauche<select id="hw-maing"></select></label></div>' +
+        '<div class="form-row"><label>Armure<select id="hw-armor"></select></label>' +
+        '<label>Objet<select id="hw-object"></select></label></div>';
+      fillEquipSelect($('#hw-maind'), hands, wiz.equipment.mainD, 'Vide');
+      fillEquipSelect($('#hw-maing'), hands, wiz.equipment.mainG, 'Vide');
+      fillEquipSelect($('#hw-armor'), bodies, wiz.equipment.armorId, 'Aucune');
+      fillEquipSelect($('#hw-object'), objects, wiz.equipment.objectId, 'Aucun');
+      $('#hw-maind').onchange = function () { wiz.equipment.mainD = this.value || null; };
+      $('#hw-maing').onchange = function () { wiz.equipment.mainG = this.value || null; };
+      $('#hw-armor').onchange = function () { wiz.equipment.armorId = this.value || null; };
+      $('#hw-object').onchange = function () { wiz.equipment.objectId = this.value || null; };
+    } else {
+      body.innerHTML = '<p class="hint">Choisis <b>2 compétences</b> (chacune +1). ' + wiz.skills.length + '/2</p>' +
+        '<div class="hw-skill-list">' + SKILLS.map(function (s) {
+          return '<button type="button" class="hw-skill' + (wiz.skills.indexOf(s) >= 0 ? ' selected' : '') + '" data-skill="' + s + '">' + s + '</button>';
+        }).join('') + '</div>';
+      body.querySelectorAll('.hw-skill').forEach(function (b) {
+        b.onclick = function () {
+          const s = this.getAttribute('data-skill');
+          const idx = wiz.skills.indexOf(s);
+          if (idx >= 0) wiz.skills.splice(idx, 1);
+          else { if (wiz.skills.length >= 2) return; wiz.skills.push(s); }
+          renderWizard();
+        };
+      });
+    }
+    const back = $('#hw-back'); if (back) back.style.visibility = wiz.step === 0 ? 'hidden' : 'visible';
+    const isLast = wiz.step === WIZ_STEPS.length - 1;
+    const nb = $('#hw-next'); if (nb) nb.textContent = isLast ? '✓ Créer l\'aventurier' : 'Suivant →';
+    updateWizNav();
+  }
+  function wizBack() { if (wiz && wiz.step > 0) { wiz.step--; renderWizard(); } }
+  function wizNext() {
+    if (!wiz || $('#hw-next').disabled) return;
+    if (wiz.step < WIZ_STEPS.length - 1) { wiz.step++; renderWizard(); return; }
+    const skills = {}; wiz.skills.forEach(function (s) { skills[s] = 1; });
+    Store.state.heroes.push({
+      id: Store.uid(), name: wiz.name.trim() || 'Aventurier', klass: wiz.klass,
+      vie: 4, endu: 3, pvBonus: 0, damage: 2, rapide: false, notes: '',
+      attacks: [], skills: mergeSkills(skills),
+      equipment: {
+        mainG: wiz.equipment.mainG || null, mainD: wiz.equipment.mainD || null,
+        armorId: wiz.equipment.armorId || null, objectId: wiz.equipment.objectId || null,
+      },
+      adventureId: wiz.advId || null,
+    });
+    Store.save();
+    $('#hero-wizard-modal').hidden = true;
+    renderHeroes();
+    global.dispatchEvent(new CustomEvent('heroes-changed'));
+  }
+
   function openHeroModal(id) {
+    // En mode Joueur, la création d'un nouvel aventurier passe par l'assistant
+    if (!id && scope().mode === 'player') { openHeroWizard(scope().advId); return; }
     const isEdit = !!id;
     const h = isEdit ? Store.state.heroes.find(function (x) { return x.id === id; }) : null;
     $('#hero-modal-title').textContent = isEdit ? 'Éditer l\'aventurier' : 'Nouvel aventurier';
@@ -900,6 +996,10 @@
     $('#prebuilt-close').addEventListener('click', function () { $('#prebuilt-modal').hidden = true; });
     $('#prebuilt-modal').addEventListener('click', function (e) { if (e.target.id === 'prebuilt-modal') $('#prebuilt-modal').hidden = true; });
     $('#hero-modal-close').addEventListener('click', function () { $('#hero-modal').hidden = true; });
+    $('#hw-close').addEventListener('click', function () { $('#hero-wizard-modal').hidden = true; });
+    $('#hw-back').addEventListener('click', wizBack);
+    $('#hw-next').addEventListener('click', wizNext);
+    $('#hero-wizard-modal').addEventListener('click', function (e) { if (e.target.id === 'hero-wizard-modal') $('#hero-wizard-modal').hidden = true; });
     $('#hero-sheet-close').addEventListener('click', function () { $('#hero-sheet-modal').hidden = true; });
     $('#hero-sheet-modal').addEventListener('click', function (e) { if (e.target.id === 'hero-sheet-modal') $('#hero-sheet-modal').hidden = true; });
     $('#hero-modal').addEventListener('click', function (e) { if (e.target.id === 'hero-modal') $('#hero-modal').hidden = true; });
