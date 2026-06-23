@@ -8,14 +8,14 @@
 (function (global) {
   'use strict';
 
-  // Projet Firebase existant (config client — publique par design).
+  // Projet Firebase dédié à Amertume (config client — publique par design).
   var firebaseConfig = {
-    apiKey: 'AIzaSyBEAGwmfbbrfEbtpQRPmXGE6HqL9OrD2H4',
-    authDomain: 'skills2-bbg.firebaseapp.com',
-    projectId: 'skills2-bbg',
-    storageBucket: 'skills2-bbg.firebasestorage.app',
-    messagingSenderId: '571913486023',
-    appId: '1:571913486023:web:f754f3b420e87cac82c8e2',
+    apiKey: 'AIzaSyB_HfdlCuFa38PDggsmhnV--5T_LNHK_yo',
+    authDomain: 'amertume-rpg.firebaseapp.com',
+    projectId: 'amertume-rpg',
+    storageBucket: 'amertume-rpg.firebasestorage.app',
+    messagingSenderId: '550108758899',
+    appId: '1:550108758899:web:e99c70d285d97574b83b06',
   };
 
   var COLLECTION = 'amertume_snapshots';
