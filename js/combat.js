@@ -197,20 +197,21 @@
       if (!tpl) return;
       const killer = m.killedBy ? c.combatants.find(function (x) { return x.iid === m.killedBy; }) : null;
       const killerName = (killer && killer.side === 'hero') ? killer.name : null;
+      const killerHeroId = (killer && killer.side === 'hero') ? killer.templateId : null;
       // Équipement de l'adversaire → au tueur
       (tpl.equipment || []).forEach(function (r) {
         if (!r.itemId) return;
         if (Math.random() * 100 < (r.loot != null ? r.loot : 0)) {
           const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-          if (it) out.push({ itemId: r.itemId, name: it.name, qty: 1, toName: killerName });
+          if (it) out.push({ itemId: r.itemId, name: it.name, qty: 1, toName: killerName, toHeroId: killerHeroId });
         }
       });
-      // Butin → au groupe
+      // Butin → au tueur (à défaut au groupe)
       (tpl.loot || []).forEach(function (r) {
         if (!r.itemId) return;
         if (Math.random() * 100 < (r.loot != null ? r.loot : 0)) {
           const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-          if (it) out.push({ itemId: r.itemId, name: it.name, qty: r.qty || 1, toName: null });
+          if (it) out.push({ itemId: r.itemId, name: it.name, qty: r.qty || 1, toName: killerName, toHeroId: killerHeroId });
         }
       });
     });
@@ -240,7 +241,7 @@
     if (sessionCtx && sessionCtx.sessionId) {
       window.dispatchEvent(new CustomEvent('adventure-combat-end', {
         detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained,
-          loot: loot.map(function (L) { return { itemId: L.itemId, qty: L.qty }; }) }
+          loot: loot.map(function (L) { return { itemId: L.itemId, qty: L.qty, toHeroId: L.toHeroId }; }) }
       }));
     } else {
       rootSel = '#combat-root';

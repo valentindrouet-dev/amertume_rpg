@@ -567,46 +567,58 @@
     }).join('') +
     '<button type="button" class="ghost small" id="sm-add-choice">+ Choix</button>';
 
-    box.querySelectorAll('.ch-label').forEach(function (inp, i) {
-      inp.oninput = function () { scene.choices[i].label = this.value; };
+    // L'index du choix est lu sur la ligne (data-ci) et NON sur l'ordre dans la
+    // NodeList — sinon les champs propres aux tests (skill/success/échec) seraient
+    // affectés au mauvais choix quand des choix normaux et des tests sont mélangés.
+    const ciOf = function (el) { return +el.closest('.adv-choice-row').getAttribute('data-ci'); };
+    box.querySelectorAll('.ch-label').forEach(function (inp) {
+      inp.oninput = function () { scene.choices[ciOf(this)].label = this.value; };
     });
-    box.querySelectorAll('.ch-type').forEach(function (sel, i) {
+    box.querySelectorAll('.ch-type').forEach(function (sel) {
       sel.onchange = function () {
-        scene.choices[i].choiceType = this.value;
+        scene.choices[ciOf(this)].choiceType = this.value;
         this.className = 'ch-type choice-type-' + this.value;
       };
     });
-    box.querySelectorAll('.ch-istest').forEach(function (cb, i) {
-      cb.onchange = function () { scene.choices[i].skillTest = this.checked; if (this.checked && !scene.choices[i].skill) scene.choices[i].skill = SKILLS[0]; renderChoicesEditor(scene, adv); };
-    });
-    box.querySelectorAll('.ch-skill').forEach(function (sel, i) {
-      sel.onchange = function () { scene.choices[i].skill = this.value; };
-    });
-    box.querySelectorAll('.ch-diff').forEach(function (sel, i) {
-      sel.onchange = function () { scene.choices[i].difficulty = this.value; };
-    });
-    box.querySelectorAll('.ch-success').forEach(function (sel, i) {
-      sel.onchange = function () {
-        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[i].successSceneId = id; })) renderChoicesEditor(scene, adv);
+    box.querySelectorAll('.ch-istest').forEach(function (cb) {
+      cb.onchange = function () {
+        const c = scene.choices[ciOf(this)];
+        c.skillTest = this.checked;
+        if (this.checked && !c.skill) c.skill = SKILLS[0];
+        renderChoicesEditor(scene, adv);
       };
     });
-    box.querySelectorAll('.ch-fail').forEach(function (sel, i) {
+    box.querySelectorAll('.ch-skill').forEach(function (sel) {
+      sel.onchange = function () { scene.choices[ciOf(this)].skill = this.value; };
+    });
+    box.querySelectorAll('.ch-diff').forEach(function (sel) {
+      sel.onchange = function () { scene.choices[ciOf(this)].difficulty = this.value; };
+    });
+    box.querySelectorAll('.ch-success').forEach(function (sel) {
       sel.onchange = function () {
-        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[i].failSceneId = id; })) renderChoicesEditor(scene, adv);
+        const ci = ciOf(this);
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[ci].successSceneId = id; })) renderChoicesEditor(scene, adv);
       };
     });
-    box.querySelectorAll('.ch-desc').forEach(function (inp, i) {
-      inp.oninput = function () { scene.choices[i].description = this.value; };
-    });
-    box.querySelectorAll('.ch-target').forEach(function (sel, i) {
+    box.querySelectorAll('.ch-fail').forEach(function (sel) {
       sel.onchange = function () {
-        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[i].targetSceneId = id; })) {
+        const ci = ciOf(this);
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[ci].failSceneId = id; })) renderChoicesEditor(scene, adv);
+      };
+    });
+    box.querySelectorAll('.ch-desc').forEach(function (inp) {
+      inp.oninput = function () { scene.choices[ciOf(this)].description = this.value; };
+    });
+    box.querySelectorAll('.ch-target').forEach(function (sel) {
+      sel.onchange = function () {
+        const ci = ciOf(this);
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.choices[ci].targetSceneId = id; })) {
           refreshSceneModalSections(scene, adv);
         }
       };
     });
-    box.querySelectorAll('.ch-del').forEach(function (b, i) {
-      b.onclick = function () { scene.choices.splice(i, 1); renderChoicesEditor(scene, adv); };
+    box.querySelectorAll('.ch-del').forEach(function (b) {
+      b.onclick = function () { scene.choices.splice(ciOf(this), 1); renderChoicesEditor(scene, adv); };
     });
     const addBtn = document.getElementById('sm-add-choice');
     if (addBtn) addBtn.onclick = function () {

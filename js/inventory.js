@@ -89,7 +89,7 @@
     const e = normEq(h);
     if (isHandItem(item)) {
       // Les armes occupent main droite puis main gauche (ou les deux si arme à 2 mains)
-      if (item.hands === 2) {
+      if (Number(item.hands) === 2) {
         if (handsUsed(e) > 0) { alert('Les deux mains de ' + h.name + ' sont occupées.'); return false; }
         e.mainD = item.id; e.mainG = null; e.twoH = true;
       } else {
@@ -122,16 +122,13 @@
       list.innerHTML = '<p class="empty">Aucun aventurier : crée ton groupe d\'abord.</p>';
       return;
     }
-    // Seuls les objets possédés par le groupe (équipement de départ + butin de combat)
-    const owned = (window.Session && Session.ownedItems) ? Session.ownedItems(advId) : {};
-    const equippable = Store.state.items.filter(function (i) {
-      return owned[i.id] &&
-        (i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc');
-    });
-    if (!equippable.length) {
-      list.innerHTML = '<p class="empty">Aucun équipement possédé. L\'équipement de départ des aventuriers et le butin des combats apparaîtront ici.</p>';
-      return;
-    }
+    // Chaque aventurier ne voit que SON équipement (départ + butin personnel)
+    const ownedOf = function (heroId) {
+      return (window.Session && Session.ownedForHero) ? Session.ownedForHero(advId, heroId) : {};
+    };
+    const isEquip = function (i) {
+      return i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc';
+    };
     let html = '';
     heroes.forEach(function (h) {
       const e = normEq(h);
@@ -139,8 +136,10 @@
       html += '<div class="inv-hero-sep">' + escapeHtml(h.name) +
         (h.klass ? ' <span class="hint">' + escapeHtml(h.klass) + '</span>' : '') +
         ' <span class="inv-hands">✋ ' + hands + '/2 · 🛡 DEF ' + Combatants.heroDef(h) + '</span></div>';
-      if (!equippable.length) { html += '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement disponible.</p>'; return; }
-      html += equippable.map(function (i) {
+      const owned = ownedOf(h.id);
+      const mine = Store.state.items.filter(function (i) { return owned[i.id] && isEquip(i); });
+      if (!mine.length) { html += '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement personnel.</p>'; return; }
+      html += mine.map(function (i) {
         const eq = isEquipped(e, i);
         return '<label class="inv-equip-row' + (eq ? ' equipped' : '') + '">' +
           '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (eq ? ' checked' : '') + '>' +
@@ -181,7 +180,7 @@
     // Caractéristiques sous les dés (remplace l'ancienne note « Officiel »)
     const subMeta = [];
     if (isWeapon) {
-      subMeta.push(i.hands === 2 ? '2 mains' : '1 main');
+      subMeta.push(Number(i.hands) === 2 ? '2 mains' : '1 main');
       subMeta.push(i.ranged ? 'distance' : 'contact');
       if (i.usesAmmo) subMeta.push('munitions');
       if (i.effects) subMeta.push('⚡ ' + escapeHtml(i.effects));
@@ -189,10 +188,8 @@
     return '<div class="roster-card armory-card cat-' + i.category + '">' +
       '<div class="roster-head">' +
         '<span class="roster-name">' + escapeHtml(i.name) + '</span>' +
-        (typeof i.price === 'number' && i.price ? '<span class="tag price-tag">' + i.price + ' po</span>' : '') +
       '</div>' +
-      (isWeapon ? '<div class="armory-line">' + poolBadges(i.dice) +
-        '<span class="avg-paren">(≈ ' + avgOf(i.dice) + ')</span>' + traits + '</div>' +
+      (isWeapon ? '<div class="armory-line">' + poolBadges(i.dice) + traits + '</div>' +
         (subMeta.length ? '<div class="armory-submeta">' + subMeta.join(' · ') + '</div>' : '') : '') +
       (isArmor ? '<div class="armory-line"><span class="stat-pill">DEF <b>' + (i.def || 0) + '</b></span>' +
         '<span class="stat-pill">' + (i.slot === 'shield' ? 'Bouclier' : 'Corps') + '</span></div>' : '') +
