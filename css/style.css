@@ -1326,3 +1326,37 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .home-adv-badge { font-size: .72rem; background: rgba(0,0,0,.06); border: 1px solid var(--border);
   border-radius: 10px; padding: .06rem .45rem; color: var(--muted); }
 .home-adv-summary { display: block; margin-top: .35rem; font-size: .8rem; color: var(--muted); line-height: 1.35; }
+
+/* ===================================================================
+   v2.10 — Combat par zones
+   =================================================================== */
+.combat-zones-grid { display: grid; gap: 1rem; margin: .6rem 0; }
+.combat-zones-grid.zc-1 { grid-template-columns: 1fr; }
+.combat-zones-grid.zc-2 { grid-template-columns: 1fr 1fr; }
+.combat-zones-grid.zc-3,
+.combat-zones-grid.zc-4 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 720px) { .combat-zones-grid { grid-template-columns: 1fr !important; } }
+
+.combat-zone {
+  border: 1px solid var(--border); border-radius: 12px;
+  background: rgba(0,0,0,.04); padding: .55rem; min-height: 90px;
+}
+.combat-zone .zone-name {
+  font-weight: 800; font-size: .82rem; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: .5rem; padding-bottom: .3rem; border-bottom: 1px dashed var(--border);
+}
+.combat-zone .zone-cards { display: flex; flex-direction: column; gap: .5rem; }
+.zone-empty { text-align: center; color: var(--muted); font-style: italic; padding: .6rem 0; margin: 0; }
+/* Pendant un déplacement, les zones deviennent des cibles cliquables */
+.combat-zone.movable { cursor: pointer; outline: 2px dashed var(--action); outline-offset: -2px; }
+.combat-zone.movable:hover { background: rgba(77,142,209,.14); }
+.do-move.selected { background: var(--action); color: #fff; border-color: var(--action); }
+
+/* Éditeurs de zones (Combat Test + éditeur de scène) */
+.setup-zone, .adv-zone {
+  border: 1px solid var(--border); border-radius: 10px; padding: .5rem; margin-bottom: .6rem;
+  background: rgba(0,0,0,.03);
+}
+.setup-zone-head, .adv-zone-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; flex-wrap: wrap; }
+.zone-name-input { flex: 1; min-width: 120px; font-weight: 700; }
+.zone-start { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap; }

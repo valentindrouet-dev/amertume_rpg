@@ -453,7 +453,7 @@
     // Le combat se déroule DANS le panneau Session, avec les héros de l'aventure.
     const root = $('#session-root');
     root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
-    Combat.startInSession(ses.heroIds, refs, ctx, '#session-combat-root');
+    Combat.startInSession(ses.heroIds, { combatZones: scene.combatZones, monsterRefs: refs }, ctx, '#session-combat-root');
   }
 
   function renderRewardScene(box, scene, adv, ses) {

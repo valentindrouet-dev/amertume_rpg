@@ -215,10 +215,12 @@
         if (!cb) return null;
         var ok = Array.isArray(cb.combatants) && Array.isArray(cb.log);
         if (!ok) return null;
+        if (!Array.isArray(cb.zones) || !cb.zones.length) cb.zones = [{ name: 'Zone 1' }];
         cb.combatants.forEach(function (c) {
           if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false };
           if (!c.used) c.used = { action: false, move: false, object: false };
-          if (!Array.isArray(c.contact)) c.contact = [];
+          if (typeof c.zone !== 'number') c.zone = 0;
+          if (c.zone >= cb.zones.length) c.zone = 0;
           if (!Array.isArray(c.attacks)) c.attacks = [];
           c.attacks.forEach(normAttack);
         });

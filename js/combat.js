@@ -10,12 +10,14 @@
   const $ = function (sel) { return document.querySelector(sel); };
   const esc = function (s) { return Inventory.escapeHtml(s); };
 
-  // Sélections de l'écran de préparation
+  // Sélections de l'écran de préparation (Combat Test)
   let setupHeroes = {};      // { heroId: true }
-  let setupMonsters = [];     // [{ templateId, count }]
+  let setupZones = [{ name: 'Zone 1', monsters: [] }, { name: 'Zone 2', monsters: [] }]; // [{name, monsters:[{templateId,count}]}]
+  let setupHeroZone = 0;     // index de la zone de départ des aventuriers
 
   // État d'interaction du plateau
   let pendingAttack = null;   // { iid, atkIndex } quand on choisit une cible au clic
+  let pendingMove = null;     // iid du combattant en cours de déplacement
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let rootSel = '#combat-root'; // cible de rendu (redirigée pendant un combat de session)
 
@@ -52,7 +54,7 @@
       attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
-      contact: [], status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
+      zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
     };
   }
 
@@ -67,30 +69,72 @@
       attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
-      contact: [], status: 'active', analyzed: false,
+      zone: 0, status: 'active', analyzed: false,
     };
   }
 
-  function startCombat() {
-    const heroes = Store.state.heroes.filter(function (h) { return setupHeroes[h.id]; });
+  // Normalise une configuration de zones (depuis une scène ou le setup de test)
+  function normalizeZoneConfig(src) {
+    let zones = null;
+    if (src && Array.isArray(src.combatZones) && src.combatZones.length) zones = src.combatZones;
+    else if (Array.isArray(src) && src.length && src[0] && src[0].monsterRefs !== undefined) zones = src;
+    else {
+      // Ancien format : liste plate de monstres → 1 zone aventuriers + 1 zone adversaires
+      const refs = (src && src.monsterRefs) ? src.monsterRefs : (Array.isArray(src) ? src : []);
+      zones = [
+        { name: 'Zone des aventuriers', monsterRefs: [], heroStart: true },
+        { name: 'Adversaires', monsterRefs: refs.map(function (r) { return { monsterId: r.monsterId || r.templateId, count: r.count || 1 }; }) },
+      ];
+    }
+    let hsi = zones.findIndex(function (z) { return z.heroStart; });
+    if (hsi < 0) hsi = 0;
+    return {
+      zones: zones.slice(0, 4).map(function (z) {
+        return { name: z.name || '', monsterRefs: (z.monsterRefs || []).filter(function (r) { return r.monsterId; }) };
+      }),
+      heroStartZone: hsi,
+    };
+  }
+
+  // Assemble les combattants en plaçant chacun dans sa zone
+  function buildCombat(heroObjs, cfg) {
+    const zones = (cfg.zones || []).map(function (z) { return { name: z.name || '' }; });
+    if (!zones.length) zones.push({ name: 'Zone 1' });
+    zones.forEach(function (z, i) { if (!z.name) z.name = 'Zone ' + (i + 1); });
+    const heroZone = Math.min(Math.max(0, cfg.heroStartZone || 0), zones.length - 1);
     const combatants = [];
-    heroes.forEach(function (h, i) { combatants.push(instFromHero(h, i)); });
+    heroObjs.forEach(function (h, i) { const inst = instFromHero(h, i); inst.zone = heroZone; combatants.push(inst); });
     let mi = 0;
-    setupMonsters.forEach(function (entry) {
-      const tpl = Store.state.monsters.find(function (m) { return m.id === entry.templateId; });
-      if (!tpl) return;
-      for (let k = 0; k < entry.count; k++) {
-        const inst = instFromMonster(tpl, mi++);
-        // Suffixe si plusieurs exemplaires
-        if (entry.count > 1) inst.name = tpl.name + ' #' + (k + 1);
-        combatants.push(inst);
-      }
+    (cfg.zones || []).forEach(function (z, zi) {
+      (z.monsterRefs || []).forEach(function (ref) {
+        const tpl = Store.state.monsters.find(function (m) { return m.id === ref.monsterId; });
+        if (!tpl) return;
+        const count = ref.count || 1;
+        for (let k = 0; k < count; k++) {
+          const inst = instFromMonster(tpl, mi++);
+          if (count > 1) inst.name = tpl.name + ' #' + (k + 1);
+          inst.zone = Math.min(zi, zones.length - 1);
+          combatants.push(inst);
+        }
+      });
     });
-    pendingAttack = null; stateMenuFor = null;
-    setCombat({
-      turn: 1, phase: 'heroes', bonusXp: 0,
-      combatants: combatants, log: [], outcome: null,
-    });
+    pendingAttack = null; pendingMove = null; stateMenuFor = null;
+    setCombat({ turn: 1, phase: 'heroes', bonusXp: 0, zones: zones, combatants: combatants, log: [], outcome: null });
+  }
+
+  function startCombat() {
+    const heroObjs = Store.state.heroes.filter(function (h) { return setupHeroes[h.id]; });
+    const cfg = {
+      zones: setupZones.map(function (z, i) {
+        return {
+          name: z.name,
+          heroStart: i === setupHeroZone,
+          monsterRefs: (z.monsters || []).map(function (mm) { return { monsterId: mm.templateId, count: mm.count }; }),
+        };
+      }),
+      heroStartZone: setupHeroZone,
+    };
+    buildCombat(heroObjs, cfg);
     log('Début du combat — Tour 1.', 'turn');
     Store.save();
     render();
@@ -152,15 +196,30 @@
     combat().log = combat().log.slice(0, 60);
   }
 
-  function setContact(a, b, on) {
-    function upd(x, y) {
-      const i = x.contact.indexOf(y.iid);
-      if (on && i === -1) x.contact.push(y.iid);
-      if (!on && i >= 0) x.contact.splice(i, 1);
-    }
-    upd(a, b); upd(b, a);
+  // ---------- Zones ----------
+  function zones() { return combat().zones || []; }
+  function zoneCount() { return Math.max(1, zones().length); }
+  function zname(zi) { const z = zones()[zi]; return (z && z.name) ? z.name : ('Zone ' + (zi + 1)); }
+  // Une attaque atteint sa cible : contact = même zone ; distance = n'importe quelle zone
+  function canReach(attacker, target, atk) {
+    if (atk && atk.range === 'contact') return attacker.zone === target.zone;
+    return true;
   }
-  function inContact(a, b) { return a.contact.indexOf(b.iid) !== -1; }
+  // Adversaires actifs présents dans la zone de l'attaquant (pour les dégâts-choc)
+  function enemyZoneMates(attacker) {
+    const es = attacker.side === 'hero' ? 'monster' : 'hero';
+    return combat().combatants.filter(function (c) {
+      return c.side === es && c.status === 'active' && c.zone === attacker.zone;
+    });
+  }
+  function moveCombatant(iid, zi) {
+    const c = byId(iid);
+    if (!c || c.used.move || c.status !== 'active') { pendingMove = null; render(); return; }
+    if (c.zone === zi) { pendingMove = null; render(); return; }
+    c.zone = zi; c.used.move = true;
+    log(wname(c.name) + ' se déplace vers <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
+    pendingMove = null; Store.save(); render();
+  }
 
   // Nom lisible d'une attaque (retire le préfixe « Mêlée — » / « Distance — »)
   function attackLabel(atk) { return (atk.name || 'attaque').replace(/^(Mêlée|Distance) — /, ''); }
@@ -210,12 +269,9 @@
 
   function resolveAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
-    // Dégâts-choc : attaque à distance au contact d'un adversaire
+    // Dégâts-choc : tirer à distance avec des adversaires dans sa propre zone
     if (atk.range === 'distance' && attacker.side === 'hero') {
-      attacker.contact.forEach(function (iid) {
-        const m = byId(iid);
-        if (m && m.side === 'monster') dchocFrom(m, attacker);
-      });
+      enemyZoneMates(attacker).forEach(function (m) { dchocFrom(m, attacker); });
     }
     if (attacker.status !== 'active') return; // peut être tombé au coma sur dégâts-choc
 
@@ -296,7 +352,7 @@
       if (t.trigger === 'ally_contact_bonus') {
         const allies = combat().combatants.filter(function (c) {
           return c.side === 'monster' && c.iid !== attacker.iid && c.status === 'active' &&
-                 c.contact.indexOf(target.iid) !== -1;
+                 c.zone === target.zone;
         });
         if (allies.length > 0) {
           const b = allies.length * (t.bonus || 1);
@@ -342,36 +398,59 @@
     Store.save(); render();
   }
 
-  // Cœur de la phase adverse (sans rendu)
+  // Attaques utilisables d'un combattant (usages restants + action disponible)
+  function usableAttackIdx(m, range) {
+    for (let i = 0; i < m.attacks.length; i++) {
+      const a = m.attacks[i];
+      if (m.attackUses[i] === 0) continue;
+      if (!a.freeAction && m.used.action) continue;
+      if (range && a.range !== range) continue;
+      return i;
+    }
+    return -1;
+  }
+
+  // Cœur de la phase adverse (sans rendu) — gestion par zones
+  // Contact : frappe en priorité un héros de sa zone (se déplace si besoin).
+  // Distance : frappe en priorité un héros d'une autre zone.
   function monstersActCore() {
     activeOf('monster').forEach(function (m) {
       if (m.used.action || m.states.auSol) return; // Au sol : pas d'action
-      const target = chooseTarget(m);
-      if (!target) return;
-      let ai = -1;
-      for (let i = 0; i < m.attacks.length; i++) { if (m.attackUses[i] !== 0) { ai = i; break; } }
-      if (ai < 0) return;
-      const atk = m.attacks[ai];
-      if (atk.range === 'contact' && !inContact(m, target)) {
-        setContact(m, target, true);
-        log(wname(m.name) + ' engage ' + wname(target.name) + '.', 'move');
+      const heroes = activeOf('hero');
+      if (!heroes.length) return;
+      const sameZone = heroes.filter(function (h) { return h.zone === m.zone; });
+      const otherZone = heroes.filter(function (h) { return h.zone !== m.zone; });
+      const contactIdx = usableAttackIdx(m, 'contact');
+      const distIdx = usableAttackIdx(m, 'distance');
+
+      // 1) Arme de contact + cible dans la zone → frappe au contact
+      if (contactIdx >= 0 && sameZone.length) {
+        applyAttack(m, contactIdx, chooseFrom(m, sameZone));
+      // 2) Arme à distance → frappe en priorité une autre zone, sinon n'importe qui
+      } else if (distIdx >= 0) {
+        applyAttack(m, distIdx, chooseFrom(m, otherZone.length ? otherZone : heroes));
+      // 3) Seulement du contact, personne dans la zone → se déplace vers une cible puis frappe
+      } else if (contactIdx >= 0) {
+        const target = chooseFrom(m, heroes);
+        if (target && !m.used.move) {
+          m.zone = target.zone; m.used.move = true;
+          log(wname(m.name) + ' se déplace vers <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
+        }
+        if (target && target.zone === m.zone) applyAttack(m, contactIdx, target);
       }
-      applyAttack(m, ai, target);
     });
     checkOutcome();
   }
 
   function monsterAI() { monstersActCore(); Store.save(); render(); }
 
-  function chooseTarget(monster) {
-    const heroes = activeOf('hero');
-    if (!heroes.length) return null;
-    const contacted = heroes.filter(function (h) { return inContact(monster, h); });
-    if (monster.menace === 'pvLow') return minBy(heroes, function (h) { return h.pv; });
-    if (monster.menace === 'pvHigh') return maxBy(heroes, function (h) { return h.pv; });
-    if (monster.menace === 'defLow') return minBy(heroes, function (h) { return h.def; });
-    // closest : ciblé en contact en priorité, sinon le premier
-    return (contacted.length ? contacted : heroes)[0];
+  // Sélection d'une cible selon la menace, parmi un ensemble de candidats
+  function chooseFrom(monster, candidates) {
+    if (!candidates || !candidates.length) return null;
+    if (monster.menace === 'pvLow') return minBy(candidates, function (h) { return h.pv; });
+    if (monster.menace === 'pvHigh') return maxBy(candidates, function (h) { return h.pv; });
+    if (monster.menace === 'defLow') return minBy(candidates, function (h) { return h.def; });
+    return candidates[0];
   }
 
   function minBy(arr, f) { return arr.reduce(function (a, b) { return f(b) < f(a) ? b : a; }); }
@@ -452,6 +531,12 @@
   }
   function heroesActAuto() {
     activeOf('hero').forEach(function (h) {
+      // Si le héros n'a que des armes de contact et aucun adversaire dans sa zone, il s'y déplace
+      const hasDistance = h.attacks.some(function (a) { return a.range === 'distance'; });
+      const enemiesHere = activeOf('monster').filter(function (m) { return m.zone === h.zone; });
+      if (!hasDistance && !enemiesHere.length && !h.used.move) {
+        const t = autoTarget(); if (t) { h.zone = t.zone; h.used.move = true; }
+      }
       let safety = 0;
       while (safety++ < 8) {
         if (!activeOf('monster').length) break;
@@ -459,12 +544,20 @@
         h.attacks.forEach(function (a, i) {
           if (h.attackUses[i] === 0) return;
           if (!a.freeAction && h.used.action) return;
+          // ne retient une attaque de contact que s'il existe une cible joignable
+          if (a.range === 'contact' && !activeOf('monster').some(function (m) { return m.zone === h.zone; })) return;
           const sc = attackScore(a, h);
           if (sc > best) { best = sc; bestI = i; }
         });
         if (bestI < 0) break;
         const atk = h.attacks[bestI];
-        applyAttack(h, bestI, atk.targets === 'all' ? null : autoTarget());
+        let tgt = null;
+        if (atk.targets !== 'all') {
+          const reach = activeOf('monster').filter(function (m) { return canReach(h, m, atk); });
+          if (!reach.length) break;
+          tgt = reach.reduce(function (a, b) { return b.pv < a.pv ? b : a; });
+        }
+        applyAttack(h, bestI, tgt);
       }
     });
     checkOutcome();
@@ -520,13 +613,9 @@
           '</div>' +
         '</div>' +
         '<div class="card">' +
-          '<div class="card-head"><h2>Adversaires</h2></div>' +
-          '<div class="setup-monster-add">' +
-            '<select id="setup-monster-select"></select>' +
-            '<input type="number" id="setup-monster-count" min="1" value="1" />' +
-            '<button id="setup-monster-add" class="ghost">+ Ajouter</button>' +
-          '</div>' +
-          '<div id="setup-monster-list" class="setup-list"></div>' +
+          '<div class="card-head"><h2>Zones de combat</h2>' +
+            '<button id="setup-add-zone" class="ghost small"' + (setupZones.length >= 4 ? ' disabled' : '') + '>+ Zone</button></div>' +
+          '<div id="setup-zones"></div>' +
           '<div class="roll-actions">' +
             '<button id="setup-start" class="primary big">⚔ Démarrer le combat</button>' +
             '<button id="setup-auto" class="ghost big" title="Joue tout le combat automatiquement">⚡ Combat Auto</button>' +
@@ -565,51 +654,90 @@
       alert('🌙 Repos long : tous les aventuriers sont à PV maximum.');
     });
 
-    // Sélecteur de monstres
-    const sel = $('#setup-monster-select');
-    sel.innerHTML = monsters.map(function (m) {
-      return '<option value="' + m.id + '">' + esc(m.name) + ' (' + Combatants.TYPE_LABEL[m.type] + ')</option>';
-    }).join('');
-    $('#setup-monster-add').addEventListener('click', function () {
-      const id = sel.value;
-      const count = Math.max(1, parseInt($('#setup-monster-count').value, 10) || 1);
-      if (!id) return;
-      const existing = setupMonsters.find(function (e) { return e.templateId === id; });
-      if (existing) existing.count += count; else setupMonsters.push({ templateId: id, count: count });
-      renderSetupMonsterList();
-      updateStartBtn();
+    $('#setup-add-zone').addEventListener('click', function () {
+      if (setupZones.length >= 4) return;
+      setupZones.push({ name: 'Zone ' + (setupZones.length + 1), monsters: [] });
+      renderSetup(root);
     });
-    renderSetupMonsterList();
-    $('#setup-start').addEventListener('click', function () {
-      if (canStart()) startCombat();
-    });
-    $('#setup-auto').addEventListener('click', function () {
-      if (canStart()) autoCombat();
-    });
+    renderSetupZones(root);
+    $('#setup-start').addEventListener('click', function () { if (canStart()) startCombat(); });
+    $('#setup-auto').addEventListener('click', function () { if (canStart()) autoCombat(); });
     updateStartBtn();
   }
 
-  function renderSetupMonsterList() {
-    const box = $('#setup-monster-list');
+  // Éditeur de zones du Combat Test : nom, monstres, zone de départ des aventuriers
+  function renderSetupZones(root) {
+    const box = $('#setup-zones');
     if (!box) return;
-    if (!setupMonsters.length) { box.innerHTML = '<p class="empty">Aucun adversaire ajouté.</p>'; return; }
-    box.innerHTML = setupMonsters.map(function (e, idx) {
-      const m = Store.state.monsters.find(function (x) { return x.id === e.templateId; });
-      return '<div class="setup-row"><strong>' + esc(m ? m.name : '?') + '</strong>' +
-        '<span class="tag">×' + e.count + '</span>' +
-        '<button class="icon-btn" data-rm-monster="' + idx + '">✕</button></div>';
+    const monsters = Store.state.monsters;
+    const monOpts = monsters.map(function (m) {
+      return '<option value="' + m.id + '">' + esc(m.name) + ' (' + Combatants.TYPE_LABEL[m.type] + ')</option>';
     }).join('');
-    box.querySelectorAll('[data-rm-monster]').forEach(function (b) {
+    box.innerHTML = setupZones.map(function (z, zi) {
+      const monsHtml = (z.monsters || []).length
+        ? z.monsters.map(function (e, mi) {
+            const m = monsters.find(function (x) { return x.id === e.templateId; });
+            return '<div class="setup-row"><strong>' + esc(m ? m.name : '?') + '</strong>' +
+              '<span class="tag">×' + e.count + '</span>' +
+              '<button class="icon-btn" data-zrm="' + zi + '_' + mi + '">✕</button></div>';
+          }).join('')
+        : '<p class="empty" style="margin:.2rem 0">Aucun adversaire.</p>';
+      return '<div class="setup-zone">' +
+        '<div class="setup-zone-head">' +
+          '<input type="text" class="zone-name-input" data-zname="' + zi + '" value="' + esc(z.name || ('Zone ' + (zi + 1))) + '" />' +
+          '<label class="zone-start"><input type="radio" name="hero-zone" data-zstart="' + zi + '"' + (setupHeroZone === zi ? ' checked' : '') + '> Départ aventuriers</label>' +
+          (setupZones.length > 1 ? '<button class="icon-btn" data-zdel="' + zi + '" title="Supprimer la zone">✕</button>' : '') +
+        '</div>' +
+        '<div class="setup-monster-add">' +
+          '<select class="zone-mon-select" data-zsel="' + zi + '">' + monOpts + '</select>' +
+          '<input type="number" class="zone-mon-count" data-zcnt="' + zi + '" min="1" value="1" />' +
+          '<button class="ghost zone-mon-add" data-zadd="' + zi + '">+ Ajouter</button>' +
+        '</div>' +
+        monsHtml +
+      '</div>';
+    }).join('');
+
+    box.querySelectorAll('[data-zname]').forEach(function (inp) {
+      inp.addEventListener('input', function () { setupZones[+inp.getAttribute('data-zname')].name = inp.value; });
+    });
+    box.querySelectorAll('[data-zstart]').forEach(function (r) {
+      r.addEventListener('change', function () { if (r.checked) setupHeroZone = +r.getAttribute('data-zstart'); });
+    });
+    box.querySelectorAll('[data-zdel]').forEach(function (b) {
       b.addEventListener('click', function () {
-        setupMonsters.splice(parseInt(b.getAttribute('data-rm-monster'), 10), 1);
-        renderSetupMonsterList(); updateStartBtn();
+        const zi = +b.getAttribute('data-zdel');
+        setupZones.splice(zi, 1);
+        if (setupHeroZone >= setupZones.length) setupHeroZone = 0;
+        renderSetup(root);
+      });
+    });
+    box.querySelectorAll('[data-zadd]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const zi = +b.getAttribute('data-zadd');
+        const sel = box.querySelector('[data-zsel="' + zi + '"]');
+        const cntEl = box.querySelector('[data-zcnt="' + zi + '"]');
+        const id = sel.value;
+        const count = Math.max(1, parseInt(cntEl.value, 10) || 1);
+        if (!id) return;
+        const ex = setupZones[zi].monsters.find(function (e) { return e.templateId === id; });
+        if (ex) ex.count += count; else setupZones[zi].monsters.push({ templateId: id, count: count });
+        renderSetupZones(root); updateStartBtn();
+      });
+    });
+    box.querySelectorAll('[data-zrm]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const parts = b.getAttribute('data-zrm').split('_');
+        setupZones[+parts[0]].monsters.splice(+parts[1], 1);
+        renderSetupZones(root); updateStartBtn();
       });
     });
   }
 
   function canStart() {
     const heroCount = Object.keys(setupHeroes).filter(function (k) { return setupHeroes[k]; }).length;
-    const monCount = setupMonsters.reduce(function (n, e) { return n + e.count; }, 0);
+    const monCount = setupZones.reduce(function (n, z) {
+      return n + (z.monsters || []).reduce(function (s, m) { return s + m.count; }, 0);
+    }, 0);
     return heroCount > 0 && monCount > 0;
   }
   function updateStartBtn() {
@@ -633,17 +761,20 @@
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
-      '<div class="targeting-banner' + (pendingAttack ? ' active' : '') + '">' + bannerHtml() + '</div>' +
-      '<div class="combat-cols">' +
-        '<div class="combat-col"><h3>Aventuriers</h3><div id="col-heroes"></div></div>' +
-        '<div class="combat-col"><h3>Adversaires</h3><div id="col-monsters"></div></div>' +
+      '<div class="targeting-banner' + ((pendingAttack || pendingMove) ? ' active' : '') + '">' + bannerHtml() + '</div>' +
+      '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
+        zones().map(function (z, zi) {
+          return '<div class="combat-zone' + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
+            '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
+            '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
+          '</div>';
+        }).join('') +
       '</div>' +
       '<div class="phase-controls" id="phase-controls"></div>' +
       '<div class="card"><div class="card-head"><h3>Journal de combat</h3></div>' +
         '<div id="combat-log" class="combat-log"></div></div>';
 
-    renderColumn('#col-heroes', activeColumn('hero'));
-    renderMonsterColumn('#col-monsters');
+    renderZones();
     renderPhaseControls();
     renderLog();
 
@@ -652,62 +783,67 @@
     });
     const ct = $('#cancel-target');
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
+    const cm = $('#cancel-move');
+    if (cm) cm.addEventListener('click', function () { pendingMove = null; render(); });
+
+    // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement
+    root.querySelectorAll('.combat-zone').forEach(function (zEl) {
+      zEl.addEventListener('click', function (e) {
+        if (!pendingMove) return;
+        if (e.target.closest('button') || e.target.closest('.atk-row')) return;
+        moveCombatant(pendingMove, parseInt(zEl.getAttribute('data-zone'), 10));
+      });
+    });
   }
 
-  // Contenu de la bannière de ciblage (toujours présente pour éviter le saut d'UI)
+  // Contenu de la bannière de ciblage / déplacement (toujours présente : pas de saut d'UI)
   function bannerHtml() {
+    if (pendingMove) {
+      const mv = byId(pendingMove);
+      return '🚶 <b>' + esc(mv ? mv.name : '') + '</b> — <b>clique la zone de destination</b>. ' +
+        '<button id="cancel-move" class="ghost xs">Annuler</button>';
+    }
     if (pendingAttack) {
       const at = byId(pendingAttack.iid);
       const ak = at && at.attacks[pendingAttack.atkIndex];
       if (at && ak) {
         return '🎯 <b>' + esc(at.name) + '</b> — ' + esc(ak.name) +
           (pendingAttack.average ? ' <span class="lavg">(dégâts moyens)</span>' : '') +
+          (ak.range === 'contact' ? ' <span class="lavg">(contact : même zone)</span>' : ' <span class="lavg">(à distance)</span>') +
           ' : <b>clique l\'adversaire à frapper</b>. <button id="cancel-target" class="ghost xs">Annuler</button>';
       }
     }
-    return '<span class="tb-idle">Choisis l\'attaque d\'un aventurier, puis clique l\'adversaire à frapper.</span>';
+    return '<span class="tb-idle">Choisis une attaque ou un mouvement, puis clique la cible / la zone.</span>';
   }
 
-  function activeColumn(side) {
-    return combat().combatants.filter(function (c) { return c.side === side; });
-  }
-
-  function renderColumn(sel, list) {
-    const box = $(sel);
-    box.innerHTML = list.map(renderCard).join('') || '<p class="empty">—</p>';
-    list.forEach(function (c) { wireCard(c); });
-  }
-
-  // Colonne des adversaires : Boss > Solitaire > Alpha > Sbires ;
-  // les standards de même nom sont groupés en deux colonnes.
+  // Adversaires d'une zone : Boss > Solitaire > Alpha > Sbires (standards groupés)
   const MTYPE_RANK = { boss: 0, solitaire: 1, alpha: 2, standard: 3 };
   function mrank(t) { return MTYPE_RANK.hasOwnProperty(t) ? MTYPE_RANK[t] : 9; }
   function baseName(n) { return (n || '').replace(/\s*#\d+$/, ''); }
-  function renderMonsterColumn(sel) {
-    const box = $(sel);
-    const list = combat().combatants.filter(function (c) { return c.side === 'monster'; });
-    const sorted = list.slice().sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
-    let html = '';
-    let i = 0;
-    while (i < sorted.length) {
-      const c = sorted[i];
-      if (c.type === 'standard') {
-        const base = baseName(c.name);
-        const grp = [];
-        let j = i;
-        while (j < sorted.length && sorted[j].type === 'standard' && baseName(sorted[j].name) === base) {
-          grp.push(sorted[j]); j++;
-        }
-        html += grp.length > 1
-          ? '<div class="monster-grid">' + grp.map(renderCard).join('') + '</div>'
-          : renderCard(grp[0]);
-        i = j;
-      } else {
-        html += renderCard(c); i++;
+
+  function renderZones() {
+    zones().forEach(function (z, zi) {
+      const box = $('#zone-cards-' + zi);
+      if (!box) return;
+      const here = combat().combatants.filter(function (c) { return c.zone === zi; });
+      const heroes = here.filter(function (c) { return c.side === 'hero'; });
+      const monsters = here.filter(function (c) { return c.side === 'monster'; })
+        .sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
+      let html = heroes.map(renderCard).join('');
+      let i = 0;
+      while (i < monsters.length) {
+        const c = monsters[i];
+        if (c.type === 'standard') {
+          const base = baseName(c.name);
+          const grp = []; let j = i;
+          while (j < monsters.length && monsters[j].type === 'standard' && baseName(monsters[j].name) === base) { grp.push(monsters[j]); j++; }
+          html += grp.length > 1 ? '<div class="monster-grid">' + grp.map(renderCard).join('') + '</div>' : renderCard(grp[0]);
+          i = j;
+        } else { html += renderCard(c); i++; }
       }
-    }
-    box.innerHTML = html || '<p class="empty">—</p>';
-    list.forEach(function (c) { wireCard(c); });
+      box.innerHTML = html || '<p class="empty zone-empty">Zone vide</p>';
+      here.forEach(function (c) { wireCard(c); });
+    });
   }
 
   function statesBadges(c) {
@@ -788,6 +924,10 @@
         '</div>';
       }).join('') + '</div>';
       html += '<div class="cc-secondary">' +
+        (zoneCount() > 1
+          ? '<button class="ghost xs do-move' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
+              (c.used.move ? ' disabled' : '') + ' title="Se déplacer vers une autre zone">🚶 Mouvement</button>'
+          : '') +
         (heroHasAnalyse(c)
           ? '<button class="ghost xs do-analyse" data-iid="' + c.iid + '"' + (usedA ? ' disabled' : '') +
               ' title="Action : révèle DEF, Dégâts et XP de tous les adversaires">🔍 Analyser</button>'
@@ -806,11 +946,10 @@
     if (attacker.attackUses[atkIndex] === 0) return;
     if (!atk.freeAction && attacker.used.action) return;
     const enemySide = attacker.side === 'hero' ? 'monster' : 'hero';
-    let targets = (atk.targets === 'all') ? activeOf(enemySide).slice() : (target ? [target] : []);
-    targets.forEach(function (t) {
-      if (atk.range === 'contact' && !inContact(attacker, t)) setContact(attacker, t, true);
-      resolveAttack(attacker, t, atk);
-    });
+    let targets = (atk.targets === 'all')
+      ? activeOf(enemySide).filter(function (t) { return canReach(attacker, t, atk); })
+      : (target ? [target] : []);
+    targets.forEach(function (t) { resolveAttack(attacker, t, atk); });
     if (attacker.attackUses[atkIndex] !== null) {
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
     }
@@ -828,10 +967,7 @@
   function resolveAverageAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
     if (atk.range === 'distance' && attacker.side === 'hero') {
-      attacker.contact.forEach(function (iid) {
-        const m = byId(iid);
-        if (m && m.side === 'monster') dchocFrom(m, attacker);
-      });
+      enemyZoneMates(attacker).forEach(function (m) { dchocFrom(m, attacker); });
     }
     if (attacker.status !== 'active') return;
     // Dégâts moyens = moyenne des dés de l'arme seulement (sans le bonus de dégâts)
@@ -854,11 +990,10 @@
     if (attacker.attackUses[atkIndex] === 0) return;
     if (!atk.freeAction && attacker.used.action) return;
     const enemySide = attacker.side === 'hero' ? 'monster' : 'hero';
-    const targets = (atk.targets === 'all') ? activeOf(enemySide).slice() : (target ? [target] : []);
-    targets.forEach(function (t) {
-      if (atk.range === 'contact' && !inContact(attacker, t)) setContact(attacker, t, true);
-      resolveAverageAttack(attacker, t, atk);
-    });
+    const targets = (atk.targets === 'all')
+      ? activeOf(enemySide).filter(function (t) { return canReach(attacker, t, atk); })
+      : (target ? [target] : []);
+    targets.forEach(function (t) { resolveAverageAttack(attacker, t, atk); });
     if (attacker.attackUses[atkIndex] !== null) {
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
     }
@@ -881,6 +1016,11 @@
         if (e.target.closest('button')) return; // laisse les boutons internes agir
         const attacker = byId(pendingAttack.iid);
         if (!attacker) return;
+        const atk = attacker.attacks[pendingAttack.atkIndex];
+        if (atk && atk.range === 'contact' && attacker.zone !== c.zone) {
+          alert('Vous ne pouvez pas atteindre cet adversaire.');
+          return;
+        }
         if (pendingAttack.average) execHeroAverageAttack(attacker, pendingAttack.atkIndex, c);
         else execHeroAttack(attacker, pendingAttack.atkIndex, c);
       });
@@ -931,6 +1071,13 @@
       const obj = root.querySelector('.do-object[data-iid="' + c.iid + '"]');
       if (obj) obj.addEventListener('click', function () {
         c.used.object = true; log(wname(c.name) + ' utilise un objet.', 'move'); Store.save(); render();
+      });
+      // Mouvement : arme le déplacement, puis on clique la zone de destination
+      const mv = root.querySelector('.do-move[data-iid="' + c.iid + '"]');
+      if (mv) mv.addEventListener('click', function () {
+        if (c.used.move) return;
+        pendingMove = (pendingMove === c.iid) ? null : c.iid;
+        pendingAttack = null; render();
       });
     }
   }
@@ -991,16 +1138,17 @@
   // Démarre un combat directement dans une session d'aventure, sans écran de
   // préparation : héros et adversaires sont imposés par l'aventure.
   // Le rendu est dirigé vers `sel` (conteneur dans le panneau Session).
-  function startInSession(heroIds, monsterRefs, sessionCtx, sel) {
+  function startInSession(heroIds, sceneCombat, sessionCtx, sel) {
     combatKey = 'combat';
     rootSel = sel || '#combat-root';
-    setupHeroes = {};
-    (heroIds || []).forEach(function (id) { setupHeroes[id] = true; });
-    setupMonsters = (monsterRefs || []).map(function (r) {
-      return { templateId: r.monsterId, count: r.count || 1 };
-    });
+    const heroObjs = (heroIds || []).map(function (id) {
+      return Store.state.heroes.find(function (h) { return h.id === id; });
+    }).filter(Boolean);
     Store.state.sessionCombat = sessionCtx || null;
-    startCombat();
+    buildCombat(heroObjs, normalizeZoneConfig(sceneCombat));
+    log('Début du combat — Tour 1.', 'turn');
+    Store.save();
+    render();
   }
 
   // Réaffiche un combat de session en cours dans le conteneur donné (après un

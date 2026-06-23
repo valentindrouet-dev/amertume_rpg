@@ -52,8 +52,9 @@
       // navigation
       choices: [],        // [{ id, label, targetSceneId }]
       nextSceneId: null,  // pour fin auto sans choix
-      // combat
-      monsterRefs: [],    // [{ monsterId, count }]
+      // combat (zones : [{ name, monsterRefs:[{monsterId,count}], heroStart }])
+      monsterRefs: [],    // hérité — conservé pour compatibilité
+      combatZones: [],
       outcomeSceneId: null,
       defeatSceneId: null,
       // récompense
@@ -563,33 +564,76 @@
     };
   }
 
+  // Garantit la présence de zones (migration de l'ancien format monsterRefs plat)
+  function ensureZones(scene) {
+    if (Array.isArray(scene.combatZones) && scene.combatZones.length) return;
+    const refs = (scene.monsterRefs || []).filter(function (r) { return r.monsterId; });
+    scene.combatZones = [
+      { name: 'Zone des aventuriers', monsterRefs: [], heroStart: true },
+      { name: 'Adversaires', heroStart: false,
+        monsterRefs: refs.map(function (r) { return { monsterId: r.monsterId, count: r.count || 1 }; }) },
+    ];
+    save(); // persiste la migration
+  }
+
   function renderMonsterRefs(scene, monsters) {
+    ensureZones(scene);
     const box = document.getElementById('sm-monster-refs');
-    box.innerHTML = (scene.monsterRefs || []).map(function (ref, i) {
-      const monOpts = monsters.map(function (m) {
-        return '<option value="' + m.id + '"' + (m.id === ref.monsterId ? ' selected' : '') + '>' + esc(m.name) + '</option>';
+    const zones = scene.combatZones;
+    box.innerHTML = zones.map(function (z, zi) {
+      const rows = (z.monsterRefs || []).map(function (ref, mi) {
+        const monOpts = monsters.map(function (m) {
+          return '<option value="' + m.id + '"' + (m.id === ref.monsterId ? ' selected' : '') + '>' + esc(m.name) + '</option>';
+        }).join('');
+        return '<div class="adv-ref-row" data-zi="' + zi + '" data-mi="' + mi + '">' +
+          '<select class="ref-mon"><option value="">(choisir)</option>' + monOpts + '</select>' +
+          '<input type="number" class="ref-count" value="' + (ref.count || 1) + '" min="1" style="width:55px" />' +
+          '<button type="button" class="icon-btn ref-del">✕</button>' +
+        '</div>';
       }).join('');
-      return '<div class="adv-ref-row" data-ri="' + i + '">' +
-        '<select class="ref-mon"><option value="">(choisir)</option>' + monOpts + '</select>' +
-        '<input type="number" class="ref-count" value="' + (ref.count || 1) + '" min="1" style="width:55px" />' +
-        '<button type="button" class="icon-btn ref-del">✕</button>' +
+      return '<div class="adv-zone" data-zi="' + zi + '">' +
+        '<div class="adv-zone-head">' +
+          '<input type="text" class="zone-name-input" value="' + esc(z.name || ('Zone ' + (zi + 1))) + '" placeholder="Nom de la zone" />' +
+          '<label class="zone-start"><input type="radio" name="adv-hero-zone"' + (z.heroStart ? ' checked' : '') + '> Départ des aventuriers</label>' +
+          (zones.length > 1 ? '<button type="button" class="icon-btn zone-del" title="Supprimer la zone">✕</button>' : '') +
+        '</div>' +
+        rows +
+        '<button type="button" class="ghost small zone-add-mon">+ Monstre</button>' +
       '</div>';
     }).join('') +
-    '<button type="button" class="ghost small" id="sm-add-ref">+ Monstre</button>';
+    (zones.length < 4 ? '<button type="button" class="ghost small" id="sm-add-zone">+ Zone</button>' : '');
 
-    box.querySelectorAll('.ref-mon').forEach(function (sel, i) {
-      sel.onchange = function () { scene.monsterRefs[i].monsterId = this.value; };
+    function refresh() { save(); renderMonsterRefs(scene, Store.state.monsters); }
+
+    box.querySelectorAll('.adv-zone').forEach(function (zEl) {
+      const zi = parseInt(zEl.getAttribute('data-zi'), 10);
+      const z = zones[zi];
+      zEl.querySelector('.zone-name-input').oninput = function () { z.name = this.value; save(); };
+      const radio = zEl.querySelector('input[type="radio"]');
+      radio.onchange = function () { if (this.checked) { zones.forEach(function (zz, k) { zz.heroStart = (k === zi); }); save(); } };
+      const del = zEl.querySelector('.zone-del');
+      if (del) del.onclick = function () {
+        zones.splice(zi, 1);
+        if (!zones.some(function (zz) { return zz.heroStart; }) && zones.length) zones[0].heroStart = true;
+        refresh();
+      };
+      zEl.querySelector('.zone-add-mon').onclick = function () {
+        z.monsterRefs.push({ monsterId: '', count: 1 }); refresh();
+      };
+      zEl.querySelectorAll('.ref-mon').forEach(function (sel, mi) {
+        sel.onchange = function () { z.monsterRefs[mi].monsterId = this.value; save(); };
+      });
+      zEl.querySelectorAll('.ref-count').forEach(function (inp, mi) {
+        inp.oninput = function () { z.monsterRefs[mi].count = Math.max(1, parseInt(this.value, 10) || 1); save(); };
+      });
+      zEl.querySelectorAll('.ref-del').forEach(function (b, mi) {
+        b.onclick = function () { z.monsterRefs.splice(mi, 1); refresh(); };
+      });
     });
-    box.querySelectorAll('.ref-count').forEach(function (inp, i) {
-      inp.oninput = function () { scene.monsterRefs[i].count = Math.max(1, parseInt(this.value, 10) || 1); };
-    });
-    box.querySelectorAll('.ref-del').forEach(function (b, i) {
-      b.onclick = function () { scene.monsterRefs.splice(i, 1); renderMonsterRefs(scene, Store.state.monsters); };
-    });
-    const addBtn = document.getElementById('sm-add-ref');
-    if (addBtn) addBtn.onclick = function () {
-      scene.monsterRefs.push({ monsterId: '', count: 1 });
-      renderMonsterRefs(scene, Store.state.monsters);
+    const addZone = document.getElementById('sm-add-zone');
+    if (addZone) addZone.onclick = function () {
+      zones.push({ name: 'Zone ' + (zones.length + 1), monsterRefs: [], heroStart: false });
+      refresh();
     };
   }
 
