@@ -12,6 +12,7 @@
   };
 
   const SCENE_TYPES = [
+    { value: 'description',  label: 'Description'  },
     { value: 'exploration',  label: 'Exploration'  },
     { value: 'interaction',  label: 'Interaction'  },
     { value: 'combat',       label: 'Combat'       },

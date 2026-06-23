@@ -17,6 +17,7 @@
   // État d'interaction du plateau
   let pendingAttack = null;   // { iid, atkIndex } quand on choisit une cible au clic
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
+  let rootSel = '#combat-root'; // cible de rendu (redirigée pendant un combat de session)
 
   const SOCLE_RANK = { small: 0, medium: 1, large: 2, huge: 3 };
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
@@ -109,7 +110,10 @@
     }
     pendingAttack = null; stateMenuFor = null;
     Store.state.combat = null;
+    Store.state.sessionCombat = null;
     Store.save();
+    // Repasser sur la cible de rendu par défaut avant de prévenir la session
+    rootSel = '#combat-root';
     render();
     if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
     // Si ce combat était lié à une session d'aventure, prévenir Session
@@ -467,7 +471,7 @@
 
   // =================== RENDU ===================
   function render() {
-    const root = $('#combat-root');
+    const root = $(rootSel);
     if (!root) return;
     if (!combat()) { renderSetup(root); }
     else { renderBoard(root); }
@@ -819,7 +823,7 @@
   }
 
   function wireCard(c) {
-    const root = $('#combat-root');
+    const root = $(rootSel);
     const card = root.querySelector('.combat-card[data-iid="' + c.iid + '"]');
 
     // Ciblage au clic : cette carte est une cible valide
@@ -966,14 +970,21 @@
     }).join('');
   }
 
-  // Pré-remplir depuis une session d'aventure
-  window.addEventListener('session-start-combat', function (e) {
-    const refs = e.detail.monsterRefs || [];
-    setupMonsters = refs.map(function (r) { return { templateId: r.monsterId, count: r.count || 1 }; });
-    render();
-  });
+  // Démarre un combat directement dans une session d'aventure, sans écran de
+  // préparation : héros et adversaires sont imposés par l'aventure.
+  // Le rendu est dirigé vers `sel` (conteneur dans le panneau Session).
+  function startInSession(heroIds, monsterRefs, sessionCtx, sel) {
+    rootSel = sel || '#combat-root';
+    setupHeroes = {};
+    (heroIds || []).forEach(function (id) { setupHeroes[id] = true; });
+    setupMonsters = (monsterRefs || []).map(function (r) {
+      return { templateId: r.monsterId, count: r.count || 1 };
+    });
+    Store.state.sessionCombat = sessionCtx || null;
+    startCombat();
+  }
 
   function init() { render(); }
 
-  global.Combat = { init: init, render: render };
+  global.Combat = { init: init, render: render, startInSession: startInSession };
 })(window);

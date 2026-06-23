@@ -123,6 +123,12 @@
   // ---------- Rendu principal ----------
   function render() {
     load();
+    // Réaligne activeSession sur l'instance fraîchement chargée : save() persiste
+    // le tableau `sessions`, donc activeSession doit y appartenir pour ne rien perdre.
+    if (activeSession) {
+      const match = sessions.find(function (s) { return s.id === activeSession.id; });
+      if (match) activeSession = match;
+    }
     const root = $('#session-root');
     if (!root) return;
 
@@ -215,7 +221,7 @@
   }
 
   function typeLabel(t) {
-    const map = { exploration: 'Exploration', interaction: 'Interaction', combat: 'Combat', reward: 'Récompense', fin: 'Fin' };
+    const map = { description: 'Description', exploration: 'Exploration', interaction: 'Interaction', combat: 'Combat', reward: 'Récompense', fin: 'Fin' };
     return map[t] || t;
   }
 
@@ -348,27 +354,29 @@
     // Préparer les données de combat
     const refs = (scene.monsterRefs || []).filter(function (r) { return r.monsterId; });
     if (!refs.length) { alert('Aucun monstre défini pour ce combat.'); return; }
+    if (!ses.heroIds.length) { alert('Aucun héros engagé dans cette aventure.'); return; }
 
-    // Stocker le contexte dans Store.state pour que combat.js puisse le lire à la fin
-    Store.state.sessionCombat = {
+    // Synchroniser les PV de session vers les fiches héros (le combat lira h.pv)
+    ses.heroIds.forEach(function (hid) {
+      const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      if (h && ses.heroStates[hid] && typeof ses.heroStates[hid].pv === 'number') {
+        h.pv = ses.heroStates[hid].pv;
+      }
+    });
+    Store.save();
+
+    const ctx = {
       sessionId: ses.id,
       adventureId: adv.id,
       sceneId: scene.id,
-      monsterRefs: refs,
       outcomeSceneId: scene.outcomeSceneId,
       defeatSceneId: scene.defeatSceneId,
     };
 
-    // Basculer sur l'onglet Combat et pré-remplir les adversaires
-    document.querySelectorAll('.tab').forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-tab') === 'combat');
-    });
-    document.querySelectorAll('.tab-panel').forEach(function (p) {
-      p.classList.toggle('active', p.id === 'tab-combat');
-    });
-
-    // Signaler à combat.js de pré-remplir avec ces monstres
-    window.dispatchEvent(new CustomEvent('session-start-combat', { detail: Store.state.sessionCombat }));
+    // Le combat se déroule DANS le panneau Session, avec les héros de l'aventure.
+    const root = $('#session-root');
+    root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
+    Combat.startInSession(ses.heroIds, refs, ctx, '#session-combat-root');
   }
 
   function renderRewardScene(box, scene, adv, ses) {
@@ -405,32 +413,39 @@
   }
 
   // Écouter la fin d'un combat déclenché par une session
+  // detail = { sessionId, outcome }  (outcome : 'victory' | 'minor' | 'defeat' | null)
+  // combat.js a déjà remis Store.state.sessionCombat à null ; on garde le contexte
+  // de scène via la session elle-même (currentSceneId).
   window.addEventListener('adventure-combat-end', function (e) {
-    const detail = e.detail; // { outcome, sessionId }
+    const detail = e.detail;
     load();
     const ses = sessions.find(function (s) { return s.id === detail.sessionId; });
     if (!ses) return;
     activeSession = ses;
     const adv = findAdventure(ses.adventureId);
     if (!adv) return;
-    const ctx = Store.state.sessionCombat;
-    if (!ctx) return;
 
-    const targetId = (detail.outcome === 'defeat') ? ctx.defeatSceneId : ctx.outcomeSceneId;
-    Store.state.sessionCombat = null;
-    Store.save();
+    // Récupérer la scène de combat courante pour connaître les cibles
+    const found = findScene(adv, ses.currentSceneId);
+    const scene = found ? found.scene : null;
 
-    // Sync PV héros depuis le combat
-    Store.state.heroes.forEach(function (h) {
-      if (typeof h.pv === 'number') {
-        ses.heroStates[h.id] = { pv: h.pv };
-      }
+    // Synchroniser les PV des héros engagés depuis l'issue du combat
+    ses.heroIds.forEach(function (hid) {
+      const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      if (h && typeof h.pv === 'number') ses.heroStates[hid] = { pv: h.pv };
     });
+    save();
+
+    let targetId = null;
+    if (scene) {
+      if (detail.outcome === 'defeat') targetId = scene.defeatSceneId;
+      else if (detail.outcome === 'victory' || detail.outcome === 'minor') targetId = scene.outcomeSceneId;
+    }
 
     if (targetId) {
-      navigateTo(ses, adv, targetId);
+      navigateTo(ses, adv, targetId);   // avance vers la scène de suite
     } else {
-      switchToSession();
+      render();                          // combat quitté sans issue : on réaffiche la scène
     }
   });
 
