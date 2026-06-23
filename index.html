@@ -6,7 +6,25 @@
   <title>Amertume — Inventaire &amp; Dés</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<body class="mode-home">
+  <!-- ============ PAGE D'ACCUEIL ============ -->
+  <section id="view-home" class="view-home">
+    <div class="home-inner">
+      <div class="home-brand">
+        <span class="brand-mark">⚔️</span>
+        <h1>Amertume</h1>
+        <p class="home-sub">Plateforme d'aventures jouables</p>
+      </div>
+      <div class="home-section">
+        <h2>Choisis une aventure</h2>
+        <div id="home-adv-list" class="home-adv-list"></div>
+      </div>
+      <div class="home-admin">
+        <button id="home-admin-btn" class="ghost">🛠️ Mode MJ / Admin</button>
+      </div>
+    </div>
+  </section>
+
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark">⚔️</span>
@@ -14,16 +32,24 @@
       <span class="brand-sub">JdR solo</span>
     </div>
     <nav class="tabs">
-      <button class="tab active" data-tab="combat">Combat</button>
-      <button class="tab" data-tab="heroes">Héros</button>
-      <button class="tab" data-tab="bestiary">Bestiaire</button>
-      <button class="tab" data-tab="armory">Armurerie</button>
-      <button class="tab" data-tab="adventures">Aventures</button>
-      <button class="tab" data-tab="session">Session</button>
+      <!-- Onglets Joueur -->
+      <button class="tab" data-tab="session" data-modes="player">Aventure</button>
+      <button class="tab" data-tab="heroes" data-modes="player">Héros</button>
+      <button class="tab" data-tab="armory" data-modes="player">Inventaire</button>
+      <button class="tab" data-tab="saves" data-modes="player">Session</button>
+      <!-- Onglets MJ / Admin -->
+      <button class="tab" data-tab="combat" data-modes="admin">Combat</button>
+      <button class="tab" data-tab="heroes" data-modes="admin">Héros</button>
+      <button class="tab" data-tab="bestiary" data-modes="admin">Bestiaire</button>
+      <button class="tab" data-tab="armory" data-modes="admin">Armurerie</button>
+      <button class="tab" data-tab="adventures" data-modes="admin">Aventures</button>
+      <button class="tab" data-tab="session" data-modes="admin">Session</button>
     </nav>
     <div class="topbar-actions">
-      <button id="btn-export" class="ghost" title="Exporter en .json">⬇ Export</button>
-      <button id="btn-import" class="ghost" title="Importer un .json">⬆ Import</button>
+      <span id="mode-context" class="mode-context"></span>
+      <button id="btn-home" class="ghost" title="Retour à l'accueil">← Accueil</button>
+      <button id="btn-export" class="ghost admin-only" title="Exporter en .json">⬇ Export</button>
+      <button id="btn-import" class="ghost admin-only" title="Importer un .json">⬆ Import</button>
       <input id="file-import" type="file" accept="application/json" hidden />
     </div>
   </header>
@@ -81,16 +107,21 @@
       <div id="adventure-root"></div>
     </section>
 
-    <!-- ============ SESSION ============ -->
+    <!-- ============ SESSION (lecture de scènes) ============ -->
     <section id="tab-session" class="tab-panel">
       <div id="session-root"></div>
+    </section>
+
+    <!-- ============ SAUVEGARDES (gestion de session, mode Joueur) ============ -->
+    <section id="tab-saves" class="tab-panel">
+      <div id="saves-root"></div>
     </section>
 
     <!-- ============ ARMURERIE ============ -->
     <section id="tab-armory" class="tab-panel">
       <div class="card">
         <div class="card-head">
-          <h2>Armurerie</h2>
+          <h2 id="armory-title">Armurerie</h2>
           <div style="display:flex; gap:.4rem;">
             <button id="btn-load-official" class="ghost" title="Ajouter le catalogue officiel manquant">Catalogue officiel</button>
             <button id="btn-add-item" class="primary">+ Ajouter</button>
@@ -397,6 +428,7 @@
   <script src="js/combat.js"></script>
   <script src="js/adventure.js"></script>
   <script src="js/session.js"></script>
+  <script src="js/shell.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

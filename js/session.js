@@ -11,7 +11,8 @@
   };
 
   let sessions = [];
-  let activeSession = null; // session en cours de lecture
+  let activeSession = null;      // session en cours de lecture
+  let scopeAdventureId = null;   // aventure courante en mode Joueur (limite l'affichage)
 
   // ---------- Persistance ----------
   function load() { sessions = Store.loadSessions(); }
@@ -110,7 +111,8 @@
   }
 
   function switchToSession() {
-    // Basculer sur l'onglet Session
+    // Basculer sur l'onglet de lecture de scènes (Session en MJ, Aventure en Joueur)
+    if (global.App && App.selectTab) { App.selectTab('session'); return; }
     document.querySelectorAll('.tab').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-tab') === 'session');
     });
@@ -214,7 +216,9 @@
       '</div>';
 
     $('#ses-quit').addEventListener('click', function () {
-      activeSession = null; render();
+      activeSession = null;
+      if (global.Shell && Shell.getMode && Shell.getMode() === 'player') renderPlay(scopeAdventureId);
+      else render();
     });
 
     renderSceneActions(scene, adv, ses);
@@ -471,11 +475,105 @@
     }
   });
 
+  // ============ MODE JOUEUR : lecture limitée à une aventure ============
+
+  // Onglet « Aventure » : reprend la partie active de l'aventure, sinon propose
+  // de la commencer. Rendu dans #session-root.
+  function renderPlay(advId) {
+    scopeAdventureId = advId || scopeAdventureId;
+    load();
+    if (activeSession) {
+      const m = sessions.find(function (s) { return s.id === activeSession.id; });
+      activeSession = m || null;
+    }
+    if (!activeSession || activeSession.adventureId !== scopeAdventureId) {
+      const existing = sessions.filter(function (s) {
+        return s.adventureId === scopeAdventureId && s.status === 'active';
+      });
+      activeSession = existing.length ? existing[0] : null;
+    }
+    const root = $('#session-root');
+    if (!root) return;
+    if (activeSession) renderScene(root);
+    else renderPlayStart(root, scopeAdventureId);
+  }
+
+  function renderPlayStart(root, advId) {
+    const adv = findAdventure(advId);
+    if (!adv) { root.innerHTML = '<p class="empty">Aventure introuvable.</p>'; return; }
+    root.innerHTML =
+      '<div class="card">' +
+        '<div class="card-head"><h2>' + esc(adv.title) + '</h2></div>' +
+        '<p class="hint">Aucune partie en cours pour cette aventure.</p>' +
+        '<button class="primary big" id="play-start">▶ Commencer l\'aventure</button>' +
+      '</div>';
+    document.getElementById('play-start').onclick = function () { startFromAdventure(advId); };
+  }
+
+  // Onglet « Session » (mode Joueur) : sauvegardes de l'aventure courante.
+  function renderSaves(advId) {
+    scopeAdventureId = advId || scopeAdventureId;
+    load();
+    const root = $('#saves-root');
+    if (!root) return;
+    const adv = findAdventure(scopeAdventureId);
+    const active = sessions.filter(function (s) {
+      return s.adventureId === scopeAdventureId && s.status === 'active';
+    });
+    root.innerHTML =
+      '<div class="card">' +
+        '<div class="card-head"><h2>Sessions — ' + esc(adv ? adv.title : '') + '</h2>' +
+          '<button class="primary" id="saves-new">+ Nouvelle partie</button>' +
+        '</div>' +
+        (active.length
+          ? active.map(function (s) {
+              const date = new Date(s.startedAt).toLocaleDateString('fr-FR');
+              const prog = s.visitedSceneIds ? s.visitedSceneIds.length : 0;
+              return '<div class="adv-session-row">' +
+                '<div><strong>Partie du ' + date + '</strong> ' +
+                  '<span class="tag">' + prog + ' scène(s)</span> ' +
+                  '<span class="tag">XP : ' + (s.party ? s.party.xp : 0) + '</span></div>' +
+                '<div style="display:flex;gap:.4rem;margin-top:.35rem">' +
+                  '<button class="primary ses-resume" data-id="' + s.id + '">Reprendre</button>' +
+                  '<button class="danger ses-end" data-id="' + s.id + '">Terminer</button>' +
+                '</div>' +
+              '</div>';
+            }).join('')
+          : '<p class="empty">Aucune partie en cours. Lance « Nouvelle partie » pour démarrer.</p>') +
+      '</div>';
+
+    document.getElementById('saves-new').onclick = function () { startFromAdventure(scopeAdventureId); };
+    root.querySelectorAll('.ses-resume').forEach(function (b) {
+      b.addEventListener('click', function () {
+        activeSession = sessions.find(function (s) { return s.id === b.getAttribute('data-id'); });
+        if (global.Shell && Shell.showPlayTab) Shell.showPlayTab();
+        else render();
+      });
+    });
+    root.querySelectorAll('.ses-end').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (!confirm('Terminer cette session ?')) return;
+        const id = b.getAttribute('data-id');
+        sessions.forEach(function (s) { if (s.id === id) s.status = 'ended'; });
+        if (activeSession && activeSession.id === id) activeSession = null;
+        save(); renderSaves(scopeAdventureId);
+      });
+    });
+  }
+
+  function playAdventure(advId) {
+    scopeAdventureId = advId;
+    renderPlay(advId);
+  }
+
   function init() { render(); }
 
   global.Session = {
     init: init,
     render: render,
+    renderPlay: renderPlay,
+    renderSaves: renderSaves,
+    playAdventure: playAdventure,
     startFromAdventure: startFromAdventure,
   };
 })(window);
