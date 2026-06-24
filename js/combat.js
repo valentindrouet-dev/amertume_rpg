@@ -1186,6 +1186,8 @@
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
+      // Journal compact, en haut : 3 lignes visibles max, scrollable au-delà.
+      '<div id="combat-log" class="combat-log compact"></div>' +
       '<div class="targeting-banner' + ((pendingAttack || pendingMove || pendingAnalyze) ? ' active' : '') + '">' + bannerHtml() + '</div>' +
       '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
         zones().map(function (z, zi) {
@@ -1196,9 +1198,7 @@
         }).join('') +
       '</div>' +
       '<div id="combat-cemetery" class="combat-cemetery"></div>' +
-      '<div class="phase-controls" id="phase-controls"></div>' +
-      '<div class="card"><div class="card-head"><h3>Journal de combat</h3></div>' +
-        '<div id="combat-log" class="combat-log"></div></div>';
+      '<div class="phase-controls" id="phase-controls"></div>';
 
     // Chaque phase de rendu est isolée : un incident dans l'une ne doit jamais
     // laisser le plateau, les contrôles ou le journal entièrement vides.
