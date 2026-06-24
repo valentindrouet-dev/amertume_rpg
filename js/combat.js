@@ -50,6 +50,18 @@
     if (fxEl) fxEl.innerHTML = '';
     Store.state[combatKey] = v;
   }
+  // Abandonne un combat illisible et revient à sa scène (pour le relancer à neuf).
+  function discardCombat() {
+    const wasSession = combatKey === 'combat' && Store.state.sessionCombat;
+    setCombat(null);
+    Store.state.sessionCombat = null;
+    Store.save();
+    if (wasSession && global.Session && Session.renderPlay) {
+      const advId = (global.Shell && Shell.getAdventureId) ? Shell.getAdventureId() : null;
+      rootSel = '#combat-root';
+      try { Session.renderPlay(advId); } catch (e) { console.error('[combat] renderPlay', e); }
+    } else { render(); }
+  }
 
   // ---------- Construction des instances ----------
   // Compteurs d'usages par attaque (null = illimité)
@@ -1210,10 +1222,7 @@
         '<p class="empty">Ce combat ne contient aucun aventurier affichable (données perdues ou incompatibles entre appareils).</p>' +
         '<div class="modal-actions"><button id="combat-discard" class="primary">Quitter ce combat</button></div></div>';
       const b = document.getElementById('combat-discard');
-      if (b) b.addEventListener('click', function () {
-        if (combatKey === 'combat' && Store.state.sessionCombat) endCombat(false);
-        else { setCombat(null); render(); }
-      });
+      if (b) b.addEventListener('click', discardCombat);
       return;
     }
     // Auto-réparation des zones : un combat persisté pouvait avoir des `zone`
@@ -1253,26 +1262,27 @@
 
     // Chaque phase de rendu est isolée : un incident dans l'une ne doit jamais
     // laisser le plateau, les contrôles ou le journal entièrement vides.
-    try { renderZones(); } catch (e) { console.error('[combat] renderZones', e); }
+    let zonesErr = null;
+    try { renderZones(); } catch (e) { zonesErr = e; console.error('[combat] renderZones', e); }
     try { renderPhaseControls(); } catch (e) { console.error('[combat] renderPhaseControls', e); }
     try { renderLog(); } catch (e) { console.error('[combat] renderLog', e); }
 
     // Catch-all : si AUCUNE carte de combattant n'a pu être affichée alors qu'il
     // y a des combattants, on ne laisse pas un plateau vide injouable. On montre
-    // une issue de secours + un diagnostic (utile pour identifier la cause).
+    // une issue de secours + un diagnostic détaillé (cause exacte).
     if (!root.querySelector('.combat-card')) {
       const sides = c.combatants.reduce(function (a, x) { a[x.side] = (a[x.side] || 0) + 1; return a; }, {});
-      const diag = 'Combattants en mémoire : ' + c.combatants.length +
-        ' (aventuriers : ' + (sides.hero || 0) + ', adversaires : ' + (sides.monster || 0) + ') · zones : ' + zoneCount();
+      const placements = c.combatants.map(function (x) { return (String(x.side || '?').charAt(0)) + x.zone + (x.status && x.status !== 'active' ? '×' : ''); }).join(' ');
+      const boxes = root.querySelectorAll('[id^="zone-cards-"]').length;
+      const diag = c.combatants.length + ' combattants (av:' + (sides.hero || 0) + ' adv:' + (sides.monster || 0) +
+        ') · zones:' + zoneCount() + ' · conteneurs:' + boxes + ' · placements:[' + placements + ']' +
+        (zonesErr ? ' · ERREUR: ' + (zonesErr.message || zonesErr) : '');
       root.innerHTML = '<div class="card"><div class="card-head"><h3>Combat</h3></div>' +
         '<p class="empty">Impossible d\'afficher les combattants de ce combat sur cet appareil.</p>' +
-        '<p class="hint">' + esc(diag) + '</p>' +
+        '<p class="hint" style="word-break:break-word">' + esc(diag) + '</p>' +
         '<div class="modal-actions"><button id="combat-discard" class="primary">Quitter ce combat</button></div></div>';
       const db = document.getElementById('combat-discard');
-      if (db) db.addEventListener('click', function () {
-        if (combatKey === 'combat' && Store.state.sessionCombat) endCombat(false);
-        else { setCombat(null); render(); }
-      });
+      if (db) db.addEventListener('click', discardCombat);
       return;
     }
 
