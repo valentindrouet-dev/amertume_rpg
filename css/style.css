@@ -691,6 +691,15 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .lamt.heal { color: #84cf84; }
 .lwho { font-weight: 700; color: var(--text); }
 .lwpn { font-style: italic; color: var(--accent-2); }
+/* Noms colorés dans le journal : aventurier selon sa classe, adversaire selon son type */
+.lhero.klass-apothicaire { color: #8fd07e; } .lhero.klass-artificier { color: #e7bf63; }
+.lhero.klass-chasseur    { color: #8fd078; } .lhero.klass-destructeur { color: #e58368; }
+.lhero.klass-deviant     { color: #b79be0; } .lhero.klass-gardien     { color: #7fb0e6; }
+.lhero.klass-lamevent    { color: #6fcabb; } .lhero.klass-pyromane    { color: #f0a262; }
+.lfoe { color: #cbb89e; }
+.lfoe.type-standard  { color: #bdb6a4; } .lfoe.type-alpha { color: #e2974a; }
+.lfoe.type-solitaire { color: #e58368; } .lfoe.type-boss  { color: #bd9be0; }
+.lopp { color: #e0a23f; }
 .lcrit { color: #ffd166; font-weight: 800; }
 .lfail { color: var(--bad); font-weight: 700; }
 .lstate { color: var(--accent-2); font-weight: 600; }

@@ -20,6 +20,7 @@
   let pendingMove = null;     // iid du combattant en cours de déplacement
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
+  let movePrefix = null;      // { iid, zone } : déplacement à fusionner avec l'attaque qui suit
   let rootSel = '#combat-root'; // cible de rendu (redirigée pendant un combat de session)
 
   const SOCLE_RANK = { small: 0, medium: 1, large: 2, huge: 3 };
@@ -44,6 +45,7 @@
     // résiduels (dégâts, coma, glissement de barre de PV) rejouent sur le
     // nouveau combat — d'autant que les aventuriers gardent le même iid.
     fxQueue = [];
+    movePrefix = null;
     const fxEl = document.getElementById('combat-fx');
     if (fxEl) fxEl.innerHTML = '';
     Store.state[combatKey] = v;
@@ -311,21 +313,20 @@
   }
   // Déplacement (sans rendu). Un aventurier qui quitte une zone occupée par des
   // adversaires sans autre allié subit leurs dégâts-choc (attaques d'opportunité).
-  function doMove(c, zi) {
+  function doMove(c, zi, silent) {
     const from = c.zone;
     if (c.side === 'hero') {
       const enemiesHere = combat().combatants.filter(function (x) { return x.side === 'monster' && x.status === 'active' && x.zone === from; });
       const otherAllies = combat().combatants.filter(function (x) { return x.side === 'hero' && x.status === 'active' && x.zone === from && x.iid !== c.iid; });
       if (enemiesHere.length && !otherAllies.length) {
-        log(wname(c.name) + ' quitte la zone — <span class="lstate">attaques d\'opportunité</span> !', 'state');
-        enemiesHere.forEach(function (m) { if (c.status === 'active') dchocFrom(m, c); });
+        enemiesHere.forEach(function (m) { if (c.status === 'active') dchocFrom(m, c, 'move'); });
       }
     }
     c.used.move = true;
     if (c.status !== 'active') return; // tombé au coma en partant
     c.zone = zi;
     pushFx({ type: 'move', iid: c.iid });
-    log(wname(c.name) + ' se déplace <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
+    if (!silent) log(cname(c) + ' se déplace <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
   }
 
   function moveCombatant(iid, zi) {
@@ -347,10 +348,20 @@
   function amt(n, cls) { return '<span class="lamt ' + cls + '">' + n + '</span>'; }
   function nm(x) { return esc(x); }                       // nom (échappé)
   function wname(name) { return '<span class="lwho">' + esc(name) + '</span>'; }
+  // Nom coloré pour le journal : aventurier selon sa classe, adversaire selon son type.
+  function cname(c) {
+    if (!c) return '<span class="lwho">?</span>';
+    if (c.side === 'hero') {
+      return '<span class="lwho lhero' + (c.klass ? ' klass-' + slug(c.klass) : '') + '">' + esc(c.name) + '</span>';
+    }
+    return '<span class="lwho lfoe' + (c.type ? ' type-' + c.type : '') + '">' + esc(c.name) + '</span>';
+  }
 
   // ---------- Résolution d'une attaque ----------
-  function dchocFrom(monster, hero) {
-    // Un adversaire inflige ses dégâts-choc (sauf affaibli/coma)
+  // Attaque d'opportunité d'un adversaire (sauf affaibli/coma).
+  // reason : 'distance' (le héros tire à distance dans la zone) ou 'move'
+  // (le héros quitte une zone occupée).
+  function dchocFrom(monster, hero, reason) {
     if (monster.status !== 'active' || monster.states.affaibli) return 0;
     const dmg = monster.damage || 0;
     if (dmg <= 0) return 0;
@@ -358,7 +369,11 @@
     hero.pv = Math.max(0, hero.pv - dmg);
     hero.dmgTaken += dmg; monster.dmgDealt += dmg;
     pushFx({ type: 'hit', iid: hero.iid, amount: dmg, fromPct: pct(pvBefore, hero.maxPv), toPct: pct(hero.pv, hero.maxPv) });
-    log(wname(monster.name) + ' inflige ' + amt(dmg, 'dmg') + ' dégâts-choc à ' + wname(hero.name) + '.', 'dchoc');
+    const why = reason === 'distance'
+      ? 'car il utilise une <i>arme à distance</i> dans sa zone'
+      : 'car il quitte sa zone';
+    log('<b class="lopp">Attaque d\'Opportunité !</b> ' + cname(monster) + ' inflige ' + amt(dmg, 'dmg') +
+      ' Dégâts à ' + cname(hero) + ' ' + why + '.', 'dchoc');
     checkComa(hero);
     return dmg;
   }
@@ -390,7 +405,7 @@
     if (target.status !== 'active') return;
     // Dégâts-choc : tirer à distance avec des adversaires dans sa propre zone
     if (atk.range === 'distance' && attacker.side === 'hero') {
-      enemyZoneMates(attacker).forEach(function (m) { dchocFrom(m, attacker); });
+      enemyZoneMates(attacker).forEach(function (m) { dchocFrom(m, attacker, 'distance'); });
     }
     if (attacker.status !== 'active') return; // peut être tombé au coma sur dégâts-choc
 
@@ -420,15 +435,21 @@
 
     const diceStr = '<span class="ldice">(' + diceSeq(res.dice) + ')</span>';
     const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
+    // Fusionne un déplacement effectué dans la même action (« se déplace … et attaque … »).
+    let movePfx = '';
+    if (movePrefix && movePrefix.iid === attacker.iid) {
+      movePfx = ' se déplace <span class="lstate">' + esc(movePrefix.zone) + '</span> et';
+      movePrefix = null;
+    }
     if (res.echec) {
-      log(wname(attacker.name) + ' rate son attaque (' + label + ') contre ' + wname(target.name) +
-        ' — <span class="lfail">Échec</span> ' + diceStr + '.', 'attack');
+      log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
+        ' ' + diceStr + ' — <span class="lfail">Échec</span>.', 'attack');
       pushFx({ type: 'miss', iid: target.iid, text: 'ÉCHEC', center: true });
       return;
     }
     if (negated) {
-      log('L’attaque de ' + wname(attacker.name) + ' contre ' + wname(target.name) +
-        ' est annulée (<span class="lstate">' + reason + '</span>).', 'attack');
+      log(cname(attacker) + movePfx + ' attaque ' + cname(target) +
+        ' mais l’attaque est annulée (<span class="lstate">' + reason + '</span>).', 'attack');
       pushFx({ type: 'miss', iid: target.iid, text: reason });
       return;
     }
@@ -440,10 +461,10 @@
     if (res.pvLost > 0) pushFx({ type: res.critique ? 'crit' : 'hit', iid: target.iid, amount: res.pvLost, fromPct: fromPct, toPct: toPct });
     else if (res.critique) pushFx({ type: 'crit', iid: target.iid, amount: 0, fromPct: fromPct, toPct: toPct });
     if (res.pvHealed > 0) pushFx({ type: 'heal', iid: target.iid, amount: res.pvHealed, fromPct: fromPct, toPct: toPct });
-    log(wname(attacker.name) + ' attaque ' + wname(target.name) + ' avec ' + label +
-        (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' : ' +
-        (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' PV infligés' : 'aucun dégât') +
-        ' ' + diceStr + '.', res.critique ? 'crit' : 'attack');
+    log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
+        (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' ' + diceStr + ' : ' +
+        (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' Dégâts infligés !' : 'aucun dégât') +
+        '.', res.critique ? 'crit' : 'attack');
     applyStates(attacker, target, atk);
     checkMonsterTalents(target, res.pvLost);
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
@@ -590,13 +611,16 @@
       if (target && !m.used.move) {
         m.zone = target.zone; m.used.move = true; moved = true;
         pushFx({ type: 'move', iid: m.iid });
-        log(wname(m.name) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
       }
       // LENT : un adversaire qui s'est déplacé ne peut plus attaquer ce tour.
       if (moved && monsterTalent(m, 'slow')) {
-        log(wname(m.name) + ' est <span class="lstate">Lent</span> : pas d\'attaque après son déplacement.', 'state');
+        log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span> mais est <span class="lstate">Lent</span> : pas d\'attaque.', 'state');
       } else if (target && target.zone === m.zone) {
+        // Fusionne déplacement + attaque sur une seule ligne du journal.
+        if (moved) movePrefix = { iid: m.iid, zone: zname(m.zone) };
         applyAttack(m, contactIdx, target);
+      } else if (moved) {
+        log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
       }
     }
   }
@@ -1174,6 +1198,20 @@
   // ---------- Plateau de combat ----------
   function renderBoard(root) {
     const c = combat();
+    // Filet anti-blocage : un combat sans aucun combattant (données perdues /
+    // incompatibles) n'affiche pas un plateau vide mais une issue de secours.
+    const liveHeroes = c.combatants.filter(function (x) { return x.side === 'hero'; }).length;
+    if (!c.combatants.length || !liveHeroes) {
+      root.innerHTML = '<div class="card"><div class="card-head"><h3>Combat</h3></div>' +
+        '<p class="empty">Ce combat ne contient aucun aventurier affichable (données perdues ou incompatibles entre appareils).</p>' +
+        '<div class="modal-actions"><button id="combat-discard" class="primary">Quitter ce combat</button></div></div>';
+      const b = document.getElementById('combat-discard');
+      if (b) b.addEventListener('click', function () {
+        if (combatKey === 'combat' && Store.state.sessionCombat) endCombat(false);
+        else { setCombat(null); render(); }
+      });
+      return;
+    }
     const OUTCOME_LABEL = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
     const phaseLabel = c.outcome ? OUTCOME_LABEL[c.outcome]
       : (c.phase === 'heroes' ? 'Activation des aventuriers' : 'Activation des adversaires');
@@ -1467,7 +1505,7 @@
   function resolveAverageAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
     if (atk.range === 'distance' && attacker.side === 'hero') {
-      enemyZoneMates(attacker).forEach(function (m) { dchocFrom(m, attacker); });
+      enemyZoneMates(attacker).forEach(function (m) { dchocFrom(m, attacker, 'distance'); });
     }
     if (attacker.status !== 'active') return;
     // Dégâts moyens = moyenne des dés de l'arme seulement (sans le bonus de dégâts)
@@ -1482,8 +1520,13 @@
       pushFx({ type: 'hit', iid: target.iid, amount: pvLost, fromPct: pct(pvBefore, target.maxPv), toPct: pct(target.pv, target.maxPv) });
       checkMonsterTalents(target, pvLost);
     }
-    log(wname(attacker.name) + ' inflige les dégâts moyens de l\'arme via ' + label + ' sur ' + wname(target.name) +
-      ' : ' + amt(pvLost, 'dmg') + ' PV <span class="lavg">(moy. des dés, sans bonus)</span>.', 'attack');
+    let movePfx = '';
+    if (movePrefix && movePrefix.iid === attacker.iid) {
+      movePfx = ' se déplace <span class="lstate">' + esc(movePrefix.zone) + '</span> et';
+      movePrefix = null;
+    }
+    log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
+      ' <span class="lavg">(dégâts moyens)</span> : ' + amt(pvLost, 'dmg') + ' Dégâts infligés !', 'attack');
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
     checkComa(target);
   }
@@ -1539,8 +1582,10 @@
           // Pas de mouvement disponible → on ne peut pas atteindre la cible
           if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
           // Sinon, déplacement automatique vers la zone de la cible avant d'attaquer
-          doMove(attacker, c.zone);
+          // (silencieux : la ligne de déplacement sera fusionnée à celle de l'attaque)
+          doMove(attacker, c.zone, true);
           if (attacker.status !== 'active') { pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
+          movePrefix = { iid: attacker.iid, zone: zname(attacker.zone) };
         }
         if (pendingAttack.average) execHeroAverageAttack(attacker, pendingAttack.atkIndex, c);
         else execHeroAttack(attacker, pendingAttack.atkIndex, c);
@@ -1660,6 +1705,14 @@
     const heroObjs = (heroIds || []).map(function (id) {
       return Store.state.heroes.find(function (h) { return h.id === id; });
     }).filter(Boolean);
+    // Pas d'aventurier résolu → ne crée pas un combat vide (plateau injouable).
+    if (!heroObjs.length) {
+      const root = $(rootSel);
+      if (root) root.innerHTML = '<div class="card"><div class="card-head"><h3>Combat</h3></div>' +
+        '<p class="empty">Impossible de lancer le combat : aucun aventurier du groupe n\'a été trouvé sur cet appareil.</p>' +
+        '<p class="hint">Reprends la constitution du groupe dans l\'onglet « Groupe » avant de relancer l\'aventure.</p></div>';
+      return;
+    }
     Store.state.sessionCombat = sessionCtx || null;
     buildCombat(heroObjs, normalizeZoneConfig(sceneCombat));
     log('Début du combat — Tour 1.', 'turn');

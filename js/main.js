@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.44';
+  const APP_VERSION = 'v2.45';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
