@@ -1289,7 +1289,7 @@
     // au lieu d'afficher un message d'erreur. Le combat reste jouable.
     if (!root.querySelector('.combat-card')) {
       const fighters = c.combatants.filter(function (x) { return x.side === 'hero' || x.status === 'active'; });
-      let box = $('#zone-cards-0') || root.querySelector('[id^="zone-cards-"]');
+      let box = root.querySelector('#zone-cards-0') || root.querySelector('[id^="zone-cards-"]');
       if (!box) {
         const wrap = document.createElement('div');
         wrap.className = 'combat-zones-grid zc-1';
@@ -1304,7 +1304,8 @@
       }
     }
 
-    $('#cb-end').addEventListener('click', function () {
+    const cbEnd = root.querySelector('#cb-end');
+    if (cbEnd) cbEnd.addEventListener('click', function () {
       const isSession = combatKey === 'combat' && Store.state.sessionCombat;
       if (isSession) {
         if (confirm('Terminer ce combat ? Vos adversaires agiront une dernière fois et vous subirez les conséquences d\'une défaite.')) forfeitCombat();
@@ -1312,13 +1313,13 @@
         if (confirm('Terminer et quitter ce combat ?')) endCombat(false);
       }
     });
-    const cet = $('#cb-enemy-turn');
+    const cet = root.querySelector('#cb-enemy-turn');
     if (cet) cet.addEventListener('click', enemyTurnAndAdvance);
-    const ct = $('#cancel-target');
+    const ct = root.querySelector('#cancel-target');
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
-    const cm = $('#cancel-move');
+    const cm = root.querySelector('#cancel-move');
     if (cm) cm.addEventListener('click', function () { pendingMove = null; render(); });
-    const ca = $('#cancel-analyze');
+    const ca = root.querySelector('#cancel-analyze');
     if (ca) ca.addEventListener('click', function () { pendingAnalyze = null; render(); });
 
     // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement
@@ -1382,7 +1383,8 @@
   // sélectionné (avatar, nom, PV, DEF, attaques d'arme, Mouv/Objet/Analyse,
   // puis 6 emplacements de talents — occupés par les attaques spéciales).
   function renderActionBar() {
-    const box = $('#combat-actionbar');
+    const root = $(rootSel);
+    const box = root ? root.querySelector('#combat-actionbar') : null;
     if (!box) return;
     const cmb = combat();
     let sel = selectedIid ? byId(selectedIid) : null;
@@ -1464,9 +1466,11 @@
   }
 
   function renderZones() {
+    const root = $(rootSel);
+    if (!root) return;
     let placed = 0;
     zones().forEach(function (z, zi) {
-      const box = $('#zone-cards-' + zi);
+      const box = root.querySelector('#zone-cards-' + zi);
       if (!box) return;
       // Les aventuriers restent dans leur zone (même au coma, grisés) ;
       // les adversaires morts/enfuis partent au cimetière (hors zone).
@@ -1495,7 +1499,7 @@
     // affiche tout de même — regroupés dans le 1er conteneur — pour que le combat
     // reste JOUABLE plutôt que de tomber sur un plateau vide.
     if (!placed) {
-      const box = $('#zone-cards-0') || $('[id^="zone-cards-"]');
+      const box = root.querySelector('#zone-cards-0') || root.querySelector('[id^="zone-cards-"]');
       const fighters = combat().combatants.filter(function (c) {
         return c.side === 'hero' || c.status === 'active';
       });
@@ -1511,7 +1515,8 @@
 
   // Cimetière : adversaires vaincus ou enfuis (compact, hors zones)
   function renderCemetery() {
-    const box = $('#combat-cemetery');
+    const root = $(rootSel);
+    const box = root ? root.querySelector('#combat-cemetery') : null;
     if (!box) return;
     const killed = combat().combatants.filter(function (c) { return c.side === 'monster' && c.status === 'coma'; });
     const fled = combat().combatants.filter(function (c) { return c.side === 'monster' && c.status === 'fled'; });
@@ -1829,12 +1834,14 @@
   }
 
   function renderPhaseControls() {
-    const box = $('#phase-controls');
+    const root = $(rootSel);
+    const box = root ? root.querySelector('#phase-controls') : null;
+    if (!box) return;
     const c = combat();
     if (c.outcome) {
       const won = c.outcome !== 'defeat';
       box.innerHTML = '<button id="pc-finish" class="primary big result-btn">📊 Résultat du Combat</button>';
-      $('#pc-finish').addEventListener('click', function () { endCombat(won); });
+      box.querySelector('#pc-finish').addEventListener('click', function () { endCombat(won); });
       return;
     }
     if (c.phase === 'heroes') {
@@ -1843,13 +1850,15 @@
       box.innerHTML =
         '<button id="pc-ai" class="primary">▶ Activer les adversaires (auto)</button>' +
         '<button id="pc-endturn" class="ghost">Fin du tour de combat ⟳</button>';
-      $('#pc-ai').addEventListener('click', monsterAI);
-      $('#pc-endturn').addEventListener('click', endTurn);
+      box.querySelector('#pc-ai').addEventListener('click', monsterAI);
+      box.querySelector('#pc-endturn').addEventListener('click', endTurn);
     }
   }
 
   function renderLog() {
-    const box = $('#combat-log');
+    const root = $(rootSel);
+    const box = root ? root.querySelector('#combat-log') : null;
+    if (!box) return;
     if (!combat().log.length) { box.innerHTML = '<p class="empty">—</p>'; return; }
     // e.text contient du HTML pré-échappé (noms échappés à la construction)
     box.innerHTML = combat().log.map(function (e) {
