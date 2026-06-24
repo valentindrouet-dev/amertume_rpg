@@ -1944,7 +1944,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
    Épaisseur des lignes réduite de 40 % (44px → 26px). */
 .ab-acts {
   display: grid; grid-template-rows: 26px 26px; grid-auto-flow: column;
-  grid-auto-columns: 108px; gap: .3rem; flex: 0 0 auto;
+  grid-auto-columns: 1fr; gap: .35rem; flex: 1 1 auto; min-width: 0;
 }
 .ab-acts > * { height: 26px; min-height: 0; box-sizing: border-box; }
 .ab-attack-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; }
@@ -1966,9 +1966,10 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   color: #fff; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.4);
   border-radius: 4px; padding: 0 .2rem; font-weight: 700; font-size: .6rem;
 }
-/* Dés réduits pour tenir dans les boutons d'action fins */
-.ab-atk .dice-row { gap: 2px; }
-.ab-atk .die-sq { width: 14px; height: 14px; border-width: 1px; border-radius: 3px; }
+/* Dés réduits ET sur une seule ligne (jamais de retour à la ligne qui
+   déborderait sous le bouton fin et désalignerait la grille) */
+.ab-atk .dice-row { gap: 2px; flex-wrap: nowrap; }
+.ab-atk .die-sq { width: 13px; height: 13px; border-width: 1px; border-radius: 3px; }
 .ab-atk .die-sq::after { width: 4px; height: 4px; }
 
 /* Cellule outils : 3 boutons de largeur égale qui occupent ensemble la colonne */
