@@ -253,8 +253,19 @@
   }
   function monsterCombatAttacks(m) {
     const weapons = monsterEquipItems(m).filter(function (it) { return it.category === 'weapon'; });
-    const special = JSON.parse(JSON.stringify(m.attacks || [])).map(function (a) { a.special = true; return a; });
-    return weaponAttacks(weapons).concat(special);
+    // Les attaques d'adversaire occupent la colonne « Action » (comme l'arme des
+    // aventuriers) — pas les emplacements Talents, désormais réservés à m.talents.
+    const own = JSON.parse(JSON.stringify(m.attacks || []));
+    return weaponAttacks(weapons).concat(own);
+  }
+  // Libellés des talents passifs d'un adversaire (FUYARD, SOUTIEN…) pour le bandeau.
+  function monsterTalentLabels(m) {
+    const cat = Store.loadMonsterTalents();
+    return (m.talents || []).map(function (t) {
+      const e = cat.find(function (c) { return c.id === t.catId; }) ||
+                cat.find(function (c) { return c.trigger === t.trigger; });
+      return e ? e.name : (t.trigger || 'Talent');
+    });
   }
   function monsterTotalDef(m) {
     const armorDef = monsterEquipItems(m).filter(function (it) { return it.category === 'armor'; })
@@ -1172,6 +1183,7 @@
     normalizeEquip: normalizeEquip,
     weaponAttacks: weaponAttacks,
     monsterCombatAttacks: monsterCombatAttacks,
+    monsterTalentLabels: monsterTalentLabels,
     monsterTotalDef: monsterTotalDef,
     heroPv: heroPv,
     heroCurPv: heroCurPv,

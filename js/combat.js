@@ -99,6 +99,7 @@
       def: Combatants.monsterTotalDef(m), damage: m.damage, xp: m.xp, type: m.type,
       menace: m.menace, esquive: !!m.esquive, rapide: !!m.rapide, socle: m.socle,
       attacks: attacks, attackUses: initUses(attacks),
+      talentLabels: Combatants.monsterTalentLabels(m),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       blindageCharges: armorT ? (armorT.charges || 0) : 0,
       used: { action: false, move: false, object: false },
@@ -1431,10 +1432,15 @@
       '</div>';
     // Cellule (col. action, ligne 2) : Mouv / Objet / Analyse (aventuriers)
     html += (c.side === 'hero') ? abToolsHtml(c, canAct) : '<div class="ab-tools ab-tools-empty"></div>';
-    // Cellules talents T1..T6 : remplies colonne par colonne (les spéciales d'abord)
+    // Cellules talents T1..T6 (remplies colonne par colonne) :
+    //  • aventuriers → leurs attaques spéciales (boutons jouables) ;
+    //  • adversaires → leurs talents passifs (FUYARD, SOUTIEN… en libellés).
+    const labels = isEnemy ? (c.talentLabels || []) : null;
     for (let i = 0; i < 6; i++) {
-      if (i < specialAtks.length) {
+      if (!isEnemy && i < specialAtks.length) {
         html += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct);
+      } else if (isEnemy && i < labels.length) {
+        html += '<button class="ab-talent ab-talent-named" type="button" disabled title="' + esc(labels[i]) + '">' + esc(labels[i]) + '</button>';
       } else {
         html += '<button class="ab-talent" type="button" disabled title="Emplacement de talent (à venir)">Talent ' + (i + 1) + '</button>';
       }
@@ -1594,7 +1600,12 @@
     // La classe, la DEF, le blindage, « Rapide », les pastilles et les attaques
     // ne s'affichent plus ici : tout cela figure dans le bandeau d'action
     // lorsque le combattant est sélectionné.
+    // Pastille bleue (coin haut-droit) : aventurier actif n'ayant pas encore
+    // utilisé son Action / Attaque ce tour. Disparaît une fois l'action faite.
+    const actionDot = (!isEnemy && !dead && !c.used.action)
+      ? '<span class="action-dot" title="Action / Attaque non utilisée"></span>' : '';
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
+      actionDot +
       '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
         (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
       '</div>' +
