@@ -1216,6 +1216,15 @@
       });
       return;
     }
+    // Auto-réparation des zones : un combat persisté pouvait avoir des `zone`
+    // hors limites ou d'un mauvais type (chaîne, NaN) → aucun combattant ne
+    // correspondait à une zone et le plateau restait vide. On garantit ici une
+    // zone entière valide pour chacun.
+    const zc = zoneCount();
+    c.combatants.forEach(function (x) {
+      let z = parseInt(x.zone, 10);
+      x.zone = (isNaN(z) || z < 0 || z >= zc) ? 0 : z;
+    });
     const OUTCOME_LABEL = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
     const phaseLabel = c.outcome ? OUTCOME_LABEL[c.outcome]
       : (c.phase === 'heroes' ? 'Activation des aventuriers' : 'Activation des adversaires');
