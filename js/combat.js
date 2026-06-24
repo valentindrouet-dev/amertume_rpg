@@ -1364,7 +1364,8 @@
   }
 
   // Bandeau d'action au-dessus des zones : fiche horizontale du combattant
-  // sélectionné (avatar, nom, PV, DEF, attaques, Mouv/Objet/Analyse, talents).
+  // sélectionné (avatar, nom, PV, DEF, attaques d'arme, Mouv/Objet/Analyse,
+  // puis 6 emplacements de talents — occupés par les attaques spéciales).
   function renderActionBar() {
     const box = $('#combat-actionbar');
     if (!box) return;
@@ -1375,11 +1376,9 @@
       const fh = activeOf('hero')[0];
       if (fh) { sel = fh; selectedIid = fh.iid; }
     }
-    const pending = pendingAttack || pendingMove || pendingAnalyze;
     if (!sel) {
       box.className = 'combat-actionbar';
-      box.innerHTML = '<div class="ab-empty">' + (pending ? bannerHtml()
-        : 'Clique un combattant pour afficher sa fiche et ses actions.') + '</div>';
+      box.innerHTML = '<div class="ab-empty">Clique un combattant pour afficher sa fiche et ses actions.</div>';
       return;
     }
     const c = sel;
@@ -1394,12 +1393,16 @@
     const initial = esc((c.name || '?').charAt(0).toUpperCase());
     const pvText = (isEnemy && !known) ? '' : (c.pv + ' / ' + c.maxPv + ' PV');
 
+    // Sépare attaques d'arme (boutons « Attaque » du haut) et spéciales (talents)
+    const weaponAtks = [], specialAtks = [];
+    (c.attacks || []).forEach(function (a, i) {
+      (a.special ? specialAtks : weaponAtks).push({ a: a, i: i });
+    });
+
     let html = '<div class="' + cls.join(' ') + '">' +
       '<div class="ab-avatar" aria-hidden="true">' + initial + '</div>' +
       '<div class="ab-id">' +
         '<div class="ab-name"><span class="roster-name">' + esc(c.name) + '</span>' +
-          (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
-          (isEnemy && c.type ? '<span class="tag type">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
           (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
         '</div>' +
         '<div class="ab-pvline cc-pvline">' +
@@ -1408,16 +1411,21 @@
           (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage">🛡✦ ' + c.blindageCharges + '</span>' : '') +
         '</div>' +
       '</div>';
-    if (canAct) {
-      html += '<div class="ab-acts">' + attackChipsHtml(c) + moveRowHtml(c) + '</div>';
-    } else if (c.attacks && c.attacks.length) {
-      html += '<div class="ab-acts ab-readonly">' + c.attacks.map(function (a) {
-        return '<span class="enemy-atk">' + esc(attackLabel(a)) + ' <em>' + (a.range === 'distance' ? 'distance' : 'contact') + '</em></span>';
-      }).join('') + '</div>';
-    }
-    html += talentSlotsHtml(c);
+
+    html += '<div class="ab-acts">';
+    // Rangée des attaques d'arme (boutons de taille fixe, identique aux outils)
+    html += '<div class="ab-attacks">' +
+      (weaponAtks.length
+        ? weaponAtks.map(function (w) { return abAttackBtn(c, w.a, w.i, canAct); }).join('')
+        : '') +
+      '</div>';
+    // Rangée Mouv. / Objet / Analyse (aventuriers seulement)
+    if (c.side === 'hero') html += abToolsHtml(c, canAct);
+    // 6 emplacements de talents (3 colonnes × 2 lignes) — occupés par les spéciales
+    html += abTalentsHtml(c, specialAtks, canAct);
     html += '</div>';
-    if (pending) html += '<div class="ab-prompt">' + bannerHtml() + '</div>';
+
+    html += '</div>';
     box.className = 'combat-actionbar active';
     box.innerHTML = html;
     // Les boutons (data-iid) seront câblés par wireCard lors de renderZones,
@@ -1479,58 +1487,58 @@
       }).join('');
   }
 
-  // Boutons d'attaque d'un combattant (réutilisés dans le bandeau d'action).
-  // Conservent data-iid / data-atk : c'est wireCard qui les câble.
-  function attackChipsHtml(c) {
+  // Bouton d'attaque de taille FIXE pour le bandeau d'action (arme ou talent).
+  // Conserve data-iid / data-atk : c'est wireCard qui le câble.
+  function abAttackBtn(c, a, i, canAct) {
     const usedA = c.used.action;
-    return '<div class="cc-attacks">' + c.attacks.map(function (a, i) {
-      const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
-      const depleted = uses === 0;
-      const blocked = depleted || (!a.freeAction && usedA);
-      const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i;
-      const chipSel = isThisAtk && !pendingAttack.average;
-      const rangeBits = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
-      if (a.targets === 'all') rangeBits.push('toutes');
-      if (a.freeAction) rangeBits.push('gratuite');
-      const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
-      return '<button class="atk-chip ' + (chipSel ? 'selected' : '') + '" data-iid="' + c.iid + '" data-atk="' + i + '"' +
-          (blocked ? ' disabled' : '') + '>' +
-          '<span class="atk-chip-main">' +
-            '<span class="atk-chip-name">' + esc(a.name) + '</span>' +
-            '<span class="atk-chip-range">' + rangeBits.join(' · ') + '</span>' +
-          '</span>' +
-          '<span class="atk-chip-figs">' +
-            Inventory.poolBadges(a.dice) +
-            (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
-            (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
-          '</span>' +
-        '</button>';
-    }).join('') + '</div>';
+    const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
+    const depleted = uses === 0;
+    const blocked = !canAct || depleted || (!a.freeAction && usedA);
+    const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average;
+    const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
+    const sub = (a.range === 'distance' ? '🏹' : '⚔') +
+      (a.targets === 'all' ? ' ⤬' : '') +
+      (a.freeAction ? ' ⚡' : '') +
+      (showDmg ? ' <span class="atk-dmg">+' + c.damage + '</span>' : '') +
+      (uses !== null ? ' <span class="atk-uses">' + uses + '×</span>' : '');
+    return '<button class="ab-btn atk-chip' + (isThisAtk ? ' selected' : '') + '" type="button"' +
+        ' data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
+        ' title="' + esc(a.name) + (a.range === 'distance' ? ' (distance)' : ' (contact)') + '">' +
+      '<span class="ab-btn-name">' + esc(a.name) + '</span>' +
+      '<span class="ab-btn-sub">' + sub + '</span>' +
+    '</button>';
   }
 
-  // Rangée Mouv. / Objet / Analyse d'un combattant (réutilisée dans le bandeau).
-  function moveRowHtml(c) {
+  // Rangée Mouv. / Objet / Analyse — boutons de taille fixe (aventuriers).
+  function abToolsHtml(c, canAct) {
     const usedO = c.used.object;
     const usedMv = c.used.move;
-    return '<div class="cc-move-row tri">' +
-      (zoneCount() > 1
-        ? '<button class="move-chip do-move third' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
-            (usedMv ? ' disabled' : '') + ' title="Changer de zone">' +
-            '<span class="atk-chip-main"><span class="atk-chip-name">Mouv.</span></span></button>'
-        : '') +
-      '<button class="obj-chip do-object third" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">' +
-        '<span class="atk-chip-main"><span class="atk-chip-name">Objet</span></span></button>' +
-      '<button class="ana-chip do-analyse third' + (pendingAnalyze === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
-        (usedMv ? ' disabled' : '') + ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">' +
-        '<span class="atk-chip-main"><span class="atk-chip-name">Analyse</span></span></button>' +
+    const multi = zoneCount() > 1;
+    return '<div class="ab-tools">' +
+      '<button class="ab-btn move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
+          ' data-iid="' + c.iid + '"' + ((!canAct || !multi || usedMv) ? ' disabled' : '') + ' title="Changer de zone">' +
+        '<span class="ab-btn-name">Mouv.</span></button>' +
+      '<button class="ab-btn obj-chip do-object" type="button" data-iid="' + c.iid + '"' +
+          ((!canAct || usedO) ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">' +
+        '<span class="ab-btn-name">Objet</span></button>' +
+      '<button class="ab-btn ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
+          ' data-iid="' + c.iid + '"' + ((!canAct || usedMv) ? ' disabled' : '') +
+          ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">' +
+        '<span class="ab-btn-name">Analyse</span></button>' +
     '</div>';
   }
 
-  // 6 emplacements de talents (placeholders « Talent N » pour l'instant).
-  function talentSlotsHtml(c) {
+  // 6 emplacements de talents (3 colonnes × 2 lignes). Les attaques spéciales
+  // occupent les premiers slots ; les restants sont des placeholders « Talent N ».
+  function abTalentsHtml(c, specialAtks, canAct) {
     let h = '<div class="ab-talents">';
-    for (let i = 1; i <= 6; i++) {
-      h += '<button class="ab-talent" type="button" disabled title="Emplacement de talent (à venir)">Talent ' + i + '</button>';
+    for (let i = 0; i < 6; i++) {
+      if (i < specialAtks.length) {
+        h += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct);
+      } else {
+        h += '<button class="ab-btn ab-talent" type="button" disabled title="Emplacement de talent (à venir)">' +
+          '<span class="ab-btn-name">Talent ' + (i + 1) + '</span></button>';
+      }
     }
     return h + '</div>';
   }
@@ -1562,35 +1570,19 @@
     const isEnemy = c.side === 'monster';
     const known = !isEnemy || c.analyzed;   // stats ennemies cachées avant Analyse
     const pvText = (isEnemy && !known) ? '' : (c.pv + ' / ' + c.maxPv + ' PV');
+    // Carte de zone = « bouton » épuré : nom + barre de PV (+ états / statut).
+    // La classe, la DEF, le blindage, « Rapide », les pastilles et les attaques
+    // ne s'affichent plus ici : tout cela figure dans le bandeau d'action
+    // lorsque le combattant est sélectionné.
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
-        (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
-        // Le type d'adversaire (Sbire/Solitaire/…) n'est plus affiché sur la carte
-        // de combat : trop encombrant (provoquait un retour à la ligne).
-        (c.rapide ? '<span class="tag">Rapide</span>' : '') +
         (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
       '</div>' +
       '<div class="cc-pvline">' +
         '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
           '<span class="pv-text">' + pvText + '</span></div>' +
-        (known ? '<span class="def-badge">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' : '') +
-        (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage : sources de dégâts ignorées">🛡✦ ' + c.blindageCharges + '</span>' : '') +
       '</div>' +
-      // Aventuriers : pas de pastille « Dégâts » (les dégâts figurent déjà sur les attaques)
-      (known && isEnemy
-        ? '<div class="stat-pills compact">' +
-            '<span class="stat-pill">Dégâts ' + c.damage + '</span>' +
-            '<span class="stat-pill">XP ' + c.xp + '</span>' +
-          '</div>'
-        : ''
-      ) +
-      (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '') +
-      (isEnemy && c.attacks && c.attacks.length
-        ? '<div class="cc-enemy-atks">' + c.attacks.map(function (a) {
-            return '<span class="enemy-atk">' + esc(attackLabel(a)) +
-              ' <em>' + (a.range === 'distance' ? 'distance' : 'contact') + '</em></span>';
-          }).join('') + '</div>'
-        : '');
+      (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '');
 
     html += '</div>';
     return html;

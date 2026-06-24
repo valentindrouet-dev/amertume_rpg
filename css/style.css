@@ -1912,33 +1912,47 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 }
 .ab-id { display: flex; flex-direction: column; gap: .25rem; min-width: 150px; }
 .ab-name { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
-.ab-name .roster-name { font-family: "Georgia", serif; font-weight: 700; font-size: 1.05rem; }
+/* Nom lisible : même couleur sombre que sur la carte de zone */
+.ab-name .roster-name { font-family: "Georgia", serif; font-weight: 700; font-size: 1.05rem; color: #2a1d10; }
 .ab-pvline { display: flex; align-items: center; gap: .4rem; }
 .ab-pvline .pv-bar { flex: 1; min-width: 110px; }
+/* PV : texte blanc + barre verte (aventuriers), comme sur la carte de zone */
+.ab-card .pv-bar { background: rgba(40,28,14,.55); }
+.ab-card .pv-text { color: #fff; }
+.ab-card.side-hero .pv-fill { background: linear-gradient(90deg, #4f9a4f, #74c274); }
 
-/* Attaques + actions, en ligne */
-.ab-acts { display: flex; align-items: stretch; gap: .4rem; flex-wrap: wrap; flex: 1 1 240px; }
-.ab-acts .cc-attacks { display: flex; flex-direction: row; gap: .4rem; flex-wrap: wrap; margin: 0; }
-.ab-acts .cc-attacks .atk-chip { width: auto; }
-.ab-acts .cc-move-row { margin: 0; }
-.ab-acts.ab-readonly { gap: .35rem; align-items: center; }
+/* Zone d'actions : attaques (haut) + outils + talents, en blocs alignés */
+.ab-acts { display: flex; align-items: flex-start; gap: .5rem; flex-wrap: wrap; flex: 1 1 280px; }
+.ab-attacks, .ab-tools { display: flex; gap: .35rem; flex-wrap: wrap; }
+.ab-talents { display: grid; grid-template-columns: repeat(3, var(--ab-btn-w)); grid-auto-rows: var(--ab-btn-h); gap: .35rem; }
 
-/* 6 emplacements de talents */
-.ab-talents { display: grid; grid-template-columns: repeat(6, 1fr); gap: .35rem; flex: 1 1 320px; }
-@media (max-width: 760px) { .ab-talents { grid-template-columns: repeat(3, 1fr); } }
-.ab-talent {
-  border: 1px solid var(--border); border-radius: 8px; padding: .35rem .3rem;
-  background: rgba(0,0,0,.06); color: #6b5a3e; font-size: .74rem; font-weight: 600;
-  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+/* Bouton d'action de TAILLE FIXE (attaque, outil ou talent) — identique partout */
+:root { --ab-btn-w: 92px; --ab-btn-h: 52px; }
+.ab-btn {
+  flex: 0 0 var(--ab-btn-w); width: var(--ab-btn-w); height: var(--ab-btn-h);
+  box-sizing: border-box; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  border: 1px solid var(--border); border-radius: 9px; padding: .25rem .3rem;
+  background: rgba(77,142,209,.9); color: #fff; cursor: pointer;
+  overflow: hidden; text-align: center; line-height: 1.05;
 }
-.ab-talent:disabled { opacity: .55; cursor: default; }
-
-/* Bande de ciblage sous la fiche (clique la cible / la zone) */
-.ab-prompt {
-  margin-top: .4rem; padding: .5rem .7rem; border-radius: 9px;
-  background: rgba(77,142,209,.14); border: 1px solid var(--action); font-size: .9rem;
+.ab-btn .ab-btn-name {
+  font-weight: 700; font-size: .76rem; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.combat-actionbar.active .ab-prompt { animation: none; }
+.ab-btn .ab-btn-sub { font-size: .66rem; font-weight: 600; opacity: .92; }
+.ab-btn:hover:not(:disabled) { filter: brightness(1.06); }
+.ab-btn:disabled { opacity: .45; cursor: not-allowed; }
+/* Couleurs par type d'action, opaques (lisibles) */
+.ab-btn.atk-chip { background: #4d8ed1; color: #fff; }
+.ab-btn.atk-chip.selected { background: #2f6fb0; box-shadow: 0 0 0 2px rgba(77,142,209,.55); }
+.ab-btn.move-chip { background: #8c5e2a; color: #fff; }
+.ab-btn.move-chip.selected { background: #6f4a1f; }
+.ab-btn.obj-chip { background: #5fa45f; color: #fff; }
+.ab-btn.ana-chip { background: #7c5ca4; color: #fff; }
+.ab-btn.ana-chip.selected { background: #634a85; }
+.ab-btn.ab-talent { background: rgba(40,28,14,.14); color: #6b5a3e; }
+.ab-btn .atk-dmg, .ab-btn .atk-uses { color: #fff; background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.4); }
 
 /* Carte sélectionnée dans les zones : liseré pour la repérer */
 .combat-card.selected { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -253,7 +253,8 @@
   }
   function monsterCombatAttacks(m) {
     const weapons = monsterEquipItems(m).filter(function (it) { return it.category === 'weapon'; });
-    return weaponAttacks(weapons).concat(JSON.parse(JSON.stringify(m.attacks || [])));
+    const special = JSON.parse(JSON.stringify(m.attacks || [])).map(function (a) { a.special = true; return a; });
+    return weaponAttacks(weapons).concat(special);
   }
   function monsterTotalDef(m) {
     const armorDef = monsterEquipItems(m).filter(function (it) { return it.category === 'armor'; })
@@ -263,7 +264,8 @@
 
   // Attaques utilisées en combat : armes + spéciales (+ secours mains nues)
   function heroCombatAttacks(h) {
-    let atks = heroDerivedAttacks(h.equipment).concat(JSON.parse(JSON.stringify(h.attacks || [])));
+    const special = JSON.parse(JSON.stringify(h.attacks || [])).map(function (a) { a.special = true; return a; });
+    let atks = heroDerivedAttacks(h.equipment).concat(special);
     if (!atks.length) {
       atks = [{ name: 'Mains nues', dice: Object.assign(D.emptyPool(), { white: 1 }),
         range: 'contact', targets: 'one', useOwnDamage: true, effects: Store.noStates() }];
