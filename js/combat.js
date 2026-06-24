@@ -1245,21 +1245,27 @@
     const OUTCOME_LABEL = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
     const phaseLabel = c.outcome ? OUTCOME_LABEL[c.outcome]
       : (c.phase === 'heroes' ? 'Activation des aventuriers' : 'Activation des adversaires');
+    // Clignotement du bouton "Tour des Adversaires" quand tous les aventuriers ont agi
+    const allHeroesActed = !c.outcome && c.phase === 'heroes' && activeOf('hero').length > 0 &&
+      activeOf('hero').every(function (h) { return h.used.action; });
     root.innerHTML =
       '<div class="combat-bar">' +
         '<div class="cb-left"><span class="turn-pill">Tour ' + c.turn + '</span>' +
           '<span class="phase-pill ' + (c.phase) + '">' + phaseLabel + '</span></div>' +
         '<div class="cb-mid">✦ XP : <strong>' + totalXp() + '</strong></div>' +
         '<div class="cb-right">' +
+          (!c.outcome && c.phase === 'heroes'
+            ? '<button id="cb-enemy-turn" class="primary small' + (allHeroesActed ? ' enemy-turn-pulse' : '') + '">Tour des Adversaires →</button>'
+            : '') +
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
-      // Journal compact, en haut : 3 lignes visibles max, scrollable au-delà.
+      // Journal compact : hauteur fixe 4 lignes minimum, scrollable au-delà.
       '<div id="combat-log" class="combat-log compact"></div>' +
       '<div id="combat-actionbar" class="combat-actionbar"></div>' +
       '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
         zones().map(function (z, zi) {
-          return '<div class="combat-zone ' + zoneColorClass(zi) + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
+          return '<div class="combat-zone' + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
             '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
             '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
           '</div>';
@@ -1306,6 +1312,8 @@
         if (confirm('Terminer et quitter ce combat ?')) endCombat(false);
       }
     });
+    const cet = $('#cb-enemy-turn');
+    if (cet) cet.addEventListener('click', enemyTurnAndAdvance);
     const ct = $('#cancel-target');
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
     const cm = $('#cancel-move');
@@ -1605,16 +1613,26 @@
     // utilisé son Action / Attaque ce tour. Disparaît une fois l'action faite.
     const actionDot = (!isEnemy && !dead && !c.used.action)
       ? '<span class="action-dot" title="Action / Attaque non utilisée"></span>' : '';
+    const initial = esc((c.name || '?').charAt(0).toUpperCase());
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       actionDot +
-      '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
-        (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
-      '</div>' +
-      '<div class="cc-pvline">' +
-        '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
-          '<span class="pv-text">' + pvText + '</span></div>' +
-      '</div>' +
-      (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '');
+      '<div class="cc-top-row">' +
+        '<div class="cc-avatar" aria-hidden="true">' + initial + '</div>' +
+        '<div class="cc-body">' +
+          '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
+            (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
+          '</div>' +
+          '<div class="cc-pvline">' +
+            '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
+              '<span class="pv-text">' + pvText + '</span></div>' +
+          '</div>' +
+          (known ? '<div class="cc-stats-line">' +
+            '<span class="cc-def">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' +
+            (c.damage > 0 ? '<span class="cc-dmg">+' + c.damage + ' Dég.</span>' : '') +
+          '</div>' : '') +
+          (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '') +
+        '</div>' +
+      '</div>';
 
     html += '</div>';
     return html;
@@ -1820,8 +1838,7 @@
       return;
     }
     if (c.phase === 'heroes') {
-      box.innerHTML = '<button id="pc-enemy-turn" class="primary">Tour des Adversaires →</button>';
-      $('#pc-enemy-turn').addEventListener('click', enemyTurnAndAdvance);
+      box.innerHTML = ''; // bouton "Tour des Adversaires" déplacé dans la barre de combat
     } else {
       box.innerHTML =
         '<button id="pc-ai" class="primary">▶ Activer les adversaires (auto)</button>' +
