@@ -291,6 +291,7 @@
     c.used.move = true;
     if (c.status !== 'active') return; // tombé au coma en partant
     c.zone = zi;
+    pushFx({ type: 'move', iid: c.iid });
     log(wname(c.name) + ' se déplace <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
   }
 
@@ -320,8 +321,10 @@
     if (monster.status !== 'active' || monster.states.affaibli) return 0;
     const dmg = monster.damage || 0;
     if (dmg <= 0) return 0;
+    const pvBefore = hero.pv;
     hero.pv = Math.max(0, hero.pv - dmg);
     hero.dmgTaken += dmg; monster.dmgDealt += dmg;
+    pushFx({ type: 'hit', iid: hero.iid, amount: dmg, fromPct: pct(pvBefore, hero.maxPv), toPct: pct(hero.pv, hero.maxPv) });
     log(wname(monster.name) + ' inflige ' + amt(dmg, 'dmg') + ' dégâts-choc à ' + wname(hero.name) + '.', 'dchoc');
     checkComa(hero);
     return dmg;
@@ -347,6 +350,7 @@
       target.states[s] = true;
       log(wname(target.name) + ' subit <span class="lstate">' + stateLabel(s) + '</span>.', 'state');
     });
+    if (list.length) pushFx({ type: 'state', iid: target.iid });
   }
 
   function resolveAttack(attacker, target, atk) {
@@ -381,16 +385,23 @@
     if (res.echec) {
       log(wname(attacker.name) + ' rate son attaque (' + label + ') contre ' + wname(target.name) +
         ' — <span class="lfail">Échec</span> ' + diceStr + '.', 'attack');
+      pushFx({ type: 'miss', iid: target.iid, text: 'Raté' });
       return;
     }
     if (negated) {
       log('L’attaque de ' + wname(attacker.name) + ' contre ' + wname(target.name) +
         ' est annulée (<span class="lstate">' + reason + '</span>).', 'attack');
+      pushFx({ type: 'miss', iid: target.iid, text: reason });
       return;
     }
 
+    const pvBefore = target.pv;
     if (res.pvLost > 0) { target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; attacker.dmgDealt += res.pvLost; }
     if (res.pvHealed > 0) target.pv = Math.min(target.maxPv, target.pv + res.pvHealed);
+    const fromPct = pct(pvBefore, target.maxPv), toPct = pct(target.pv, target.maxPv);
+    if (res.pvLost > 0) pushFx({ type: res.critique ? 'crit' : 'hit', iid: target.iid, amount: res.pvLost, fromPct: fromPct, toPct: toPct });
+    else if (res.critique) pushFx({ type: 'crit', iid: target.iid, amount: 0, fromPct: fromPct, toPct: toPct });
+    if (res.pvHealed > 0) pushFx({ type: 'heal', iid: target.iid, amount: res.pvHealed, fromPct: fromPct, toPct: toPct });
     log(wname(attacker.name) + ' attaque ' + wname(target.name) + ' avec ' + label +
         (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' : ' +
         (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' PV infligés' : 'aucun dégât') +
@@ -407,6 +418,7 @@
     if (c.status === 'active' && c.pv <= 0) {
       c.status = 'coma';
       c.pv = 0;
+      pushFx({ type: 'faint', iid: c.iid });
       log(c.side === 'monster' ? (wname(c.name) + ' est vaincu (coma) !') : (wname(c.name) + ' sombre dans le coma…'),
         c.side === 'monster' ? 'kill' : 'down');
     }
@@ -420,6 +432,7 @@
     tpl.talents.forEach(function (t) {
       if (t.trigger === 'flee_on_big_hit' && pvLost >= (t.threshold || 0) && target.status === 'active') {
         target.status = 'fled';
+        pushFx({ type: 'flee', iid: target.iid });
         log(wname(target.name) + ' prend la fuite ! (talent : reçu ' + amt(pvLost, 'dmg') + ' ≥ ' + t.threshold + ')', 'turn');
       }
     });
@@ -682,6 +695,105 @@
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
 
   // =================== RENDU ===================
+  // ---------- Animations de combat ----------
+  // Effets transitoires, non bloquants : on empile des évènements au moment où
+  // l'action se résout (dégâts, critique, raté, soin, état, déplacement), puis
+  // on les joue après le re-rendu, en retrouvant les cartes par data-iid.
+  // 100 % CSS (transform/opacity), auto-nettoyés, sans incidence sur le rythme.
+  let fxQueue = [];
+  function pushFx(ev) { if (ev) fxQueue.push(ev); }
+  function pct(pv, max) { return Math.max(0, Math.min(100, Math.round((pv / (max || 1)) * 100))); }
+  function reduceMotion() {
+    try { return !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+    catch (e) { return false; }
+  }
+  function fxLayer() {
+    let el = document.getElementById('combat-fx');
+    if (!el) { el = document.createElement('div'); el.id = 'combat-fx'; document.body.appendChild(el); }
+    return el;
+  }
+  // Rect d'ancrage : la carte du combattant si présente, sinon sa zone, sinon le plateau
+  function fxAnchor(iid) {
+    const root = $(rootSel); if (!root) return null;
+    const card = root.querySelector('.combat-card[data-iid="' + iid + '"]');
+    if (card) return { rect: card.getBoundingClientRect(), card: card };
+    const c = byId(iid);
+    if (c) { const z = root.querySelector('#zone-cards-' + c.zone); if (z) return { rect: z.getBoundingClientRect(), card: null }; }
+    return { rect: root.getBoundingClientRect(), card: null };
+  }
+  function floatText(rect, text, cls) {
+    const span = document.createElement('span');
+    span.className = 'fx-float ' + cls;
+    span.textContent = text;
+    span.style.left = (rect.left + rect.width / 2) + 'px';
+    span.style.top = (rect.top + Math.min(30, rect.height * 0.3)) + 'px';
+    fxLayer().appendChild(span);
+    span.addEventListener('animationend', function () { span.remove(); }, { once: true });
+  }
+  function cardAnim(card, cls) {
+    if (!card) return;
+    card.classList.remove(cls);
+    void card.offsetWidth; // reflow pour rejouer si la classe est encore là
+    card.classList.add(cls);
+    card.addEventListener('animationend', function () { card.classList.remove(cls); }, { once: true });
+  }
+  // Fait glisser la barre de PV de l'ancien % vers le nouveau
+  function pvGlide(card, fromPct, toPct) {
+    if (!card || fromPct == null) return;
+    const fill = card.querySelector('.pv-fill');
+    if (!fill) return;
+    fill.style.transition = 'none';
+    fill.style.width = fromPct + '%';
+    void fill.offsetWidth; // reflow
+    requestAnimationFrame(function () {
+      fill.style.transition = 'width .45s ease';
+      fill.style.width = toPct + '%';
+    });
+  }
+  function flushFx() {
+    if (!fxQueue.length) return;
+    const q = fxQueue; fxQueue = [];
+    if (reduceMotion()) return; // animations coupées : on vide sans jouer
+    q.forEach(function (ev) {
+      const a = fxAnchor(ev.iid);
+      if (!a) return;
+      switch (ev.type) {
+        case 'hit':
+          cardAnim(a.card, 'fx-hit');
+          floatText(a.rect, '-' + ev.amount, 'fx-dmg');
+          pvGlide(a.card, ev.fromPct, ev.toPct);
+          break;
+        case 'crit':
+          cardAnim(a.card, 'fx-crit');
+          if (ev.amount > 0) floatText(a.rect, '-' + ev.amount, 'fx-dmg fx-dmg-crit');
+          floatText(a.rect, 'CRITIQUE !', 'fx-burst');
+          pvGlide(a.card, ev.fromPct, ev.toPct);
+          break;
+        case 'miss':
+          cardAnim(a.card, 'fx-whiff');
+          floatText(a.rect, ev.text || 'Raté', 'fx-miss');
+          break;
+        case 'heal':
+          cardAnim(a.card, 'fx-heal');
+          floatText(a.rect, '+' + ev.amount, 'fx-heal-txt');
+          pvGlide(a.card, ev.fromPct, ev.toPct);
+          break;
+        case 'state':
+          cardAnim(a.card, 'fx-state');
+          break;
+        case 'move':
+          cardAnim(a.card, 'fx-move');
+          break;
+        case 'faint':
+          floatText(a.rect, '💀', 'fx-burst');
+          break;
+        case 'flee':
+          floatText(a.rect, 'En fuite', 'fx-miss');
+          break;
+      }
+    });
+  }
+
   function render() {
     const root = $(rootSel);
     if (!root) return;
@@ -957,6 +1069,9 @@
         moveCombatant(pendingMove, parseInt(zEl.getAttribute('data-zone'), 10));
       });
     });
+
+    // Joue les animations en attente (dégâts, critique, raté, soin, déplacement…)
+    try { flushFx(); } catch (e) { fxQueue = []; }
   }
 
   // Contenu de la bannière de ciblage / déplacement (toujours présente : pas de saut d'UI)
@@ -1171,8 +1286,10 @@
     const pvLost = Math.max(0, avgDice - def);
     const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
     if (pvLost > 0) {
+      const pvBefore = target.pv;
       target.pv = Math.max(0, target.pv - pvLost);
       target.dmgTaken += pvLost; attacker.dmgDealt += pvLost;
+      pushFx({ type: 'hit', iid: target.iid, amount: pvLost, fromPct: pct(pvBefore, target.maxPv), toPct: pct(target.pv, target.maxPv) });
       checkMonsterTalents(target, pvLost);
     }
     log(wname(attacker.name) + ' inflige les dégâts moyens de l\'arme via ' + label + ' sur ' + wname(target.name) +

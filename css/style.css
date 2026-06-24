@@ -1709,3 +1709,80 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .inv-qty { position: absolute; top: -7px; right: -7px; background: var(--accent); color: #fff;
   font-size: .72rem; font-weight: 800; border-radius: 11px; padding: .05rem .45rem;
   box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+
+/* ===================================================================
+   v2.35 — Animations de combat (effets transitoires, non bloquants)
+   =================================================================== */
+/* Couche d'overlay : posée sur tout l'écran, ne capte aucun clic. */
+#combat-fx { position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }
+
+/* Texte flottant (dégâts, soin, raté, éclats) */
+.fx-float {
+  position: fixed; transform: translate(-50%, 0); white-space: nowrap;
+  font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,.55);
+  animation: fx-rise .85s ease-out forwards;
+}
+.fx-dmg { color: #e0563f; font-size: 1.3rem; }
+.fx-dmg-crit { color: #f2b13a; font-size: 1.7rem; }
+.fx-heal-txt { color: #5fa45f; font-size: 1.3rem; }
+.fx-miss { color: #93a0a6; font-size: 1.05rem; font-weight: 700; }
+.fx-burst { color: #f2b13a; font-size: 1.15rem; letter-spacing: .03em; animation: fx-burst .9s ease-out forwards; }
+@keyframes fx-rise {
+  0%   { opacity: 0; transform: translate(-50%, 6px) scale(.8); }
+  15%  { opacity: 1; transform: translate(-50%, -2px) scale(1.12); }
+  100% { opacity: 0; transform: translate(-50%, -36px) scale(1); }
+}
+@keyframes fx-burst {
+  0%   { opacity: 0; transform: translate(-50%, -6px) scale(.6); }
+  25%  { opacity: 1; transform: translate(-50%, -18px) scale(1.18); }
+  100% { opacity: 0; transform: translate(-50%, -32px) scale(1); }
+}
+
+/* Animations de carte (la carte est retrouvée par data-iid après le re-rendu) */
+.combat-card.fx-hit   { animation: fx-hit .34s ease; }
+.combat-card.fx-crit  { animation: fx-crit .5s ease; z-index: 2; }
+.combat-card.fx-whiff { animation: fx-whiff .3s ease; }
+.combat-card.fx-heal  { animation: fx-heal .6s ease; }
+.combat-card.fx-state { animation: fx-state .35s ease; }
+.combat-card.fx-move  { animation: fx-move .4s ease; }
+@keyframes fx-hit {
+  0%   { transform: translateX(0);   box-shadow: 0 0 0 0 rgba(224,86,63,0); }
+  15%  { transform: translateX(-4px); box-shadow: 0 0 12px 2px rgba(224,86,63,.7); }
+  45%  { transform: translateX(4px); }
+  70%  { transform: translateX(-2px); }
+  100% { transform: translateX(0);   box-shadow: 0 0 0 0 rgba(224,86,63,0); }
+}
+@keyframes fx-crit {
+  0%   { transform: scale(1) translateX(0);     box-shadow: 0 0 0 0 rgba(242,177,58,0); }
+  20%  { transform: scale(1.05) translateX(-6px); box-shadow: 0 0 22px 5px rgba(242,177,58,.85); }
+  50%  { transform: scale(1.02) translateX(6px); }
+  100% { transform: scale(1) translateX(0);     box-shadow: 0 0 0 0 rgba(242,177,58,0); }
+}
+@keyframes fx-whiff {
+  0%   { transform: translateX(0); }
+  30%  { transform: translateX(3px) rotate(.5deg); }
+  60%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+@keyframes fx-heal {
+  0%   { box-shadow: 0 0 0 0 rgba(95,164,95,0); }
+  30%  { box-shadow: 0 0 16px 3px rgba(95,164,95,.7); }
+  100% { box-shadow: 0 0 0 0 rgba(95,164,95,0); }
+}
+@keyframes fx-state {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+@keyframes fx-move {
+  0%   { transform: translateY(-10px) scale(.96); opacity: .45; }
+  60%  { transform: translateY(2px) scale(1.01); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Respect de l'accessibilité : pas d'animation si l'utilisateur la refuse */
+@media (prefers-reduced-motion: reduce) {
+  #combat-fx { display: none; }
+  .combat-card.fx-hit, .combat-card.fx-crit, .combat-card.fx-whiff,
+  .combat-card.fx-heal, .combat-card.fx-state, .combat-card.fx-move { animation: none; }
+}
