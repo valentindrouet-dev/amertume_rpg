@@ -392,11 +392,11 @@
     if (target.states.onde && list.length) {
       const ignored = list.shift();
       target.states.onde = false;
-      log(wname(target.name) + ' utilise Onde et ignore <span class="lstate">' + stateLabel(ignored) + '</span>.', 'state');
+      log(cname(target) + ' utilise Onde et ignore <span class="lstate">' + stateLabel(ignored) + '</span>.', 'state');
     }
     list.forEach(function (s) {
       target.states[s] = true;
-      log(wname(target.name) + ' subit <span class="lstate">' + stateLabel(s) + '</span>.', 'state');
+      log(cname(target) + ' subit <span class="lstate">' + stateLabel(s) + '</span>.', 'state');
     });
     if (list.length) pushFx({ type: 'state', iid: target.iid });
   }
@@ -433,7 +433,9 @@
       }
     }
 
-    const diceStr = '<span class="ldice">(' + diceSeq(res.dice) + ')</span>';
+    // Décomposition : dés d'attaque + bonus de Dégâts (Dé + Dé + Dégâts)
+    const dmgTerm = dmg > 0 ? '<span class="dplus">+</span><span class="dnum d-dmg" title="Dégâts">' + dmg + '</span>' : '';
+    const diceStr = '<span class="ldice">(' + diceSeq(res.dice) + dmgTerm + ')</span>';
     const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
     // Fusionne un déplacement effectué dans la même action (« se déplace … et attaque … »).
     let movePfx = '';
@@ -463,8 +465,8 @@
     if (res.pvHealed > 0) pushFx({ type: 'heal', iid: target.iid, amount: res.pvHealed, fromPct: fromPct, toPct: toPct });
     log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
         (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' ' + diceStr + ' : ' +
-        (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' Dégâts infligés !' : 'aucun dégât') +
-        '.', res.critique ? 'crit' : 'attack');
+        (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' Dégâts infligés !' : 'aucun dégât.'),
+        res.critique ? 'crit' : 'attack');
     applyStates(attacker, target, atk);
     checkMonsterTalents(target, res.pvLost);
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
@@ -478,7 +480,9 @@
       c.status = 'coma';
       c.pv = 0;
       pushFx({ type: 'faint', iid: c.iid, side: c.side, name: c.name });
-      log(c.side === 'monster' ? (wname(c.name) + ' est vaincu (coma) !') : (wname(c.name) + ' sombre dans le coma…'),
+      log(c.side === 'monster'
+        ? (cname(c) + ' <span class="lvanq">est vaincu !</span>')
+        : (cname(c) + ' <span class="lcoma">tombe dans le coma…</span>'),
         c.side === 'monster' ? 'kill' : 'down');
     }
   }
@@ -492,7 +496,7 @@
       if (t.trigger === 'flee_on_big_hit' && pvLost >= (t.threshold || 0) && target.status === 'active') {
         target.status = 'fled';
         pushFx({ type: 'flee', iid: target.iid });
-        log(wname(target.name) + ' prend la fuite ! (talent : reçu ' + amt(pvLost, 'dmg') + ' ≥ ' + t.threshold + ')', 'turn');
+        log(cname(target) + ' prend la fuite ! (talent : reçu ' + amt(pvLost, 'dmg') + ' ≥ ' + t.threshold + ')', 'turn');
       }
     });
   }
@@ -517,7 +521,7 @@
       const x = st ? (st.bonus || 0) : 0;
       if (x > 0) {
         bonus += x;
-        log(wname(attacker.name) + ' gagne <span class="atk-dmg">+' + x + '</span> dégâts (Soutien).', 'state');
+        log(cname(attacker) + ' gagne <span class="atk-dmg">+' + x + '</span> dégâts (Soutien).', 'state');
       }
     });
     if (!tpl || !Array.isArray(tpl.talents)) return bonus;
@@ -530,7 +534,7 @@
         if (allies.length > 0) {
           const b = allies.length * (t.bonus || 1);
           bonus += b;
-          log(wname(attacker.name) + ' gagne <span class="atk-dmg">+' + b + '</span> dégâts (talent : ' +
+          log(cname(attacker) + ' gagne <span class="atk-dmg">+' + b + '</span> dégâts (talent : ' +
             allies.length + ' allié(s) au contact).', 'state');
         }
       }
@@ -702,11 +706,11 @@
       if (m.states.feu) {
         const v = 1 + Math.floor(Math.random() * 6); // ⬛ avant de fuir
         m.pv = Math.max(0, m.pv - v);
-        log(wname(m.name) + ' subit ' + amt(v, 'dmg') + ' (Feu ⬛) avant de fuir.', 'state');
+        log(cname(m) + ' subit ' + amt(v, 'dmg') + ' (Feu ⬛) avant de fuir.', 'state');
         if (m.pv <= 0) { checkComa(m); return; }
       }
       m.status = 'fled';
-      log(wname(m.name) + ' fuit le combat (talent : fuite après le tour ' + after + ').', 'turn');
+      log(cname(m) + ' fuit le combat (talent : fuite après le tour ' + after + ').', 'turn');
     });
     checkOutcome();
   }
@@ -1244,6 +1248,25 @@
     try { renderPhaseControls(); } catch (e) { console.error('[combat] renderPhaseControls', e); }
     try { renderLog(); } catch (e) { console.error('[combat] renderLog', e); }
 
+    // Catch-all : si AUCUNE carte de combattant n'a pu être affichée alors qu'il
+    // y a des combattants, on ne laisse pas un plateau vide injouable. On montre
+    // une issue de secours + un diagnostic (utile pour identifier la cause).
+    if (!root.querySelector('.combat-card')) {
+      const sides = c.combatants.reduce(function (a, x) { a[x.side] = (a[x.side] || 0) + 1; return a; }, {});
+      const diag = 'Combattants en mémoire : ' + c.combatants.length +
+        ' (aventuriers : ' + (sides.hero || 0) + ', adversaires : ' + (sides.monster || 0) + ') · zones : ' + zoneCount();
+      root.innerHTML = '<div class="card"><div class="card-head"><h3>Combat</h3></div>' +
+        '<p class="empty">Impossible d\'afficher les combattants de ce combat sur cet appareil.</p>' +
+        '<p class="hint">' + esc(diag) + '</p>' +
+        '<div class="modal-actions"><button id="combat-discard" class="primary">Quitter ce combat</button></div></div>';
+      const db = document.getElementById('combat-discard');
+      if (db) db.addEventListener('click', function () {
+        if (combatKey === 'combat' && Store.state.sessionCombat) endCombat(false);
+        else { setCombat(null); render(); }
+      });
+      return;
+    }
+
     $('#cb-end').addEventListener('click', function () {
       const isSession = combatKey === 'combat' && Store.state.sessionCombat;
       if (isSession) {
@@ -1566,7 +1589,7 @@
         if (!hero || hero.used.move) { render(); return; }
         c.analyzed = true;
         hero.used.move = true; // analyser consomme la ressource de mouvement
-        log(wname(hero.name) + ' analyse ' + wname(c.name) + ' : DEF, Dégâts et XP révélés.', 'move');
+        log(cname(hero) + ' analyse ' + cname(c) + ' : DEF, Dégâts et XP révélés.', 'move');
         Store.save(); render();
       });
     }
@@ -1635,7 +1658,7 @@
       });
       const obj = root.querySelector('.do-object[data-iid="' + c.iid + '"]');
       if (obj) obj.addEventListener('click', function () {
-        c.used.object = true; log(wname(c.name) + ' utilise un objet.', 'move'); Store.save(); render();
+        c.used.object = true; log(cname(c) + ' utilise un objet.', 'move'); Store.save(); render();
       });
       // Mouvement : arme le déplacement, puis on clique la zone de destination
       const mv = root.querySelector('.do-move[data-iid="' + c.iid + '"]');
@@ -1658,7 +1681,7 @@
       for (let i = 0; i < n; i++) { const v = 1 + Math.floor(Math.random() * 6); rolls.push(dnum(v, 'green')); heal += v; }
       const before = h.pv;
       h.pv = Math.min(h.maxPv, h.pv + heal);
-      log(wname(h.name) + ' prend un repos court et récupère ' + amt(h.pv - before, 'heal') + ' PV ' +
+      log(cname(h) + ' prend un repos court et récupère ' + amt(h.pv - before, 'heal') + ' PV ' +
         '<span class="ldice">(' + rolls.join('<span class="dplus">+</span>') + ')</span>.', 'heal');
     });
     c.restDone = true;
