@@ -1278,23 +1278,24 @@
     try { renderPhaseControls(); } catch (e) { console.error('[combat] renderPhaseControls', e); }
     try { renderLog(); } catch (e) { console.error('[combat] renderLog', e); }
 
-    // Catch-all : si AUCUNE carte de combattant n'a pu être affichée alors qu'il
-    // y a des combattants, on ne laisse pas un plateau vide injouable. On montre
-    // une issue de secours + un diagnostic détaillé (cause exacte).
+    // Filet ULTIME : si aucune carte n'a pu s'afficher (placement incohérent,
+    // snapshot hérité…), on FORCE le rendu de tous les combattants — regroupés —
+    // au lieu d'afficher un message d'erreur. Le combat reste jouable.
     if (!root.querySelector('.combat-card')) {
-      const sides = c.combatants.reduce(function (a, x) { a[x.side] = (a[x.side] || 0) + 1; return a; }, {});
-      const placements = c.combatants.map(function (x) { return (String(x.side || '?').charAt(0)) + x.zone + (x.status && x.status !== 'active' ? '×' : ''); }).join(' ');
-      const boxes = root.querySelectorAll('[id^="zone-cards-"]').length;
-      const diag = c.combatants.length + ' combattants (av:' + (sides.hero || 0) + ' adv:' + (sides.monster || 0) +
-        ') · zones:' + zoneCount() + ' · conteneurs:' + boxes + ' · placements:[' + placements + ']' +
-        (zonesErr ? ' · ERREUR: ' + (zonesErr.message || zonesErr) : '');
-      root.innerHTML = '<div class="card"><div class="card-head"><h3>Combat</h3></div>' +
-        '<p class="empty">Impossible d\'afficher les combattants de ce combat sur cet appareil.</p>' +
-        '<p class="hint" style="word-break:break-word">' + esc(diag) + '</p>' +
-        '<div class="modal-actions"><button id="combat-discard" class="primary">Quitter ce combat</button></div></div>';
-      const db = document.getElementById('combat-discard');
-      if (db) db.addEventListener('click', discardCombat);
-      return;
+      const fighters = c.combatants.filter(function (x) { return x.side === 'hero' || x.status === 'active'; });
+      let box = $('#zone-cards-0') || root.querySelector('[id^="zone-cards-"]');
+      if (!box) {
+        const wrap = document.createElement('div');
+        wrap.className = 'combat-zones-grid zc-1';
+        wrap.innerHTML = '<div class="combat-zone"><div class="zone-name">Combattants</div>' +
+          '<div class="zone-cards" id="zone-cards-0"></div></div>';
+        root.appendChild(wrap);
+        box = wrap.querySelector('#zone-cards-0');
+      }
+      if (box && fighters.length) {
+        box.innerHTML = '<div class="hero-grid">' + fighters.map(safeCard).join('') + '</div>';
+        fighters.forEach(function (x) { try { wireCard(x); } catch (e) { console.error('[combat] wireCard (secours)', x && x.iid, e); } });
+      }
     }
 
     $('#cb-end').addEventListener('click', function () {
