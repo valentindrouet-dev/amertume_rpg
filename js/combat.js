@@ -418,7 +418,7 @@
     if (c.status === 'active' && c.pv <= 0) {
       c.status = 'coma';
       c.pv = 0;
-      pushFx({ type: 'faint', iid: c.iid });
+      pushFx({ type: 'faint', iid: c.iid, side: c.side });
       log(c.side === 'monster' ? (wname(c.name) + ' est vaincu (coma) !') : (wname(c.name) + ' sombre dans le coma…'),
         c.side === 'monster' ? 'kill' : 'down');
     }
@@ -746,10 +746,29 @@
     fill.style.width = fromPct + '%';
     void fill.offsetWidth; // reflow
     requestAnimationFrame(function () {
-      fill.style.transition = 'width .45s ease';
+      fill.style.transition = 'width .7s ease';
       fill.style.width = toPct + '%';
     });
   }
+  // Fondu d'un adversaire vaincu : sa carte ayant disparu de la zone, on en
+  // recrée un clone fantôme dans la couche d'effets, calé sur sa zone, qui se
+  // désature et s'efface.
+  function spawnGhostFade(iid) {
+    const c = byId(iid);
+    if (!c) return;
+    const root = $(rootSel); if (!root) return;
+    const zoneBox = root.querySelector('#zone-cards-' + c.zone) || root;
+    const rect = zoneBox.getBoundingClientRect();
+    const ghost = document.createElement('div');
+    ghost.className = 'fx-ghost';
+    ghost.style.left = rect.left + 'px';
+    ghost.style.top = rect.top + 'px';
+    ghost.style.width = Math.min(rect.width, 300) + 'px';
+    try { ghost.innerHTML = renderCard(c); } catch (e) { ghost.textContent = c.name || ''; }
+    fxLayer().appendChild(ghost);
+    ghost.addEventListener('animationend', function () { ghost.remove(); }, { once: true });
+  }
+
   function flushFx() {
     if (!fxQueue.length) return;
     const q = fxQueue; fxQueue = [];
@@ -785,9 +804,13 @@
           cardAnim(a.card, 'fx-move');
           break;
         case 'faint':
+          // Les aventuriers au coma restent affichés (grisés) dans leur zone ;
+          // seuls les adversaires vaincus quittent le plateau → fondu fantôme.
+          if (ev.side === 'monster') spawnGhostFade(ev.iid);
           floatText(a.rect, '💀', 'fx-burst');
           break;
         case 'flee':
+          spawnGhostFade(ev.iid);
           floatText(a.rect, 'En fuite', 'fx-miss');
           break;
       }
