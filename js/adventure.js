@@ -49,7 +49,8 @@
       type: 'exploration',
       title: '',
       text: '',           // champ hérité — conservé pour compatibilité
-      blocks: [],         // [{ id, type, content }]
+      // Toute nouvelle scène démarre avec un bloc narratif déjà prêt à éditer.
+      blocks: [{ id: Store.uid(), type: 'narrative', content: '' }],
       fait: '',           // résumé ajouté au journal du joueur à l'arrivée sur la scène
       // navigation
       choices: [],        // [{ id, label, targetSceneId }]
@@ -440,20 +441,24 @@
   }
 
   function refreshSceneModalSections(scene, adv) {
-    const type = scene.type;
     const monsters = Store.state.monsters;
     const items = Store.state.items;
     const curCh = chapterOfScene(adv, scene.id);
     const allScenes = buildAllScenes(adv, curCh ? curCh.id : null);
 
-    // Choix / navigation
     const choicesBox = document.getElementById('sm-choices-section');
     const combatBox = document.getElementById('sm-combat-section');
     const rewardBox = document.getElementById('sm-reward-section');
     const nextBox = document.getElementById('sm-next-section');
 
-    // nextSceneId (exploration, interaction, reward)
-    nextBox.style.display = (type === 'combat' || type === 'fin') ? 'none' : '';
+    // Le type de scène n'est qu'un libellé pour se repérer dans l'arbre : TOUTES
+    // les fonctions (suite, choix, combat, récompense) sont disponibles partout.
+    nextBox.style.display = '';
+    choicesBox.style.display = '';
+    combatBox.style.display = '';
+    rewardBox.style.display = '';
+
+    // Scène suivante (auto)
     document.getElementById('sm-next').innerHTML = sceneTargetOptions(allScenes, scene.nextSceneId, adv);
     document.getElementById('sm-next').onchange = function () {
       if (handleTargetSelect(this.value, scene, adv, function (id) { scene.nextSceneId = id; })) {
@@ -461,35 +466,28 @@
       }
     };
 
-    // Choices (exploration, interaction)
-    choicesBox.style.display = (type === 'exploration' || type === 'interaction') ? '' : 'none';
+    // Choix
     renderChoicesEditor(scene, adv);
 
     // Combat
-    combatBox.style.display = type === 'combat' ? '' : 'none';
-    if (type === 'combat') {
-      document.getElementById('sm-outcome').innerHTML = sceneTargetOptions(allScenes, scene.outcomeSceneId, adv);
-      document.getElementById('sm-defeat').innerHTML = sceneTargetOptions(allScenes, scene.defeatSceneId, adv);
-      document.getElementById('sm-outcome').onchange = function () {
-        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.outcomeSceneId = id; })) {
-          refreshSceneModalSections(scene, adv);
-        }
-      };
-      document.getElementById('sm-defeat').onchange = function () {
-        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.defeatSceneId = id; })) {
-          refreshSceneModalSections(scene, adv);
-        }
-      };
-      renderMonsterRefs(scene, monsters);
-    }
+    document.getElementById('sm-outcome').innerHTML = sceneTargetOptions(allScenes, scene.outcomeSceneId, adv);
+    document.getElementById('sm-defeat').innerHTML = sceneTargetOptions(allScenes, scene.defeatSceneId, adv);
+    document.getElementById('sm-outcome').onchange = function () {
+      if (handleTargetSelect(this.value, scene, adv, function (id) { scene.outcomeSceneId = id; })) {
+        refreshSceneModalSections(scene, adv);
+      }
+    };
+    document.getElementById('sm-defeat').onchange = function () {
+      if (handleTargetSelect(this.value, scene, adv, function (id) { scene.defeatSceneId = id; })) {
+        refreshSceneModalSections(scene, adv);
+      }
+    };
+    renderMonsterRefs(scene, monsters);
 
-    // Reward
-    rewardBox.style.display = type === 'reward' ? '' : 'none';
-    if (type === 'reward') {
-      document.getElementById('sm-xp').value = scene.xpReward || 0;
-      document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
-      renderItemRewards(scene, items);
-    }
+    // Récompense
+    document.getElementById('sm-xp').value = scene.xpReward || 0;
+    document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
+    renderItemRewards(scene, items);
   }
 
   function renderBlocksEditor(scene) {
@@ -503,7 +501,8 @@
           return '<option value="' + t.value + '"' + (t.value === blk.type ? ' selected' : '') + '>' + esc(t.label) + '</option>';
         }).join('');
         const last = i === scene.blocks.length - 1;
-        return '<div class="adv-block-row">' +
+        // Le fond de la ligne reprend la couleur du type de bloc (repère visuel)
+        return '<div class="adv-block-row block-' + (blk.type || 'narrative') + '">' +
           '<div class="adv-block-row-head">' +
             '<select class="block-type-sel">' + typeOpts + '</select>' +
             '<button type="button" class="icon-btn block-up" title="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
@@ -515,7 +514,11 @@
       }).join('');
     }
     box.querySelectorAll('.block-type-sel').forEach(function (sel, i) {
-      sel.onchange = function () { scene.blocks[i].type = this.value; };
+      sel.onchange = function () {
+        scene.blocks[i].type = this.value;
+        const row = this.closest('.adv-block-row');
+        if (row) row.className = 'adv-block-row block-' + this.value;
+      };
     });
     box.querySelectorAll('.block-content').forEach(function (ta, i) {
       ta.oninput = function () { scene.blocks[i].content = this.value; };

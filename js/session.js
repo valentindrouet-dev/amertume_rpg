@@ -340,63 +340,88 @@
     }).join('') + '</div>';
   }
 
+  // Une scène déclenche un combat si l'une de ses zones contient au moins un monstre
+  function sceneHasCombat(scene) {
+    return sceneZones(scene).some(function (z) {
+      return (z.monsterRefs || []).some(function (r) { return r.monsterId; });
+    });
+  }
+  // Une scène donne une récompense si elle accorde de l'XP ou au moins un objet
+  function sceneHasReward(scene) {
+    return (scene.xpReward && scene.xpReward > 0) ||
+      (Array.isArray(scene.itemRewards) && scene.itemRewards.some(function (r) { return r.itemId; }));
+  }
+  function appendSection(box) {
+    const d = document.createElement('div');
+    box.appendChild(d);
+    return d;
+  }
+
+  // Le type de scène n'est qu'un libellé : on affiche les fonctions réellement
+  // présentes dans la scène (récompense, combat, choix, suite), dans cet ordre.
   function renderSceneActions(scene, adv, ses) {
     const box = $('#ses-actions');
     if (!box) return;
     box.innerHTML = '';
 
-    if (scene.type === 'combat') {
-      renderCombatScene(box, scene, adv, ses);
-    } else if (scene.type === 'reward') {
-      renderRewardScene(box, scene, adv, ses);
-    } else if (scene.type === 'fin') {
-      box.innerHTML = '<div class="ses-fin"><strong>Fin de l\'aventure.</strong>' +
-        '<button class="primary" id="ses-fin-btn" style="margin-top:.75rem">Terminer la session</button></div>';
-      document.getElementById('ses-fin-btn').addEventListener('click', function () {
-        ses.status = 'ended'; ses.party.xp = 0;
-        save(); activeSession = null; render();
-      });
-    } else {
-      // exploration / interaction : choix ou avancer
-      if (scene.choices && scene.choices.length) {
-        const DIFF = { facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile' };
-        box.innerHTML = '<div class="ses-choices">' +
-          scene.choices.map(function (ch, i) {
-            if (ch.skillTest) {
-              const bh = bestHeroForSkill(ses, ch.skill);
-              const helper = bh.hero
-                ? '<div class="ses-choice-help">🎲 ' + esc(bh.hero.name) + ' — ' + esc(ch.skill || '') + ' +' + bh.bonus + ' · ' + (DIFF[ch.difficulty] || 'Moyen') + '</div>'
-                : '<div class="ses-choice-help">Aucun aventurier disponible pour ce test</div>';
-              return '<div class="ses-choice">' +
-                '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '">' +
-                  esc(ch.label) + ' <span class="choice-skill">(Compétence) ' + esc(ch.skill || '') + '</span></button>' +
-                helper +
-                (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
-              '</div>';
-            }
-            return '<div class="ses-choice">' +
-              '<button class="ses-choice-btn choice-type-' + (ch.choiceType || 'neutre') + '" data-target="' + ch.targetSceneId + '">' + esc(ch.label) + '</button>' +
-              (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
-            '</div>';
-          }).join('') +
-        '</div>';
-        box.querySelectorAll('.ses-choice-btn').forEach(function (b) {
-          b.addEventListener('click', function () {
-            const ci = b.getAttribute('data-ci');
-            if (ci !== null) { runSkillTest(ses, adv, scene, scene.choices[+ci]); return; }
-            const targetId = b.getAttribute('data-target');
-            ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent, targetSceneId: targetId });
-            navigateTo(ses, adv, targetId);
-          });
-        });
-      } else if (scene.nextSceneId) {
-        box.innerHTML = '<button class="primary" id="ses-next">Continuer →</button>';
-        document.getElementById('ses-next').addEventListener('click', function () {
-          navigateTo(ses, adv, scene.nextSceneId);
-        });
-      }
-    }
+    if (sceneHasReward(scene)) renderRewardScene(box, scene, adv, ses);
+    if (sceneHasCombat(scene)) renderCombatScene(box, scene, adv, ses);
+    const hasChoices = scene.choices && scene.choices.length;
+    if (hasChoices) renderChoicesPlay(box, scene, adv, ses);
+    else if (scene.nextSceneId) renderNextButton(box, scene, adv, ses);
+    if (scene.type === 'fin') renderFinButton(box, scene, adv, ses);
+  }
 
+  function renderChoicesPlay(box, scene, adv, ses) {
+    const DIFF = { facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile' };
+    const sec = appendSection(box);
+    sec.innerHTML = '<div class="ses-choices">' +
+      scene.choices.map(function (ch, i) {
+        if (ch.skillTest) {
+          const bh = bestHeroForSkill(ses, ch.skill);
+          const helper = bh.hero
+            ? '<div class="ses-choice-help">🎲 ' + esc(bh.hero.name) + ' — ' + esc(ch.skill || '') + ' +' + bh.bonus + ' · ' + (DIFF[ch.difficulty] || 'Moyen') + '</div>'
+            : '<div class="ses-choice-help">Aucun aventurier disponible pour ce test</div>';
+          return '<div class="ses-choice">' +
+            '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '">' +
+              esc(ch.label) + ' <span class="choice-skill">(Compétence) ' + esc(ch.skill || '') + '</span></button>' +
+            helper +
+            (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
+          '</div>';
+        }
+        return '<div class="ses-choice">' +
+          '<button class="ses-choice-btn choice-type-' + (ch.choiceType || 'neutre') + '" data-target="' + ch.targetSceneId + '">' + esc(ch.label) + '</button>' +
+          (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
+        '</div>';
+      }).join('') +
+    '</div>';
+    sec.querySelectorAll('.ses-choice-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const ci = b.getAttribute('data-ci');
+        if (ci !== null) { runSkillTest(ses, adv, scene, scene.choices[+ci]); return; }
+        const targetId = b.getAttribute('data-target');
+        ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent, targetSceneId: targetId });
+        navigateTo(ses, adv, targetId);
+      });
+    });
+  }
+
+  function renderNextButton(box, scene, adv, ses) {
+    const sec = appendSection(box);
+    sec.innerHTML = '<button class="primary" id="ses-next">Continuer →</button>';
+    sec.querySelector('#ses-next').addEventListener('click', function () {
+      navigateTo(ses, adv, scene.nextSceneId);
+    });
+  }
+
+  function renderFinButton(box, scene, adv, ses) {
+    const sec = appendSection(box);
+    sec.innerHTML = '<div class="ses-fin"><strong>Fin de l\'aventure.</strong>' +
+      '<button class="primary" id="ses-fin-btn" style="margin-top:.75rem">Terminer la session</button></div>';
+    sec.querySelector('#ses-fin-btn').addEventListener('click', function () {
+      ses.status = 'ended'; ses.party.xp = 0;
+      save(); activeSession = null; render();
+    });
   }
 
   // ----- Tests de compétence -----
@@ -487,7 +512,8 @@
       }).join('') +
     '</div>';
 
-    box.innerHTML =
+    const sec = appendSection(box);
+    sec.innerHTML =
       '<div class="ses-combat-block">' +
         '<p class="hint">Disposition du combat (vous ne pouvez pas changer votre position de départ) :</p>' +
         preview +
@@ -500,15 +526,15 @@
         '</div>' +
       '</div>';
 
-    document.getElementById('ses-start-combat').addEventListener('click', function () {
+    sec.querySelector('#ses-start-combat').addEventListener('click', function () {
       launchSessionCombat(scene, adv, ses);
     });
-    const sv = document.getElementById('ses-skip-victory');
+    const sv = sec.querySelector('#ses-skip-victory');
     if (sv) sv.addEventListener('click', function () {
       if (!confirm('Passer le Combat (victoire) ? Vous ne gagnerez aucune récompense ni XP de ce combat.')) return;
       navigateTo(ses, adv, scene.outcomeSceneId);
     });
-    const sd = document.getElementById('ses-skip-defeat');
+    const sd = sec.querySelector('#ses-skip-defeat');
     if (sd) sd.addEventListener('click', function () {
       if (!confirm('Passer le Combat (défaite) ? Vous subirez une défaite.')) return;
       navigateTo(ses, adv, scene.defeatSceneId);
@@ -554,14 +580,20 @@
       return (it ? it.name : '?') + (r.qty > 1 ? ' ×' + r.qty : '');
     });
 
-    box.innerHTML =
+    const sec = appendSection(box);
+    if (!ses.claimedRewards) ses.claimedRewards = {};
+    const claimed = !!ses.claimedRewards[scene.id];
+    sec.innerHTML =
       '<div class="ses-reward-block">' +
         (xp ? '<p>✦ <strong>+' + xp + ' XP</strong> à distribuer</p>' : '') +
         (rewards.length ? '<p>Objets : <strong>' + esc(rewards.join(', ')) + '</strong></p>' : '') +
-        '<button class="primary" id="ses-claim-reward">Récupérer la récompense</button>' +
+        (claimed
+          ? '<p class="hint">Récompense déjà récupérée.</p>'
+          : '<button class="primary" id="ses-claim-reward">Récupérer la récompense</button>') +
       '</div>';
 
-    document.getElementById('ses-claim-reward').addEventListener('click', function () {
+    const claimBtn = sec.querySelector('#ses-claim-reward');
+    if (claimBtn) claimBtn.addEventListener('click', function () {
       // XP attribuée uniquement à la session (jamais à l'XP du mode Admin)
       if (xp > 0) { ses.party.xp = (ses.party.xp || 0) + xp; }
       // Ajouter les objets à l'inventaire, en mémorisant ce qui a été acquis durant l'aventure
@@ -575,11 +607,14 @@
           ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
         }
       });
+      ses.claimedRewards[scene.id] = true;
       save();
       Store.save();
-      const nextId = scene.nextSceneId;
-      if (nextId) navigateTo(ses, adv, nextId);
-      else { box.innerHTML = '<p class="empty">Récompense récupérée. Aucune scène suivante définie.</p>'; }
+      // S'enchaîne vers la suite seulement si la scène n'a ni combat ni choix
+      // (sinon on laisse le joueur poursuivre ces autres fonctions de la scène).
+      const hasOther = sceneHasCombat(scene) || (scene.choices && scene.choices.length);
+      if (!hasOther && scene.nextSceneId) navigateTo(ses, adv, scene.nextSceneId);
+      else { renderSceneActions(scene, adv, ses); if (global.Combatants) { try { Combatants.renderProgress(); } catch (e) {} } }
     });
   }
 

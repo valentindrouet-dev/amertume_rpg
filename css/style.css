@@ -752,6 +752,10 @@ main { padding: 1.5rem 1.25rem 3rem; }
 /* PV des aventuriers en vert (combat + liste du groupe en mode aventure) */
 .combat-card.side-hero .pv-fill,
 .ses-hero-row .pv-fill { background: linear-gradient(90deg, #4f9a4f, #74c274); }
+/* Barres de PV des aventuriers en mode aventure (colonne de droite) :
+   même fond sombre + même vert que dans le module de combat. */
+.ses-hero-row .pv-bar { background: rgba(40,28,14,.55); }
+.ses-hero-row .pv-text { color: #fff; }
 .combat-card .pv-text { color: #fff; }
 .combat-card .ghost.xs, .combat-card .ghost.small { background: rgba(255,255,255,.5); color: #3a2c19; border-color: rgba(80,55,20,.3); }
 .combat-card .ghost.xs:hover, .combat-card .ghost.small:hover { border-color: var(--accent); }
@@ -985,6 +989,12 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .adv-block-row-head { display: flex; align-items: center; gap: .45rem; }
 .adv-block-row-head select { flex: 1; font-size: .85rem; }
 .adv-block-row .block-content { font-size: .88rem; resize: vertical; }
+/* Fond de la ligne selon le type de bloc (aide visuelle pour l'auteur),
+   mêmes teintes que le rendu joueur. */
+.adv-block-row.block-narrative { background: rgba(141,134,118,.16); border-left: 3px solid #9b968a; }
+.adv-block-row.block-technical { background: rgba(74,141,214,.16);  border-left: 3px solid #4a8dd6; }
+.adv-block-row.block-alert     { background: rgba(214,92,64,.18);   border-left: 3px solid var(--accent); }
+.adv-block-row.block-tip       { background: rgba(111,174,111,.18); border-left: 3px solid var(--good); }
 
 /* ===================================================================
    v8 — Coquille de navigation : Accueil / Mode Joueur / Mode MJ-Admin
