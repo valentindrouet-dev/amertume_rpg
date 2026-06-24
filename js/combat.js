@@ -101,6 +101,17 @@
     const heroZone = Math.min(Math.max(0, cfg.heroStartZone || 0), zones.length - 1);
     const combatants = [];
     heroObjs.forEach(function (h, i) { const inst = instFromHero(h, i); inst.zone = heroZone; combatants.push(inst); });
+    // Numérotation globale par template : on compte d'abord le total d'exemplaires
+    // de chaque adversaire sur tout le combat (toutes zones confondues), puis on
+    // numérote en continu — sans « # » et indépendamment de la zone, car un
+    // adversaire peut changer de zone (« Répurgateur 2 »).
+    const totalByTpl = {};
+    (cfg.zones || []).forEach(function (z) {
+      (z.monsterRefs || []).forEach(function (ref) {
+        totalByTpl[ref.monsterId] = (totalByTpl[ref.monsterId] || 0) + (ref.count || 1);
+      });
+    });
+    const seqByTpl = {};
     let mi = 0;
     (cfg.zones || []).forEach(function (z, zi) {
       (z.monsterRefs || []).forEach(function (ref) {
@@ -109,7 +120,8 @@
         const count = ref.count || 1;
         for (let k = 0; k < count; k++) {
           const inst = instFromMonster(tpl, mi++);
-          if (count > 1) inst.name = tpl.name + ' #' + (k + 1);
+          seqByTpl[tpl.id] = (seqByTpl[tpl.id] || 0) + 1;
+          if (totalByTpl[tpl.id] > 1) inst.name = tpl.name + ' ' + seqByTpl[tpl.id];
           inst.zone = Math.min(zi, zones.length - 1);
           combatants.push(inst);
         }
@@ -543,7 +555,7 @@
   // puis par numéro (#1, #2…) pour les exemplaires multiples.
   const ACT_RANK = { standard: 0, alpha: 1, solitaire: 2, boss: 3 };
   function actRank(t) { return ACT_RANK.hasOwnProperty(t) ? ACT_RANK[t] : 9; }
-  function monsterNum(name) { const r = /#(\d+)/.exec(name || ''); return r ? parseInt(r[1], 10) : 0; }
+  function monsterNum(name) { const r = / (\d+)$/.exec(name || ''); return r ? parseInt(r[1], 10) : 0; }
   function activationOrder() {
     return activeOf('monster').slice().sort(function (a, b) {
       return actRank(a.type) - actRank(b.type) || monsterNum(a.name) - monsterNum(b.name);
@@ -861,10 +873,14 @@
           cardAnim(a.card, 'fx-move');
           break;
         case 'faint':
-          // Adversaire vaincu : fondu fantôme + 💀. Aventurier : il reste affiché
-          // (grisé) dans sa zone, on annonce son coma en gros au centre de l'écran.
-          if (ev.side === 'monster') { spawnGhostFade(ev.iid); floatText(a.rect, '💀', 'fx-burst'); }
-          else centerText((ev.name || 'Un aventurier') + ' tombe dans le coma !', 'fx-center-coma');
+          // Adversaire vaincu : fondu fantôme + annonce centrale « <Nom> est vaincu ! ».
+          // Aventurier : il reste affiché (grisé) dans sa zone ; coma annoncé au centre.
+          if (ev.side === 'monster') {
+            spawnGhostFade(ev.iid);
+            centerText((ev.name || 'Un adversaire') + ' est vaincu !', 'fx-center-foe');
+          } else {
+            centerText((ev.name || 'Un aventurier') + ' tombe dans le coma !', 'fx-center-coma');
+          }
           break;
         case 'flee':
           spawnGhostFade(ev.iid);
@@ -1184,7 +1200,7 @@
   // Adversaires d'une zone : Boss > Solitaire > Alpha > Sbires (standards groupés)
   const MTYPE_RANK = { boss: 0, solitaire: 1, alpha: 2, standard: 3 };
   function mrank(t) { return MTYPE_RANK.hasOwnProperty(t) ? MTYPE_RANK[t] : 9; }
-  function baseName(n) { return (n || '').replace(/\s*#\d+$/, ''); }
+  function baseName(n) { return (n || '').replace(/\s+\d+$/, ''); }
 
   // Rendu protégé d'une carte : si un combattant corrompu fait planter renderCard,
   // on affiche une carte minimale au lieu de laisser tout le plateau vide.
@@ -1283,7 +1299,8 @@
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
         (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
-        (c.type !== 'hero' ? '<span class="tag type">' + Combatants.TYPE_LABEL[c.type] + '</span>' : '') +
+        // Le type d'adversaire (Sbire/Solitaire/…) n'est plus affiché sur la carte
+        // de combat : trop encombrant (provoquait un retour à la ligne).
         (c.rapide ? '<span class="tag">Rapide</span>' : '') +
         (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
       '</div>' +

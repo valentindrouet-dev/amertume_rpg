@@ -1805,6 +1805,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .fx-center-crit { color: #f5bd45; font-size: clamp(2.6rem, 8vw, 4.4rem); letter-spacing: .05em; }
 .fx-center-fail { color: #c4ccd1; font-size: clamp(2rem, 6vw, 3.2rem); letter-spacing: .03em; }
 .fx-center-coma { color: #e0563f; font-size: clamp(1.6rem, 4.5vw, 2.7rem); }
+.fx-center-foe  { color: #e8b04a; font-size: clamp(1.8rem, 5vw, 3rem); letter-spacing: .02em; }
 @keyframes fx-center-anim {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
   12%  { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
