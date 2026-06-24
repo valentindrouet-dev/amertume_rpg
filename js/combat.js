@@ -1042,9 +1042,11 @@
       '<div class="card"><div class="card-head"><h3>Journal de combat</h3></div>' +
         '<div id="combat-log" class="combat-log"></div></div>';
 
-    renderZones();
-    renderPhaseControls();
-    renderLog();
+    // Chaque phase de rendu est isolée : un incident dans l'une ne doit jamais
+    // laisser le plateau, les contrôles ou le journal entièrement vides.
+    try { renderZones(); } catch (e) { console.error('[combat] renderZones', e); }
+    try { renderPhaseControls(); } catch (e) { console.error('[combat] renderPhaseControls', e); }
+    try { renderLog(); } catch (e) { console.error('[combat] renderLog', e); }
 
     $('#cb-end').addEventListener('click', function () {
       const isSession = combatKey === 'combat' && Store.state.sessionCombat;
@@ -1104,6 +1106,20 @@
   function mrank(t) { return MTYPE_RANK.hasOwnProperty(t) ? MTYPE_RANK[t] : 9; }
   function baseName(n) { return (n || '').replace(/\s*#\d+$/, ''); }
 
+  // Rendu protégé d'une carte : si un combattant corrompu fait planter renderCard,
+  // on affiche une carte minimale au lieu de laisser tout le plateau vide.
+  function safeCard(c) {
+    try { return renderCard(c); }
+    catch (e) {
+      console.error('[combat] renderCard a échoué pour', c && c.iid, c, e);
+      return '<div class="combat-card side-' + ((c && c.side) || 'hero') + '" data-iid="' + ((c && c.iid) || '') + '">' +
+        '<div class="cc-head"><span class="roster-name">' + esc((c && c.name) || '?') + '</span>' +
+        '<span class="tag dead">⚠</span></div>' +
+        '<div class="cc-pvline"><div class="pv-bar"><div class="pv-fill" style="width:100%"></div>' +
+        '<span class="pv-text">' + ((c && c.pv) || 0) + ' / ' + ((c && c.maxPv) || 0) + ' PV</span></div></div></div>';
+    }
+  }
+
   function renderZones() {
     zones().forEach(function (z, zi) {
       const box = $('#zone-cards-' + zi);
@@ -1114,15 +1130,17 @@
       const monsters = combat().combatants.filter(function (c) { return c.zone === zi && c.side === 'monster' && c.status === 'active'; })
         .sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
       // Aventuriers côte à côte (grille), pour gagner de la place
-      let html = heroes.length ? '<div class="hero-grid">' + heroes.map(renderCard).join('') + '</div>' : '';
+      let html = heroes.length ? '<div class="hero-grid">' + heroes.map(safeCard).join('') + '</div>' : '';
       // Les sbires (standard) occupent toujours une demi-largeur (grille), même seuls ;
       // les autres types prennent toute la largeur.
       const sbires = monsters.filter(function (m) { return m.type === 'standard'; });
       const elites = monsters.filter(function (m) { return m.type !== 'standard'; });
-      if (sbires.length) html += '<div class="monster-grid">' + sbires.map(renderCard).join('') + '</div>';
-      elites.forEach(function (m) { html += renderCard(m); });
+      if (sbires.length) html += '<div class="monster-grid">' + sbires.map(safeCard).join('') + '</div>';
+      elites.forEach(function (m) { html += safeCard(m); });
       box.innerHTML = html || '<p class="empty zone-empty">Zone vide</p>';
-      heroes.concat(monsters).forEach(function (c) { wireCard(c); });
+      heroes.concat(monsters).forEach(function (c) {
+        try { wireCard(c); } catch (e) { console.error('[combat] wireCard a échoué pour', c && c.iid, e); }
+      });
     });
     renderCemetery();
   }
@@ -1155,6 +1173,14 @@
   }
 
   function renderCard(c) {
+    // Garde-fous : un combattant persisté incomplet ne doit jamais faire planter
+    // le rendu (sinon tout le plateau disparaît). On comble les sous-objets requis.
+    if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false };
+    if (!c.used) c.used = { action: false, move: false, object: false };
+    if (!Array.isArray(c.attacks)) c.attacks = [];
+    if (!Array.isArray(c.attackUses) || c.attackUses.length !== c.attacks.length) {
+      c.attackUses = c.attacks.map(function (a) { return (a && a.uses && a.uses > 0) ? a.uses : null; });
+    }
     const pct = Math.round((c.pv / c.maxPv) * 100);
     const dead = c.status !== 'active';
     const cls = ['combat-card', 'side-' + c.side];
