@@ -385,7 +385,7 @@
     if (res.echec) {
       log(wname(attacker.name) + ' rate son attaque (' + label + ') contre ' + wname(target.name) +
         ' — <span class="lfail">Échec</span> ' + diceStr + '.', 'attack');
-      pushFx({ type: 'miss', iid: target.iid, text: 'Raté' });
+      pushFx({ type: 'miss', iid: target.iid, text: 'ÉCHEC', center: true });
       return;
     }
     if (negated) {
@@ -418,7 +418,7 @@
     if (c.status === 'active' && c.pv <= 0) {
       c.status = 'coma';
       c.pv = 0;
-      pushFx({ type: 'faint', iid: c.iid, side: c.side });
+      pushFx({ type: 'faint', iid: c.iid, side: c.side, name: c.name });
       log(c.side === 'monster' ? (wname(c.name) + ' est vaincu (coma) !') : (wname(c.name) + ' sombre dans le coma…'),
         c.side === 'monster' ? 'kill' : 'down');
     }
@@ -511,36 +511,81 @@
   // Cœur de la phase adverse (sans rendu) — gestion par zones
   // Contact : frappe en priorité un héros de sa zone (se déplace si besoin).
   // Distance : frappe en priorité un héros d'une autre zone.
-  function monstersActCore() {
-    activeOf('monster').forEach(function (m) {
-      if (m.used.action || m.states.auSol) return; // Au sol : pas d'action
-      const heroes = activeOf('hero');
-      if (!heroes.length) return;
-      const sameZone = heroes.filter(function (h) { return h.zone === m.zone; });
-      const otherZone = heroes.filter(function (h) { return h.zone !== m.zone; });
-      const contactIdx = usableAttackIdx(m, 'contact');
-      const distIdx = usableAttackIdx(m, 'distance');
+  // Activation d'un seul adversaire (choix de cible + attaque/déplacement)
+  function actOneMonster(m) {
+    if (m.used.action || m.states.auSol) return; // Au sol : pas d'action
+    const heroes = activeOf('hero');
+    if (!heroes.length) return;
+    const sameZone = heroes.filter(function (h) { return h.zone === m.zone; });
+    const otherZone = heroes.filter(function (h) { return h.zone !== m.zone; });
+    const contactIdx = usableAttackIdx(m, 'contact');
+    const distIdx = usableAttackIdx(m, 'distance');
 
-      // 1) Arme de contact + cible dans la zone → frappe au contact
-      if (contactIdx >= 0 && sameZone.length) {
-        applyAttack(m, contactIdx, chooseFrom(m, sameZone));
-      // 2) Arme à distance → frappe en priorité une autre zone, sinon n'importe qui
-      } else if (distIdx >= 0) {
-        applyAttack(m, distIdx, chooseFrom(m, otherZone.length ? otherZone : heroes));
-      // 3) Seulement du contact, personne dans la zone → se déplace vers une cible puis frappe
-      } else if (contactIdx >= 0) {
-        const target = chooseFrom(m, heroes);
-        if (target && !m.used.move) {
-          m.zone = target.zone; m.used.move = true;
-          log(wname(m.name) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
-        }
-        if (target && target.zone === m.zone) applyAttack(m, contactIdx, target);
+    // 1) Arme de contact + cible dans la zone → frappe au contact
+    if (contactIdx >= 0 && sameZone.length) {
+      applyAttack(m, contactIdx, chooseFrom(m, sameZone));
+    // 2) Arme à distance → frappe en priorité une autre zone, sinon n'importe qui
+    } else if (distIdx >= 0) {
+      applyAttack(m, distIdx, chooseFrom(m, otherZone.length ? otherZone : heroes));
+    // 3) Seulement du contact, personne dans la zone → se déplace vers une cible puis frappe
+    } else if (contactIdx >= 0) {
+      const target = chooseFrom(m, heroes);
+      if (target && !m.used.move) {
+        m.zone = target.zone; m.used.move = true;
+        pushFx({ type: 'move', iid: m.iid });
+        log(wname(m.name) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
       }
+      if (target && target.zone === m.zone) applyAttack(m, contactIdx, target);
+    }
+  }
+
+  // Ordre d'activation des adversaires : Sbire → Alpha → Solitaire → Boss,
+  // puis par numéro (#1, #2…) pour les exemplaires multiples.
+  const ACT_RANK = { standard: 0, alpha: 1, solitaire: 2, boss: 3 };
+  function actRank(t) { return ACT_RANK.hasOwnProperty(t) ? ACT_RANK[t] : 9; }
+  function monsterNum(name) { const r = /#(\d+)/.exec(name || ''); return r ? parseInt(r[1], 10) : 0; }
+  function activationOrder() {
+    return activeOf('monster').slice().sort(function (a, b) {
+      return actRank(a.type) - actRank(b.type) || monsterNum(a.name) - monsterNum(b.name);
     });
+  }
+
+  // Version synchrone (auto-combat, abandon) : tous les adversaires agissent d'un coup
+  function monstersActCore() {
+    activationOrder().forEach(actOneMonster);
     checkOutcome();
   }
 
-  function monsterAI() { monstersActCore(); Store.save(); render(); }
+  // Version séquencée (UI) : chaque adversaire agit l'un après l'autre, avec un
+  // re-rendu entre chaque pour qu'on voie distinctement qui joue. onDone() est
+  // appelé quand toute la vague a agi (ou que le combat est résolu).
+  const AI_STEP_MS = 550;
+  let aiRunning = false;
+  function monstersActSequential(onDone) {
+    const order = activationOrder();
+    let i = 0;
+    aiRunning = true;
+    function finish() { aiRunning = false; checkOutcome(); if (onDone) onDone(); }
+    function step() {
+      if (combat().outcome) { finish(); return; }
+      if (i >= order.length) { finish(); return; }
+      const m = order[i++];
+      if (m.status !== 'active' || m.used.action || m.states.auSol) { step(); return; }
+      actOneMonster(m);
+      checkOutcome();
+      Store.save();
+      render(); // joue les animations de cette activation
+      if (combat().outcome) { finish(); return; }
+      setTimeout(step, AI_STEP_MS);
+    }
+    step();
+  }
+
+
+  function monsterAI() {
+    if (aiRunning) return;
+    monstersActSequential(function () { Store.save(); render(); });
+  }
 
   // Sélection d'une cible selon la menace, parmi un ensemble de candidats
   function chooseFrom(monster, candidates) {
@@ -597,6 +642,7 @@
   // Tour des adversaires en une seule étape : tous les adversaires en vie agissent,
   // puis on enchaîne directement sur le tour suivant.
   function enemyTurnAndAdvance() {
+    if (aiRunning) return;
     // Avertissement : des aventuriers n'ont encore rien fait ce tour
     const idle = activeOf('hero').filter(function (h) { return !h.used.action && !h.used.move && !h.used.object; });
     if (idle.length) {
@@ -607,12 +653,14 @@
     const c = combat();
     c.phase = 'monsters';
     log('Tour des adversaires.', 'turn');
-    monstersActCore();
-    if (combat().outcome) { Store.save(); render(); return; }
-    doFlee();
-    if (combat().outcome) { Store.save(); render(); return; }
-    advanceTurn();
-    Store.save(); render();
+    Store.save(); render(); // affiche le passage en phase « adversaires »
+    monstersActSequential(function () {
+      if (combat().outcome) { Store.save(); render(); return; }
+      doFlee();
+      if (combat().outcome) { Store.save(); render(); return; }
+      advanceTurn();
+      Store.save(); render();
+    });
   }
 
   // ---------- Auto-combat (héros joués de façon optimisée) ----------
@@ -730,6 +778,14 @@
     fxLayer().appendChild(span);
     span.addEventListener('animationend', function () { span.remove(); }, { once: true });
   }
+  // Gros texte au centre de l'écran (échec, critique, coma d'un aventurier)
+  function centerText(text, cls) {
+    const el = document.createElement('div');
+    el.className = 'fx-center ' + cls;
+    el.textContent = text;
+    fxLayer().appendChild(el);
+    el.addEventListener('animationend', function () { el.remove(); }, { once: true });
+  }
   function cardAnim(card, cls) {
     if (!card) return;
     card.classList.remove(cls);
@@ -785,12 +841,13 @@
         case 'crit':
           cardAnim(a.card, 'fx-crit');
           if (ev.amount > 0) floatText(a.rect, '-' + ev.amount, 'fx-dmg fx-dmg-crit');
-          floatText(a.rect, 'CRITIQUE !', 'fx-burst');
+          centerText('CRITIQUE !', 'fx-center-crit'); // gros texte central
           pvGlide(a.card, ev.fromPct, ev.toPct);
           break;
         case 'miss':
           cardAnim(a.card, 'fx-whiff');
-          floatText(a.rect, ev.text || 'Raté', 'fx-miss');
+          if (ev.center) centerText(ev.text || 'ÉCHEC', 'fx-center-fail');
+          else floatText(a.rect, ev.text || 'Raté', 'fx-miss');
           break;
         case 'heal':
           cardAnim(a.card, 'fx-heal');
@@ -804,10 +861,10 @@
           cardAnim(a.card, 'fx-move');
           break;
         case 'faint':
-          // Les aventuriers au coma restent affichés (grisés) dans leur zone ;
-          // seuls les adversaires vaincus quittent le plateau → fondu fantôme.
-          if (ev.side === 'monster') spawnGhostFade(ev.iid);
-          floatText(a.rect, '💀', 'fx-burst');
+          // Adversaire vaincu : fondu fantôme + 💀. Aventurier : il reste affiché
+          // (grisé) dans sa zone, on annonce son coma en gros au centre de l'écran.
+          if (ev.side === 'monster') { spawnGhostFade(ev.iid); floatText(a.rect, '💀', 'fx-burst'); }
+          else centerText((ev.name || 'Un aventurier') + ' tombe dans le coma !', 'fx-center-coma');
           break;
         case 'flee':
           spawnGhostFade(ev.iid);

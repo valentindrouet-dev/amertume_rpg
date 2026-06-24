@@ -1795,6 +1795,24 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   100% { opacity: 0; filter: grayscale(1) brightness(.6); transform: scale(.9) translateY(12px); }
 }
 
+/* Gros texte au centre de l'écran : échec, critique, coma d'un aventurier */
+.fx-center {
+  position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%);
+  font-weight: 900; text-align: center; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 2px 12px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.6);
+  animation: fx-center-anim 1.5s ease-out forwards;
+}
+.fx-center-crit { color: #f5bd45; font-size: clamp(2.6rem, 8vw, 4.4rem); letter-spacing: .05em; }
+.fx-center-fail { color: #c4ccd1; font-size: clamp(2rem, 6vw, 3.2rem); letter-spacing: .03em; }
+.fx-center-coma { color: #e0563f; font-size: clamp(1.6rem, 4.5vw, 2.7rem); }
+@keyframes fx-center-anim {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+  26%  { transform: translate(-50%, -50%) scale(1); }
+  78%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -54%) scale(1.04); }
+}
+
 /* Respect de l'accessibilité : pas d'animation si l'utilisateur la refuse */
 @media (prefers-reduced-motion: reduce) {
   #combat-fx { display: none; }
