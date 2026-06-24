@@ -40,6 +40,12 @@
     aiToken++;
     if (aiTimer) { clearTimeout(aiTimer); aiTimer = null; }
     aiRunning = false;
+    // Purge les animations en attente du combat précédent : sinon des effets
+    // résiduels (dégâts, coma, glissement de barre de PV) rejouent sur le
+    // nouveau combat — d'autant que les aventuriers gardent le même iid.
+    fxQueue = [];
+    const fxEl = document.getElementById('combat-fx');
+    if (fxEl) fxEl.innerHTML = '';
     Store.state[combatKey] = v;
   }
 
