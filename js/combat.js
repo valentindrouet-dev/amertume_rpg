@@ -1449,6 +1449,7 @@
   }
 
   function renderZones() {
+    let placed = 0;
     zones().forEach(function (z, zi) {
       const box = $('#zone-cards-' + zi);
       if (!box) return;
@@ -1469,10 +1470,27 @@
       if (meds.length) html += '<div class="monster-grid">' + meds.map(safeCard).join('') + '</div>';
       bigs.forEach(function (m) { html += safeCard(m); });
       box.innerHTML = html || '<p class="empty zone-empty">Zone vide</p>';
+      placed += heroes.length + monsters.length;
       heroes.concat(monsters).forEach(function (c) {
         try { wireCard(c); } catch (e) { console.error('[combat] wireCard a échoué pour', c && c.iid, e); }
       });
     });
+    // Dernier recours : si AUCUN combattant n'a pu être placé dans une zone alors
+    // que le combat en contient (placement incohérent, données héritées…), on les
+    // affiche tout de même — regroupés dans le 1er conteneur — pour que le combat
+    // reste JOUABLE plutôt que de tomber sur un plateau vide.
+    if (!placed) {
+      const box = $('#zone-cards-0') || $('[id^="zone-cards-"]');
+      const fighters = combat().combatants.filter(function (c) {
+        return c.side === 'hero' || c.status === 'active';
+      });
+      if (box && fighters.length) {
+        box.innerHTML = '<div class="hero-grid">' + fighters.map(safeCard).join('') + '</div>';
+        fighters.forEach(function (c) {
+          try { wireCard(c); } catch (e) { console.error('[combat] wireCard (secours)', c && c.iid, e); }
+        });
+      }
+    }
     renderCemetery();
   }
 
