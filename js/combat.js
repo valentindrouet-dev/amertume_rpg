@@ -1434,7 +1434,7 @@
     // Cellules talents T1..T6 : remplies colonne par colonne (les spéciales d'abord)
     for (let i = 0; i < 6; i++) {
       if (i < specialAtks.length) {
-        html += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct, true);
+        html += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct);
       } else {
         html += '<button class="ab-talent" type="button" disabled title="Emplacement de talent (à venir)">Talent ' + (i + 1) + '</button>';
       }
@@ -1504,25 +1504,23 @@
   }
 
   // Bouton d'attaque du bandeau d'action (arme ou spéciale logée en talent).
-  // Pleine largeur, contenu riche : nom + portée + figurines de dés (+ Dégâts).
-  // Conserve data-iid / data-atk : c'est wireCard qui le câble.
-  function abAttackBtn(c, a, i, canAct, compact) {
+  // Taille FIXE : nom (tronqué) + figurines de dés. Les infos de portée
+  // (contact/distance, cibles, gratuite) ne s'affichent plus sur le bouton —
+  // elles restent disponibles en infobulle.
+  function abAttackBtn(c, a, i, canAct) {
     const usedA = c.used.action;
     const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
     const depleted = uses === 0;
     const blocked = !canAct || depleted || (!a.freeAction && usedA);
     const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average;
     const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
-    const rangeBits = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
-    if (a.targets === 'all') rangeBits.push('toutes');
-    if (a.freeAction) rangeBits.push('gratuite');
-    return '<button class="ab-atk atk-chip' + (isThisAtk ? ' selected' : '') + (compact ? ' ab-atk-compact' : '') +
+    const info = [(a.range === 'distance' ? 'distance' : 'contact')];
+    if (a.targets === 'all') info.push('toutes cibles');
+    if (a.freeAction) info.push('gratuite');
+    return '<button class="ab-atk atk-chip' + (isThisAtk ? ' selected' : '') +
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
-        ' title="' + esc(a.name) + '">' +
-      '<span class="ab-atk-main">' +
-        '<span class="ab-atk-name">' + esc(a.name) + '</span>' +
-        '<span class="ab-atk-range">' + rangeBits.join(' · ') + '</span>' +
-      '</span>' +
+        ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
+      '<span class="ab-atk-name">' + esc(a.name) + '</span>' +
       '<span class="ab-atk-figs">' + Inventory.poolBadges(a.dice) +
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
         (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
