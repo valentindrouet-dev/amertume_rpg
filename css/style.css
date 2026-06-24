@@ -1931,34 +1931,43 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ab-card .pv-text { color: #fff; }
 .ab-card.side-hero .pv-fill { background: linear-gradient(90deg, #4f9a4f, #74c274); }
 
-/* Zone d'actions : bloc vertical — attaques (pleine largeur), outils, talents */
-.ab-acts { display: flex; flex-direction: column; gap: .4rem; flex: 1 1 300px; min-width: 240px; }
-.ab-attacks { display: flex; flex-direction: column; gap: .4rem; }
+/* Zone d'actions : grille 2 LIGNES, remplie COLONNE PAR COLONNE (cf. croquis).
+   Col. action : Attaque (haut) + Mouv/Objet/Analyse (bas).
+   Col. 2 : Talent 1 / Talent 2 — Col. 3 : Talent 3 / Talent 4 — Col. 4 : Talent 5 / Talent 6. */
+.ab-acts {
+  display: grid; grid-template-rows: 1fr 1fr; grid-auto-flow: column;
+  grid-auto-columns: minmax(96px, 1fr); gap: .4rem; flex: 1 1 auto; min-width: 0;
+}
+/* Chaque cellule de la grille s'étire pour donner deux lignes régulières */
+.ab-acts > * { min-height: 44px; }
+.ab-attack-cell { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+.ab-attack-cell .ab-atk { flex: 1 1 auto; }
+.ab-noatk { display: flex; align-items: center; justify-content: center; color: var(--muted); }
 
-/* Bouton d'attaque : pleine largeur, solide, contenu riche (nom + portée + dés) */
+/* Bouton d'attaque : solide, contenu riche (nom + portée + dés) */
 .ab-atk {
   display: flex; align-items: center; gap: .5rem; width: 100%; box-sizing: border-box;
-  border: 1px solid var(--border); border-radius: 10px; padding: .5rem .7rem;
+  border: 1px solid var(--border); border-radius: 10px; padding: .45rem .6rem;
   background: #4d8ed1; color: #fff; cursor: pointer; text-align: left;
 }
 .ab-atk:hover:not(:disabled) { filter: brightness(1.06); }
 .ab-atk:disabled { opacity: .5; cursor: not-allowed; }
 .ab-atk.selected { background: #2f6fb0; box-shadow: 0 0 0 2px rgba(77,142,209,.5); }
 .ab-atk-main { display: flex; flex-direction: column; gap: 1px; margin-right: auto; min-width: 0; }
-.ab-atk-name { font-weight: 700; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ab-atk-range { font-size: .68rem; font-weight: 600; opacity: .92; }
+.ab-atk-name { font-weight: 700; font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ab-atk-range { font-size: .66rem; font-weight: 600; opacity: .92; }
 .ab-atk-figs { display: inline-flex; align-items: center; gap: .35rem; flex-shrink: 0; }
 .ab-atk .atk-dmg, .ab-atk .atk-uses {
   color: #fff; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.4);
   border-radius: 5px; padding: .05rem .3rem; font-weight: 700; font-size: .72rem;
 }
 
-/* Rangée d'outils : 3 boutons de largeur égale = largeur du bouton d'attaque */
-.ab-tools { display: flex; gap: .4rem; }
+/* Cellule outils : 3 boutons de largeur égale qui occupent ensemble la colonne */
+.ab-tools { display: flex; gap: .3rem; }
 .ab-tool {
   flex: 1 1 0; min-width: 0; box-sizing: border-box;
-  border: 1px solid var(--border); border-radius: 10px; padding: .55rem .4rem;
-  font-weight: 700; font-size: .82rem; color: #fff; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 9px; padding: .4rem .2rem;
+  font-weight: 700; font-size: .76rem; color: #fff; cursor: pointer;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
 }
 .ab-tool:hover:not(:disabled) { filter: brightness(1.06); }
@@ -1967,21 +1976,21 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ab-tool.obj-chip { background: #5fa45f; }
 .ab-tool.ana-chip { background: #7c5ca4; } .ab-tool.ana-chip.selected { background: #634a85; }
 
-/* 6 emplacements de talents (3 colonnes × 2 lignes) */
-.ab-talents { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }
+/* Emplacements de talents (une cellule de grille chacun) */
 .ab-talent {
-  border: 1px solid var(--border); border-radius: 9px; padding: .5rem .3rem;
+  border: 1px solid var(--border); border-radius: 9px; padding: .4rem .3rem;
   background: rgba(40,28,14,.12); color: #6b5a3e; font-size: .76rem; font-weight: 700;
   cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
 }
 .ab-talent:disabled { opacity: .6; cursor: default; }
 /* Attaque spéciale logée dans un slot talent : version compacte (nom + dés empilés) */
 .ab-atk.ab-atk-compact {
-  flex-direction: column; align-items: center; gap: 3px; text-align: center; padding: .45rem .35rem;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; text-align: center; padding: .4rem .35rem;
 }
 .ab-atk-compact .ab-atk-main { margin-right: 0; align-items: center; width: 100%; }
 .ab-atk-compact .ab-atk-range { display: none; }
-.ab-atk-compact .ab-atk-name { font-size: .78rem; }
+.ab-atk-compact .ab-atk-name { font-size: .76rem; }
 .ab-atk-compact .ab-atk-figs { gap: .25rem; flex-wrap: wrap; justify-content: center; }
 
 /* Carte sélectionnée dans les zones : liseré pour la repérer */

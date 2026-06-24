@@ -1419,17 +1419,26 @@
         '</div>' +
       '</div>';
 
+    // Grille d'actions : 2 lignes, remplissage colonne par colonne (cf. croquis).
+    //   Col. action : Attaque (haut) + Mouv/Objet/Analyse (bas)
+    //   Col. 2 : Talent 1 / Talent 2 — Col. 3 : Talent 3 / Talent 4 — Col. 4 : Talent 5 / Talent 6
     html += '<div class="ab-acts">';
-    // Rangée des attaques d'arme (boutons de taille fixe, identique aux outils)
-    html += '<div class="ab-attacks">' +
+    // Cellule (col. action, ligne 1) : attaque(s) d'arme
+    html += '<div class="ab-attack-cell">' +
       (weaponAtks.length
         ? weaponAtks.map(function (w) { return abAttackBtn(c, w.a, w.i, canAct); }).join('')
-        : '') +
+        : '<div class="ab-noatk">—</div>') +
       '</div>';
-    // Rangée Mouv. / Objet / Analyse (aventuriers seulement)
-    if (c.side === 'hero') html += abToolsHtml(c, canAct);
-    // 6 emplacements de talents (3 colonnes × 2 lignes) — occupés par les spéciales
-    html += abTalentsHtml(c, specialAtks, canAct);
+    // Cellule (col. action, ligne 2) : Mouv / Objet / Analyse (aventuriers)
+    html += (c.side === 'hero') ? abToolsHtml(c, canAct) : '<div class="ab-tools ab-tools-empty"></div>';
+    // Cellules talents T1..T6 : remplies colonne par colonne (les spéciales d'abord)
+    for (let i = 0; i < 6; i++) {
+      if (i < specialAtks.length) {
+        html += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct, true);
+      } else {
+        html += '<button class="ab-talent" type="button" disabled title="Emplacement de talent (à venir)">Talent ' + (i + 1) + '</button>';
+      }
+    }
     html += '</div>';
 
     html += '</div>';
@@ -1536,20 +1545,6 @@
           ' data-iid="' + c.iid + '"' + ((!canAct || usedMv) ? ' disabled' : '') +
           ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">Analyse</button>' +
     '</div>';
-  }
-
-  // 6 emplacements de talents (3 colonnes × 2 lignes). Les attaques spéciales
-  // occupent les premiers slots ; les restants sont des placeholders « Talent N ».
-  function abTalentsHtml(c, specialAtks, canAct) {
-    let h = '<div class="ab-talents">';
-    for (let i = 0; i < 6; i++) {
-      if (i < specialAtks.length) {
-        h += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct, true);
-      } else {
-        h += '<button class="ab-talent" type="button" disabled title="Emplacement de talent (à venir)">Talent ' + (i + 1) + '</button>';
-      }
-    }
-    return h + '</div>';
   }
 
   function renderCard(c) {
