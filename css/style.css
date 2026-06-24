@@ -1871,3 +1871,75 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   .combat-card.fx-hit, .combat-card.fx-crit, .combat-card.fx-whiff,
   .combat-card.fx-heal, .combat-card.fx-state, .combat-card.fx-move { animation: none; }
 }
+
+/* ===================================================================
+   v2.49 — Bandeau d'action : fiche du combattant sélectionné, au-dessus des zones
+   =================================================================== */
+.combat-actionbar { margin: .4rem 0; min-height: 2.4rem; }
+.combat-actionbar .ab-empty {
+  border: 1px dashed var(--border); border-radius: 10px; padding: .7rem .9rem;
+  color: var(--muted); font-size: .9rem; background: rgba(0,0,0,.12);
+}
+/* La fiche horizontale, même esprit que les cartes de combat (couleur par classe/type) */
+.ab-card {
+  display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  border: 1px solid var(--border); border-left: 5px solid var(--border);
+  border-radius: 12px; padding: .6rem .8rem; color: #2a1d10;
+  background: var(--panel);
+}
+.ab-card.side-hero   { background: #efe2cf; }
+.ab-card.side-monster{ background: #e9ddd0; }
+.ab-card.klass-apothicaire{background:#dcefd0}.ab-card.klass-artificier{background:#f3e6c6}
+.ab-card.klass-chasseur{background:#d8f0cf}.ab-card.klass-destructeur{background:#f6d9d2}
+.ab-card.klass-deviant{background:#e6def4}.ab-card.klass-gardien{background:#d7e3f1}
+.ab-card.klass-lamevent{background:#d2f0e9}.ab-card.klass-pyromane{background:#f6ddc6}
+.ab-card.klass-gardien{border-left-color:#6f9fd6}.ab-card.klass-pyromane{border-left-color:#e08a4a}
+.ab-card.klass-deviant{border-left-color:#9d7fc4}.ab-card.klass-lamevent{border-left-color:#5cb6a6}
+.ab-card.klass-apothicaire{border-left-color:#7bbf6a}.ab-card.klass-artificier{border-left-color:#d9a94a}
+.ab-card.klass-chasseur{border-left-color:#74b85e}.ab-card.klass-destructeur{border-left-color:#d36a52}
+.ab-card.type-standard{background:#e7e3d8;border-left-color:#8d8676}
+.ab-card.type-alpha{background:#f3e3cf;border-left-color:#d98324}
+.ab-card.type-solitaire{background:#f1dcd8;border-left-color:#c0392b}
+.ab-card.type-boss{background:#e7dcf1;border-left-color:#8a5cc4}
+
+/* Avatar rond (image du perso à venir : on affiche l'initiale pour l'instant) */
+.ab-avatar {
+  flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1.3rem; color: #fff;
+  background: rgba(0,0,0,.35); border: 2px solid rgba(255,255,255,.6);
+  background-size: cover; background-position: center;
+}
+.ab-id { display: flex; flex-direction: column; gap: .25rem; min-width: 150px; }
+.ab-name { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.ab-name .roster-name { font-family: "Georgia", serif; font-weight: 700; font-size: 1.05rem; }
+.ab-pvline { display: flex; align-items: center; gap: .4rem; }
+.ab-pvline .pv-bar { flex: 1; min-width: 110px; }
+
+/* Attaques + actions, en ligne */
+.ab-acts { display: flex; align-items: stretch; gap: .4rem; flex-wrap: wrap; flex: 1 1 240px; }
+.ab-acts .cc-attacks { display: flex; flex-direction: row; gap: .4rem; flex-wrap: wrap; margin: 0; }
+.ab-acts .cc-attacks .atk-chip { width: auto; }
+.ab-acts .cc-move-row { margin: 0; }
+.ab-acts.ab-readonly { gap: .35rem; align-items: center; }
+
+/* 6 emplacements de talents */
+.ab-talents { display: grid; grid-template-columns: repeat(6, 1fr); gap: .35rem; flex: 1 1 320px; }
+@media (max-width: 760px) { .ab-talents { grid-template-columns: repeat(3, 1fr); } }
+.ab-talent {
+  border: 1px solid var(--border); border-radius: 8px; padding: .35rem .3rem;
+  background: rgba(0,0,0,.06); color: #6b5a3e; font-size: .74rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ab-talent:disabled { opacity: .55; cursor: default; }
+
+/* Bande de ciblage sous la fiche (clique la cible / la zone) */
+.ab-prompt {
+  margin-top: .4rem; padding: .5rem .7rem; border-radius: 9px;
+  background: rgba(77,142,209,.14); border: 1px solid var(--action); font-size: .9rem;
+}
+.combat-actionbar.active .ab-prompt { animation: none; }
+
+/* Carte sélectionnée dans les zones : liseré pour la repérer */
+.combat-card.selected { outline: 2px solid var(--accent); outline-offset: 2px; }
+.combat-card { cursor: pointer; }

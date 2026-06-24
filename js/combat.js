@@ -20,6 +20,7 @@
   let pendingMove = null;     // iid du combattant en cours de déplacement
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
+  let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
   let movePrefix = null;      // { iid, zone } : déplacement à fusionner avec l'attaque qui suit
   let rootSel = '#combat-root'; // cible de rendu (redirigée pendant un combat de session)
 
@@ -46,6 +47,7 @@
     // nouveau combat — d'autant que les aventuriers gardent le même iid.
     fxQueue = [];
     movePrefix = null;
+    selectedIid = null;
     const fxEl = document.getElementById('combat-fx');
     if (fxEl) fxEl.innerHTML = '';
     Store.state[combatKey] = v;
@@ -1248,7 +1250,7 @@
       '</div>' +
       // Journal compact, en haut : 3 lignes visibles max, scrollable au-delà.
       '<div id="combat-log" class="combat-log compact"></div>' +
-      '<div class="targeting-banner' + ((pendingAttack || pendingMove || pendingAnalyze) ? ' active' : '') + '">' + bannerHtml() + '</div>' +
+      '<div id="combat-actionbar" class="combat-actionbar"></div>' +
       '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
         zones().map(function (z, zi) {
           return '<div class="combat-zone ' + zoneColorClass(zi) + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
@@ -1263,6 +1265,9 @@
     // Chaque phase de rendu est isolée : un incident dans l'une ne doit jamais
     // laisser le plateau, les contrôles ou le journal entièrement vides.
     let zonesErr = null;
+    // Bandeau d'action AVANT les zones : ses boutons (data-iid) doivent exister
+    // quand wireCard (appelé dans renderZones) les câble.
+    try { renderActionBar(); } catch (e) { console.error('[combat] renderActionBar', e); }
     try { renderZones(); } catch (e) { zonesErr = e; console.error('[combat] renderZones', e); }
     try { renderPhaseControls(); } catch (e) { console.error('[combat] renderPhaseControls', e); }
     try { renderLog(); } catch (e) { console.error('[combat] renderLog', e); }
@@ -1358,6 +1363,67 @@
     }
   }
 
+  // Bandeau d'action au-dessus des zones : fiche horizontale du combattant
+  // sélectionné (avatar, nom, PV, DEF, attaques, Mouv/Objet/Analyse, talents).
+  function renderActionBar() {
+    const box = $('#combat-actionbar');
+    if (!box) return;
+    const cmb = combat();
+    let sel = selectedIid ? byId(selectedIid) : null;
+    // Auto-sélection : en phase héros, défaut = 1er aventurier actif.
+    if ((!sel || sel.status !== 'active') && cmb.phase === 'heroes' && !cmb.outcome) {
+      const fh = activeOf('hero')[0];
+      if (fh) { sel = fh; selectedIid = fh.iid; }
+    }
+    const pending = pendingAttack || pendingMove || pendingAnalyze;
+    if (!sel) {
+      box.className = 'combat-actionbar';
+      box.innerHTML = '<div class="ab-empty">' + (pending ? bannerHtml()
+        : 'Clique un combattant pour afficher sa fiche et ses actions.') + '</div>';
+      return;
+    }
+    const c = sel;
+    const dead = c.status !== 'active';
+    const isEnemy = c.side === 'monster';
+    const known = !isEnemy || c.analyzed;
+    const pct = Math.round((c.pv / c.maxPv) * 100);
+    const canAct = !dead && !cmb.outcome && c.side === 'hero' && cmb.phase === 'heroes';
+    const cls = ['ab-card', 'side-' + c.side];
+    if (c.klass) cls.push('klass-' + slug(c.klass));
+    if (isEnemy && c.type) cls.push('type-' + c.type);
+    const initial = esc((c.name || '?').charAt(0).toUpperCase());
+    const pvText = (isEnemy && !known) ? '' : (c.pv + ' / ' + c.maxPv + ' PV');
+
+    let html = '<div class="' + cls.join(' ') + '">' +
+      '<div class="ab-avatar" aria-hidden="true">' + initial + '</div>' +
+      '<div class="ab-id">' +
+        '<div class="ab-name"><span class="roster-name">' + esc(c.name) + '</span>' +
+          (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
+          (isEnemy && c.type ? '<span class="tag type">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
+          (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
+        '</div>' +
+        '<div class="ab-pvline cc-pvline">' +
+          '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div><span class="pv-text">' + pvText + '</span></div>' +
+          (known ? '<span class="def-badge">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' : '') +
+          (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage">🛡✦ ' + c.blindageCharges + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    if (canAct) {
+      html += '<div class="ab-acts">' + attackChipsHtml(c) + moveRowHtml(c) + '</div>';
+    } else if (c.attacks && c.attacks.length) {
+      html += '<div class="ab-acts ab-readonly">' + c.attacks.map(function (a) {
+        return '<span class="enemy-atk">' + esc(attackLabel(a)) + ' <em>' + (a.range === 'distance' ? 'distance' : 'contact') + '</em></span>';
+      }).join('') + '</div>';
+    }
+    html += talentSlotsHtml(c);
+    html += '</div>';
+    if (pending) html += '<div class="ab-prompt">' + bannerHtml() + '</div>';
+    box.className = 'combat-actionbar active';
+    box.innerHTML = html;
+    // Les boutons (data-iid) seront câblés par wireCard lors de renderZones,
+    // qui s'exécute juste après (le combattant sélectionné est dans une zone).
+  }
+
   function renderZones() {
     zones().forEach(function (z, zi) {
       const box = $('#zone-cards-' + zi);
@@ -1413,6 +1479,62 @@
       }).join('');
   }
 
+  // Boutons d'attaque d'un combattant (réutilisés dans le bandeau d'action).
+  // Conservent data-iid / data-atk : c'est wireCard qui les câble.
+  function attackChipsHtml(c) {
+    const usedA = c.used.action;
+    return '<div class="cc-attacks">' + c.attacks.map(function (a, i) {
+      const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
+      const depleted = uses === 0;
+      const blocked = depleted || (!a.freeAction && usedA);
+      const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i;
+      const chipSel = isThisAtk && !pendingAttack.average;
+      const rangeBits = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
+      if (a.targets === 'all') rangeBits.push('toutes');
+      if (a.freeAction) rangeBits.push('gratuite');
+      const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
+      return '<button class="atk-chip ' + (chipSel ? 'selected' : '') + '" data-iid="' + c.iid + '" data-atk="' + i + '"' +
+          (blocked ? ' disabled' : '') + '>' +
+          '<span class="atk-chip-main">' +
+            '<span class="atk-chip-name">' + esc(a.name) + '</span>' +
+            '<span class="atk-chip-range">' + rangeBits.join(' · ') + '</span>' +
+          '</span>' +
+          '<span class="atk-chip-figs">' +
+            Inventory.poolBadges(a.dice) +
+            (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
+            (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
+          '</span>' +
+        '</button>';
+    }).join('') + '</div>';
+  }
+
+  // Rangée Mouv. / Objet / Analyse d'un combattant (réutilisée dans le bandeau).
+  function moveRowHtml(c) {
+    const usedO = c.used.object;
+    const usedMv = c.used.move;
+    return '<div class="cc-move-row tri">' +
+      (zoneCount() > 1
+        ? '<button class="move-chip do-move third' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
+            (usedMv ? ' disabled' : '') + ' title="Changer de zone">' +
+            '<span class="atk-chip-main"><span class="atk-chip-name">Mouv.</span></span></button>'
+        : '') +
+      '<button class="obj-chip do-object third" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">' +
+        '<span class="atk-chip-main"><span class="atk-chip-name">Objet</span></span></button>' +
+      '<button class="ana-chip do-analyse third' + (pendingAnalyze === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
+        (usedMv ? ' disabled' : '') + ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">' +
+        '<span class="atk-chip-main"><span class="atk-chip-name">Analyse</span></span></button>' +
+    '</div>';
+  }
+
+  // 6 emplacements de talents (placeholders « Talent N » pour l'instant).
+  function talentSlotsHtml(c) {
+    let h = '<div class="ab-talents">';
+    for (let i = 1; i <= 6; i++) {
+      h += '<button class="ab-talent" type="button" disabled title="Emplacement de talent (à venir)">Talent ' + i + '</button>';
+    }
+    return h + '</div>';
+  }
+
   function renderCard(c) {
     // Garde-fous : un combattant persisté incomplet ne doit jamais faire planter
     // le rendu (sinon tout le plateau disparaît). On comble les sous-objets requis.
@@ -1429,9 +1551,7 @@
     if (c.side === 'monster' && c.type) cls.push('type-' + c.type);
     if (c.side === 'monster' && (c.socle === 'large' || c.socle === 'huge')) cls.push('socle-' + c.socle);
     if (dead) cls.push('is-' + c.status);
-    const phase = combat().phase;
-    const canAct = !dead && !combat().outcome &&
-      ((c.side === 'hero' && phase === 'heroes') || false);
+    if (selectedIid === c.iid) cls.push('selected');
     // Cible valide pendant le ciblage au clic (attaque ou analyse)
     if (pendingAttack && !dead) {
       const attacker = byId(pendingAttack.iid);
@@ -1472,49 +1592,6 @@
           }).join('') + '</div>'
         : '');
 
-    if (canAct) {
-      const usedA = c.used.action;
-      html += '<div class="cc-attacks">' + c.attacks.map(function (a, i) {
-        const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
-        const depleted = uses === 0;
-        const blocked = depleted || (!a.freeAction && usedA);
-        const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i;
-        const chipSel = isThisAtk && !pendingAttack.average;
-        const rangeBits = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
-        if (a.targets === 'all') rangeBits.push('toutes');
-        if (a.freeAction) rangeBits.push('gratuite');
-        const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
-        return '<button class="atk-chip ' + (chipSel ? 'selected' : '') + '" data-iid="' + c.iid + '" data-atk="' + i + '"' +
-            (blocked ? ' disabled' : '') + '>' +
-            '<span class="atk-chip-main">' +
-              '<span class="atk-chip-name">' + esc(a.name) + '</span>' +
-              '<span class="atk-chip-range">' + rangeBits.join(' · ') + '</span>' +
-            '</span>' +
-            '<span class="atk-chip-figs">' +
-              Inventory.poolBadges(a.dice) +
-              (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
-              (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
-            '</span>' +
-          '</button>';
-      }).join('') + '</div>';
-      // Mouvement / Objet / Analyse, sur une même ligne (boutons compacts).
-      // Mouvement et Analyse partagent la même ressource (c.used.move) : faire
-      // l'un consomme l'autre — « s'il analyse il ne peut plus bouger ».
-      const usedO = c.used.object;
-      const usedMv = c.used.move;
-      html += '<div class="cc-move-row tri">' +
-        (zoneCount() > 1
-          ? '<button class="move-chip do-move third' + (pendingMove === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
-              (usedMv ? ' disabled' : '') + ' title="Changer de zone">' +
-              '<span class="atk-chip-main"><span class="atk-chip-name">Mouv.</span></span></button>'
-          : '') +
-        '<button class="obj-chip do-object third" data-iid="' + c.iid + '"' + (usedO ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">' +
-          '<span class="atk-chip-main"><span class="atk-chip-name">Objet</span></span></button>' +
-        '<button class="ana-chip do-analyse third' + (pendingAnalyze === c.iid ? ' selected' : '') + '" data-iid="' + c.iid + '"' +
-          (usedMv ? ' disabled' : '') + ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">' +
-          '<span class="atk-chip-main"><span class="atk-chip-name">Analyse</span></span></button>' +
-      '</div>';
-    }
     html += '</div>';
     return html;
   }
@@ -1599,38 +1676,40 @@
     const root = $(rootSel);
     const card = root.querySelector('.combat-card[data-iid="' + c.iid + '"]');
 
-    // Analyse au clic : révèle les infos de l'adversaire ciblé
-    if (card && card.classList.contains('targetable') && pendingAnalyze && c.side === 'monster') {
+    // Clic sur une carte : cible l'action en cours si la carte est une cible
+    // valide, sinon sélectionne ce combattant (sa fiche s'affiche dans le bandeau).
+    if (card) {
       card.addEventListener('click', function (e) {
         if (e.target.closest('button')) return;
-        const hero = byId(pendingAnalyze);
-        pendingAnalyze = null;
-        if (!hero || hero.used.move) { render(); return; }
-        c.analyzed = true;
-        hero.used.move = true; // analyser consomme la ressource de mouvement
-        log(cname(hero) + ' analyse ' + cname(c) + ' : DEF, Dégâts et XP révélés.', 'move');
-        Store.save(); render();
-      });
-    }
-
-    // Ciblage au clic : cette carte est une cible valide
-    if (card && card.classList.contains('targetable') && pendingAttack) {
-      card.addEventListener('click', function (e) {
-        if (e.target.closest('button')) return; // laisse les boutons internes agir
-        const attacker = byId(pendingAttack.iid);
-        if (!attacker) return;
-        const atk = attacker.attacks[pendingAttack.atkIndex];
-        if (atk && atk.range === 'contact' && attacker.zone !== c.zone) {
-          // Pas de mouvement disponible → on ne peut pas atteindre la cible
-          if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
-          // Sinon, déplacement automatique vers la zone de la cible avant d'attaquer
-          // (silencieux : la ligne de déplacement sera fusionnée à celle de l'attaque)
-          doMove(attacker, c.zone, true);
-          if (attacker.status !== 'active') { pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
-          movePrefix = { iid: attacker.iid, zone: zname(attacker.zone) };
+        const targetable = card.classList.contains('targetable');
+        // 1) Ciblage d'une analyse
+        if (targetable && pendingAnalyze && c.side === 'monster') {
+          const hero = byId(pendingAnalyze);
+          pendingAnalyze = null;
+          if (!hero || hero.used.move) { render(); return; }
+          c.analyzed = true; hero.used.move = true;
+          log(cname(hero) + ' analyse ' + cname(c) + ' : DEF, Dégâts et XP révélés.', 'move');
+          Store.save(); render(); return;
         }
-        if (pendingAttack.average) execHeroAverageAttack(attacker, pendingAttack.atkIndex, c);
-        else execHeroAttack(attacker, pendingAttack.atkIndex, c);
+        // 2) Ciblage d'une attaque
+        if (targetable && pendingAttack) {
+          const attacker = byId(pendingAttack.iid);
+          if (!attacker) return;
+          const atk = attacker.attacks[pendingAttack.atkIndex];
+          if (atk && atk.range === 'contact' && attacker.zone !== c.zone) {
+            if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
+            doMove(attacker, c.zone, true);
+            if (attacker.status !== 'active') { pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
+            movePrefix = { iid: attacker.iid, zone: zname(attacker.zone) };
+          }
+          if (pendingAttack.average) execHeroAverageAttack(attacker, pendingAttack.atkIndex, c);
+          else execHeroAttack(attacker, pendingAttack.atkIndex, c);
+          return;
+        }
+        // 3) Sinon : sélectionne ce combattant et annule toute action en cours
+        selectedIid = c.iid;
+        pendingAttack = null; pendingAnalyze = null; pendingMove = null;
+        render();
       });
     }
 
