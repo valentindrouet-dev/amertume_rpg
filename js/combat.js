@@ -28,8 +28,20 @@
   // Deux combats indépendants : 'combat' (aventure) et 'testCombat' (équilibrage MJ).
   // combatKey désigne celui affiché/édité dans le contexte courant.
   let combatKey = 'combat';
+  // État de la séquence d'activation des adversaires (tour ennemi joué pas à pas).
+  let aiRunning = false;  // une séquence est-elle en cours ?
+  let aiTimer = null;     // setTimeout du prochain pas (annulable)
+  let aiToken = 0;        // génération : invalidée à chaque changement de combat
   function combat() { return Store.state[combatKey]; }
-  function setCombat(v) { Store.state[combatKey] = v; }
+  // Toute (ré)assignation du combat invalide une séquence d'IA en cours : ses
+  // setTimeout en attente ne doivent jamais agir sur un nouveau combat (sinon
+  // des adversaires « fantômes » frappent les aventuriers au démarrage suivant).
+  function setCombat(v) {
+    aiToken++;
+    if (aiTimer) { clearTimeout(aiTimer); aiTimer = null; }
+    aiRunning = false;
+    Store.state[combatKey] = v;
+  }
 
   // ---------- Construction des instances ----------
   // Compteurs d'usages par attaque (null = illimité)
@@ -572,13 +584,15 @@
   // re-rendu entre chaque pour qu'on voie distinctement qui joue. onDone() est
   // appelé quand toute la vague a agi (ou que le combat est résolu).
   const AI_STEP_MS = 550;
-  let aiRunning = false;
   function monstersActSequential(onDone) {
     const order = activationOrder();
+    const myToken = aiToken; // si le combat change, cette séquence est abandonnée
     let i = 0;
     aiRunning = true;
-    function finish() { aiRunning = false; checkOutcome(); if (onDone) onDone(); }
+    aiTimer = null;
+    function finish() { aiRunning = false; aiTimer = null; checkOutcome(); if (onDone) onDone(); }
     function step() {
+      if (myToken !== aiToken) return; // combat (ré)assigné : on abandonne sans agir
       if (combat().outcome) { finish(); return; }
       if (i >= order.length) { finish(); return; }
       const m = order[i++];
@@ -588,7 +602,7 @@
       Store.save();
       render(); // joue les animations de cette activation
       if (combat().outcome) { finish(); return; }
-      setTimeout(step, AI_STEP_MS);
+      aiTimer = setTimeout(step, AI_STEP_MS);
     }
     step();
   }
