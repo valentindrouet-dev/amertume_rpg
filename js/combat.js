@@ -68,6 +68,8 @@
   function instFromMonster(m, i) {
     // Armes équipées → attaques (avec effets) + attaques spéciales ; armures → DEF
     const attacks = Combatants.monsterCombatAttacks(m);
+    // BLINDAGE X : charges de blindage initiales (ignore X sources de dégâts)
+    const armorT = (m.talents || []).find(function (t) { return t.trigger === 'armor_charges'; });
     return {
       iid: 'M' + i + '-' + m.id.slice(-4),
       side: 'monster', templateId: m.id, name: m.name,
@@ -76,6 +78,7 @@
       menace: m.menace, esquive: !!m.esquive, rapide: !!m.rapide, socle: m.socle,
       attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
+      blindageCharges: armorT ? (armorT.charges || 0) : 0,
       used: { action: false, move: false, object: false },
       zone: 0, status: 'active', analyzed: false,
       dmgDealt: 0, dmgTaken: 0,
@@ -402,6 +405,11 @@
       if (!negated && target.states.blindage) {
         negated = true; reason = 'Blindage'; target.states.blindage = false;
       }
+      // BLINDAGE X : consomme une charge pour ignorer cette source de dégâts.
+      if (!negated && target.blindageCharges > 0) {
+        negated = true; target.blindageCharges -= 1;
+        reason = 'Blindage' + (target.blindageCharges > 0 ? ' (' + target.blindageCharges + ' restante' + (target.blindageCharges > 1 ? 's' : '') + ')' : ' épuisé');
+      }
     }
 
     const diceStr = '<span class="ldice">(' + diceSeq(res.dice) + ')</span>';
@@ -462,12 +470,30 @@
     });
   }
 
-  // Retourne le bonus de dégâts provenant des talents "ally_contact_bonus" de l'attaquant
+  // Talent (objet) d'un combattant adverse pour un déclencheur donné, ou null
+  function monsterTalent(c, trigger) {
+    if (!c || c.side !== 'monster') return null;
+    const tpl = Store.state.monsters.find(function (m) { return m.id === c.templateId; });
+    if (!tpl || !Array.isArray(tpl.talents)) return null;
+    return tpl.talents.find(function (t) { return t.trigger === trigger; }) || null;
+  }
+
+  // Retourne le bonus de dégâts (talents de l'attaquant + soutien de zone)
   function getTalentDmgBonus(attacker, target) {
     if (attacker.side !== 'monster') return 0;
     const tpl = Store.state.monsters.find(function (m) { return m.id === attacker.templateId; });
-    if (!tpl || !Array.isArray(tpl.talents)) return 0;
     let bonus = 0;
+    // SOUTIEN : chaque adversaire « soutien » présent dans la zone de l'attaquant ajoute +X.
+    combat().combatants.forEach(function (c) {
+      if (c.side !== 'monster' || c.status !== 'active' || c.zone !== attacker.zone) return;
+      const st = monsterTalent(c, 'zone_support');
+      const x = st ? (st.bonus || 0) : 0;
+      if (x > 0) {
+        bonus += x;
+        log(wname(attacker.name) + ' gagne <span class="atk-dmg">+' + x + '</span> dégâts (Soutien).', 'state');
+      }
+    });
+    if (!tpl || !Array.isArray(tpl.talents)) return bonus;
     tpl.talents.forEach(function (t) {
       if (t.trigger === 'ally_contact_bonus') {
         const allies = combat().combatants.filter(function (c) {
@@ -554,12 +580,18 @@
     // 3) Seulement du contact, personne dans la zone → se déplace vers une cible puis frappe
     } else if (contactIdx >= 0) {
       const target = chooseFrom(m, heroes);
+      let moved = false;
       if (target && !m.used.move) {
-        m.zone = target.zone; m.used.move = true;
+        m.zone = target.zone; m.used.move = true; moved = true;
         pushFx({ type: 'move', iid: m.iid });
         log(wname(m.name) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
       }
-      if (target && target.zone === m.zone) applyAttack(m, contactIdx, target);
+      // LENT : un adversaire qui s'est déplacé ne peut plus attaquer ce tour.
+      if (moved && monsterTalent(m, 'slow')) {
+        log(wname(m.name) + ' est <span class="lstate">Lent</span> : pas d\'attaque après son déplacement.', 'state');
+      } else if (target && target.zone === m.zone) {
+        applyAttack(m, contactIdx, target);
+      }
     }
   }
 
@@ -907,9 +939,19 @@
   function render() {
     const root = $(rootSel);
     if (!root) return;
-    if (!combat()) { renderSetup(root); }
-    else if (combat().finished) { renderSummary(); }
-    else { renderBoard(root); }
+    try {
+      if (!combat()) { renderSetup(root); }
+      else if (combat().finished) { renderSummary(); }
+      else { renderBoard(root); }
+    } catch (e) {
+      // Dernier filet : ne jamais laisser un module de combat totalement vide.
+      console.error('[combat] render', e);
+      root.innerHTML = '<div class="card"><div class="card-head"><h3>Combat</h3></div>' +
+        '<p class="empty">Affichage du combat momentanément indisponible.</p>' +
+        '<div class="modal-actions"><button id="combat-recover" class="primary">Réessayer l\'affichage</button></div></div>';
+      const b = document.getElementById('combat-recover');
+      if (b) b.addEventListener('click', function () { render(); });
+    }
   }
 
   // Écran de résumé de fin de combat
@@ -1241,12 +1283,15 @@
         .sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
       // Aventuriers côte à côte (grille), pour gagner de la place
       let html = heroes.length ? '<div class="hero-grid">' + heroes.map(safeCard).join('') + '</div>' : '';
-      // Les sbires (standard) occupent toujours une demi-largeur (grille), même seuls ;
-      // les autres types prennent toute la largeur.
-      const sbires = monsters.filter(function (m) { return m.type === 'standard'; });
-      const elites = monsters.filter(function (m) { return m.type !== 'standard'; });
-      if (sbires.length) html += '<div class="monster-grid">' + sbires.map(safeCard).join('') + '</div>';
-      elites.forEach(function (m) { html += safeCard(m); });
+      // La place occupée dépend de la TAILLE (et non plus du type) :
+      //  • Moyen  → demi-largeur (grille)
+      //  • Grand  → toute la largeur
+      //  • Énorme → toute la largeur, sur deux lignes (carte plus haute)
+      const sizeOf = function (m) { return (m.socle === 'large' || m.socle === 'huge') ? m.socle : 'medium'; };
+      const meds = monsters.filter(function (m) { return sizeOf(m) === 'medium'; });
+      const bigs = monsters.filter(function (m) { return sizeOf(m) !== 'medium'; });
+      if (meds.length) html += '<div class="monster-grid">' + meds.map(safeCard).join('') + '</div>';
+      bigs.forEach(function (m) { html += safeCard(m); });
       box.innerHTML = html || '<p class="empty zone-empty">Zone vide</p>';
       heroes.concat(monsters).forEach(function (c) {
         try { wireCard(c); } catch (e) { console.error('[combat] wireCard a échoué pour', c && c.iid, e); }
@@ -1296,6 +1341,7 @@
     const cls = ['combat-card', 'side-' + c.side];
     if (c.klass) cls.push('klass-' + c.klass.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''));
     if (c.side === 'monster' && c.type) cls.push('type-' + c.type);
+    if (c.side === 'monster' && (c.socle === 'large' || c.socle === 'huge')) cls.push('socle-' + c.socle);
     if (dead) cls.push('is-' + c.status);
     const phase = combat().phase;
     const canAct = !dead && !combat().outcome &&
@@ -1322,6 +1368,7 @@
         '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
           '<span class="pv-text">' + pvText + '</span></div>' +
         (known ? '<span class="def-badge">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' : '') +
+        (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage : sources de dégâts ignorées">🛡✦ ' + c.blindageCharges + '</span>' : '') +
       '</div>' +
       // Aventuriers : pas de pastille « Dégâts » (les dégâts figurent déjà sur les attaques)
       (known && isEnemy

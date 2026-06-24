@@ -706,6 +706,8 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .combat-card .tag.class-tag { color: #2c5a93; border-color: #7ba6da; background: rgba(111,159,214,.2); }
 .combat-card .tag.dead { color: #b8442f; border-color: #b8442f; background: rgba(184,68,47,.12); }
 .combat-card .pv-bar { background: rgba(40,28,14,.55); }
+/* PV des aventuriers en vert (même style de barre que les adversaires) */
+.combat-card.side-hero .pv-fill { background: linear-gradient(90deg, #4f9a4f, #74c274); }
 .combat-card .pv-text { color: #fff; }
 .combat-card .ghost.xs, .combat-card .ghost.small { background: rgba(255,255,255,.5); color: #3a2c19; border-color: rgba(80,55,20,.3); }
 .combat-card .ghost.xs:hover, .combat-card .ghost.small:hover { border-color: var(--accent); }
@@ -1165,6 +1167,9 @@ select.choice-type-discussion { color: #3fae9f; }
 /* Adversaires standard de même nom : 2 colonnes avec léger écart */
 .monster-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
 @media (max-width: 520px) { .monster-grid { grid-template-columns: 1fr; } }
+/* Taille des adversaires : Grand = pleine largeur ; Énorme = pleine largeur + 2 lignes */
+.combat-card.socle-huge { min-height: 230px; }
+.combat-card.socle-huge .roster-name { font-size: 1.05rem; }
 
 /* Bouton Analyser sur les adversaires */
 .cc-analyse { margin: .1rem 0 .4rem; }
@@ -1432,6 +1437,8 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .def-badge { font-size: .74rem; font-weight: 700; color: #4a8dd6; background: rgba(77,142,209,.14);
   border: 1px solid rgba(77,142,209,.4); border-radius: 7px; padding: .08rem .35rem; white-space: nowrap; }
 .combat-card.side-monster .def-badge { color: #8a4a2a; background: rgba(192,86,63,.14); border-color: rgba(192,86,63,.4); }
+.blindage-badge { font-size: .74rem; font-weight: 700; color: #7a5cae; background: rgba(124,92,174,.16);
+  border: 1px solid rgba(124,92,174,.45); border-radius: 7px; padding: .08rem .35rem; white-space: nowrap; }
 
 /* Rangée Mouvement + Objet (demi-largeur chacun) */
 .cc-move-row { display: flex; gap: .4rem; margin-top: .1rem; }

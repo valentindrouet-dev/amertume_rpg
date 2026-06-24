@@ -323,14 +323,24 @@
     { id: 'craintif', name: 'CRAINTIF', trigger: 'flee_on_big_hit',    defaultVal: 10, desc: 'Fuite si X+ dégâts en une seule attaque.' },
     { id: 'fuyard',   name: 'FUYARD',   trigger: 'flee_after_turns',   defaultVal: 3,  desc: 'Fuit le combat après le tour X.' },
     { id: 'horde',    name: 'HORDE',    trigger: 'ally_contact_bonus', defaultVal: 1,  desc: '+X dégâts par allié dans sa zone.' },
+    { id: 'lent',     name: 'LENT',     trigger: 'slow',               defaultVal: 0,  desc: 'Ne peut pas attaquer s\'il effectue un mouvement.' },
+    { id: 'soutien',  name: 'SOUTIEN',  trigger: 'zone_support',       defaultVal: 1,  desc: 'Les adversaires dans sa zone infligent +X dégâts.' },
+    { id: 'blindage', name: 'BLINDAGE', trigger: 'armor_charges',      defaultVal: 1,  desc: 'Ignore X prochaine(s) source(s) de dégâts avant de perdre Blindage.' },
   ];
   function loadMonsterTalents() {
+    let arr = null;
     try {
       const raw = global.localStorage.getItem(MONTALENT_KEY);
-      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_MONTALENTS));
-      const arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr : JSON.parse(JSON.stringify(DEFAULT_MONTALENTS));
-    } catch (e) { return JSON.parse(JSON.stringify(DEFAULT_MONTALENTS)); }
+      arr = raw ? JSON.parse(raw) : null;
+    } catch (e) { arr = null; }
+    if (!Array.isArray(arr)) return JSON.parse(JSON.stringify(DEFAULT_MONTALENTS));
+    // Complète avec les talents intégrés manquants (nouveaux talents ajoutés à l'app)
+    DEFAULT_MONTALENTS.forEach(function (d) {
+      if (!arr.some(function (t) { return t.id === d.id || t.trigger === d.trigger; })) {
+        arr.push(JSON.parse(JSON.stringify(d)));
+      }
+    });
+    return arr;
   }
   function saveMonsterTalents(talents) {
     try { global.localStorage.setItem(MONTALENT_KEY, JSON.stringify(talents)); } catch (e) {}

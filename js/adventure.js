@@ -74,10 +74,14 @@
   }
 
   // ---------- Utilitaires d'arborescence / navigation ----------
-  function buildAllScenes(adv) {
+  // Scènes proposées comme cible d'un lien : toutes celles du chapitre courant,
+  // mais seulement la 1re scène de chaque AUTRE chapitre (sinon la liste explose).
+  function buildAllScenes(adv, currentChId) {
     const arr = [];
     adv.chapters.forEach(function (c) {
-      c.scenes.forEach(function (s) {
+      const isCurrent = !currentChId || c.id === currentChId;
+      c.scenes.forEach(function (s, si) {
+        if (!isCurrent && si !== 0) return; // autres chapitres : entrée (1re scène) uniquement
         arr.push({ id: s.id, label: (c.title ? c.title + ' / ' : '') + (s.title || s.id.slice(-4)) });
       });
     });
@@ -178,7 +182,6 @@
           '<span class="roster-name">' + esc(a.title) + '</span>' +
           '<span class="tag">' + chCount + ' ch. · ' + scCount + ' sc.</span>' +
           '<button class="ghost small adv-edit" data-id="' + a.id + '">Éditer</button>' +
-          '<button class="ghost small adv-play" data-id="' + a.id + '">▶ Jouer</button>' +
           '<button class="icon-btn adv-del" data-id="' + a.id + '" title="Supprimer">✕</button>' +
         '</div>' +
       '</div>';
@@ -186,11 +189,6 @@
 
     box.querySelectorAll('.adv-edit').forEach(function (b) {
       b.addEventListener('click', function () { openEditor(b.getAttribute('data-id')); });
-    });
-    box.querySelectorAll('.adv-play').forEach(function (b) {
-      b.addEventListener('click', function () {
-        if (window.Session) Session.startFromAdventure(b.getAttribute('data-id'));
-      });
     });
     box.querySelectorAll('.adv-del').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -412,9 +410,16 @@
     document.getElementById('sm-close').onclick = closeModal;
   }
 
-  function sceneTargetOptions(allScenes, selectedId) {
+  function sceneTargetOptions(allScenes, selectedId, adv) {
+    let opts = allScenes.slice();
+    // Un lien déjà posé vers une scène masquée (autre chapitre, scène non-entrée)
+    // doit rester sélectionnable, sinon on le perdrait silencieusement.
+    if (selectedId && !opts.some(function (s) { return s.id === selectedId; })) {
+      const titles = adv ? sceneTitleMap(adv) : {};
+      opts = opts.concat([{ id: selectedId, label: (titles[selectedId] || '(scène liée)') }]);
+    }
     return '<option value="">(aucune)</option>' +
-      allScenes.map(function (s) {
+      opts.map(function (s) {
         return '<option value="' + s.id + '"' + (s.id === selectedId ? ' selected' : '') + '>' + esc(s.label) + '</option>';
       }).join('') +
       '<option value="__new__">+ Créer une nouvelle scène…</option>';
@@ -438,7 +443,8 @@
     const type = scene.type;
     const monsters = Store.state.monsters;
     const items = Store.state.items;
-    const allScenes = buildAllScenes(adv);
+    const curCh = chapterOfScene(adv, scene.id);
+    const allScenes = buildAllScenes(adv, curCh ? curCh.id : null);
 
     // Choix / navigation
     const choicesBox = document.getElementById('sm-choices-section');
@@ -448,7 +454,7 @@
 
     // nextSceneId (exploration, interaction, reward)
     nextBox.style.display = (type === 'combat' || type === 'fin') ? 'none' : '';
-    document.getElementById('sm-next').innerHTML = sceneTargetOptions(allScenes, scene.nextSceneId);
+    document.getElementById('sm-next').innerHTML = sceneTargetOptions(allScenes, scene.nextSceneId, adv);
     document.getElementById('sm-next').onchange = function () {
       if (handleTargetSelect(this.value, scene, adv, function (id) { scene.nextSceneId = id; })) {
         refreshSceneModalSections(scene, adv);
@@ -462,8 +468,8 @@
     // Combat
     combatBox.style.display = type === 'combat' ? '' : 'none';
     if (type === 'combat') {
-      document.getElementById('sm-outcome').innerHTML = sceneTargetOptions(allScenes, scene.outcomeSceneId);
-      document.getElementById('sm-defeat').innerHTML = sceneTargetOptions(allScenes, scene.defeatSceneId);
+      document.getElementById('sm-outcome').innerHTML = sceneTargetOptions(allScenes, scene.outcomeSceneId, adv);
+      document.getElementById('sm-defeat').innerHTML = sceneTargetOptions(allScenes, scene.defeatSceneId, adv);
       document.getElementById('sm-outcome').onchange = function () {
         if (handleTargetSelect(this.value, scene, adv, function (id) { scene.outcomeSceneId = id; })) {
           refreshSceneModalSections(scene, adv);
@@ -535,7 +541,8 @@
 
   function renderChoicesEditor(scene, adv) {
     const box = document.getElementById('sm-choices');
-    const allScenes = buildAllScenes(adv);
+    const curCh = chapterOfScene(adv, scene.id);
+    const allScenes = buildAllScenes(adv, curCh ? curCh.id : null);
     box.innerHTML = (scene.choices || []).map(function (ch, i) {
       const typeOpts = CHOICE_TYPES.map(function (t) {
         return '<option value="' + t.value + '"' + ((ch.choiceType || 'neutre') === t.value ? ' selected' : '') + '>' + esc(t.label) + '</option>';
@@ -557,10 +564,10 @@
           ? '<div class="adv-choice-test">' +
               '<select class="ch-skill">' + skillOpts + '</select>' +
               '<select class="ch-diff">' + diffOpts + '</select>' +
-              '<label class="ch-mini">Réussite →<select class="ch-success">' + sceneTargetOptions(allScenes, ch.successSceneId) + '</select></label>' +
-              '<label class="ch-mini">Échec →<select class="ch-fail">' + sceneTargetOptions(allScenes, ch.failSceneId) + '</select></label>' +
+              '<label class="ch-mini">Réussite →<select class="ch-success">' + sceneTargetOptions(allScenes, ch.successSceneId, adv) + '</select></label>' +
+              '<label class="ch-mini">Échec →<select class="ch-fail">' + sceneTargetOptions(allScenes, ch.failSceneId, adv) + '</select></label>' +
             '</div>'
-          : '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId) + '</select>') +
+          : '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId, adv) + '</select>') +
         '<input type="text" class="ch-desc" value="' + esc(ch.description || '') + '" ' +
           'placeholder="Description / contexte affiché aux joueurs sous le choix (optionnel)" />' +
       '</div>';

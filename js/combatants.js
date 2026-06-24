@@ -797,6 +797,9 @@
     { id: 'flee_on_big_hit',    label: 'Fuite si X+ dégâts en un coup', paramKey: 'threshold', paramLabel: 'Seuil dégâts', defaultVal: 10 },
     { id: 'flee_after_turns',   label: 'Fuite après le tour X',          paramKey: 'turns',     paramLabel: 'Après tour',   defaultVal: 3  },
     { id: 'ally_contact_bonus', label: '+X dégâts par allié dans sa zone', paramKey: 'bonus',   paramLabel: 'Bonus/allié',  defaultVal: 1  },
+    { id: 'slow',               label: 'Lent (pas d\'attaque s\'il se déplace)', paramKey: 'none', paramLabel: '', defaultVal: 0, noParam: true },
+    { id: 'zone_support',       label: '+X dégâts aux adversaires de sa zone',  paramKey: 'bonus',   paramLabel: 'Bonus zone',  defaultVal: 1  },
+    { id: 'armor_charges',      label: 'Blindage X (ignore X sources de dégâts)', paramKey: 'charges', paramLabel: 'Charges',   defaultVal: 1  },
   ];
   function triggerDef(id) {
     return TRIGGER_DEFS.find(function (d) { return d.id === id; }) || TRIGGER_DEFS[0];
@@ -851,6 +854,10 @@
 
       function syncParam() {
         const def = triggerDef(t.trigger);
+        // Talent sans valeur variable (ex. LENT) : on masque le champ X.
+        const hide = !!def.noParam;
+        lblEl.style.display = hide ? 'none' : '';
+        paramIn.style.display = hide ? 'none' : '';
         lblEl.textContent = def.paramLabel + ' ';
         paramIn.value = (t[def.paramKey] !== undefined) ? t[def.paramKey] : def.defaultVal;
       }
@@ -883,6 +890,7 @@
       const entry = catalogEntry(t.catId, t.trigger);
       if (!entry) return '';
       const def = triggerDef(entry.trigger);
+      if (def.noParam) return '<span class="talent-badge">' + esc(entry.name) + '</span>';
       const val = (t[def.paramKey] !== undefined) ? t[def.paramKey] : def.defaultVal;
       return '<span class="talent-badge">' + esc(entry.name) + ' ' + val + '</span>';
     }).join('');
