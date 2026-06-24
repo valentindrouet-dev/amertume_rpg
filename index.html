@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertume — Inventaire &amp; Dés</title>
-  <link rel="stylesheet" href="css/style.css?v=2.61" />
+  <link rel="stylesheet" href="css/style.css?v=2.62" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -307,6 +307,7 @@
         <div class="attacks-head"><h3>Attaques spéciales (optionnel)</h3><button type="button" id="h-add-attack" class="ghost small">+ Attaque</button></div>
         <p class="hint">Les armes équipées fournissent déjà l'attaque de base. Ajoute ici des capacités particulières.</p>
         <div id="h-attacks" class="attacks-editor"></div>
+        <label>Image <input type="url" id="h-image" placeholder="https://…  (lien vers l'image du personnage)" /></label>
         <label>Notes <textarea id="h-notes" rows="2"></textarea></label>
         <div class="modal-actions">
           <button type="button" id="btn-delete-hero" class="danger" hidden>Supprimer</button>
@@ -372,6 +373,7 @@
         <div class="attacks-head"><h3>Talents</h3><button type="button" id="m-add-talent" class="ghost small">+ Talent</button></div>
         <p class="hint">Les talents s'activent automatiquement en combat.</p>
         <div id="m-talents" class="talents-editor"></div>
+        <label>Image <input type="url" id="m-image" placeholder="https://…  (lien vers l'image du combattant)" /></label>
         <label>Notes <textarea id="m-notes" rows="2"></textarea></label>
         <div class="modal-actions">
           <button type="button" id="btn-delete-monster" class="danger" hidden>Supprimer</button>
@@ -529,17 +531,17 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.61"></script>
-  <script src="js/store.js?v=2.61"></script>
-  <script src="js/inventory.js?v=2.61"></script>
-  <script src="js/combatants.js?v=2.61"></script>
-  <script src="js/combat.js?v=2.61"></script>
-  <script src="js/classes.js?v=2.61"></script>
-  <script src="js/adventure.js?v=2.61"></script>
-  <script src="js/session.js?v=2.61"></script>
-  <script src="js/dataio.js?v=2.61"></script>
-  <script src="js/share.js?v=2.61"></script>
-  <script src="js/shell.js?v=2.61"></script>
-  <script src="js/main.js?v=2.61"></script>
+  <script src="js/dice.js?v=2.62"></script>
+  <script src="js/store.js?v=2.62"></script>
+  <script src="js/inventory.js?v=2.62"></script>
+  <script src="js/combatants.js?v=2.62"></script>
+  <script src="js/combat.js?v=2.62"></script>
+  <script src="js/classes.js?v=2.62"></script>
+  <script src="js/adventure.js?v=2.62"></script>
+  <script src="js/session.js?v=2.62"></script>
+  <script src="js/dataio.js?v=2.62"></script>
+  <script src="js/share.js?v=2.62"></script>
+  <script src="js/shell.js?v=2.62"></script>
+  <script src="js/main.js?v=2.62"></script>
 </body>
 </html>

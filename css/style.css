@@ -2108,18 +2108,22 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .enemy-turn-pulse { animation: enemy-turn-pulse 1.1s ease-in-out infinite; }
 
 /* ===================================================================
-   v2.60 — Bandeau : colonnes de taille fixe indépendantes du contenu
+   v2.62 — Bandeau : colonnes fixes px, labels Attaque/Tir, dés max,
+            champ image héros/monstres, suppression stats héros en zone
    =================================================================== */
 
-/* minmax(0, 1fr) force des colonnes STRICTEMENT égales : 1fr seul respecte
-   le min-content des cellules (dés, texte long), ce qui provoque des largeurs
-   variables selon le personnage. Avec 0 comme minimum, toutes les colonnes
-   partagent l'espace disponible sans tenir compte du contenu. */
+/* Colonnes STRICTEMENT fixes en px : ab-id largeur fixe → ab-acts toujours
+   identique → chaque 1fr identique quelle que soit la fiche affichée. */
+.ab-id { flex: 0 0 190px; min-width: 0; }
 .ab-acts { grid-auto-columns: minmax(0, 1fr); }
-
-/* Empêche les enfants directs de forcer la largeur de leur colonne */
 .ab-acts > * { min-width: 0; overflow: hidden; }
-
-/* La cellule d'attaque est un flex-row : ses boutons doivent aussi céder */
 .ab-attack-cell { min-width: 0; overflow: hidden; }
 .ab-attack-cell .ab-atk { min-width: 0; overflow: hidden; flex-shrink: 1; }
+
+/* Dés dans le bandeau : taille maximale (contraints par la hauteur 32px du bouton) */
+.ab-atk .die-sq { width: 22px !important; height: 22px !important; border-radius: 5px; }
+.ab-atk .die-sq::after { width: 7px !important; height: 7px !important; }
+
+/* Avatar avec image : la lettre doit disparaître quand une image couvre tout */
+.cc-avatar[style*="background-image"],
+.ab-avatar[style*="background-image"] { font-size: 0; color: transparent; }

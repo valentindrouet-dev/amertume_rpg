@@ -75,7 +75,7 @@
     const attacks = Combatants.heroCombatAttacks(h);
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
-      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: h.endu || 1,
+      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: h.endu || 1, imageUrl: h.imageUrl || null,
       maxPv: Combatants.heroPv(h), pv: Combatants.heroCurPv(h),
       def: Combatants.heroDef(h), damage: h.damage, xp: 0, type: 'hero',
       menace: null, esquive: false, rapide: !!h.rapide, socle: 'medium',
@@ -94,7 +94,7 @@
     const armorT = (m.talents || []).find(function (t) { return t.trigger === 'armor_charges'; });
     return {
       iid: 'M' + i + '-' + m.id.slice(-4),
-      side: 'monster', templateId: m.id, name: m.name,
+      side: 'monster', templateId: m.id, name: m.name, imageUrl: m.imageUrl || null,
       maxPv: m.pv, pv: m.pv,
       def: Combatants.monsterTotalDef(m), damage: m.damage, xp: m.xp, type: m.type,
       menace: m.menace, esquive: !!m.esquive, rapide: !!m.rapide, socle: m.socle,
@@ -1407,7 +1407,10 @@
     const cls = ['ab-card', 'side-' + c.side];
     if (c.klass) cls.push('klass-' + slug(c.klass));
     if (isEnemy && c.type) cls.push('type-' + c.type);
-    const initial = esc((c.name || '?').charAt(0).toUpperCase());
+    const initial = (c.name || '?').charAt(0).toUpperCase();
+    const abAvatarStyle = c.imageUrl
+      ? ' style="background-image:url(\'' + c.imageUrl.replace(/'/g, '%27') + '\');background-size:cover;background-position:center;"'
+      : '';
     const pvText = (isEnemy && !known) ? '' : (c.pv + ' / ' + c.maxPv + ' PV');
 
     // Sépare attaques d'arme (boutons « Attaque » du haut) et spéciales (talents)
@@ -1417,7 +1420,7 @@
     });
 
     let html = '<div class="' + cls.join(' ') + '">' +
-      '<div class="ab-avatar" aria-hidden="true">' + initial + '</div>' +
+      '<div class="ab-avatar"' + abAvatarStyle + ' aria-hidden="true">' + (c.imageUrl ? '' : esc(initial)) + '</div>' +
       '<div class="ab-id">' +
         '<div class="ab-name"><span class="roster-name">' + esc(c.name) + '</span>' +
           (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
@@ -1558,7 +1561,7 @@
     return '<button class="ab-atk atk-chip' + (isThisAtk ? ' selected' : '') +
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
         ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
-      '<span class="ab-atk-name">' + esc(a.name) + '</span>' +
+      '<span class="ab-atk-name">' + (a.range === 'distance' ? 'Tir' : 'Attaque') + '</span>' +
       '<span class="ab-atk-figs">' + Inventory.poolBadges(a.dice) +
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
         (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
@@ -1618,11 +1621,14 @@
     // utilisé son Action / Attaque ce tour. Disparaît une fois l'action faite.
     const actionDot = (!isEnemy && !dead && !c.used.action)
       ? '<span class="action-dot" title="Action / Attaque non utilisée"></span>' : '';
-    const initial = esc((c.name || '?').charAt(0).toUpperCase());
+    const initial = (c.name || '?').charAt(0).toUpperCase();
+    const avatarStyle = c.imageUrl
+      ? ' style="background-image:url(\'' + c.imageUrl.replace(/'/g, '%27') + '\');background-size:cover;background-position:center;"'
+      : '';
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       actionDot +
       '<div class="cc-top-row">' +
-        '<div class="cc-avatar" aria-hidden="true">' + initial + '</div>' +
+        '<div class="cc-avatar"' + avatarStyle + ' aria-hidden="true">' + (c.imageUrl ? '' : esc(initial)) + '</div>' +
         '<div class="cc-body">' +
           '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
             (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
@@ -1631,7 +1637,7 @@
             '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
               '<span class="pv-text">' + pvText + '</span></div>' +
           '</div>' +
-          (known ? '<div class="cc-stats-line">' +
+          (known && isEnemy ? '<div class="cc-stats-line">' +
             '<span class="cc-def">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' +
             (c.damage > 0 ? '<span class="cc-dmg">+' + c.damage + ' Dég.</span>' : '') +
           '</div>' : '') +

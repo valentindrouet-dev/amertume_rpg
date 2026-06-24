@@ -616,6 +616,7 @@
     $('#h-damage').value = isEdit ? h.damage : 2;
     $('#h-rapide').checked = isEdit ? !!h.rapide : false;
     $('#h-notes').value = isEdit ? (h.notes || '') : '';
+    $('#h-image').value = isEdit ? (h.imageUrl || '') : '';
     heroAttacks = isEdit ? JSON.parse(JSON.stringify(h.attacks || [])) : [];
     buildAttacksEditor($('#h-attacks'), heroAttacks);
     heroSkills = isEdit ? mergeSkills(h.skills) : emptySkills();
@@ -688,6 +689,7 @@
       damage: parseInt($('#h-damage').value, 10) || 0,
       rapide: $('#h-rapide').checked,
       notes: $('#h-notes').value.trim(),
+      imageUrl: $('#h-image').value.trim() || null,
       attacks: heroAttacks,
       skills: mergeSkills(heroSkills),
       equipment: {
@@ -1057,6 +1059,7 @@
     $('#m-esquive').checked = isEdit ? !!m.esquive : false;
     $('#m-rapide').checked = isEdit ? !!m.rapide : false;
     $('#m-notes').value = isEdit ? (m.notes || '') : '';
+    $('#m-image').value = isEdit ? (m.imageUrl || '') : '';
     monsterAttacks = isEdit ? JSON.parse(JSON.stringify(m.attacks || [])) : [newAttack()];
     buildAttacksEditor($('#m-attacks'), monsterAttacks);
     monsterEquip = isEdit ? JSON.parse(JSON.stringify(m.equipment || [])) : [];
@@ -1087,6 +1090,7 @@
       esquive: $('#m-esquive').checked,
       rapide: $('#m-rapide').checked,
       notes: $('#m-notes').value.trim(),
+      imageUrl: $('#m-image').value.trim() || null,
       attacks: monsterAttacks,
       equipment: monsterEquip.filter(function (r) { return r.itemId; }),
       loot: monsterLoot.filter(function (r) { return r.itemId; }),
