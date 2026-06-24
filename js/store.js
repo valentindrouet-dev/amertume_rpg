@@ -227,6 +227,11 @@
           if (typeof c.dmgTaken !== 'number') c.dmgTaken = 0;
           if (!Array.isArray(c.attacks)) c.attacks = [];
           c.attacks.forEach(normAttack);
+          // Compteurs d'usages par attaque (null = illimité). Doit suivre la
+          // longueur de `attacks` : sinon renderCard plante sur c.attackUses[i].
+          if (!Array.isArray(c.attackUses) || c.attackUses.length !== c.attacks.length) {
+            c.attackUses = c.attacks.map(function (a) { return (a && a.uses && a.uses > 0) ? a.uses : null; });
+          }
         });
         return cb;
       }

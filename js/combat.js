@@ -1205,7 +1205,7 @@
     if (canAct) {
       const usedA = c.used.action;
       html += '<div class="cc-attacks">' + c.attacks.map(function (a, i) {
-        const uses = c.attackUses[i];
+        const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
         const depleted = uses === 0;
         const blocked = depleted || (!a.freeAction && usedA);
         const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i;
