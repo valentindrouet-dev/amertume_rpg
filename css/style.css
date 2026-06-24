@@ -2106,3 +2106,20 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   50%       { box-shadow: 0 0 0 8px rgba(193,78,53,.0); }
 }
 .enemy-turn-pulse { animation: enemy-turn-pulse 1.1s ease-in-out infinite; }
+
+/* ===================================================================
+   v2.60 — Bandeau : colonnes de taille fixe indépendantes du contenu
+   =================================================================== */
+
+/* minmax(0, 1fr) force des colonnes STRICTEMENT égales : 1fr seul respecte
+   le min-content des cellules (dés, texte long), ce qui provoque des largeurs
+   variables selon le personnage. Avec 0 comme minimum, toutes les colonnes
+   partagent l'espace disponible sans tenir compte du contenu. */
+.ab-acts { grid-auto-columns: minmax(0, 1fr); }
+
+/* Empêche les enfants directs de forcer la largeur de leur colonne */
+.ab-acts > * { min-width: 0; overflow: hidden; }
+
+/* La cellule d'attaque est un flex-row : ses boutons doivent aussi céder */
+.ab-attack-cell { min-width: 0; overflow: hidden; }
+.ab-attack-cell .ab-atk { min-width: 0; overflow: hidden; flex-shrink: 1; }
