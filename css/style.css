@@ -1921,38 +1921,58 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ab-card .pv-text { color: #fff; }
 .ab-card.side-hero .pv-fill { background: linear-gradient(90deg, #4f9a4f, #74c274); }
 
-/* Zone d'actions : attaques (haut) + outils + talents, en blocs alignés */
-.ab-acts { display: flex; align-items: flex-start; gap: .5rem; flex-wrap: wrap; flex: 1 1 280px; }
-.ab-attacks, .ab-tools { display: flex; gap: .35rem; flex-wrap: wrap; }
-.ab-talents { display: grid; grid-template-columns: repeat(3, var(--ab-btn-w)); grid-auto-rows: var(--ab-btn-h); gap: .35rem; }
+/* Zone d'actions : bloc vertical — attaques (pleine largeur), outils, talents */
+.ab-acts { display: flex; flex-direction: column; gap: .4rem; flex: 1 1 300px; min-width: 240px; }
+.ab-attacks { display: flex; flex-direction: column; gap: .4rem; }
 
-/* Bouton d'action de TAILLE FIXE (attaque, outil ou talent) — identique partout */
-:root { --ab-btn-w: 92px; --ab-btn-h: 52px; }
-.ab-btn {
-  flex: 0 0 var(--ab-btn-w); width: var(--ab-btn-w); height: var(--ab-btn-h);
-  box-sizing: border-box; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 2px;
-  border: 1px solid var(--border); border-radius: 9px; padding: .25rem .3rem;
-  background: rgba(77,142,209,.9); color: #fff; cursor: pointer;
-  overflow: hidden; text-align: center; line-height: 1.05;
+/* Bouton d'attaque : pleine largeur, solide, contenu riche (nom + portée + dés) */
+.ab-atk {
+  display: flex; align-items: center; gap: .5rem; width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 10px; padding: .5rem .7rem;
+  background: #4d8ed1; color: #fff; cursor: pointer; text-align: left;
 }
-.ab-btn .ab-btn-name {
-  font-weight: 700; font-size: .76rem; max-width: 100%;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.ab-atk:hover:not(:disabled) { filter: brightness(1.06); }
+.ab-atk:disabled { opacity: .5; cursor: not-allowed; }
+.ab-atk.selected { background: #2f6fb0; box-shadow: 0 0 0 2px rgba(77,142,209,.5); }
+.ab-atk-main { display: flex; flex-direction: column; gap: 1px; margin-right: auto; min-width: 0; }
+.ab-atk-name { font-weight: 700; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ab-atk-range { font-size: .68rem; font-weight: 600; opacity: .92; }
+.ab-atk-figs { display: inline-flex; align-items: center; gap: .35rem; flex-shrink: 0; }
+.ab-atk .atk-dmg, .ab-atk .atk-uses {
+  color: #fff; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.4);
+  border-radius: 5px; padding: .05rem .3rem; font-weight: 700; font-size: .72rem;
 }
-.ab-btn .ab-btn-sub { font-size: .66rem; font-weight: 600; opacity: .92; }
-.ab-btn:hover:not(:disabled) { filter: brightness(1.06); }
-.ab-btn:disabled { opacity: .45; cursor: not-allowed; }
-/* Couleurs par type d'action, opaques (lisibles) */
-.ab-btn.atk-chip { background: #4d8ed1; color: #fff; }
-.ab-btn.atk-chip.selected { background: #2f6fb0; box-shadow: 0 0 0 2px rgba(77,142,209,.55); }
-.ab-btn.move-chip { background: #8c5e2a; color: #fff; }
-.ab-btn.move-chip.selected { background: #6f4a1f; }
-.ab-btn.obj-chip { background: #5fa45f; color: #fff; }
-.ab-btn.ana-chip { background: #7c5ca4; color: #fff; }
-.ab-btn.ana-chip.selected { background: #634a85; }
-.ab-btn.ab-talent { background: rgba(40,28,14,.14); color: #6b5a3e; }
-.ab-btn .atk-dmg, .ab-btn .atk-uses { color: #fff; background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.4); }
+
+/* Rangée d'outils : 3 boutons de largeur égale = largeur du bouton d'attaque */
+.ab-tools { display: flex; gap: .4rem; }
+.ab-tool {
+  flex: 1 1 0; min-width: 0; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 10px; padding: .55rem .4rem;
+  font-weight: 700; font-size: .82rem; color: #fff; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
+}
+.ab-tool:hover:not(:disabled) { filter: brightness(1.06); }
+.ab-tool:disabled { opacity: .5; cursor: not-allowed; }
+.ab-tool.move-chip { background: #8c5e2a; } .ab-tool.move-chip.selected { background: #6f4a1f; }
+.ab-tool.obj-chip { background: #5fa45f; }
+.ab-tool.ana-chip { background: #7c5ca4; } .ab-tool.ana-chip.selected { background: #634a85; }
+
+/* 6 emplacements de talents (3 colonnes × 2 lignes) */
+.ab-talents { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }
+.ab-talent {
+  border: 1px solid var(--border); border-radius: 9px; padding: .5rem .3rem;
+  background: rgba(40,28,14,.12); color: #6b5a3e; font-size: .76rem; font-weight: 700;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
+}
+.ab-talent:disabled { opacity: .6; cursor: default; }
+/* Attaque spéciale logée dans un slot talent : version compacte (nom + dés empilés) */
+.ab-atk.ab-atk-compact {
+  flex-direction: column; align-items: center; gap: 3px; text-align: center; padding: .45rem .35rem;
+}
+.ab-atk-compact .ab-atk-main { margin-right: 0; align-items: center; width: 100%; }
+.ab-atk-compact .ab-atk-range { display: none; }
+.ab-atk-compact .ab-atk-name { font-size: .78rem; }
+.ab-atk-compact .ab-atk-figs { gap: .25rem; flex-wrap: wrap; justify-content: center; }
 
 /* Carte sélectionnée dans les zones : liseré pour la repérer */
 .combat-card.selected { outline: 2px solid var(--accent); outline-offset: 2px; }

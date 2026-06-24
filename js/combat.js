@@ -281,7 +281,8 @@
     setCombat(null);
     if (isSession) Store.state.sessionCombat = null;
     Store.save();
-    if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
+    // Sortie du combat EN PREMIER : on ne doit jamais rester bloqué sur l'écran
+    // de résumé si un rafraîchissement secondaire (roster, progression) échoue.
     if (sessionCtx && sessionCtx.sessionId) {
       window.dispatchEvent(new CustomEvent('adventure-combat-end', {
         detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained,
@@ -291,6 +292,10 @@
       rootSel = '#combat-root';
       render();
     }
+    // Rafraîchissements secondaires, isolés (ne doivent pas bloquer la reprise)
+    try {
+      if (window.Combatants) { Combatants.renderProgress(); Combatants.renderHeroes(); }
+    } catch (e) { console.error('[combat] rafraîchissement post-combat', e); }
   }
 
   // ---------- Utilitaires ----------
@@ -1403,6 +1408,8 @@
       '<div class="ab-avatar" aria-hidden="true">' + initial + '</div>' +
       '<div class="ab-id">' +
         '<div class="ab-name"><span class="roster-name">' + esc(c.name) + '</span>' +
+          (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
+          (isEnemy && c.type ? '<span class="tag type">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
           (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
         '</div>' +
         '<div class="ab-pvline cc-pvline">' +
@@ -1487,44 +1494,47 @@
       }).join('');
   }
 
-  // Bouton d'attaque de taille FIXE pour le bandeau d'action (arme ou talent).
+  // Bouton d'attaque du bandeau d'action (arme ou spéciale logée en talent).
+  // Pleine largeur, contenu riche : nom + portée + figurines de dés (+ Dégâts).
   // Conserve data-iid / data-atk : c'est wireCard qui le câble.
-  function abAttackBtn(c, a, i, canAct) {
+  function abAttackBtn(c, a, i, canAct, compact) {
     const usedA = c.used.action;
     const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
     const depleted = uses === 0;
     const blocked = !canAct || depleted || (!a.freeAction && usedA);
     const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average;
     const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
-    const sub = (a.range === 'distance' ? '🏹' : '⚔') +
-      (a.targets === 'all' ? ' ⤬' : '') +
-      (a.freeAction ? ' ⚡' : '') +
-      (showDmg ? ' <span class="atk-dmg">+' + c.damage + '</span>' : '') +
-      (uses !== null ? ' <span class="atk-uses">' + uses + '×</span>' : '');
-    return '<button class="ab-btn atk-chip' + (isThisAtk ? ' selected' : '') + '" type="button"' +
-        ' data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
-        ' title="' + esc(a.name) + (a.range === 'distance' ? ' (distance)' : ' (contact)') + '">' +
-      '<span class="ab-btn-name">' + esc(a.name) + '</span>' +
-      '<span class="ab-btn-sub">' + sub + '</span>' +
+    const rangeBits = [(a.range === 'distance' ? '🏹 distance' : '⚔ contact')];
+    if (a.targets === 'all') rangeBits.push('toutes');
+    if (a.freeAction) rangeBits.push('gratuite');
+    return '<button class="ab-atk atk-chip' + (isThisAtk ? ' selected' : '') + (compact ? ' ab-atk-compact' : '') +
+        '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
+        ' title="' + esc(a.name) + '">' +
+      '<span class="ab-atk-main">' +
+        '<span class="ab-atk-name">' + esc(a.name) + '</span>' +
+        '<span class="ab-atk-range">' + rangeBits.join(' · ') + '</span>' +
+      '</span>' +
+      '<span class="ab-atk-figs">' + Inventory.poolBadges(a.dice) +
+        (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
+        (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
+      '</span>' +
     '</button>';
   }
 
-  // Rangée Mouv. / Objet / Analyse — boutons de taille fixe (aventuriers).
+  // Rangée Mouv. / Objet / Analyse : 3 boutons de largeur égale qui occupent,
+  // à eux trois, la même largeur que le bouton d'attaque au-dessus.
   function abToolsHtml(c, canAct) {
     const usedO = c.used.object;
     const usedMv = c.used.move;
     const multi = zoneCount() > 1;
     return '<div class="ab-tools">' +
-      '<button class="ab-btn move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
-          ' data-iid="' + c.iid + '"' + ((!canAct || !multi || usedMv) ? ' disabled' : '') + ' title="Changer de zone">' +
-        '<span class="ab-btn-name">Mouv.</span></button>' +
-      '<button class="ab-btn obj-chip do-object" type="button" data-iid="' + c.iid + '"' +
-          ((!canAct || usedO) ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">' +
-        '<span class="ab-btn-name">Objet</span></button>' +
-      '<button class="ab-btn ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
+      '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
+          ' data-iid="' + c.iid + '"' + ((!canAct || !multi || usedMv) ? ' disabled' : '') + ' title="Changer de zone">Mouv.</button>' +
+      '<button class="ab-tool obj-chip do-object" type="button" data-iid="' + c.iid + '"' +
+          ((!canAct || usedO) ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">Objet</button>' +
+      '<button class="ab-tool ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
           ' data-iid="' + c.iid + '"' + ((!canAct || usedMv) ? ' disabled' : '') +
-          ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">' +
-        '<span class="ab-btn-name">Analyse</span></button>' +
+          ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">Analyse</button>' +
     '</div>';
   }
 
@@ -1534,10 +1544,9 @@
     let h = '<div class="ab-talents">';
     for (let i = 0; i < 6; i++) {
       if (i < specialAtks.length) {
-        h += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct);
+        h += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct, true);
       } else {
-        h += '<button class="ab-btn ab-talent" type="button" disabled title="Emplacement de talent (à venir)">' +
-          '<span class="ab-btn-name">Talent ' + (i + 1) + '</span></button>';
+        h += '<button class="ab-talent" type="button" disabled title="Emplacement de talent (à venir)">Talent ' + (i + 1) + '</button>';
       }
     }
     return h + '</div>';
