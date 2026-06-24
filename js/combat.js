@@ -1429,7 +1429,7 @@
         '</div>' +
         '<div class="ab-pvline cc-pvline">' +
           '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div><span class="pv-text">' + pvText + '</span></div>' +
-          (known ? '<span class="def-badge">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' : '') +
+          (known ? '<span class="def-badge"><span class="def-shield">' + (c.states.auSol ? '0' : c.def) + '</span></span>' : '') +
           (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage">🛡✦ ' + c.blindageCharges + '</span>' : '') +
         '</div>' +
       '</div>';
@@ -1638,7 +1638,7 @@
               '<span class="pv-text">' + pvText + '</span></div>' +
           '</div>' +
           (known && isEnemy ? '<div class="cc-stats-line">' +
-            '<span class="cc-def">🛡 ' + (c.states.auSol ? '0' : c.def) + '</span>' +
+            '<span class="cc-def"><span class="def-shield">' + (c.states.auSol ? '0' : c.def) + '</span></span>' +
             (c.damage > 0 ? '<span class="cc-dmg">+' + c.damage + ' Dég.</span>' : '') +
           '</div>' : '') +
           (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '') +

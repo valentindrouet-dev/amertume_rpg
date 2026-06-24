@@ -2127,3 +2127,23 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 /* Avatar avec image : la lettre doit disparaître quand une image couvre tout */
 .cc-avatar[style*="background-image"],
 .ab-avatar[style*="background-image"] { font-size: 0; color: transparent; }
+
+/* ===================================================================
+   v2.63 — Blason de DEF : la valeur de DEF est centrée dans le logo bouclier
+   =================================================================== */
+
+/* Le bouclier (assets/shield.svg) sert de fond ; la valeur est du texte HTML
+   centré à l'intérieur. Décalé légèrement vers le haut car la pointe du blason
+   est en bas (le centre visuel de la partie blanche est au-dessus du milieu). */
+.def-shield {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .92rem; width: 1.55em; height: 1.75em;
+  background: url("../assets/shield.svg") no-repeat center / contain;
+  color: #1d1206; font-weight: 800; line-height: 1;
+  padding-bottom: .22em; box-sizing: border-box;
+  vertical-align: -.55em;
+}
+/* Dans le bandeau et les vignettes, le blason remplace l'ancienne pastille :
+   on neutralise les couleurs de texte héritées (le chiffre est noir sur blanc). */
+.ab-pvline .def-badge { flex: 0 0 auto; }
+.cc-def, .combat-card.side-monster .cc-def { color: inherit; }
