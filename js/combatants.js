@@ -1135,52 +1135,103 @@
   }
 
   // ---------- Onglet « Talents Adv. » (catalogue MJ/Admin) ----------
+  // Languette d'un talent adverse — même design que l'onglet Classes (Aventuriers).
+  function talentAdvStrip(c, i) {
+    const def = triggerDef(c.trigger);
+    return '<div class="inv-strip-row tal-row tal-kind-none">' +
+      '<div class="inv-strip tal-strip" data-edit="' + i + '" title="' + esc(c.desc || def.label) + '">' +
+        '<span class="inv-strip-name">' + esc(c.name || '(sans nom)') + '</span>' +
+        '<span class="inv-strip-val">' +
+          '<span class="tl-kind tl-kind-none">' + esc(def.label) + '</span>' +
+          '<span class="tal-lvl">X = ' + (c.defaultVal !== undefined ? c.defaultVal : def.defaultVal) + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<button class="inv-strip-edit" data-edit="' + i + '" title="Éditer">✎</button>' +
+    '</div>';
+  }
+
   function renderTalentsAdv() {
     const list = $('#talentadv-list');
     if (!list) return;
     const cat = montalentCatalog();
-    if (!cat.length) {
-      list.innerHTML = '<p class="empty">Aucun talent. Ajoute-en un avec le bouton ci-dessus.</p>';
-      return;
-    }
-    list.innerHTML = cat.map(function (c, i) {
-      const def = triggerDef(c.trigger);
-      return '<div class="talentadv-card" data-i="' + i + '">' +
-        '<div class="ta-row">' +
-          '<input type="text" class="ta-name" value="' + esc(c.name) + '" placeholder="NOM" />' +
-          '<select class="ta-trigger">' +
-            TRIGGER_DEFS.map(function (d) {
-              return '<option value="' + d.id + '"' + (c.trigger === d.id ? ' selected' : '') + '>' + esc(d.label) + '</option>';
-            }).join('') +
-          '</select>' +
-          '<label class="ta-default">X par défaut <input type="number" class="ta-defval" min="0" value="' + (c.defaultVal !== undefined ? c.defaultVal : def.defaultVal) + '" style="width:60px" /></label>' +
-          '<button type="button" class="icon-btn ta-del" title="Supprimer">✕</button>' +
+    const strips = cat.length
+      ? cat.slice()
+          .map(function (c, i) { return { c: c, i: i }; })
+          .sort(function (a, b) { return (a.c.name || '').localeCompare(b.c.name || ''); })
+          .map(function (o) { return talentAdvStrip(o.c, o.i); }).join('')
+      : '<p class="inv-col-empty">Aucun talent. Ajoute-en un avec le bouton « + Nouveau talent ».</p>';
+    list.innerHTML = '<div class="tal-cols"><div class="tal-col">' +
+        '<div class="tal-col-hdr klass-adversaire">' +
+          '<span class="tal-col-name">⚔️ Talents adverses</span>' +
+          '<span class="tag">' + cat.length + '</span>' +
+          '<button class="ghost small tl-col-add tadv-col-add">+</button>' +
         '</div>' +
-        '<input type="text" class="ta-desc" value="' + esc(c.desc || '') + '" placeholder="Description (X = valeur variable)" />' +
-      '</div>';
-    }).join('');
+        '<div class="tal-col-body">' + strips + '</div>' +
+      '</div></div>';
 
-    function commit() { Store.saveMonsterTalents(cat); }
-
-    list.querySelectorAll('.talentadv-card').forEach(function (card) {
-      const i = +card.getAttribute('data-i');
-      card.querySelector('.ta-name').addEventListener('input', function () { cat[i].name = this.value; commit(); });
-      card.querySelector('.ta-trigger').addEventListener('change', function () { cat[i].trigger = this.value; commit(); });
-      card.querySelector('.ta-defval').addEventListener('input', function () { cat[i].defaultVal = Math.max(0, parseInt(this.value, 10) || 0); commit(); });
-      card.querySelector('.ta-desc').addEventListener('input', function () { cat[i].desc = this.value; commit(); });
-      card.querySelector('.ta-del').addEventListener('click', function () {
-        if (!confirm('Supprimer ce talent du catalogue ?')) return;
-        cat.splice(i, 1); commit(); renderTalentsAdv();
+    list.querySelectorAll('[data-edit]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        openTalentAdvModal(+el.getAttribute('data-edit'));
       });
     });
+    const add = list.querySelector('.tadv-col-add');
+    if (add) add.addEventListener('click', function () { openTalentAdvModal(null); });
   }
 
-  function addMonsterTalentToCatalog() {
+  // ---- Mini-fenêtre d'édition d'un talent adverse ----
+  let editingAdv = null; // index dans le catalogue, ou null en création
+
+  function openTalentAdvModal(i) {
+    const m = $('#talentadv-modal');
+    if (!m) return;
     const cat = montalentCatalog();
-    cat.push({ id: 'tal_' + Store.uid(), name: 'NOUVEAU', trigger: 'flee_on_big_hit', defaultVal: 10, desc: '' });
+    const existing = (i !== null && cat[i]) ? cat[i] : null;
+    editingAdv = existing ? i : null;
+    const c = existing || { name: '', trigger: 'flee_on_big_hit', defaultVal: triggerDef('flee_on_big_hit').defaultVal, desc: '' };
+    $('#talentadv-modal-title').textContent = existing ? 'Éditer le talent adverse' : 'Ajouter un talent adverse';
+    $('#tadv-f-id').value = (existing && existing.id) || '';
+    $('#tadv-f-name').value = c.name || '';
+    $('#tadv-f-trigger').innerHTML = TRIGGER_DEFS.map(function (d) {
+      return '<option value="' + d.id + '"' + (c.trigger === d.id ? ' selected' : '') + '>' + esc(d.label) + '</option>';
+    }).join('');
+    $('#tadv-f-defval').value = (c.defaultVal !== undefined) ? c.defaultVal : triggerDef(c.trigger).defaultVal;
+    $('#tadv-f-desc').value = c.desc || '';
+    $('#tadv-f-delete').hidden = !existing;
+    m.hidden = false;
+    $('#tadv-f-name').focus();
+  }
+
+  function closeTalentAdvModal() { $('#talentadv-modal').hidden = true; editingAdv = null; }
+
+  function submitTalentAdv(ev) {
+    ev.preventDefault();
+    const cat = montalentCatalog();
+    const data = {
+      id: $('#tadv-f-id').value || ('tal_' + Store.uid()),
+      name: ($('#tadv-f-name').value || '').trim() || 'NOUVEAU',
+      trigger: $('#tadv-f-trigger').value,
+      defaultVal: Math.max(0, parseInt($('#tadv-f-defval').value, 10) || 0),
+      desc: ($('#tadv-f-desc').value || '').trim(),
+    };
+    if (editingAdv !== null && cat[editingAdv]) cat[editingAdv] = data;
+    else cat.push(data);
     Store.saveMonsterTalents(cat);
+    closeTalentAdvModal();
     renderTalentsAdv();
   }
+
+  function deleteTalentAdv() {
+    if (editingAdv === null) { closeTalentAdvModal(); return; }
+    if (!confirm('Supprimer ce talent du catalogue ?')) return;
+    const cat = montalentCatalog();
+    cat.splice(editingAdv, 1);
+    Store.saveMonsterTalents(cat);
+    closeTalentAdvModal();
+    renderTalentsAdv();
+  }
+
+  function addMonsterTalentToCatalog() { openTalentAdvModal(null); }
 
   function renderMonsters() {
     const list = $('#monster-list');
@@ -1390,6 +1441,14 @@
     // Talents Adverses (catalogue)
     const addTal = $('#btn-add-talentadv');
     if (addTal) addTal.addEventListener('click', addMonsterTalentToCatalog);
+    const tadvForm = $('#talentadv-form');
+    if (tadvForm) tadvForm.addEventListener('submit', submitTalentAdv);
+    const tadvClose = $('#talentadv-modal-close');
+    if (tadvClose) tadvClose.addEventListener('click', closeTalentAdvModal);
+    const tadvDel = $('#tadv-f-delete');
+    if (tadvDel) tadvDel.addEventListener('click', deleteTalentAdv);
+    const tadvModal = $('#talentadv-modal');
+    if (tadvModal) tadvModal.addEventListener('click', function (ev) { if (ev.target.id === 'talentadv-modal') closeTalentAdvModal(); });
 
     renderHeroes();
     renderMonsters();

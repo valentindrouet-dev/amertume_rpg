@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertume — Inventaire &amp; Dés</title>
-  <link rel="stylesheet" href="css/style.css?v=2.98" />
+  <link rel="stylesheet" href="css/style.css?v=2.1.01" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -331,6 +331,33 @@
     </div>
   </div>
 
+  <!-- ============ MODALE TALENT ADVERSE ============ -->
+  <div id="talentadv-modal" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="talentadv-modal-title">Ajouter un talent adverse</h2>
+        <button id="talentadv-modal-close" class="icon-btn">✕</button>
+      </div>
+      <form id="talentadv-form" class="item-form">
+        <input type="hidden" id="tadv-f-id" />
+        <div class="form-row">
+          <label>Nom <input type="text" id="tadv-f-name" required placeholder="Nom du talent" /></label>
+        </div>
+        <div class="form-row">
+          <label>Déclencheur (effet moteur) <select id="tadv-f-trigger"></select></label>
+          <label>X par défaut <input type="number" id="tadv-f-defval" min="0" value="0" /></label>
+        </div>
+        <label>Description
+          <textarea id="tadv-f-desc" rows="2" placeholder="Description (X = valeur variable)…"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="button" id="tadv-f-delete" class="danger" hidden>Supprimer</button>
+          <button type="submit" class="primary">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ============ MODALE HÉROS ============ -->
   <div id="hero-modal" class="modal" hidden>
     <div class="modal-box">
@@ -609,18 +636,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.98"></script>
-  <script src="js/store.js?v=2.98"></script>
-  <script src="js/inventory.js?v=2.98"></script>
-  <script src="js/combatants.js?v=2.98"></script>
-  <script src="js/combat.js?v=2.98"></script>
-  <script src="js/classes.js?v=2.98"></script>
-  <script src="js/tutorial.js?v=2.98"></script>
-  <script src="js/adventure.js?v=2.98"></script>
-  <script src="js/session.js?v=2.98"></script>
-  <script src="js/dataio.js?v=2.98"></script>
-  <script src="js/share.js?v=2.98"></script>
-  <script src="js/shell.js?v=2.98"></script>
-  <script src="js/main.js?v=2.98"></script>
+  <script src="js/dice.js?v=2.1.01"></script>
+  <script src="js/store.js?v=2.1.01"></script>
+  <script src="js/inventory.js?v=2.1.01"></script>
+  <script src="js/combatants.js?v=2.1.01"></script>
+  <script src="js/combat.js?v=2.1.01"></script>
+  <script src="js/classes.js?v=2.1.01"></script>
+  <script src="js/tutorial.js?v=2.1.01"></script>
+  <script src="js/adventure.js?v=2.1.01"></script>
+  <script src="js/session.js?v=2.1.01"></script>
+  <script src="js/dataio.js?v=2.1.01"></script>
+  <script src="js/share.js?v=2.1.01"></script>
+  <script src="js/shell.js?v=2.1.01"></script>
+  <script src="js/main.js?v=2.1.01"></script>
 </body>
 </html>
