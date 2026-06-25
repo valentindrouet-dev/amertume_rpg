@@ -285,18 +285,26 @@
   // de niveau ; null (mode Admin) → tous les talents jusqu'au niveau du groupe.
   function resolveHeroTalents(chosenIds) {
     const cat = Store.talentEffectMap();
-    return Store.loadGenericTalents().filter(function (t) {
-      if (!((t.usage === 'combat' || t.usage === 'both') && t.effect)) return false;
-      if (Array.isArray(chosenIds)) return chosenIds.indexOf(t.id) >= 0;
-      return (t.level || 1) <= heroGroupLevel();
-    }).map(function (t) {
-      const c = cat[t.effect] || {};
-      return {
-        id: t.id, name: t.name, effect: t.effect,
-        kind: t.kind || c.kind || 'passive',
-        val: (typeof t.val === 'number') ? t.val : (c.defaultVal || 0),
-      };
+    const out = [];
+    Store.loadGenericTalents().forEach(function (t) {
+      if (!(t.usage === 'combat' || t.usage === 'both')) return;
+      const list = Store.talentEffectList(t);
+      if (!list.length) return;
+      if (Array.isArray(chosenIds)) { if (chosenIds.indexOf(t.id) < 0) return; }
+      else if ((t.level || 1) > heroGroupLevel()) return;
+      // Un talent peut cumuler plusieurs effets : on aplatit en une entrée par effet.
+      list.forEach(function (e) {
+        const c = cat[e.effect] || {};
+        out.push({
+          id: t.id, name: t.name, effect: e.effect,
+          kind: c.kind || 'passive',
+          val: (typeof e.val === 'number') ? e.val : (c.defaultVal || 0),
+          dice: e.dice || null,
+          range: e.range || null,
+        });
+      });
     });
+    return out;
   }
 
   // Traduit les talents de type ACTION en attaques spéciales jouables.
@@ -310,7 +318,22 @@
         dice: baseDice(), range: baseRange(), effects: Store.noStates() };
       switch (t.effect) {
         case 'double_attaque':
-          return Object.assign(common, { multiTarget: 2, sameZone: true });
+          return Object.assign(common, { multiTarget: Math.max(2, t.val || 2), sameZone: true });
+        case 'salve_zone': {
+          const dist = t.range === 'distance';
+          return Object.assign(common, {
+            useOwnDamage: true,
+            dice: t.dice ? Object.assign(D.emptyPool(), t.dice) : Object.assign(D.emptyPool(), { white: 2 }),
+            multiTarget: Math.max(1, t.val || 2), sameZone: true,
+            range: dist ? 'distance' : 'contact',
+          });
+        }
+        case 'assaut_mobile':
+          return Object.assign(common, { range: baseRange(), freeMove: true });
+        case 'soin_fixe':
+        case 'soin_endu':
+        case 'soin_des':
+          return Object.assign(common, { selfHeal: t.effect, healVal: t.val || 0, targets: 'self' });
         case 'frappe_puissante':
           return Object.assign(common, { range: 'contact', bonusDmg: t.val || 0 });
         case 'coup_renversant':
@@ -596,11 +619,20 @@
   // Section « Talents » de la fiche : badges colorés par type (Action/Réaction/Passif/Amélioration)
   const KIND_BADGE = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.' };
   function talentSection(dh) {
-    const talents = resolveHeroTalents(Array.isArray(dh.chosenTalents) ? dh.chosenTalents : null);
-    if (!talents.length) return '';
-    const badges = talents.map(function (t) {
-      return '<span class="tl-badge tl-kind-' + (t.kind || 'passive') + '" title="' + esc(t.name) + '">' +
-        esc(t.name) + ' <span class="tl-badge-kind">' + esc(KIND_BADGE[t.kind] || 'Talent') + '</span></span>';
+    const resolved = resolveHeroTalents(Array.isArray(dh.chosenTalents) ? dh.chosenTalents : null);
+    if (!resolved.length) return '';
+    // Un talent multi-effets n'apparaît qu'une fois : on cumule ses types.
+    const byId = {}; const order = [];
+    resolved.forEach(function (t) {
+      if (!byId[t.id]) { byId[t.id] = { name: t.name, kinds: [] }; order.push(t.id); }
+      if (byId[t.id].kinds.indexOf(t.kind) < 0) byId[t.id].kinds.push(t.kind);
+    });
+    const badges = order.map(function (id) {
+      const t = byId[id];
+      const primary = t.kinds[0] || 'passive';
+      const kindTxt = t.kinds.map(function (k) { return KIND_BADGE[k] || 'Talent'; }).join(' · ');
+      return '<span class="tl-badge tl-kind-' + primary + '" title="' + esc(t.name) + '">' +
+        esc(t.name) + ' <span class="tl-badge-kind">' + esc(kindTxt) + '</span></span>';
     }).join('');
     return '<div class="roster-section"><div class="roster-label">Talents</div>' +
       '<div class="tl-badges">' + badges + '</div></div>';

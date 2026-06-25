@@ -2666,3 +2666,26 @@ body.mode-player #item-list.roster-list { display: block; }
 .tl-kind-none { background: rgba(160,150,130,.25); color: #6a5e48; }
 /* Ligne de type dans la mini-fenêtre de talent */
 .talent-kind-row { display: flex; align-items: center; gap: .5rem; }
+
+/* ----- Mini-fenêtre Talent : éditeur multi-effets ----- */
+.tl-effects-head { display: flex; align-items: center; justify-content: space-between; margin: .2rem 0 .35rem; }
+.tl-eff-list { display: flex; flex-direction: column; gap: .5rem; }
+.tl-eff-row {
+  border: 1px solid rgba(120,100,70,.3);
+  border-left: 3px solid #8a7a5a;
+  border-radius: 8px;
+  padding: .5rem .6rem;
+  background: rgba(180,166,132,.08);
+}
+.tl-eff-top { display: flex; align-items: center; gap: .5rem; }
+.tl-eff-top .tl-eff-effect { flex: 1 1 auto; min-width: 0; }
+.tl-eff-del {
+  flex: 0 0 auto; border: none; background: rgba(190,70,70,.15); color: #a23b3b;
+  border-radius: 6px; width: 1.9rem; height: 1.9rem; cursor: pointer; font-weight: 700;
+}
+.tl-eff-del:hover { background: rgba(190,70,70,.3); }
+.tl-eff-params { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .45rem; }
+.tl-eff-params > label { display: flex; align-items: center; gap: .35rem; margin: 0; font-size: .85rem; }
+.tl-eff-params .tl-eff-val { width: 4.5rem; }
+.tl-eff-dice-wrap { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.tl-eff-dice.dice-steppers { display: flex; flex-wrap: wrap; gap: .3rem; }

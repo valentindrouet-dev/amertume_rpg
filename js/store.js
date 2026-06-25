@@ -328,8 +328,19 @@
   // hasVal : l'effet utilise une variable X (valLabel décrit X).
   const TALENT_EFFECTS = [
     // --- Actions (attaques spéciales jouables) ---
-    { effect: 'double_attaque', name: 'Double Attaque', kind: 'action', hasVal: false,
-      desc: 'Frappe 2 adversaires d\'une même zone avec les dégâts de votre arme.' },
+    { effect: 'double_attaque', name: 'Double Attaque', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles',
+      desc: 'Frappe X adversaires d\'une même zone avec les dégâts de votre arme.' },
+    { effect: 'salve_zone', name: 'Salve de Zone', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles',
+      hasDice: true, defaultDice: { white: 2 }, hasRange: true, defaultRange: 'contact',
+      desc: 'Inflige vos propres dés de dégâts à X adversaires d\'une même zone (au contact ou à distance).' },
+    { effect: 'assaut_mobile', name: 'Assaut Mobile', kind: 'action', hasVal: false,
+      desc: 'Vous effectuez 1 mouvement et 1 attaque (une seule action ; le mouvement est gratuit).' },
+    { effect: 'soin_fixe', name: 'Premiers Soins', kind: 'action', hasVal: true, defaultVal: 3, valLabel: 'PV rendus',
+      desc: 'Action : vous récupérez X PV.' },
+    { effect: 'soin_endu', name: 'Second Souffle', kind: 'action', hasVal: true, defaultVal: 1, valLabel: 'PV bonus',
+      desc: 'Action : vous récupérez ENDU + X PV.' },
+    { effect: 'soin_des', name: 'Convalescence', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Dés de soin 🟩',
+      desc: 'Action : vous récupérez X dés de soin (🟩).' },
     { effect: 'frappe_puissante', name: 'Frappe Puissante', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       desc: 'Attaque de contact infligeant +X dégâts.' },
     { effect: 'coup_renversant', name: 'Coup Renversant', kind: 'action', hasVal: false,
@@ -380,6 +391,7 @@
   }
   // Niveau par défaut suggéré pour chaque effet seedé (purement indicatif, éditable)
   const SEED_LEVELS = {
+    salve_zone: 3, assaut_mobile: 2, soin_fixe: 2, soin_endu: 3, soin_des: 3,
     double_attaque: 2, frappe_puissante: 2, coup_renversant: 3, attaque_affaiblissante: 3,
     attaque_enflammee: 4, frappe_tournoyante: 4, tir_charge: 2, tueur_au_sol: 2,
     tueur_affaibli: 3, meute: 2, frappe_lourde: 3, maitre_distance: 2, cuirasse: 3,
@@ -392,9 +404,24 @@
       id: 'gt_' + e.effect, name: e.name, level: SEED_LEVELS[e.effect] || 2,
       usage: 'combat', kind: e.kind, effect: e.effect,
       val: e.hasVal ? (e.defaultVal || 0) : 0,
+      dice: e.hasDice ? Object.assign({}, e.defaultDice || { white: 2 }) : undefined,
+      range: e.hasRange ? (e.defaultRange || 'contact') : undefined,
       description: e.desc,
     };
   });
+  // Normalise les effets d'un talent en liste [{effect,val,dice,range}].
+  // Supporte le format multi-effets (t.effects[]) ET l'ancien format mono-effet.
+  function talentEffectList(t) {
+    if (t && Array.isArray(t.effects) && t.effects.length) {
+      return t.effects.filter(function (e) { return e && e.effect; }).map(function (e) {
+        return { effect: e.effect, val: e.val || 0, dice: e.dice || null, range: e.range || null };
+      });
+    }
+    if (t && t.effect) {
+      return [{ effect: t.effect, val: t.val || 0, dice: t.dice || null, range: t.range || null }];
+    }
+    return [];
+  }
   function loadGenericTalents() {
     let arr = null;
     try {
@@ -504,6 +531,7 @@
     saveGenericTalents: saveGenericTalents,
     talentEffects: talentEffects,
     talentEffectMap: talentEffectMap,
+    talentEffectList: talentEffectList,
     loadMonsterTalents: loadMonsterTalents,
     saveMonsterTalents: saveMonsterTalents,
     loadTutorials: loadTutorials,

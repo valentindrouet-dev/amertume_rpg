@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertume — Inventaire &amp; Dés</title>
-  <link rel="stylesheet" href="css/style.css?v=2.92" />
+  <link rel="stylesheet" href="css/style.css?v=2.93" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -296,13 +296,13 @@
           <label>Groupe <select id="tl-f-group"></select></label>
           <label>Niveau <input type="number" id="tl-f-level" min="1" max="7" value="1" /></label>
         </div>
+        <div class="tl-effects-head">
+          <span class="roster-label">Effets (moteur)</span>
+          <button type="button" id="tl-f-addeffect" class="ghost small">+ Ajouter un effet</button>
+        </div>
+        <div id="tl-f-effects" class="tl-eff-list"></div>
+        <p class="hint">Cumulez plusieurs effets pour un même talent (ex. attaquer <i>et</i> se soigner).</p>
         <div class="form-row">
-          <label>Effet (moteur)
-            <select id="tl-f-effect"></select>
-          </label>
-          <label id="tl-f-val-wrap" hidden><span id="tl-f-val-label">Valeur X</span>
-            <input type="number" id="tl-f-val" min="0" max="99" value="0" />
-          </label>
           <label>Disponibilité
             <select id="tl-f-usage">
               <option value="both">Combat &amp; hors combat</option>
@@ -311,7 +311,6 @@
             </select>
           </label>
         </div>
-        <div id="tl-f-kindrow" class="talent-kind-row"></div>
         <label>Description
           <textarea id="tl-f-desc" rows="2" placeholder="Description affichée au joueur…"></textarea>
         </label>
@@ -601,18 +600,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.92"></script>
-  <script src="js/store.js?v=2.92"></script>
-  <script src="js/inventory.js?v=2.92"></script>
-  <script src="js/combatants.js?v=2.92"></script>
-  <script src="js/combat.js?v=2.92"></script>
-  <script src="js/classes.js?v=2.92"></script>
-  <script src="js/tutorial.js?v=2.92"></script>
-  <script src="js/adventure.js?v=2.92"></script>
-  <script src="js/session.js?v=2.92"></script>
-  <script src="js/dataio.js?v=2.92"></script>
-  <script src="js/share.js?v=2.92"></script>
-  <script src="js/shell.js?v=2.92"></script>
-  <script src="js/main.js?v=2.92"></script>
+  <script src="js/dice.js?v=2.93"></script>
+  <script src="js/store.js?v=2.93"></script>
+  <script src="js/inventory.js?v=2.93"></script>
+  <script src="js/combatants.js?v=2.93"></script>
+  <script src="js/combat.js?v=2.93"></script>
+  <script src="js/classes.js?v=2.93"></script>
+  <script src="js/tutorial.js?v=2.93"></script>
+  <script src="js/adventure.js?v=2.93"></script>
+  <script src="js/session.js?v=2.93"></script>
+  <script src="js/dataio.js?v=2.93"></script>
+  <script src="js/share.js?v=2.93"></script>
+  <script src="js/shell.js?v=2.93"></script>
+  <script src="js/main.js?v=2.93"></script>
 </body>
 </html>

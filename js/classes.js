@@ -8,6 +8,7 @@
 (function (global) {
   'use strict';
 
+  const D = (typeof AmertumeDice !== 'undefined') ? AmertumeDice : null;
   const $ = function (sel) { return document.querySelector(sel); };
   const esc = function (s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -49,8 +50,9 @@
   function persist() { save(); saveGen(); }
 
   function newTalent() {
-    return { id: Store.uid(), name: '', level: 1, usage: 'both', kind: '', effect: '', val: 0, description: '' };
+    return { id: Store.uid(), name: '', level: 1, usage: 'both', kind: '', effects: [], description: '' };
   }
+  function emptyPool() { return D ? D.emptyPool() : { black: 0, red: 0, blue: 0, green: 0, yellow: 0, white: 0, bone: 0 }; }
 
   // Liste des groupes (Génériques + chaque classe), avec leur tableau de talents
   function groups() {
@@ -203,20 +205,56 @@
     return g.list.find(function (t) { return t.id === id; }) || null;
   }
 
-  function syncValAndKind() {
-    const eff = effectMap()[$('#tl-f-effect').value] || null;
-    const wrap = $('#tl-f-val-wrap');
-    if (eff && eff.hasVal) {
-      wrap.hidden = false;
-      $('#tl-f-val-label').textContent = eff.valLabel || 'Valeur X';
-    } else {
-      wrap.hidden = true;
-    }
+  // ---- Lignes d'effet (multi-effets, chacune avec ses paramètres) ----
+  // Met à jour les champs conditionnels (X, portée, dés) d'une ligne selon l'effet choisi.
+  function syncEffectRow(row) {
+    const eff = effectMap()[row.querySelector('.tl-eff-effect').value] || null;
+    const valWrap = row.querySelector('.tl-eff-val-wrap');
+    const rangeWrap = row.querySelector('.tl-eff-range-wrap');
+    const diceWrap = row.querySelector('.tl-eff-dice-wrap');
+    valWrap.hidden = !(eff && eff.hasVal);
+    if (eff && eff.hasVal) row.querySelector('.tl-eff-val-label').textContent = eff.valLabel || 'Valeur X';
+    rangeWrap.hidden = !(eff && eff.hasRange);
+    diceWrap.hidden = !(eff && eff.hasDice);
     const kind = eff ? eff.kind : '';
-    $('#tl-f-kindrow').innerHTML = kind
-      ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_LABEL[kind]) + '</span> ' +
-        '<span class="hint">Type déterminé par l\'effet choisi.</span>'
-      : '<span class="hint">Talent descriptif (aucun effet moteur).</span>';
+    row.querySelector('.tl-eff-kind').innerHTML = kind
+      ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_LABEL[kind]) + '</span>'
+      : '<span class="hint">Descriptif</span>';
+  }
+
+  function addEffectRow(e) {
+    e = e || {};
+    const list = $('#tl-f-effects');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'tl-eff-row';
+    row.innerHTML =
+      '<div class="tl-eff-top">' +
+        '<select class="tl-eff-effect">' + effectOptions(e.effect || '') + '</select>' +
+        '<button type="button" class="tl-eff-del" title="Retirer cet effet">✕</button>' +
+      '</div>' +
+      '<div class="tl-eff-params">' +
+        '<span class="tl-eff-kind"></span>' +
+        '<label class="tl-eff-val-wrap" hidden><span class="tl-eff-val-label">Valeur X</span>' +
+          '<input type="number" class="tl-eff-val" min="0" max="99" value="' + (e.val || 0) + '" /></label>' +
+        '<label class="tl-eff-range-wrap" hidden>Portée ' +
+          '<select class="tl-eff-range">' +
+            '<option value="contact"' + (e.range === 'contact' ? ' selected' : '') + '>Au contact</option>' +
+            '<option value="distance"' + (e.range === 'distance' ? ' selected' : '') + '>À distance</option>' +
+          '</select></label>' +
+        '<div class="tl-eff-dice-wrap" hidden><span class="tl-eff-dice-label">Dés de dégâts</span>' +
+          '<div class="tl-eff-dice dice-steppers"></div></div>' +
+      '</div>';
+    list.appendChild(row);
+    // Pool de dés propre à la ligne (référence mutée par les steppers)
+    row._pool = Object.assign(emptyPool(), e.dice || {});
+    if (Inventory && Inventory.buildDiceSteppers) {
+      Inventory.buildDiceSteppers(row.querySelector('.tl-eff-dice'), row._pool);
+    }
+    row.querySelector('.tl-eff-effect').addEventListener('change', function () { syncEffectRow(row); });
+    row.querySelector('.tl-eff-del').addEventListener('click', function () { row.remove(); });
+    syncEffectRow(row);
+    return row;
   }
 
   function openTalentModal(id, ref) {
@@ -232,11 +270,13 @@
     $('#tl-f-group').innerHTML = groupOptions(ref || 'generic');
     $('#tl-f-level').value = t.level || 1;
     $('#tl-f-usage').value = t.usage || 'both';
-    $('#tl-f-effect').innerHTML = effectOptions(t.effect || '');
-    $('#tl-f-val').value = t.val || 0;
     $('#tl-f-desc').value = t.description || '';
     $('#tl-f-delete').hidden = !existing;
-    syncValAndKind();
+    // Reconstruit les lignes d'effet à partir du talent (multi-effets ou ancien mono-effet)
+    $('#tl-f-effects').innerHTML = '';
+    const effs = Store.talentEffectList(t);
+    effs.forEach(function (e) { addEffectRow(e); });
+    if (!effs.length) addEffectRow({});
     m.hidden = false;
     $('#tl-f-name').focus();
   }
@@ -246,15 +286,31 @@
   function submitTalent(ev) {
     ev.preventDefault();
     const targetRef = $('#tl-f-group').value;
-    const eff = effectMap()[$('#tl-f-effect').value] || null;
+    const cat = effectMap();
+    // Collecte les lignes d'effet (dans l'ordre affiché)
+    const effects = [];
+    $('#tl-f-effects').querySelectorAll('.tl-eff-row').forEach(function (row) {
+      const key = row.querySelector('.tl-eff-effect').value;
+      if (!key) return;
+      const meta = cat[key] || {};
+      const e = { effect: key };
+      if (meta.hasVal) e.val = Math.max(0, Math.min(99, parseInt(row.querySelector('.tl-eff-val').value, 10) || 0));
+      if (meta.hasRange) e.range = row.querySelector('.tl-eff-range').value || 'contact';
+      if (meta.hasDice) e.dice = Object.assign(emptyPool(), row._pool || {});
+      effects.push(e);
+    });
+    const first = effects[0] || null;
+    const firstMeta = first ? (cat[first.effect] || {}) : null;
     const data = {
       id: $('#tl-f-id').value || Store.uid(),
       name: ($('#tl-f-name').value || '').trim() || 'Talent',
       level: Math.max(1, Math.min(7, parseInt($('#tl-f-level').value, 10) || 1)),
       usage: $('#tl-f-usage').value,
-      effect: $('#tl-f-effect').value || '',
-      kind: eff ? eff.kind : '',
-      val: (eff && eff.hasVal) ? Math.max(0, Math.min(99, parseInt($('#tl-f-val').value, 10) || 0)) : 0,
+      effects: effects,
+      // Champs « représentatifs » conservés pour la rétro-compat (affichage, coloration)
+      effect: first ? first.effect : '',
+      kind: firstMeta ? firstMeta.kind : '',
+      val: (first && typeof first.val === 'number') ? first.val : 0,
       description: ($('#tl-f-desc').value || '').trim(),
     };
     // Retire l'ancienne occurrence (changement de groupe possible)
@@ -290,8 +346,8 @@
     if (c) c.addEventListener('click', closeTalentModal);
     const d = $('#tl-f-delete');
     if (d) d.addEventListener('click', deleteTalent);
-    const e = $('#tl-f-effect');
-    if (e) e.addEventListener('change', syncValAndKind);
+    const ae = $('#tl-f-addeffect');
+    if (ae) ae.addEventListener('click', function () { addEffectRow({}); });
     const m = $('#talent-modal');
     if (m) m.addEventListener('click', function (ev) { if (ev.target.id === 'talent-modal') closeTalentModal(); });
     render();

@@ -1972,6 +1972,36 @@
     checkOutcome(); Store.save(); render();
   }
 
+  // Action de soin auto-ciblée (talents soin_fixe / soin_endu / soin_des).
+  function applySelfHeal(c, atkIndex) {
+    const atk = c.attacks[atkIndex];
+    if (!atk) return;
+    if (!atk.freeAction && c.used.action) return;
+    const before = c.pv;
+    let heal = 0, detail = '';
+    if (atk.selfHeal === 'soin_fixe') {
+      heal = atk.healVal || 0;
+    } else if (atk.selfHeal === 'soin_endu') {
+      heal = (c.endu || 0) + (atk.healVal || 0);
+      detail = ' <span class="ldice">(ENDU ' + (c.endu || 0) + (atk.healVal ? ' + ' + atk.healVal : '') + ')</span>';
+    } else if (atk.selfHeal === 'soin_des') {
+      const n = Math.max(1, atk.healVal || 1); const rolls = [];
+      for (let i = 0; i < n; i++) { const v = 1 + Math.floor(Math.random() * 6); rolls.push(dnum(v, 'green')); heal += v; }
+      detail = ' <span class="ldice">(' + rolls.join('<span class="dplus">+</span>') + ')</span>';
+    }
+    c.pv = Math.min(c.maxPv, c.pv + heal);
+    const gained = c.pv - before;
+    pushFx({ type: 'heal', iid: c.iid, amount: gained, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
+    log(cname(c) + ' utilise <span class="lwpn">' + nm(attackLabel(atk)) + '</span> et récupère ' +
+      amt(gained, 'heal') + ' PV' + detail + '.', 'heal');
+    if (!atk.freeAction) c.used.action = true;
+  }
+  function execHeroSelfHeal(c, atkIndex) {
+    applySelfHeal(c, atkIndex);
+    pendingAttack = null;
+    checkOutcome(); Store.save(); render();
+  }
+
   // Résout les dégâts moyens garantis (sans dé, sans risque d'échec)
   function resolveAverageAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
@@ -2077,9 +2107,13 @@
           const attacker = byId(pendingAttack.iid);
           if (!attacker) return;
           const atk = attacker.attacks[pendingAttack.atkIndex];
+          // Assaut Mobile (freeMove) : le déplacement est gratuit (ne consomme pas le mouvement)
+          // et peut s'enchaîner même si le mouvement a déjà été utilisé ce tour.
           if (atk && atk.range === 'contact' && attacker.zone !== c.zone) {
-            if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
+            if (!atk.freeMove && attacker.used.move) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
+            const prevMove = attacker.used.move;
             doMove(attacker, c.zone, true);
+            if (atk.freeMove) attacker.used.move = prevMove;
             if (attacker.status !== 'active') { pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
             movePrefix = { iid: attacker.iid, zone: zname(attacker.zone) };
           }
@@ -2115,6 +2149,8 @@
           const i = parseInt(b.getAttribute('data-atk'), 10);
           const atk = c.attacks[i];
           if (!atk) return;
+          // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
+          if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
           if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average) {
             pendingAttack = null; render(); return; // re-clic = annuler
           }
