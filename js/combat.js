@@ -1652,7 +1652,7 @@
     if (c.side === 'monster' && (c.socle === 'large' || c.socle === 'huge')) cls.push('socle-' + c.socle);
     if (dead) cls.push('is-' + c.status);
     if (selectedIid === c.iid) cls.push('selected');
-    if (!isEnemy && !dead && !c.used.action) cls.push('has-action');
+    if (c.side === 'hero' && !dead && !c.used.action) cls.push('has-action');
     // Cible valide pendant le ciblage au clic (attaque ou analyse)
     if (pendingAttack && !dead) {
       const attacker = byId(pendingAttack.iid);

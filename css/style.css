@@ -2034,7 +2034,7 @@ img.ab-atk-name {
 }
 .combat-card.selected::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: rgba(193,78,53,.12); pointer-events: none;
+  background: rgba(226,151,74,.12); pointer-events: none;
 }
 .combat-card { cursor: pointer; }
 
