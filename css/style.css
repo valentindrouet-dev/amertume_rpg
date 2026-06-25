@@ -2360,21 +2360,25 @@ body.mode-player #item-list.roster-list { display: block; }
 
 .inv-cols {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem;
-  align-items: start; margin: .3rem 0 1rem;
+  align-items: start; margin: .3rem 0 .6rem;
 }
-.inv-col-weapons { grid-column: span 2; }
-.inv-weapons-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
-.inv-col { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
-.inv-col-title {
+/* En-tête de colonnes (affiché une seule fois au-dessus des rangées héros) */
+.inv-cols-header { margin-bottom: 0; }
+.inv-col-hdr {
   font-size: .72rem; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .04em; color: var(--muted); margin-bottom: .05rem;
+  letter-spacing: .05em; color: var(--muted);
+  border-bottom: 1px solid var(--border); padding-bottom: .2rem;
 }
+.inv-col { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
 .inv-col-empty { color: var(--muted); font-style: italic; margin: 0; font-size: .8rem; }
 
 @media (max-width: 760px) {
+  .inv-cols { grid-template-columns: 1fr 1fr; }
+  .inv-cols-header { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
   .inv-cols { grid-template-columns: 1fr; }
-  .inv-col-weapons { grid-column: auto; }
-  .inv-weapons-grid { grid-template-columns: 1fr; }
+  .inv-cols-header { grid-template-columns: 1fr; }
 }
 
 /* Languette : case d'équipement (clic) + corps cliquable (mini-fenêtre) */
@@ -2389,25 +2393,32 @@ body.mode-player #item-list.roster-list { display: block; }
 .inv-strip:hover { filter: brightness(1.03); }
 .inv-strip-name {
   font-weight: 600; font-size: .85rem; min-width: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
 }
 .inv-strip-val { flex: 0 0 auto; display: flex; align-items: center; gap: .2rem; }
-.inv-strip-def { font-weight: 800; font-size: .8rem; color: #2c5a93; }
+.inv-strip-def { display: flex; align-items: center; }
+.inv-def-img { height: 28px; width: auto; display: block; }
+.inv-strip-avg { font-size: .7rem; color: #8a6a3a; font-style: italic; white-space: nowrap; }
 .inv-strip-eff {
-  font-size: .74rem; color: #5a4527; max-width: 140px;
+  font-size: .74rem; color: #5a4527; max-width: 120px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.inv-strip .inv-qty.inline {
-  position: static; box-shadow: none; margin-left: .25rem; padding: .02rem .35rem;
+/* Bouton édition (mode admin) */
+.inv-strip-edit {
+  flex: 0 0 auto; align-self: center;
+  background: none; border: none; color: var(--muted);
+  font-size: 1rem; cursor: pointer; padding: .1rem .3rem; line-height: 1;
 }
+.inv-strip-edit:hover { color: var(--text); }
 
-/* Couleurs par catégorie (reprise du code de l'armurerie) */
+/* Couleurs par catégorie */
 .inv-strip-row.cat-weapon .inv-strip { border-left-color: #c0563f; background: linear-gradient(180deg,#efe4cf,#f0dcd2); }
 .inv-strip-row.cat-armor  .inv-strip { border-left-color: #4a8dd6; background: linear-gradient(180deg,#efe4cf,#d7e3f1); }
 .inv-strip-row.cat-object .inv-strip,
+.inv-strip-row.cat-ammo   .inv-strip,
 .inv-strip-row.cat-misc   .inv-strip { border-left-color: #5fa45f; background: linear-gradient(180deg,#efe4cf,#dcecd2); }
 
-/* Surlignage de l'équipement actif (inchangé visuellement) */
+/* Surlignage de l'équipement actif */
 .inv-strip-row.equipped .inv-strip { outline: 2px solid var(--action); outline-offset: 1px; }
 
 /* Mini-fenêtre d'objet */

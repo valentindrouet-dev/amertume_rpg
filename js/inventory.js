@@ -137,34 +137,44 @@
       list.innerHTML = '<p class="empty">Aucun aventurier : crée ton groupe d\'abord.</p>';
       return;
     }
-    // Chaque aventurier ne voit que SON équipement (départ + butin personnel)
     const ownedOf = function (heroId) {
       return (window.Session && Session.ownedForHero) ? Session.ownedForHero(advId, heroId) : {};
     };
     const isEquip = function (i) {
       return i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc';
     };
-    // Languette équipable : case (équipement par clic + surlignage) + corps
-    // cliquable (ouvre la mini-fenêtre d'objet).
-    const stripRow = function (h, e, owned, i) {
+
+    // Une seule languette (une copie)
+    const singleStrip = function (h, e, i) {
       const eq = isEquipped(e, i);
-      const qty = Number(owned[i.id]) || 1;
       return '<label class="inv-strip-row cat-' + i.category + (eq ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (eq ? ' checked' : '') + '>' +
-        '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) +
-          (qty > 1 ? '<span class="inv-qty inline">×' + qty + '</span>' : '') +
-        '</div>' +
+        '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) + '</div>' +
       '</label>';
     };
-    const colHtml = function (h, e, owned, items, title, extraClass) {
-      const strips = items.length
-        ? items.map(function (i) { return stripRow(h, e, owned, i); }).join('')
+    // Expansion quantité : armes/objets → N languettes ; armures → 1 (dédup)
+    const stripRows = function (h, e, owned, i) {
+      const qty = i.category === 'armor' ? 1 : (Number(owned[i.id]) || 1);
+      let out = '';
+      for (let k = 0; k < qty; k++) out += singleStrip(h, e, i);
+      return out;
+    };
+    const colContent = function (h, e, owned, items) {
+      return items.length
+        ? items.map(function (i) { return stripRows(h, e, owned, i); }).join('')
         : '<p class="inv-col-empty">—</p>';
-      return '<div class="inv-col ' + extraClass + '">' +
-        '<div class="inv-col-title">' + title + '</div>' + strips + '</div>';
     };
 
-    let html = '';
+    // En-tête de colonnes unique (affiché une seule fois, en dehors de la boucle héros)
+    const HEADER =
+      '<div class="inv-cols inv-cols-header">' +
+        '<div class="inv-col-hdr">Armes de Mêlée</div>' +
+        '<div class="inv-col-hdr">Armes à Distance</div>' +
+        '<div class="inv-col-hdr">Armures</div>' +
+        '<div class="inv-col-hdr">Objets</div>' +
+      '</div>';
+
+    let html = HEADER;
     heroes.forEach(function (h) {
       const e = normEq(h);
       const hands = handsUsed(e);
@@ -174,19 +184,15 @@
       const owned = ownedOf(h.id);
       const mine = Store.state.items.filter(function (i) { return owned[i.id] && isEquip(i); });
       if (!mine.length) { html += '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement personnel.</p>'; return; }
-      const weapons = mine.filter(function (i) { return i.category === 'weapon'; });
-      const armors = mine.filter(function (i) { return i.category === 'armor'; });
-      const objects = mine.filter(function (i) { return i.category === 'object' || i.category === 'misc'; });
-      const weaponStrips = weapons.length
-        ? weapons.map(function (i) { return stripRow(h, e, owned, i); }).join('')
-        : '<p class="inv-col-empty">—</p>';
+      const melee    = mine.filter(function (i) { return i.category === 'weapon' && !i.ranged; });
+      const distance = mine.filter(function (i) { return i.category === 'weapon' && i.ranged; });
+      const armors   = mine.filter(function (i) { return i.category === 'armor'; });
+      const objects  = mine.filter(function (i) { return i.category === 'object' || i.category === 'misc'; });
       html += '<div class="inv-cols">' +
-        '<div class="inv-col inv-col-weapons">' +
-          '<div class="inv-col-title">Armes</div>' +
-          '<div class="inv-weapons-grid">' + weaponStrips + '</div>' +
-        '</div>' +
-        colHtml(h, e, owned, armors, 'Armures', 'inv-col-armor') +
-        colHtml(h, e, owned, objects, 'Objets', 'inv-col-object') +
+        '<div class="inv-col inv-col-melee">'    + colContent(h, e, owned, melee)    + '</div>' +
+        '<div class="inv-col inv-col-distance">' + colContent(h, e, owned, distance) + '</div>' +
+        '<div class="inv-col inv-col-armor">'    + colContent(h, e, owned, armors)   + '</div>' +
+        '<div class="inv-col inv-col-object">'   + colContent(h, e, owned, objects)  + '</div>' +
       '</div>';
     });
     list.innerHTML = html;
@@ -249,14 +255,24 @@
     '</div>';
   }
 
+  // Image bouclier DEF (assets/DEF N.png pour N 1-6)
+  function defShieldImg(val) {
+    val = Number(val) || 0;
+    if (val >= 1 && val <= 6) {
+      return '<img class="def-img inv-def-img" src="assets/DEF ' + val + '.png" alt="DEF ' + val + '">';
+    }
+    return '<span class="def-shield">' + val + '</span>';
+  }
+
   // ----- Languette d'inventaire : nom à gauche, valeur à droite -----
-  // (dés de dégâts pour une arme, DEF pour une armure, effet pour un objet)
   function itemStripHtml(i) {
     let right;
     if (i.category === 'weapon') {
-      right = '<span class="inv-strip-val inv-strip-dice">' + poolBadges(i.dice) + '</span>';
+      const avg = avgOf(i.dice || {});
+      right = '<span class="inv-strip-val inv-strip-dice">' + poolBadges(i.dice) +
+        '<span class="inv-strip-avg">~' + avg + '</span></span>';
     } else if (i.category === 'armor') {
-      right = '<span class="inv-strip-val inv-strip-def">DEF ' + (i.def || 0) + '</span>';
+      right = '<span class="inv-strip-val inv-strip-def">' + defShieldImg(i.def || 0) + '</span>';
     } else {
       right = '<span class="inv-strip-val inv-strip-eff">' + (i.effects ? escapeHtml(i.effects) : '—') + '</span>';
     }
@@ -303,35 +319,47 @@
 
   function renderGrouped(items, canEdit) {
     const list = $('#item-list');
-    function cardHtml(i) { return itemCardHtml(i, canEdit); }
 
-    function sepHtml(label, n, sub) {
-      return '<div class="armory-sep' + (sub ? ' armory-subsep' : '') + '">' + label +
-        ' <span class="armory-sep-count">' + n + '</span></div>';
+    // Languette admin : pas de case à cocher, bouton édition à droite
+    function adminStrip(i) {
+      return '<div class="inv-strip-row cat-' + i.category + '">' +
+        '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) + '</div>' +
+        (canEdit ? '<button class="inv-strip-edit" data-edit="' + i.id + '" title="Éditer">✎</button>' : '') +
+      '</div>';
+    }
+    function colItems(items2) {
+      return items2.length ? items2.map(adminStrip).join('') : '<p class="inv-col-empty">—</p>';
     }
 
-    // Regroupe par catégorie avec un séparateur visuel
-    const GROUP = [['weapon', 'Armes'], ['armor', 'Armures'], ['ammo', 'Munitions'],
-      ['object', 'Objets'], ['misc', 'Divers']];
-    let html = '';
-    GROUP.forEach(function (g) {
-      const group = items.filter(function (i) { return i.category === g[0]; });
-      if (!group.length) return;
-      html += sepHtml(g[1], group.length, false);
-      if (g[0] === 'weapon') {
-        // Sous-séparation contact / distance
-        const contact = group.filter(function (i) { return !i.ranged; });
-        const distance = group.filter(function (i) { return i.ranged; });
-        if (contact.length) { html += sepHtml('⚔ Contact', contact.length, true) + contact.map(cardHtml).join(''); }
-        if (distance.length) { html += sepHtml('🏹 Distance', distance.length, true) + distance.map(cardHtml).join(''); }
-      } else {
-        html += group.map(cardHtml).join('');
-      }
+    const melee    = items.filter(function (i) { return i.category === 'weapon' && !i.ranged; });
+    const distance = items.filter(function (i) { return i.category === 'weapon' && i.ranged; });
+    const armors   = items.filter(function (i) { return i.category === 'armor'; });
+    const objects  = items.filter(function (i) {
+      return i.category === 'object' || i.category === 'misc' || i.category === 'ammo';
     });
-    list.innerHTML = html;
+
+    list.innerHTML =
+      '<div class="inv-cols inv-cols-header">' +
+        '<div class="inv-col-hdr">Armes de Mêlée</div>' +
+        '<div class="inv-col-hdr">Armes à Distance</div>' +
+        '<div class="inv-col-hdr">Armures</div>' +
+        '<div class="inv-col-hdr">Objets</div>' +
+      '</div>' +
+      '<div class="inv-cols">' +
+        '<div class="inv-col inv-col-melee">'    + colItems(melee)    + '</div>' +
+        '<div class="inv-col inv-col-distance">' + colItems(distance) + '</div>' +
+        '<div class="inv-col inv-col-armor">'    + colItems(armors)   + '</div>' +
+        '<div class="inv-col inv-col-object">'   + colItems(objects)  + '</div>' +
+      '</div>';
 
     list.querySelectorAll('[data-edit]').forEach(function (b) {
       b.addEventListener('click', function () { openModal(b.getAttribute('data-edit')); });
+    });
+    list.querySelectorAll('.inv-strip[data-info]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        openItemSheet(el.getAttribute('data-info'));
+      });
     });
   }
 
