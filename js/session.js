@@ -389,7 +389,9 @@
   function effectiveHero(ses, h) {
     if (!ses) return h;
     const g = ses.levelGains ? ses.levelGains[h.id] : null;
+    const state = ses.heroStates ? (ses.heroStates[h.id] || {}) : {};
     return Object.assign({}, h, {
+      vie: Math.max(0, (h.vie || 0) + (state.viePenalty || 0)),
       endu: (h.endu || 0) + (g ? g.endu || 0 : 0),
       damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
       // chosenTalents = talents ÉQUIPÉS (ce qui est actif en combat / sur la fiche)
@@ -596,13 +598,15 @@
         '<button type="button" class="lvl-choice-btn lvl-stat-btn" data-idx="' + idx + '" data-stat="damage">+1 Dégâts</button>';
       const talHtml = talents.length
         ? talents.map(function (t) {
-            return '<button type="button" class="lvl-choice-btn lvl-tal-btn' +
-              (t.kind ? ' lvl-tal-' + t.kind : '') + '" ' +
-              'data-idx="' + idx + '" data-tal="' + esc(t.id) + '" ' +
-              'title="' + esc(t.description || '') + '">' +
-              '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
-              '<span class="lvl-tal-lvl">' + esc(KIND_SHORT(t.kind)) + ' · Niv. ' + (t.level || 1) + '</span>' +
-            '</button>';
+            return '<div class="lvl-tal-wrap">' +
+              '<div class="lvl-choice-btn lvl-tal-btn' + (t.kind ? ' lvl-tal-' + t.kind : '') + '" ' +
+              'data-idx="' + idx + '" data-tal="' + esc(t.id) + '">' +
+                '<input type="checkbox" class="lvl-tal-cb" aria-label="Sélectionner ' + esc(t.name) + '">' +
+                '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
+                '<span class="lvl-tal-lvl">' + esc(KIND_SHORT(t.kind)) + ' · Niv. ' + (t.level || 1) + '</span>' +
+              '</div>' +
+              (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(t.description) + '</div>' : '') +
+            '</div>';
           }).join('')
         : '<span class="hint" style="font-size:.8rem">Aucun talent disponible.</span>';
       return '<div class="lvl-hero" data-idx="' + idx + '">' +
@@ -648,13 +652,23 @@
         refresh();
       });
     });
-    root.querySelectorAll('.lvl-tal-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const idx = btn.getAttribute('data-idx');
-        root.querySelectorAll('.lvl-tal-btn[data-idx="' + idx + '"]').forEach(function (b) { b.classList.remove('selected'); });
-        btn.classList.add('selected');
-        talSel[idx] = btn.getAttribute('data-tal');
-        refresh();
+    root.querySelectorAll('.lvl-tal-wrap').forEach(function (wrap) {
+      const btn = wrap.querySelector('.lvl-tal-btn');
+      const desc = wrap.querySelector('.lvl-tal-desc');
+      btn.addEventListener('click', function (e) {
+        if (e.target.classList.contains('lvl-tal-cb')) {
+          const idx = btn.getAttribute('data-idx');
+          root.querySelectorAll('.lvl-tal-btn[data-idx="' + idx + '"]').forEach(function (b) {
+            b.classList.remove('selected');
+            const cb = b.querySelector('.lvl-tal-cb'); if (cb) cb.checked = false;
+          });
+          btn.classList.add('selected');
+          e.target.checked = true;
+          talSel[idx] = btn.getAttribute('data-tal');
+          refresh();
+        } else {
+          if (desc) desc.hidden = !desc.hidden;
+        }
       });
     });
 

@@ -689,9 +689,9 @@
 
   // ----- Assistant de création (mode Joueur) : Nom → Classe → Équipement → Compétences -----
   let wiz = null;
-  const WIZ_STEPS = ['Nom', 'Classe', 'Équipement', 'Talents', 'Compétences'];
+  const WIZ_STEPS = ['Nom', 'Classe', 'Caractéristiques', 'Équipement', 'Talents', 'Compétences'];
   function openHeroWizard(advId) {
-    wiz = { advId: advId, step: 0, name: '', klass: '', equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, talents: [], skills: [] };
+    wiz = { advId: advId, step: 0, name: '', klass: '', statBonuses: { vie: 0, endu: 0, damage: 0 }, statClicks: 0, equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, talents: [], skills: [] };
     $('#hero-wizard-modal').hidden = false;
     renderWizard();
   }
@@ -739,6 +739,39 @@
       body.querySelectorAll('.hw-class').forEach(function (b) {
         b.onclick = function () { wiz.klass = this.getAttribute('data-class'); renderWizard(); };
       });
+    } else if (stepName === 'Caractéristiques') {
+      const classPvBonus = CLASS_PV[wiz.klass] || 0;
+      const vie = 4 + wiz.statBonuses.vie;
+      const endu = 3 + wiz.statBonuses.endu;
+      const dmg = 2 + wiz.statBonuses.damage;
+      const pv = Math.max(1, vie * endu + classPvBonus);
+      const rem = 3 - wiz.statClicks;
+      body.innerHTML =
+        '<p class="hint">Répartis jusqu\'à <b>3 points</b> dans les caractéristiques de ton aventurier.' +
+        (rem > 0 ? ' (<b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + ')' : ' <b>(max atteint)</b>') + '</p>' +
+        '<div class="hw-stat-list">' +
+          '<button type="button" class="hw-stat-btn" data-stat="damage"' + (rem <= 0 ? ' disabled' : '') + '>' +
+            '<span class="hw-stat-label">+1 DÉGÂTS</span><span class="hw-stat-cur">' + dmg + '</span>' +
+          '</button>' +
+          '<button type="button" class="hw-stat-btn" data-stat="endu"' + (rem <= 0 ? ' disabled' : '') + '>' +
+            '<span class="hw-stat-label">+2 ENDURANCE</span><span class="hw-stat-cur">' + endu + '</span>' +
+          '</button>' +
+          '<button type="button" class="hw-stat-btn" data-stat="vie"' + (rem <= 0 ? ' disabled' : '') + '>' +
+            '<span class="hw-stat-label">+1 VIE</span><span class="hw-stat-cur">' + vie + '</span>' +
+          '</button>' +
+        '</div>' +
+        '<div class="hw-pv-preview">PV totaux · <strong>' + pv + '</strong></div>';
+      body.querySelectorAll('.hw-stat-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (wiz.statClicks >= 3) return;
+          const stat = btn.getAttribute('data-stat');
+          if (stat === 'endu') wiz.statBonuses.endu += 2;
+          else if (stat === 'damage') wiz.statBonuses.damage += 1;
+          else if (stat === 'vie') wiz.statBonuses.vie += 1;
+          wiz.statClicks++;
+          renderWizard();
+        });
+      });
     } else if (stepName === 'Équipement') {
       // Seuls les équipements de Départ sont proposés à la création (si le MJ en a
       // désigné ; sinon, repli sur tout le catalogue pour rester utilisable).
@@ -767,21 +800,30 @@
           ? '<div class="hw-tal-list">' + tals.map(function (t) {
               const kind = wizTalentKind(t);
               const sel = wiz.talents.indexOf(t.id) >= 0;
-              return '<button type="button" class="lvl-choice-btn lvl-tal-btn' + (kind ? ' lvl-tal-' + kind : '') + (sel ? ' selected' : '') + '" ' +
-                'data-tal="' + esc(t.id) + '" title="' + esc(t.description || '') + '">' +
-                '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
-                '<span class="lvl-tal-lvl">' + esc(kind ? (KIND_BADGE[kind] || 'Talent') : 'Talent') + ' · Niv. ' + (t.level || 1) + '</span>' +
-              '</button>';
+              return '<div class="lvl-tal-wrap">' +
+                '<div class="lvl-choice-btn lvl-tal-btn' + (kind ? ' lvl-tal-' + kind : '') + (sel ? ' selected' : '') + '" data-tal="' + esc(t.id) + '">' +
+                  '<input type="checkbox" class="lvl-tal-cb"' + (sel ? ' checked' : '') + ' aria-label="Sélectionner ' + esc(t.name) + '">' +
+                  '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
+                  '<span class="lvl-tal-lvl">' + esc(kind ? (KIND_BADGE[kind] || 'Talent') : 'Talent') + ' · Niv. ' + (t.level || 1) + '</span>' +
+                '</div>' +
+                (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(t.description) + '</div>' : '') +
+              '</div>';
             }).join('') + '</div>'
           : '<p class="empty">Aucun talent de niveau 1 disponible pour cette classe.</p>');
-      body.querySelectorAll('.lvl-tal-btn').forEach(function (b) {
-        b.onclick = function () {
-          const id = this.getAttribute('data-tal');
-          const idx = wiz.talents.indexOf(id);
-          if (idx >= 0) wiz.talents.splice(idx, 1);
-          else { if (wiz.talents.length >= 2) return; wiz.talents.push(id); }
-          renderWizard();
-        };
+      body.querySelectorAll('.lvl-tal-wrap').forEach(function (wrap) {
+        const btn = wrap.querySelector('.lvl-tal-btn');
+        const desc = wrap.querySelector('.lvl-tal-desc');
+        btn.addEventListener('click', function (e) {
+          const id = btn.getAttribute('data-tal');
+          if (e.target.classList.contains('lvl-tal-cb')) {
+            const idx = wiz.talents.indexOf(id);
+            if (idx >= 0) wiz.talents.splice(idx, 1);
+            else { if (wiz.talents.length >= 2) { e.target.checked = false; return; } wiz.talents.push(id); }
+            renderWizard();
+          } else {
+            if (desc) desc.hidden = !desc.hidden;
+          }
+        });
       });
     } else {
       body.innerHTML = '<p class="hint">Choisis <b>2 compétences</b> (chacune +1). ' + wiz.skills.length + '/2</p>' +
@@ -814,7 +856,7 @@
     };
     Store.state.heroes.push({
       id: Store.uid(), name: wiz.name.trim() || 'Aventurier', klass: wiz.klass,
-      vie: 4, endu: 3, pvBonus: 0, damage: 2, rapide: false, notes: '',
+      vie: 4 + (wiz.statBonuses.vie || 0), endu: 3 + (wiz.statBonuses.endu || 0), pvBonus: 0, damage: 2 + (wiz.statBonuses.damage || 0), rapide: false, notes: '',
       attacks: [], skills: mergeSkills(skills),
       startTalents: wiz.talents.slice(),
       equipment: eq,

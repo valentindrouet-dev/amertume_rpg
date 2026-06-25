@@ -616,6 +616,29 @@
       atk.effects.brise || atk.effects.faille || atk.effects.poison);
   }
 
+  function applyHeroComaVieLoss(combatant) {
+    const sessionCtx = Store.state.sessionCombat;
+    if (!sessionCtx || !sessionCtx.sessionId) return;
+    const sessions = Store.state.sessions || [];
+    const ses = sessions.find(function (s) { return s.id === sessionCtx.sessionId; });
+    if (!ses) return;
+    const hid = combatant.templateId;
+    if (!ses.heroStates) ses.heroStates = {};
+    if (!ses.heroStates[hid]) ses.heroStates[hid] = {};
+    const state = ses.heroStates[hid];
+    state.viePenalty = (state.viePenalty || 0) - 1;
+    const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+    const effVie = (h ? (h.vie || 0) : 0) + state.viePenalty;
+    if (effVie <= 0) {
+      state.dead = true;
+      ses.heroIds = ses.heroIds.filter(function (id) { return id !== hid; });
+      log(cname(combatant) + ' <span class="lcoma">perd sa dernière VIE — il quitte l\'aventure définitivement.</span>', 'down');
+    } else {
+      log(cname(combatant) + ' perd 1 point de VIE (VIE restante : ' + effVie + ').', 'down');
+    }
+    Store.save();
+  }
+
   function checkComa(c) {
     if (c.status === 'active' && c.pv <= 0) {
       c.status = 'coma';
@@ -625,6 +648,7 @@
         ? (cname(c) + ' <span class="lvanq">est vaincu !</span>')
         : (cname(c) + ' <span class="lcoma">tombe dans le coma…</span>'),
         c.side === 'monster' ? 'kill' : 'down');
+      if (c.side === 'hero' && combatKey === 'combat') applyHeroComaVieLoss(c);
     }
   }
 
