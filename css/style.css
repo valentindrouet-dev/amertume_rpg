@@ -2351,6 +2351,77 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 .combat-log.compact { max-height: 6.8rem; min-height: 6.8rem; }
 
 /* ===================================================================
+   v2.81 — Inventaire Joueur : languettes + 4 colonnes + mini-fenêtre
+   =================================================================== */
+
+/* En mode Joueur, l'inventaire n'est plus une grille de vignettes mais
+   une suite de sections (1 par aventurier) en 4 colonnes. */
+body.mode-player #item-list.roster-list { display: block; }
+
+.inv-cols {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem;
+  align-items: start; margin: .3rem 0 1rem;
+}
+.inv-col-weapons { grid-column: span 2; }
+.inv-weapons-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
+.inv-col { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.inv-col-title {
+  font-size: .72rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted); margin-bottom: .05rem;
+}
+.inv-col-empty { color: var(--muted); font-style: italic; margin: 0; font-size: .8rem; }
+
+@media (max-width: 760px) {
+  .inv-cols { grid-template-columns: 1fr; }
+  .inv-col-weapons { grid-column: auto; }
+  .inv-weapons-grid { grid-template-columns: 1fr; }
+}
+
+/* Languette : case d'équipement (clic) + corps cliquable (mini-fenêtre) */
+.inv-strip-row { display: flex; align-items: stretch; gap: .4rem; margin: 0; cursor: default; }
+.inv-strip-row .inv-equip-cb { flex: 0 0 auto; width: 16px; height: 16px; align-self: center; cursor: pointer; }
+.inv-strip {
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between;
+  gap: .5rem; padding: .32rem .55rem; border-radius: 8px;
+  border: 1px solid #cdb98f; border-left: 4px solid var(--border);
+  background: #efe4cf; color: #33271a; cursor: pointer; transition: filter .12s;
+}
+.inv-strip:hover { filter: brightness(1.03); }
+.inv-strip-name {
+  font-weight: 600; font-size: .85rem; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-strip-val { flex: 0 0 auto; display: flex; align-items: center; gap: .2rem; }
+.inv-strip-def { font-weight: 800; font-size: .8rem; color: #2c5a93; }
+.inv-strip-eff {
+  font-size: .74rem; color: #5a4527; max-width: 140px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-strip .inv-qty.inline {
+  position: static; box-shadow: none; margin-left: .25rem; padding: .02rem .35rem;
+}
+
+/* Couleurs par catégorie (reprise du code de l'armurerie) */
+.inv-strip-row.cat-weapon .inv-strip { border-left-color: #c0563f; background: linear-gradient(180deg,#efe4cf,#f0dcd2); }
+.inv-strip-row.cat-armor  .inv-strip { border-left-color: #4a8dd6; background: linear-gradient(180deg,#efe4cf,#d7e3f1); }
+.inv-strip-row.cat-object .inv-strip,
+.inv-strip-row.cat-misc   .inv-strip { border-left-color: #5fa45f; background: linear-gradient(180deg,#efe4cf,#dcecd2); }
+
+/* Surlignage de l'équipement actif (inchangé visuellement) */
+.inv-strip-row.equipped .inv-strip { outline: 2px solid var(--action); outline-offset: 1px; }
+
+/* Mini-fenêtre d'objet */
+.item-sheet-card { margin: 0; }
+.isheet-cat {
+  font-size: .72rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted); margin-bottom: .4rem;
+}
+.isheet-line { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin: .3rem 0; }
+.isheet-avg { font-size: .78rem; color: var(--muted); }
+.isheet-meta { font-size: .8rem; color: #5a4527; margin: .25rem 0; }
+.isheet-eff { margin-top: .45rem; font-size: .85rem; color: #5a4527; }
+
+/* ===================================================================
    v2.80 — Tutoriel (Joueur, 2 colonnes) + Encyclopédie (Admin)
    =================================================================== */
 

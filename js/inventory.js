@@ -144,6 +144,26 @@
     const isEquip = function (i) {
       return i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc';
     };
+    // Languette équipable : case (équipement par clic + surlignage) + corps
+    // cliquable (ouvre la mini-fenêtre d'objet).
+    const stripRow = function (h, e, owned, i) {
+      const eq = isEquipped(e, i);
+      const qty = Number(owned[i.id]) || 1;
+      return '<label class="inv-strip-row cat-' + i.category + (eq ? ' equipped' : '') + '">' +
+        '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (eq ? ' checked' : '') + '>' +
+        '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) +
+          (qty > 1 ? '<span class="inv-qty inline">×' + qty + '</span>' : '') +
+        '</div>' +
+      '</label>';
+    };
+    const colHtml = function (h, e, owned, items, title, extraClass) {
+      const strips = items.length
+        ? items.map(function (i) { return stripRow(h, e, owned, i); }).join('')
+        : '<p class="inv-col-empty">—</p>';
+      return '<div class="inv-col ' + extraClass + '">' +
+        '<div class="inv-col-title">' + title + '</div>' + strips + '</div>';
+    };
+
     let html = '';
     heroes.forEach(function (h) {
       const e = normEq(h);
@@ -154,15 +174,20 @@
       const owned = ownedOf(h.id);
       const mine = Store.state.items.filter(function (i) { return owned[i.id] && isEquip(i); });
       if (!mine.length) { html += '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement personnel.</p>'; return; }
-      html += mine.map(function (i) {
-        const eq = isEquipped(e, i);
-        const qty = Number(owned[i.id]) || 1;
-        return '<label class="inv-equip-row' + (eq ? ' equipped' : '') + '">' +
-          '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (eq ? ' checked' : '') + '>' +
-          '<div class="inv-item-wrap">' + itemCardHtml(i, false) +
-            (qty > 1 ? '<span class="inv-qty">×' + qty + '</span>' : '') + '</div>' +
-        '</label>';
-      }).join('');
+      const weapons = mine.filter(function (i) { return i.category === 'weapon'; });
+      const armors = mine.filter(function (i) { return i.category === 'armor'; });
+      const objects = mine.filter(function (i) { return i.category === 'object' || i.category === 'misc'; });
+      const weaponStrips = weapons.length
+        ? weapons.map(function (i) { return stripRow(h, e, owned, i); }).join('')
+        : '<p class="inv-col-empty">—</p>';
+      html += '<div class="inv-cols">' +
+        '<div class="inv-col inv-col-weapons">' +
+          '<div class="inv-col-title">Armes</div>' +
+          '<div class="inv-weapons-grid">' + weaponStrips + '</div>' +
+        '</div>' +
+        colHtml(h, e, owned, armors, 'Armures', 'inv-col-armor') +
+        colHtml(h, e, owned, objects, 'Objets', 'inv-col-object') +
+      '</div>';
     });
     list.innerHTML = html;
 
@@ -176,6 +201,14 @@
         Store.save();
         document.dispatchEvent(new CustomEvent('equipment-changed'));
         renderPlayer(advId);
+      });
+    });
+    // Clic sur le corps de la languette : ouvre la mini-fenêtre (sans (dé)cocher)
+    list.querySelectorAll('.inv-strip').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openItemSheet(el.getAttribute('data-info'));
       });
     });
   }
@@ -214,6 +247,58 @@
       (i.notes && !isOfficialNote ? '<div class="roster-notes">' + escapeHtml(i.notes) + '</div>' : '') +
       (canEdit ? '<button class="card-edit-btn" data-edit="' + i.id + '" title="Éditer">✎</button>' : '') +
     '</div>';
+  }
+
+  // ----- Languette d'inventaire : nom à gauche, valeur à droite -----
+  // (dés de dégâts pour une arme, DEF pour une armure, effet pour un objet)
+  function itemStripHtml(i) {
+    let right;
+    if (i.category === 'weapon') {
+      right = '<span class="inv-strip-val inv-strip-dice">' + poolBadges(i.dice) + '</span>';
+    } else if (i.category === 'armor') {
+      right = '<span class="inv-strip-val inv-strip-def">DEF ' + (i.def || 0) + '</span>';
+    } else {
+      right = '<span class="inv-strip-val inv-strip-eff">' + (i.effects ? escapeHtml(i.effects) : '—') + '</span>';
+    }
+    return '<span class="inv-strip-name">' + escapeHtml(i.name) + '</span>' + right;
+  }
+
+  // ----- Mini-fenêtre d'objet (lecture seule, design des feuilles de perso) -----
+  function itemSheetHtml(i) {
+    const isWeapon = i.category === 'weapon';
+    const isArmor = i.category === 'armor';
+    const isOfficialNote = (i.notes || '').indexOf('Officiel') === 0;
+    const traits = (i.traits || []).map(function (t) {
+      return '<span class="tag">' + (t === 'jetable' ? 'Jetable' : t === 'vicieuse' ? 'Vicieuse' : t) + '</span>';
+    }).join('');
+    let html = '<div class="isheet-cat cat-' + i.category + '">' + escapeHtml(CAT_LABEL[i.category] || i.category) + '</div>';
+    if (isWeapon) {
+      html += '<div class="isheet-line">' + poolBadges(i.dice) +
+        ' <span class="isheet-avg">moy. ' + avgOf(i.dice) + '</span></div>';
+      const meta = [Number(i.hands) === 2 ? '2 mains' : '1 main', i.ranged ? 'distance' : 'contact'];
+      if (i.usesAmmo) meta.push('munitions');
+      html += '<div class="isheet-meta">' + meta.join(' · ') + '</div>';
+      if (traits) html += '<div class="isheet-line">' + traits + '</div>';
+    } else if (isArmor) {
+      html += '<div class="isheet-line"><span class="stat-pill">DEF <b>' + (i.def || 0) + '</b></span>' +
+        '<span class="stat-pill">' + (i.slot === 'shield' ? 'Bouclier' : 'Corps') + '</span></div>';
+    }
+    if (i.effects) html += '<div class="isheet-eff">⚡ ' + escapeHtml(i.effects) + '</div>';
+    if (i.notes && !isOfficialNote) html += '<div class="roster-notes">' + escapeHtml(i.notes) + '</div>';
+    return html;
+  }
+
+  function openItemSheet(id) {
+    const i = byId(id);
+    if (!i) return;
+    const modalEl = $('#item-sheet-modal');
+    if (!modalEl) return;
+    $('#item-sheet-title').textContent = i.name;
+    $('#item-sheet-body').innerHTML =
+      '<div class="roster-card armory-card cat-' + i.category + ' item-sheet-card">' +
+        itemSheetHtml(i) +
+      '</div>';
+    modalEl.hidden = false;
   }
 
   function renderGrouped(items, canEdit) {
@@ -369,6 +454,14 @@
       render();
       alert(n ? (n + ' pièce(s) ajoutée(s) depuis le catalogue officiel.') : 'Catalogue officiel déjà présent.');
     });
+    // Mini-fenêtre d'objet (lecture seule, mode Joueur)
+    const sheet = $('#item-sheet-modal');
+    if (sheet) {
+      const closeSheet = function () { sheet.hidden = true; };
+      const closeBtn = $('#item-sheet-close');
+      if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+      sheet.addEventListener('click', function (e) { if (e.target === sheet) closeSheet(); });
+    }
     render();
   }
 
@@ -376,6 +469,7 @@
     init: init,
     render: render,
     renderPlayer: renderPlayer,
+    openItemSheet: openItemSheet,
     buildDiceSteppers: buildDiceSteppers,
     poolBadges: poolBadges,
     escapeHtml: escapeHtml,
