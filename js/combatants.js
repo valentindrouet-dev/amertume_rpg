@@ -376,6 +376,8 @@
         if (!a.effects) a.effects = Store.noStates();
         if (t.effect === 'arme_enflammee' && a.range === 'contact') a.effects.feu = true;
         if (t.effect === 'arme_affaiblissante') a.effects.affaibli = true;
+        if (t.effect === 'perce_blindage') a.ignoreBlindage = true;
+        if (t.effect === 'bourreau_rapides') a.doubleVsRapide = true;
       });
     });
   }
@@ -634,7 +636,7 @@
     }).join('');
   }
   // Section « Talents » de la fiche : badges colorés par type (Action/Réaction/Passif/Amélioration)
-  const KIND_BADGE = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.' };
+  const KIND_BADGE = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.', mastery: 'Maîtrise' };
   function talentSection(dh) {
     const resolved = resolveHeroTalents(Array.isArray(dh.chosenTalents) ? dh.chosenTalents : null);
     if (!resolved.length) return '';

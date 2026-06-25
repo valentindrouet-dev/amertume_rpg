@@ -21,9 +21,9 @@
     { value: 'combat', label: 'En combat' },
     { value: 'out',    label: 'Hors combat' },
   ];
-  const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration' };
-  const KIND_SHORT = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.' };
-  const KIND_ORDER = ['action', 'reaction', 'passive', 'upgrade'];
+  const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration', mastery: 'Maîtrise' };
+  const KIND_SHORT = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.', mastery: 'Maîtrise' };
+  const KIND_ORDER = ['action', 'reaction', 'passive', 'upgrade', 'mastery'];
 
   let classes = [];
   let generics = [];
@@ -72,9 +72,8 @@
     const sections = KIND_ORDER.filter(function (k) { return byKind[k]; }).map(function (k) {
       const rows = byKind[k].map(function (e) {
         return '<div class="lib-row">' +
-          '<span class="lib-eff-name">' + esc(e.name) + '</span>' +
-          (e.hasVal ? '<span class="lib-eff-var">X = ' + esc(e.valLabel || 'valeur') + '</span>' : '') +
           '<span class="lib-eff-desc">' + esc(e.desc) + '</span>' +
+          (e.hasVal ? '<span class="lib-eff-var">X = ' + esc(e.valLabel || 'valeur') + '</span>' : '') +
         '</div>';
       }).join('');
       return '<div class="lib-kind lib-kind-' + k + '">' +
@@ -86,7 +85,8 @@
         '<span class="lib-leg lib-kind-action">Action</span> · ' +
         '<span class="lib-leg lib-kind-reaction">Réaction</span> · ' +
         '<span class="lib-leg lib-kind-passive">Passif</span> · ' +
-        '<span class="lib-leg lib-kind-upgrade">Amélioration</span>.</p>' +
+        '<span class="lib-leg lib-kind-upgrade">Amélioration</span> · ' +
+        '<span class="lib-leg lib-kind-mastery">Maîtrise</span>.</p>' +
       sections +
     '</details>';
   }

@@ -2689,3 +2689,15 @@ body.mode-player #item-list.roster-list { display: block; }
 .tl-eff-params .tl-eff-val { width: 4.5rem; }
 .tl-eff-dice-wrap { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .tl-eff-dice.dice-steppers { display: flex; flex-wrap: wrap; gap: .3rem; }
+
+/* ----- Maîtrise (nouvelle catégorie d'effet, teal) ----- */
+.tl-kind-mastery   { background: rgba(60,190,190,.25);  color: #9fe6e6; }
+.lvl-tal-btn.lvl-tal-mastery { border-color: rgba(60,190,190,.5); background: rgba(60,190,190,.13); color: #aee6e6; }
+.lvl-tal-btn.lvl-tal-mastery.selected { border-color: #38bcbc; background: rgba(60,190,190,.34); color: #d6f6f6; }
+.lib-kind-mastery  > .lib-kind-head { background: rgba(60,190,190,.22);  color: #b9eded; }
+.lib-leg.lib-kind-mastery  { background: rgba(60,190,190,.25);  color: #9fe6e6; }
+.tl-badge.tl-kind-mastery  { background: rgba(60,190,190,.16);  color: #c4eded; border-color: rgba(60,190,190,.4); }
+.tal-row.tal-kind-mastery  .inv-strip { border-left-color: #38bcbc; }
+.tl-eff-row:has(.tl-eff-kind .tl-kind-mastery) { border-left-color: #38bcbc; }
+/* Pastille « mouvement gratuit » (Pas Léger) sur le bouton Mouv. */
+.free-move-dot { color: #5ee0e0; font-weight: 700; }

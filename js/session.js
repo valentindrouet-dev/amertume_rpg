@@ -17,7 +17,7 @@
   let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
 
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
-  const KIND_LABELS = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration' };
+  const KIND_LABELS = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration', mastery: 'Maîtrise' };
   function KIND_SHORT(k) { return KIND_LABELS[k] || 'Talent'; }
 
   // Conseil de difficulté selon le nombre d'aventuriers engagés

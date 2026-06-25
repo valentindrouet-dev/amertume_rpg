@@ -96,6 +96,7 @@
       attacks: attacks, attackUses: initUses(attacks),
       talents: talents,                 // talents résolus (kind/effect/val) pour le moteur
       reactUsed: {},                    // réactions déjà déclenchées dans le tour courant
+      freeMoveReady: hasTalent('pas_leger'), // PAS LÉGER : mouvement gratuit dispo dès le 1er tour
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
       zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
@@ -384,13 +385,41 @@
     c.zone = zi;
     pushFx({ type: 'move', iid: c.iid });
     if (!silent) log(cname(c) + ' se déplace <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
+    if (c.side === 'hero') chargeOnEnter(c);
+  }
+
+  // CHARGE DÉVASTATRICE (maîtrise) : en arrivant dans une zone, l'aventurier
+  // inflige son bonus de dégâts à X adversaires qui s'y trouvent.
+  function chargeOnEnter(c) {
+    const n = heroTalentVal(c, 'charge_devastatrice');
+    const dmg = c.damage || 0;
+    if (n <= 0 || dmg <= 0) return;
+    const foes = combat().combatants.filter(function (m) {
+      return m.side === 'monster' && m.status === 'active' && m.zone === c.zone;
+    }).slice(0, n);
+    foes.forEach(function (m) {
+      const before = m.pv;
+      m.pv = Math.max(0, m.pv - dmg);
+      m.dmgTaken += dmg; c.dmgDealt += dmg;
+      pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
+      log('<b class="lopp">Charge Dévastatrice !</b> ' + cname(c) + ' inflige ' + amt(dmg, 'dmg') +
+        ' Dégâts à ' + cname(m) + ' en chargeant.', 'dchoc');
+      if (m.pv <= 0 && !m.killedBy) m.killedBy = c.iid;
+      checkMonsterTalents(m, dmg);
+      checkComa(m);
+    });
   }
 
   function moveCombatant(iid, zi) {
     const c = byId(iid);
-    if (!c || c.used.move || c.status !== 'active') { pendingMove = null; render(); return; }
+    if (!c || c.status !== 'active') { pendingMove = null; render(); return; }
+    if (c.used.move && !c.freeMoveReady) { pendingMove = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; render(); return; }
-    doMove(c, zi);
+    const prevMove = c.used.move;
+    doMove(c, zi); // doMove force used.move = true
+    // PAS LÉGER : ce déplacement consomme d'abord le mouvement gratuit ; le
+    // mouvement normal reste alors disponible.
+    if (c.freeMoveReady) { c.freeMoveReady = false; c.used.move = prevMove; }
     pendingMove = null; checkOutcome(); Store.save(); render();
   }
 
@@ -475,11 +504,11 @@
         const roll = 1 + Math.floor(Math.random() * 6);
         if (roll === 6) { negated = true; reason = 'Esquive 6+'; }
       }
-      if (!negated && target.states.blindage) {
+      if (!negated && target.states.blindage && !atk.ignoreBlindage) {
         negated = true; reason = 'Blindage'; target.states.blindage = false;
       }
       // BLINDAGE X : consomme une charge pour ignorer cette source de dégâts.
-      if (!negated && target.blindageCharges > 0) {
+      if (!negated && target.blindageCharges > 0 && !atk.ignoreBlindage) {
         negated = true; target.blindageCharges -= 1;
         reason = 'Blindage' + (target.blindageCharges > 0 ? ' (' + target.blindageCharges + ' restante' + (target.blindageCharges > 1 ? 's' : '') + ')' : ' épuisé');
       }
@@ -521,6 +550,12 @@
         res.pvLost = Math.max(0, res.pvLost - cuir);
         if (before !== res.pvLost) log(cname(target) + ' encaisse (Cuirasse) : -' + (before - res.pvLost) + ' dégâts.', 'state');
       }
+    }
+    // BOURREAU DES RAPIDES (amélioration) : dégâts doublés contre un adversaire rapide.
+    if (res.pvLost > 0 && atk.doubleVsRapide && target.rapide) {
+      const extra = res.pvLost;
+      res.pvLost += extra;
+      log(cname(attacker) + ' frappe un adversaire rapide : <span class="lstate">dégâts doublés</span> (+' + extra + ').', 'state');
     }
     const pvBefore = target.pv;
     if (res.pvLost > 0) {
@@ -855,6 +890,8 @@
   function startHeroTurn() {
     activeOf('hero').forEach(function (h) {
       h.reactUsed = {};
+      // PAS LÉGER (maîtrise) : 1 mouvement gratuit disponible ce tour.
+      h.freeMoveReady = heroHasTalent(h, 'pas_leger');
       const regen = heroTalentVal(h, 'regeneration');
       if (regen > 0 && h.pv < h.maxPv) {
         const before = h.pv;
@@ -1840,7 +1877,9 @@
     const multi = zoneCount() > 1;
     return '<div class="ab-tools">' +
       '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
-          ' data-iid="' + c.iid + '"' + ((!canAct || !multi || usedMv) ? ' disabled' : '') + ' title="Changer de zone">Mouv.</button>' +
+          ' data-iid="' + c.iid + '"' + ((!canAct || !multi || (usedMv && !c.freeMoveReady)) ? ' disabled' : '') +
+          ' title="' + (c.freeMoveReady ? 'Mouvement gratuit (Pas Léger) disponible' : 'Changer de zone') + '">Mouv.' +
+          (c.freeMoveReady ? ' <span class="free-move-dot" title="Mouvement gratuit">✦</span>' : '') + '</button>' +
       '<button class="ab-tool obj-chip do-object" type="button" data-iid="' + c.iid + '"' +
           ((!canAct || usedO) ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">Objet</button>' +
       '<button class="ab-tool ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
@@ -2188,7 +2227,7 @@
       // Mouvement : arme le déplacement, puis on clique la zone de destination
       const mv = root.querySelector('.do-move[data-iid="' + c.iid + '"]');
       if (mv) mv.addEventListener('click', function () {
-        if (c.used.move) return;
+        if (c.used.move && !c.freeMoveReady) return;
         pendingMove = (pendingMove === c.iid) ? null : c.iid;
         pendingAttack = null; pendingAnalyze = null; render();
       });

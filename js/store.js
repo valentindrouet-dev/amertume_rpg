@@ -368,6 +368,8 @@
       desc: 'Réduit de X les dégâts que vous subissez (minimum 0).' },
     { effect: 'regeneration', name: 'Régénération', kind: 'passive', hasVal: true, defaultVal: 2, valLabel: 'PV/tour',
       desc: 'Récupère X PV au début de chacun de vos tours.' },
+    { effect: 'devance_rapides', name: 'Réflexes Aiguisés', kind: 'passive', hasVal: false,
+      desc: 'Vous agissez avant les adversaires rapides.' },
     // --- Améliorations (modifient un élément existant) ---
     { effect: 'arme_enflammee', name: 'Arme Enflammée', kind: 'upgrade', hasVal: false,
       desc: 'Vos attaques de contact infligent FEU.' },
@@ -377,6 +379,15 @@
       desc: 'Vous gagnez Esquive : un 6+ annule l\'attaque que vous subissez.' },
     { effect: 'garde_imprenable', name: 'Garde Imprenable', kind: 'upgrade', hasVal: false,
       desc: 'La 1ʳᵉ source de dégâts de chaque tour est annulée.' },
+    { effect: 'perce_blindage', name: 'Perce-Blindage', kind: 'upgrade', hasVal: false,
+      desc: 'Vos attaques ignorent Blindage.' },
+    { effect: 'bourreau_rapides', name: 'Bourreau des Rapides', kind: 'upgrade', hasVal: false,
+      desc: 'Vous doublez les dégâts infligés à un adversaire rapide.' },
+    // --- Maîtrises (effets permanents de positionnement / tempo) ---
+    { effect: 'pas_leger', name: 'Pas Léger', kind: 'mastery', hasVal: false,
+      desc: 'Vous effectuez 1 mouvement gratuit avant le début de chaque tour.' },
+    { effect: 'charge_devastatrice', name: 'Charge Dévastatrice', kind: 'mastery', hasVal: true, defaultVal: 1, valLabel: 'Nb de cibles',
+      desc: 'Vous infligez votre bonus de dégâts à X adversaires en arrivant dans leur zone.' },
     // --- Réactions (déclenchées par le joueur) ---
     { effect: 'contre_attaque', name: 'Contre-Attaque', kind: 'reaction', hasVal: false,
       desc: 'Après avoir subi des dégâts, ripostez par une attaque gratuite.' },
@@ -397,6 +408,8 @@
     tueur_affaibli: 3, meute: 2, frappe_lourde: 3, maitre_distance: 2, cuirasse: 3,
     regeneration: 4, arme_enflammee: 4, arme_affaiblissante: 5, esquive_innee: 3,
     garde_imprenable: 5, contre_attaque: 4, reanimation: 5,
+    devance_rapides: 3, perce_blindage: 3, bourreau_rapides: 4,
+    pas_leger: 2, charge_devastatrice: 4,
   };
   // Talents génériques par défaut : un talent prêt à l'emploi par effet câblé.
   const DEFAULT_GENTALENTS = TALENT_EFFECTS.map(function (e) {
