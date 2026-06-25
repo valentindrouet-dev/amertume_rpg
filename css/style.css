@@ -2524,3 +2524,40 @@ body.mode-player #item-list.roster-list { display: block; }
 
 /* Bouton dupliquer d'une scène (éditeur d'aventure) */
 .adv-scene-tools .sc-dup { font-size: .85rem; }
+
+/* ====== Écran « Niveau Supérieur ! » ====== */
+.lvlup-card { border: 1px solid rgba(212,175,90,.5); }
+.lvlup-banner {
+  text-align: center; font-size: 1.5rem; font-weight: 800; color: #f3d27a;
+  text-shadow: 0 0 12px rgba(212,175,90,.5); margin: .2rem 0 .4rem;
+  display: flex; flex-direction: column; gap: .15rem;
+}
+.lvlup-num { font-size: 1rem; color: var(--muted); font-weight: 700; }
+.lvlup-heroes { display: flex; flex-direction: column; gap: .8rem; margin: .8rem 0; }
+.lvl-hero {
+  border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
+  padding: .7rem .8rem; background: rgba(255,255,255,.03);
+}
+.lvl-hero-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+.lvl-hero-name { font-weight: 800; font-size: 1.05rem; }
+.lvl-section-title {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); margin: .5rem 0 .25rem; font-weight: 700;
+}
+.lvl-stats { display: flex; gap: .5rem; flex-wrap: wrap; }
+.lvl-stat, .lvl-talent {
+  display: flex; align-items: flex-start; gap: .45rem; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+  padding: .45rem .6rem; background: rgba(255,255,255,.03); transition: all .12s;
+}
+.lvl-stat { flex: 1; min-width: 120px; font-weight: 700; align-items: center; }
+.lvl-stat input, .lvl-talent input { margin-top: .15rem; accent-color: #d4af5a; }
+.lvl-stat:has(input:checked), .lvl-talent:has(input:checked) {
+  border-color: #d4af5a; background: rgba(212,175,90,.14);
+}
+.lvl-talents { display: flex; flex-direction: column; gap: .4rem; }
+.lvl-tal-body { display: flex; flex-direction: column; gap: .1rem; }
+.lvl-tal-lvl { font-size: .68rem; color: var(--muted); font-weight: 600; }
+.lvl-tal-desc { font-size: .82rem; color: var(--muted); font-weight: 400; }
+.lvlup-card #lvlup-continue { width: 100%; margin-top: .4rem; }
+.lvlup-card #lvlup-continue:disabled { opacity: .5; cursor: not-allowed; }

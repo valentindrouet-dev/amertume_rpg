@@ -23,6 +23,7 @@
   let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
   let movePrefix = null;      // { iid, zone } : déplacement à fusionner avec l'attaque qui suit
   let rootSel = '#combat-root'; // cible de rendu (redirigée pendant un combat de session)
+  let sessionGains = null;    // { heroId: { endu, damage, talents:[] } } pour le combat courant
 
   const SOCLE_RANK = { small: 0, medium: 1, large: 2, huge: 3 };
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
@@ -72,12 +73,23 @@
   }
 
   function instFromHero(h, i) {
-    const attacks = Combatants.heroCombatAttacks(h);
+    // Gains de montée de niveau de la session courante (ENDU / Dégâts / talents
+    // choisis). Appliqués sur un clone : la fiche de base reste au niveau 1.
+    // En combat de session, on applique toujours l'overlay (talents choisis =
+    // tableau, vide si aucun) pour que les talents NON choisis restent indisponibles.
+    // En mode Admin (sessionGains null), la fiche brute sert aux tests d'équilibrage.
+    const g = sessionGains && sessionGains[h.id];
+    const hero = sessionGains ? Object.assign({}, h, {
+      endu: (h.endu || 0) + (g ? g.endu || 0 : 0),
+      damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
+      chosenTalents: (g && Array.isArray(g.talents)) ? g.talents : [],
+    }) : h;
+    const attacks = Combatants.heroCombatAttacks(hero);
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
-      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: h.endu || 1, imageUrl: h.imageUrl || null,
-      maxPv: Combatants.heroPv(h), pv: Combatants.heroCurPv(h),
-      def: Combatants.heroDef(h), damage: h.damage, xp: 0, type: 'hero',
+      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: hero.endu || 1, imageUrl: h.imageUrl || null,
+      maxPv: Combatants.heroPv(hero), pv: Combatants.heroCurPv(hero),
+      def: Combatants.heroDef(hero), damage: hero.damage, xp: 0, type: 'hero',
       menace: null, esquive: false, rapide: !!h.rapide, socle: 'medium',
       attacks: attacks, attackUses: initUses(attacks),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
@@ -2033,9 +2045,10 @@
   // Démarre un combat directement dans une session d'aventure, sans écran de
   // préparation : héros et adversaires sont imposés par l'aventure.
   // Le rendu est dirigé vers `sel` (conteneur dans le panneau Session).
-  function startInSession(heroIds, sceneCombat, sessionCtx, sel) {
+  function startInSession(heroIds, sceneCombat, sessionCtx, sel, gains) {
     combatKey = 'combat';
     rootSel = sel || '#combat-root';
+    sessionGains = gains || null;
     const heroObjs = (heroIds || []).map(function (id) {
       return Store.state.heroes.find(function (h) { return h.id === id; });
     }).filter(Boolean);
@@ -2049,6 +2062,7 @@
     }
     Store.state.sessionCombat = sessionCtx || null;
     buildCombat(heroObjs, normalizeZoneConfig(sceneCombat));
+    sessionGains = null;  // les instances sont figées : on ne garde pas l'overlay
     log('Début du combat — Tour 1.', 'turn');
     Store.save();
     render();

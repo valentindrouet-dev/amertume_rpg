@@ -31,6 +31,28 @@
   function load() { sessions = Store.loadSessions(); }
   function save() { Store.saveSessions(sessions); }
 
+  // ---------- Montées de niveau (par session, décorrélées de l'Admin) ----------
+  // Garantit la présence des champs de progression sur une session (anciennes
+  // sauvegardes incluses).
+  function ensureLevelData(ses) {
+    if (!ses) return;
+    if (typeof ses.levelDone !== 'number') {
+      // Une ancienne session : on considère les niveaux déjà atteints comme acquis
+      ses.levelDone = Store.levelInfo(ses.party ? ses.party.xp : 0).level;
+    }
+    if (!ses.levelGains || typeof ses.levelGains !== 'object') ses.levelGains = {};
+  }
+  function heroGains(ses, hid) {
+    if (!ses.levelGains[hid]) ses.levelGains[hid] = { endu: 0, damage: 0, talents: [] };
+    const g = ses.levelGains[hid];
+    if (typeof g.endu !== 'number') g.endu = 0;
+    if (typeof g.damage !== 'number') g.damage = 0;
+    if (!Array.isArray(g.talents)) g.talents = [];
+    return g;
+  }
+  // Niveau courant de la session d'après son XP
+  function sessionLevel(ses) { return Store.levelInfo(ses.party ? ses.party.xp : 0).level; }
+
   // ---------- Recherche ----------
   function findAdventure(id) {
     return Store.loadAdventures().find(function (a) { return a.id === id; }) || null;
@@ -89,6 +111,8 @@
       choicesTaken: [],
       party: { xp: 0 },          // XP de la session, décorrélée de l'XP du mode Admin
       acquiredItems: {},
+      levelDone: 1,              // dernier niveau pour lequel les choix ont été faits
+      levelGains: {},            // { heroId: { endu, damage, talents:[] } }
     };
     sessions.push(ses);
     save();
@@ -225,6 +249,13 @@
     const adv = findAdventure(ses.adventureId);
     if (!adv) { root.innerHTML = '<p class="empty">Aventure introuvable.</p>'; return; }
 
+    // Montée de niveau en attente (ex. retour sur l'onglet) : on la reprend.
+    ensureLevelData(ses);
+    if (ses.pendingNav && (ses.levelDone || 1) < sessionLevel(ses)) {
+      renderLevelUp(root, ses, adv, (ses.levelDone || 1) + 1);
+      return;
+    }
+
     const found = findScene(adv, ses.currentSceneId);
     if (!found) { root.innerHTML = '<p class="empty">Scène introuvable.</p>'; return; }
     const { chapter, scene } = found;
@@ -334,12 +365,26 @@
     return map[t] || t;
   }
 
+  // Aventurier « effectif » incluant les gains de montée de niveau de la session
+  // (ENDU / Dégâts) et la liste des talents choisis (toujours définie en session,
+  // vide si aucun, pour masquer les talents non débloqués).
+  function effectiveHero(ses, h) {
+    if (!ses) return h;
+    const g = ses.levelGains ? ses.levelGains[h.id] : null;
+    return Object.assign({}, h, {
+      endu: (h.endu || 0) + (g ? g.endu || 0 : 0),
+      damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
+      chosenTalents: (g && Array.isArray(g.talents)) ? g.talents : [],
+    });
+  }
+
   function renderHeroesState(heroes, ses) {
     if (!heroes.length) return '<p class="empty">Aucun héros.</p>';
     return '<div class="ses-hero-list">' + heroes.map(function (h) {
+      const eh = effectiveHero(ses, h);
       const state = ses.heroStates[h.id] || {};
-      const curPv = typeof state.pv === 'number' ? state.pv : Combatants.heroCurPv(h);
-      const maxPv = Combatants.heroPv(h);
+      const curPv = typeof state.pv === 'number' ? state.pv : Combatants.heroCurPv(eh);
+      const maxPv = Combatants.heroPv(eh);
       const pct = Math.round((curPv / maxPv) * 100);
       return '<div class="ses-hero-row">' +
         '<span class="ses-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '" data-hero="' + h.id + '" title="Voir la fiche">' + esc(h.name) + '</span>' +
@@ -482,11 +527,124 @@
     if (!sceneId) return;
     const found = findScene(adv, sceneId);
     if (!found) return;
+    // Montée de niveau en attente : on affiche l'écran « Niveau Supérieur ! »
+    // AVANT de poursuivre vers la scène suivante (un niveau à la fois).
+    ensureLevelData(ses);
+    if ((ses.levelDone || 1) < sessionLevel(ses)) {
+      ses.pendingNav = sceneId;
+      save();
+      const root = $('#session-root');
+      if (root) renderLevelUp(root, ses, adv, (ses.levelDone || 1) + 1);
+      return;
+    }
     ses.currentChapterId = found.chapter.id;
     ses.currentSceneId = sceneId;
     if (ses.visitedSceneIds.indexOf(sceneId) === -1) ses.visitedSceneIds.push(sceneId);
     save();
     render();
+  }
+
+  // ---------- Écran « Niveau Supérieur ! » ----------
+  function engagedHeroes(ses) {
+    return (ses.heroIds || []).map(function (hid) {
+      return Store.state.heroes.find(function (h) { return h.id === hid; });
+    }).filter(Boolean);
+  }
+  // Talents que l'aventurier peut choisir au nouveau niveau (génériques + sa
+  // classe, niveau requis atteint), en excluant ceux déjà acquis.
+  function availableTalents(ses, h, newLevel) {
+    const taken = heroGains(ses, h.id).talents;
+    const gens = Store.loadGenericTalents().filter(function (t) { return (t.level || 1) <= newLevel; });
+    let cls = [];
+    try {
+      const c = Store.loadClasses().find(function (x) { return x.name === h.klass; });
+      if (c && Array.isArray(c.talents)) {
+        cls = c.talents.filter(function (t) { return t.id && (t.level || 1) <= newLevel; });
+      }
+    } catch (e) {}
+    return gens.concat(cls).filter(function (t) { return taken.indexOf(t.id) < 0; });
+  }
+
+  function renderLevelUp(root, ses, adv, newLevel) {
+    const heroes = engagedHeroes(ses);
+    const cards = heroes.map(function (h, idx) {
+      const talents = availableTalents(ses, h, newLevel);
+      const talentHtml = talents.length
+        ? talents.map(function (t, ti) {
+            return '<label class="lvl-talent">' +
+              '<input type="radio" name="lvl-tal-' + idx + '" value="' + esc(t.id) + '">' +
+              '<span class="lvl-tal-body"><b>' + esc(t.name) + '</b> <span class="lvl-tal-lvl">Niv. ' + (t.level || 1) + '</span>' +
+              (t.description ? '<span class="lvl-tal-desc">' + esc(t.description) + '</span>' : '') + '</span>' +
+            '</label>';
+          }).join('')
+        : '<p class="hint" style="margin:.2rem 0">Aucun nouveau talent disponible à ce niveau.</p>';
+      return '<div class="lvl-hero" data-idx="' + idx + '" data-hid="' + esc(h.id) + '">' +
+        '<div class="lvl-hero-head"><span class="lvl-hero-name">' + esc(h.name) + '</span>' +
+          (h.klass ? '<span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</div>' +
+        '<div class="lvl-section-title">Caractéristique</div>' +
+        '<div class="lvl-stats">' +
+          '<label class="lvl-stat"><input type="radio" name="lvl-stat-' + idx + '" value="endu">' +
+            '<span>+2 ENDURANCE</span></label>' +
+          '<label class="lvl-stat"><input type="radio" name="lvl-stat-' + idx + '" value="damage">' +
+            '<span>+1 Dégâts</span></label>' +
+        '</div>' +
+        '<div class="lvl-section-title">Talent' + (talents.length ? '' : ' (aucun)') + '</div>' +
+        '<div class="lvl-talents">' + talentHtml + '</div>' +
+      '</div>';
+    }).join('');
+
+    root.innerHTML =
+      '<div class="card lvlup-card">' +
+        '<div class="lvlup-banner">⭐ Niveau Supérieur ! <span class="lvlup-num">Niveau ' + newLevel + '</span></div>' +
+        '<p class="hint">Pour chaque aventurier, choisissez une amélioration de caractéristique' +
+          ' et, si disponible, un nouveau talent.</p>' +
+        '<div class="lvlup-heroes">' + cards + '</div>' +
+        '<button class="primary big" id="lvlup-continue" disabled>Continuer →</button>' +
+      '</div>';
+
+    const contBtn = root.querySelector('#lvlup-continue');
+    // Met à jour l'état du bouton : tous les héros doivent avoir une caractéristique
+    // choisie + un talent (si au moins un est disponible).
+    function refresh() {
+      let ok = true;
+      heroes.forEach(function (h, idx) {
+        const stat = root.querySelector('input[name="lvl-stat-' + idx + '"]:checked');
+        if (!stat) ok = false;
+        const hasTalent = availableTalents(ses, h, newLevel).length > 0;
+        if (hasTalent && !root.querySelector('input[name="lvl-tal-' + idx + '"]:checked')) ok = false;
+      });
+      contBtn.disabled = !ok;
+    }
+    root.querySelectorAll('input[type="radio"]').forEach(function (r) {
+      r.addEventListener('change', refresh);
+    });
+
+    contBtn.addEventListener('click', function () {
+      heroes.forEach(function (h, idx) {
+        const g = heroGains(ses, h.id);
+        const stat = root.querySelector('input[name="lvl-stat-' + idx + '"]:checked');
+        if (stat && stat.value === 'endu') {
+          g.endu += 2;
+          // L'ENDU augmente les PV max ; on soigne d'autant les PV courants.
+          const delta = 2 * (h.vie || 0);
+          if (delta > 0 && ses.heroStates && ses.heroStates[h.id]) {
+            ses.heroStates[h.id].pv = (ses.heroStates[h.id].pv || 0) + delta;
+          }
+        } else if (stat && stat.value === 'damage') {
+          g.damage += 1;
+        }
+        const tal = root.querySelector('input[name="lvl-tal-' + idx + '"]:checked');
+        if (tal && g.talents.indexOf(tal.value) < 0) g.talents.push(tal.value);
+      });
+      ses.levelDone = newLevel;
+      const target = ses.pendingNav;
+      ses.pendingNav = null;
+      save();
+      Store.save();
+      // Poursuit : s'il reste des niveaux à valider, l'écran se réaffiche ;
+      // sinon on avance vers la scène mémorisée.
+      navigateTo(ses, adv, target);
+    });
   }
 
   // Zones d'une scène de combat (migration de l'ancien format plat si besoin)
@@ -579,7 +737,8 @@
     // Le combat se déroule DANS le panneau Session, avec les héros de l'aventure.
     const root = $('#session-root');
     root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
-    Combat.startInSession(ses.heroIds, { combatZones: zones }, ctx, '#session-combat-root');
+    ensureLevelData(ses);
+    Combat.startInSession(ses.heroIds, { combatZones: zones }, ctx, '#session-combat-root', ses.levelGains);
   }
 
   function renderRewardScene(box, scene, adv, ses) {
@@ -807,6 +966,11 @@
   function activePartyXp() {
     return (activeSession && activeSession.party) ? (activeSession.party.xp || 0) : 0;
   }
+  // Aventurier « effectif » de la partie active (gains de niveau + talents choisis).
+  // Sert aux affichages joueur (feuille de perso) pour refléter les choix de niveau.
+  function activeEffectiveHero(h) {
+    return activeSession ? effectiveHero(activeSession, h) : h;
+  }
 
   // Objets possédés par UN aventurier pour cette aventure : son équipement de
   // DÉPART (figé) + son butin de combat + ce qu'il porte actuellement. Personnel :
@@ -876,6 +1040,8 @@
       party: { xp: 0 },          // XP de la session, décorrélée de l'XP du mode Admin
       acquiredItems: {},
       heroOwned: heroOwned,
+      levelDone: 1,              // dernier niveau pour lequel les choix ont été faits
+      levelGains: {},            // { heroId: { endu, damage, talents:[] } }
     };
     sessions.push(ses); save();
     activeSession = ses;
@@ -973,6 +1139,7 @@
     beginNewGame: beginNewGame,
     startFromAdventure: startFromAdventure,
     activePartyXp: activePartyXp,
+    effectiveHero: activeEffectiveHero,
     ownedForHero: ownedForHero,
   };
 })(window);

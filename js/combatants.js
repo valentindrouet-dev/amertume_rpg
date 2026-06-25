@@ -280,13 +280,17 @@
     return Store.levelInfo((Store.state.party && Store.state.party.xp) || 0).level;
   }
 
-  // Talents génériques actifs en combat selon le niveau du groupe.
+  // Talents génériques actifs en combat.
+  // En mode Joueur/Aventure, ce sont les talents EXPLICITEMENT choisis par
+  // l'aventurier lors de ses montées de niveau (chosenIds). En mode Admin
+  // (chosenIds non fourni), on retombe sur le niveau du groupe pour les tests.
   // Chaque talent est traduit en attaque spéciale jouable (ex. Double Attaque).
-  function genericTalentAttacks(weaponAtks) {
-    const lvl = heroGroupLevel();
+  function genericTalentAttacks(weaponAtks, chosenIds) {
     const base = weaponAtks[0] || null; // arme de référence pour les dégâts
     return Store.loadGenericTalents().filter(function (t) {
-      return (t.level || 1) <= lvl && (t.usage === 'combat' || t.usage === 'both') && t.effect;
+      if (!((t.usage === 'combat' || t.usage === 'both') && t.effect)) return false;
+      if (Array.isArray(chosenIds)) return chosenIds.indexOf(t.id) >= 0;
+      return (t.level || 1) <= heroGroupLevel();
     }).map(function (t) {
       if (t.effect === 'double_attaque') {
         return {
@@ -309,7 +313,8 @@
       atks = [{ name: 'Mains nues', dice: Object.assign(D.emptyPool(), { white: 1 }),
         range: 'contact', targets: 'one', useOwnDamage: true, effects: Store.noStates() }];
     }
-    return atks.concat(genericTalentAttacks(weapon.length ? weapon : atks));
+    const chosen = Array.isArray(h.chosenTalents) ? h.chosenTalents : null;
+    return atks.concat(genericTalentAttacks(weapon.length ? weapon : atks, chosen));
   }
 
   // ---- Progression du groupe (XP / niveaux) ----
@@ -412,6 +417,7 @@
 
   function heroCardHtml(h, opts) {
     opts = opts || {};
+    const dh = displayHero(h);
     const def = heroDef(h);
     const initials = (h.name || '?').trim().slice(0, 2).toUpperCase();
     const avatarStyle = h.imageUrl
@@ -426,12 +432,12 @@
         (!opts.hideRapide && h.rapide ? '<span class="tag">Rapide</span>' : '') +
       '</div>' +
       '<div class="hero-stat-row">' +
-        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(h) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
-        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + h.damage + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
       '</div>' +
       '<div class="roster-section atk-section"><div class="roster-label">Attaques</div>' +
-        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div></div>' +
+        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div></div>' +
       skillsSummary(h.skills) +
       (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
     '</div>';
@@ -456,6 +462,7 @@
     }
     const player = s.mode === 'player';
     list.innerHTML = heroes.map(function (h) {
+      const dh = displayHero(h);
       const gear = heroGear(h).map(function (it) { return it.name; });
       return '<div class="roster-card hero-card' + (player ? ' clickable-sheet' : '') + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '"' +
           (player ? ' data-sheet-hero="' + h.id + '" title="Voir la fiche complète"' : '') + '>' +
@@ -467,9 +474,9 @@
           '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="hero-stat-row">' +
-          '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(h) + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
-          '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + h.damage + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
         '</div>' +
         // En mode Joueur, l'équipement n'est pas affiché ici (doublon avec l'onglet Inventaire)
         (player ? '' :
@@ -479,7 +486,7 @@
           '</div>') +
         '<div class="roster-section">' +
           '<div class="roster-label">Attaques</div>' +
-          '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div>' +
+          '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div>' +
         '</div>' +
         skillsSummary(h.skills) +
         (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
@@ -507,19 +514,24 @@
   }
 
   // Fiche d'aventurier en lecture seule (ouverte depuis la narration)
+  // En mode Joueur, on reflète les gains de niveau + talents choisis de la partie.
+  function displayHero(h) {
+    return (isPlayerMode() && global.Session && Session.effectiveHero) ? Session.effectiveHero(h) : h;
+  }
   function heroSheetHtml(h) {
+    const dh = displayHero(h);
     const e = normalizeEquip(h.equipment);
     const gear = [e.mainG, e.mainD, e.armorId, e.objectId].map(itemById).filter(Boolean).map(function (it) { return it.name; });
     return (h.klass ? '<div class="sheet-class class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</div>' : '') +
       '<div class="hero-stat-row">' +
-        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(h) + '</span></div>' +
-        '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
-        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + h.damage + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(dh) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
       '</div>' +
       '<div class="roster-section"><div class="roster-label">Équipement</div>' +
         '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div></div>' +
       '<div class="roster-section"><div class="roster-label">Attaques</div>' +
-        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div></div>' +
+        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div></div>' +
       skillsSummary(h.skills) +
       (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '');
   }
