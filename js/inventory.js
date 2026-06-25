@@ -428,7 +428,6 @@
     $('#f-ranged').checked = isEdit ? !!item.ranged : false;
     $('#f-uses-ammo').checked = isEdit ? !!item.usesAmmo : false;
     $('#f-consumable').checked = isEdit ? !!item.consumable : false;
-    $('#f-start').checked = isEdit ? !!item.startGear : false;
     $('#f-effects').value = isEdit ? (item.effects || '') : '';
     $('#f-notes').value = isEdit ? (item.notes || '') : '';
     const traits = isEdit ? (item.traits || []) : [];
@@ -472,7 +471,6 @@
       ranged: $('#f-ranged').checked,
       usesAmmo: $('#f-uses-ammo').checked,
       consumable: $('#f-consumable').checked,
-      startGear: $('#f-start').checked,
       dice: Object.assign(D.emptyPool(), weaponDicePool),
       traits: traits,
       price: parseInt(isArmor ? $('#f-armor-price').value : $('#f-price').value, 10) || 0,

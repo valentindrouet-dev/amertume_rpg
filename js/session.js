@@ -591,34 +591,39 @@
     const statSel = {}; // idx -> 'endu'|'damage'
     const talSel  = {}; // idx -> talentId
 
+    // Une colonne par aventurier (design de l'onglet Talents) : choix ENDU/DÉGÂTS
+    // en haut, talents listés en colonne dessous.
     function heroBlock(h, idx) {
       const talents = availableTalents(ses, h, newLevel);
       const statHtml =
-        '<button type="button" class="lvl-choice-btn lvl-stat-btn" data-idx="' + idx + '" data-stat="endu">+2 ENDURANCE</button>' +
-        '<button type="button" class="lvl-choice-btn lvl-stat-btn" data-idx="' + idx + '" data-stat="damage">+1 Dégâts</button>';
+        '<button type="button" class="lvl-stat-btn2" data-idx="' + idx + '" data-stat="endu">' +
+          '<span class="lsb-main">+2</span><span class="lsb-sub">ENDURANCE</span></button>' +
+        '<button type="button" class="lvl-stat-btn2" data-idx="' + idx + '" data-stat="damage">' +
+          '<span class="lsb-main">+1</span><span class="lsb-sub">DÉGÂTS</span></button>';
       const talHtml = talents.length
         ? talents.map(function (t) {
             return '<div class="lvl-tal-wrap">' +
-              '<div class="lvl-choice-btn lvl-tal-btn' + (t.kind ? ' lvl-tal-' + t.kind : '') + '" ' +
-              'data-idx="' + idx + '" data-tal="' + esc(t.id) + '">' +
+              '<div class="tpe-row tpe-kind-' + (t.kind || 'none') + '" data-idx="' + idx + '" data-tal="' + esc(t.id) + '">' +
                 '<input type="checkbox" class="lvl-tal-cb" aria-label="Sélectionner ' + esc(t.name) + '">' +
-                '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
-                '<span class="lvl-tal-lvl">' + esc(KIND_SHORT(t.kind)) + ' · Niv. ' + (t.level || 1) + '</span>' +
+                '<span class="tpe-name" title="Voir le descriptif">' + esc(t.name) + '</span>' +
+                '<span class="tpe-meta">' +
+                  '<span class="tl-kind tl-kind-' + (t.kind || 'passive') + '">' + esc(KIND_SHORT(t.kind)) + '</span>' +
+                  '<span class="tpe-lvl">Niv. ' + (t.level || 1) + '</span>' +
+                '</span>' +
               '</div>' +
-              (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(t.description) + '</div>' : '') +
+              (t.description ? '<div class="tpe-desc" hidden>' + esc(t.description) + '</div>' : '') +
             '</div>';
           }).join('')
         : '<span class="hint" style="font-size:.8rem">Aucun talent disponible.</span>';
-      return '<div class="lvl-hero" data-idx="' + idx + '">' +
-        '<div class="lvl-hero-head">' +
-          '<span class="lvl-hero-name">' + esc(h.name) + '</span>' +
+      return '<div class="lvl-col" data-idx="' + idx + '">' +
+        '<div class="lvl-col-head">' +
+          '<span class="lvl-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' + esc(h.name) + '</span>' +
           (h.klass ? '<span class="class-badge klass-' + slug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
         '</div>' +
-        '<div class="lvl-section-title">Caractéristique</div>' +
-        '<div class="lvl-row">' + statHtml + '</div>' +
-        (talents.length
-          ? '<div class="lvl-section-title">Talent</div><div class="lvl-row lvl-tal-row">' + talHtml + '</div>'
-          : '') +
+        '<div class="lvl-sec-title">Caractéristique</div>' +
+        '<div class="lvl-stat-choice">' + statHtml + '</div>' +
+        '<div class="lvl-sec-title">Talent</div>' +
+        '<div class="lvl-tal-col">' + talHtml + '</div>' +
       '</div>';
     }
 
@@ -628,7 +633,7 @@
       '<div class="card lvlup-card">' +
         '<div class="lvlup-banner">⭐ <span>Niveau Supérieur !</span>' +
           '<span class="lvlup-num">Niveau ' + newLevel + '</span></div>' +
-        '<div class="lvlup-heroes">' + cards + '</div>' +
+        '<div class="lvlup-heroes lvlup-grid">' + cards + '</div>' +
         '<button class="primary big" id="lvlup-continue" disabled>Continuer →</button>' +
       '</div>';
 
@@ -643,28 +648,28 @@
       contBtn.disabled = !ok;
     }
 
-    root.querySelectorAll('.lvl-stat-btn').forEach(function (btn) {
+    root.querySelectorAll('.lvl-stat-btn2').forEach(function (btn) {
       btn.addEventListener('click', function () {
         const idx = btn.getAttribute('data-idx');
-        root.querySelectorAll('.lvl-stat-btn[data-idx="' + idx + '"]').forEach(function (b) { b.classList.remove('selected'); });
+        root.querySelectorAll('.lvl-stat-btn2[data-idx="' + idx + '"]').forEach(function (b) { b.classList.remove('selected'); });
         btn.classList.add('selected');
         statSel[idx] = btn.getAttribute('data-stat');
         refresh();
       });
     });
     root.querySelectorAll('.lvl-tal-wrap').forEach(function (wrap) {
-      const btn = wrap.querySelector('.lvl-tal-btn');
-      const desc = wrap.querySelector('.lvl-tal-desc');
-      btn.addEventListener('click', function (e) {
+      const row = wrap.querySelector('.tpe-row');
+      const desc = wrap.querySelector('.tpe-desc');
+      row.addEventListener('click', function (e) {
         if (e.target.classList.contains('lvl-tal-cb')) {
-          const idx = btn.getAttribute('data-idx');
-          root.querySelectorAll('.lvl-tal-btn[data-idx="' + idx + '"]').forEach(function (b) {
+          const idx = row.getAttribute('data-idx');
+          root.querySelectorAll('.tpe-row[data-idx="' + idx + '"]').forEach(function (b) {
             b.classList.remove('selected');
             const cb = b.querySelector('.lvl-tal-cb'); if (cb) cb.checked = false;
           });
-          btn.classList.add('selected');
+          row.classList.add('selected');
           e.target.checked = true;
-          talSel[idx] = btn.getAttribute('data-tal');
+          talSel[idx] = row.getAttribute('data-tal');
           refresh();
         } else {
           if (desc) desc.hidden = !desc.hidden;
@@ -933,8 +938,22 @@
     if (!adv) { root.innerHTML = '<p class="empty">Aventure introuvable.</p>'; return; }
     const heroes = Combatants.adventureHeroes(advId);
 
-    // Aucun aventurier : inviter à créer le groupe
-    if (!heroes.length) {
+    // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
+    // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
+    function cardHtml(h) {
+      return '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
+        Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
+      '</label>';
+    }
+    // Deux catégories : aventuriers du groupe (custom + clones déjà ajoutés) et
+    // modèles pré-construits encore disponibles (clonés au lancement de l'aventure).
+    const used = {};
+    heroes.forEach(function (h) { if (h.prebuiltId) used[h.prebuiltId] = true; });
+    const prebuilts = (Combatants.prebuiltHeroes ? Combatants.prebuiltHeroes() : [])
+      .filter(function (h) { return !used[h.id]; });
+
+    // Ni aventurier créé ni modèle disponible : inviter à en créer un.
+    if (!heroes.length && !prebuilts.length) {
       root.innerHTML =
         '<div class="card">' +
           '<div class="card-head"><h2>Créez votre groupe d\'aventuriers</h2></div>' +
@@ -942,32 +961,28 @@
             'Vos aventuriers restent disponibles pour rejouer l\'aventure autant de fois que vous le souhaitez.</p>' +
           '<div class="group-create-actions">' +
             '<button class="primary" id="grp-new">+ Nouvel Aventurier</button>' +
-            '<button class="btn-green" id="grp-prebuilt">+ Aventurier Pré-Construit</button>' +
           '</div>' +
         '</div>';
       document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
-      document.getElementById('grp-prebuilt').onclick = function () { Combatants.openPrebuiltPicker(); };
       return;
     }
-
-    // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
-    // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
-    const rows = heroes.map(function (h) {
-      return '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
-        Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
-      '</label>';
-    }).join('');
+    const customRows = heroes.map(cardHtml).join('');
+    const prebuiltRows = prebuilts.map(cardHtml).join('');
 
     root.innerHTML =
       '<div class="card">' +
         '<div class="card-head"><h2>Votre groupe — ' + esc(adv.title) + '</h2>' +
           '<div style="display:flex;gap:.4rem">' +
-            '<button class="btn-green small" id="grp-prebuilt">+ Pré-Construit</button>' +
             '<button class="primary small" id="grp-new">+ Aventurier</button>' +
           '</div>' +
         '</div>' +
         '<p class="hint">Choisis 1 à 4 aventuriers qui partent à l\'aventure.</p>' +
-        '<div id="grp-list" class="hero-pick-list">' + rows + '</div>' +
+        '<div class="grp-cat-title">Aventuriers</div>' +
+        '<div id="grp-list" class="hero-pick-list">' +
+          (customRows || '<p class="empty">Aucun aventurier créé. Clique sur « + Aventurier ».</p>') + '</div>' +
+        '<div class="grp-cat-title">Aventuriers Pré-construit</div>' +
+        '<div id="grp-list-pre" class="hero-pick-list">' +
+          (prebuiltRows || '<p class="empty">Aucun aventurier pré-construit disponible.</p>') + '</div>' +
         '<p class="diff-advice" id="grp-advice"></p>' +
         '<div class="roll-actions"><button class="primary big" id="grp-start">▶ Commencer l\'aventure</button></div>' +
       '</div>';
@@ -991,13 +1006,28 @@
       });
     });
     document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
-    document.getElementById('grp-prebuilt').onclick = function () { Combatants.openPrebuiltPicker(); };
     document.getElementById('grp-start').onclick = function () {
       const ids = Array.from(root.querySelectorAll('[data-hero]:checked')).map(function (cb) { return cb.getAttribute('data-hero'); });
       if (!ids.length || ids.length > 4) return;
-      startSessionWithHeroes(advId, ids);
+      // Résout les modèles pré-construits sélectionnés en clones liés à l'aventure
+      const resolved = ids.map(function (id) { return resolveHeroId(advId, id); }).filter(Boolean);
+      startSessionWithHeroes(advId, resolved);
     };
     refresh();
+  }
+
+  // Résout l'id d'un aventurier sélectionné au lancement : un modèle pré-construit
+  // (adventureId null) est cloné dans l'aventure (ou réutilise un clone existant).
+  function resolveHeroId(advId, id) {
+    const h = Store.state.heroes.find(function (x) { return x.id === id; });
+    if (!h) return null;
+    if (h.adventureId === advId) return id;        // déjà membre de l'aventure
+    if (!h.adventureId) {                            // modèle pré-construit
+      const existing = Store.state.heroes.find(function (x) { return x.adventureId === advId && x.prebuiltId === id; });
+      if (existing) return existing.id;
+      return (Combatants.clonePrebuilt ? Combatants.clonePrebuilt(id, advId) : id) || id;
+    }
+    return id;
   }
 
   // Retire de l'inventaire les objets acquis durant les parties d'une aventure
@@ -1341,5 +1371,10 @@
     activePartyXp: activePartyXp,
     effectiveHero: activeEffectiveHero,
     ownedForHero: ownedForHero,
+    engagedHeroIds: engagedHeroIds,
   };
+  // Ids des aventuriers engagés dans la partie active (null si aucune partie lancée)
+  function engagedHeroIds() {
+    return (activeSession && Array.isArray(activeSession.heroIds)) ? activeSession.heroIds.slice() : null;
+  }
 })(window);

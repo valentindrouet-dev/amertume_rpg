@@ -2631,6 +2631,32 @@ body.mode-player #item-list.roster-list { display: block; }
 .lvlup-card #lvlup-continue { width: 100%; margin-top: .5rem; }
 .lvlup-card #lvlup-continue:disabled { opacity: .45; cursor: not-allowed; }
 
+/* Niveau supérieur — disposition en colonnes (design onglet Talents) */
+.lvlup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .8rem; align-items: start; }
+.lvl-col { display: flex; flex-direction: column; gap: .4rem; min-width: 0;
+  border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: .6rem .7rem; background: rgba(255,255,255,.03); }
+.lvl-col-head { display: flex; align-items: center; gap: .4rem; border-bottom: 2px solid var(--border); padding-bottom: .3rem; }
+.lvl-col-head .lvl-hero-name { flex: 1; min-width: 0; font-weight: 800; font-size: .92rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lvl-sec-title { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); font-weight: 700; margin: .25rem 0 .1rem; }
+/* Choix de caractéristique : deux boutons fixes côte à côte (pas de stretch) */
+.lvl-stat-choice { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+.lvl-stat-btn2 { display: flex; flex-direction: column; align-items: center; gap: .05rem;
+  padding: .4rem .3rem; border-radius: 9px; border: 1.5px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.06); color: #e0e0e0; cursor: pointer; transition: border-color .1s, background .1s; }
+.lvl-stat-btn2:hover { border-color: rgba(255,255,255,.4); background: rgba(255,255,255,.1); }
+.lvl-stat-btn2.selected { border-color: #d4af5a; background: rgba(212,175,90,.2); color: #f3d27a; }
+.lvl-stat-btn2 .lsb-main { font-size: 1.05rem; font-weight: 800; }
+.lvl-stat-btn2 .lsb-sub { font-size: .62rem; letter-spacing: .04em; color: var(--muted); }
+.lvl-stat-btn2.selected .lsb-sub { color: #e8cf94; }
+/* Talents en colonne (réutilise .tpe-row de l'onglet Talents) */
+.lvl-tal-col { display: flex; flex-direction: column; gap: .3rem; }
+
+/* Catégories de l'écran de constitution du groupe */
+.grp-cat-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--accent-2); font-weight: 800; margin: .9rem 0 .35rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; }
+
 /* ====== Talents : bouton de réaction dans le bandeau (violet) ====== */
 .ab-atk.ab-atk-react {
   background: rgba(150,100,200,.8); justify-content: center;
@@ -2751,8 +2777,49 @@ body.mode-player #item-list.roster-list { display: block; }
 .free-move-dot { color: #5ee0e0; font-weight: 700; }
 
 /* ----- Assistant de création : choix des talents de niveau 1 ----- */
-.hw-tal-list { display: flex; flex-wrap: wrap; gap: .4rem; }
-.hw-tal-list .lvl-tal-btn { flex: 1 1 160px; }
+.hw-tal-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .45rem; align-items: start; }
+.hw-tal-list .lvl-tal-wrap { display: flex; flex-direction: column; gap: .2rem; }
+.hw-tal-list .lvl-tal-btn { width: 100%; flex-direction: row; align-items: center; gap: .4rem; text-align: left; padding: .4rem .55rem; }
+.hw-tal-list .lvl-tal-btn .lvl-tal-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hw-tal-list .lvl-tal-btn .lvl-tal-lvl { flex: 0 0 auto; }
+
+/* ----- Assistant de création : caractéristiques (steppers − / +) ----- */
+.hw-stat-list2 { display: flex; flex-direction: column; gap: .45rem; margin-top: .4rem; }
+.hw-stat-row2 { display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  padding: .5rem .7rem; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); }
+.hw-stat-label2 { font-weight: 700; font-size: .85rem; }
+.hw-stat-label2 small { color: var(--muted); font-weight: 500; font-size: .7rem; }
+.hw-stat-ctrl { display: flex; align-items: center; gap: .5rem; }
+.hw-stat-pm, .hw-skill-pm { width: 1.8rem; height: 1.8rem; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel); color: var(--text); font-size: 1.1rem; font-weight: 800; cursor: pointer; line-height: 1; }
+.hw-stat-pm:hover:not(:disabled), .hw-skill-pm:hover:not(:disabled) { border-color: var(--accent); background: var(--accent); color: #fff; }
+.hw-stat-pm:disabled, .hw-skill-pm:disabled { opacity: .35; cursor: default; }
+.hw-stat-cur2 { min-width: 1.6rem; text-align: center; font-size: 1.2rem; font-weight: 800; }
+/* PV formula (couleurs) */
+.hw-pv-formula { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .35rem;
+  margin-top: .8rem; padding: .55rem .8rem; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); }
+.hw-pv-term { padding: .2rem .55rem; border-radius: 7px; font-weight: 800; font-size: .9rem; }
+.hw-pv-op { color: var(--muted); font-weight: 800; font-size: 1rem; }
+.hw-pv-endu { background: rgba(77,142,209,.22); color: #9cc6f2; }
+.hw-pv-vie { background: rgba(214,90,90,.22); color: #f0a0a0; }
+.hw-pv-cls { background: rgba(214,175,90,.22); color: #e8cf94; }
+.hw-pv-total { background: rgba(110,180,120,.28); color: #bfeec7; font-size: 1.05rem; }
+
+/* ----- Assistant de création : combinaisons d'armes ----- */
+.hw-combo-list { display: flex; flex-direction: column; gap: .5rem; margin-top: .4rem; }
+.hw-combo { display: flex; flex-direction: column; gap: .15rem; text-align: left; padding: .7rem .8rem;
+  border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; font-weight: 700; }
+.hw-combo:hover { border-color: var(--accent-2); }
+.hw-combo.selected { outline: 2px solid var(--action); background: var(--panel); }
+.hw-combo-warn { font-size: .68rem; color: var(--bad, #e07070); font-weight: 500; }
+
+/* ----- Assistant de création : compétences (steppers) ----- */
+.hw-skill-list2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .4rem; margin-top: .4rem; }
+.hw-skill-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  padding: .4rem .6rem; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-2); }
+.hw-skill-name { font-weight: 600; font-size: .82rem; }
+.hw-skill-val { min-width: 1.6rem; text-align: center; font-weight: 800; color: var(--muted); }
+.hw-skill-val.on { color: var(--good); }
 
 /* ----- Onglet Talents (mode Joueur) : équipement des talents ----- */
 .tal-heroes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .8rem; align-items: start; }

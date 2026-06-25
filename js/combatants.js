@@ -517,6 +517,8 @@
         (!opts.hideRapide && h.rapide ? '<span class="tag">Rapide</span>' : '') +
       '</div>' +
       '<div class="hero-stat-row">' +
+        '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val">' + (dh.vie || 0) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
@@ -531,21 +533,36 @@
   function renderHeroes() {
     renderProgress();
     const s = scope();
+    const player = s.mode === 'player';
     const titleEl = $('#heroes-title');
-    if (titleEl) titleEl.textContent = s.mode === 'player' ? 'Vos aventuriers' : 'Aventuriers pré-construits';
+    if (titleEl) titleEl.textContent = player ? 'Votre groupe' : 'Aventuriers pré-construits';
     const hintEl = $('#heroes-hint');
-    if (hintEl) hintEl.textContent = s.mode === 'player'
-      ? 'Crée autant d\'aventuriers que tu veux. Ils restent disponibles pour rejouer l\'aventure.'
+    if (hintEl) hintEl.textContent = player
+      ? 'Les membres engagés dans l\'aventure en cours. Le groupe se constitue au lancement de l\'aventure.'
       : 'Aventuriers modèles, réutilisables par les joueurs via « + Aventurier Pré-Construit ».';
+    // En mode Joueur, le groupe (création/ajout) se fait sur l'écran de lancement
+    // de l'aventure : ces boutons n'apparaissent que côté MJ.
+    const addBtn = $('#btn-add-hero');
+    if (addBtn) addBtn.hidden = player;
     const preBtn = $('#btn-add-prebuilt');
-    if (preBtn) preBtn.hidden = s.mode !== 'player';
+    if (preBtn) preBtn.hidden = true;
     const list = $('#hero-list');
-    const heroes = scopedHeroes();
+    let heroes = scopedHeroes();
+    // Onglet Groupe (Joueur) : vide tant que l'aventure n'est pas lancée ; sinon,
+    // seuls les aventuriers engagés dans la partie active s'affichent.
+    if (player) {
+      const engaged = (global.Session && Session.engagedHeroIds) ? Session.engagedHeroIds() : null;
+      if (!engaged) {
+        list.innerHTML = '<p class="empty">Le groupe s\'affiche une fois l\'aventure lancée. ' +
+          'Constitue-le et clique sur « Commencer l\'aventure » dans l\'onglet Aventure.</p>';
+        return;
+      }
+      heroes = heroes.filter(function (h) { return engaged.indexOf(h.id) >= 0; });
+    }
     if (!heroes.length) {
       list.innerHTML = '<p class="empty">Aucun aventurier. Clique sur « + Nouvel Aventurier ».</p>';
       return;
     }
-    const player = s.mode === 'player';
     list.innerHTML = heroes.map(function (h) {
       const dh = displayHero(h);
       const gear = heroGear(h).map(function (it) { return it.name; });
@@ -559,6 +576,8 @@
           '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="hero-stat-row">' +
+          '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val">' + (dh.vie || 0) + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
@@ -691,7 +710,7 @@
   let wiz = null;
   const WIZ_STEPS = ['Nom', 'Classe', 'Caractéristiques', 'Équipement', 'Talents', 'Compétences'];
   function openHeroWizard(advId) {
-    wiz = { advId: advId, step: 0, name: '', klass: '', statBonuses: { vie: 0, endu: 0, damage: 0 }, statClicks: 0, equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, talents: [], skills: [] };
+    wiz = { advId: advId, step: 0, name: '', klass: '', statBonuses: { vie: 0, endu: 0, damage: 0 }, statClicks: 0, equipCombo: null, equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, talents: [], skills: {} };
     $('#hero-wizard-modal').hidden = false;
     renderWizard();
   }
@@ -715,8 +734,34 @@
     const step = WIZ_STEPS[wiz.step];
     if (step === 'Nom') ok = !!wiz.name.trim();
     else if (step === 'Classe') ok = !!wiz.klass;
-    else if (step === 'Compétences') ok = wiz.skills.length === 2;
+    else if (step === 'Équipement') ok = !!wiz.equipCombo;
+    else if (step === 'Compétences') ok = wizSkillTotal() === 3;
     const nb = $('#hw-next'); if (nb) nb.disabled = !ok;
+  }
+  function wizSkillTotal() {
+    let n = 0; SKILLS.forEach(function (s) { n += wiz.skills[s] || 0; }); return n;
+  }
+  // Combinaisons d'armes de départ proposées à la création (mappées par nom d'objet)
+  const START_COMBOS = [
+    { id: 'dual',   label: 'Épée courte + Épée courte', names: ['épée courte', 'épée courte'] },
+    { id: 'shield', label: 'Épée courte + Bouclier',    names: ['épée courte', 'bouclier'] },
+    { id: 'bow',    label: 'Arc court',                 names: ['arc court'] },
+  ];
+  function normName(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
+  function findItemByName(name) {
+    const t = normName(name);
+    return Store.state.items.find(function (i) { return normName(i.name) === t; })
+        || Store.state.items.find(function (i) { return normName(i.name).indexOf(t) >= 0; }) || null;
+  }
+  // Traduit une combinaison en équipement {mainD, mainG}
+  function comboToEquip(comboId) {
+    const eq = { mainG: null, mainD: null, armorId: null, objectId: null };
+    const combo = START_COMBOS.find(function (c) { return c.id === comboId; });
+    if (!combo) return eq;
+    const a = findItemByName(combo.names[0]);
+    if (a) eq.mainD = a.id;
+    if (combo.names[1]) { const b = findItemByName(combo.names[1]); if (b) eq.mainG = b.id; }
+    return eq;
   }
   function renderWizard() {
     const body = $('#hw-body');
@@ -746,53 +791,73 @@
       const dmg = 2 + wiz.statBonuses.damage;
       const pv = Math.max(1, vie * endu + classPvBonus);
       const rem = 3 - wiz.statClicks;
+      // Une ligne par caractéristique avec boutons − / + (modifiables jusqu'à validation)
+      function statRow(stat, label, step, cur, bonus) {
+        const canInc = rem > 0;
+        const canDec = bonus > 0;
+        return '<div class="hw-stat-row2">' +
+          '<span class="hw-stat-label2">' + label + '</span>' +
+          '<div class="hw-stat-ctrl">' +
+            '<button type="button" class="hw-stat-pm" data-stat="' + stat + '" data-dir="-1"' + (canDec ? '' : ' disabled') + '>−</button>' +
+            '<span class="hw-stat-cur2">' + cur + '</span>' +
+            '<button type="button" class="hw-stat-pm" data-stat="' + stat + '" data-dir="1"' + (canInc ? '' : ' disabled') + '>+</button>' +
+          '</div>' +
+        '</div>';
+      }
       body.innerHTML =
-        '<p class="hint">Répartis jusqu\'à <b>3 points</b> dans les caractéristiques de ton aventurier.' +
-        (rem > 0 ? ' (<b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + ')' : ' <b>(max atteint)</b>') + '</p>' +
-        '<div class="hw-stat-list">' +
-          '<button type="button" class="hw-stat-btn" data-stat="damage"' + (rem <= 0 ? ' disabled' : '') + '>' +
-            '<span class="hw-stat-label">+1 DÉGÂTS</span><span class="hw-stat-cur">' + dmg + '</span>' +
-          '</button>' +
-          '<button type="button" class="hw-stat-btn" data-stat="endu"' + (rem <= 0 ? ' disabled' : '') + '>' +
-            '<span class="hw-stat-label">+2 ENDURANCE</span><span class="hw-stat-cur">' + endu + '</span>' +
-          '</button>' +
-          '<button type="button" class="hw-stat-btn" data-stat="vie"' + (rem <= 0 ? ' disabled' : '') + '>' +
-            '<span class="hw-stat-label">+1 VIE</span><span class="hw-stat-cur">' + vie + '</span>' +
-          '</button>' +
+        '<p class="hint">Répartis tes <b>3 points</b> entre les caractéristiques (tu peux ajuster avant de valider). ' +
+        '<b>' + rem + '</b> point' + (rem > 1 ? 's' : '') + ' restant' + (rem > 1 ? 's' : '') + '.</p>' +
+        '<div class="hw-stat-list2">' +
+          statRow('damage', '⚔ DÉGÂTS <small>(+1 / point)</small>', 1, dmg, wiz.statBonuses.damage) +
+          statRow('endu', '🏃 ENDURANCE <small>(+2 / point)</small>', 2, endu, wiz.statBonuses.endu) +
+          statRow('vie', '❤ VIE <small>(+1 / point)</small>', 1, vie, wiz.statBonuses.vie) +
         '</div>' +
-        '<div class="hw-pv-preview">PV totaux · <strong>' + pv + '</strong></div>';
-      body.querySelectorAll('.hw-stat-btn').forEach(function (btn) {
+        '<div class="hw-pv-formula">' +
+          '<span class="hw-pv-term hw-pv-endu">ENDU ' + endu + '</span>' +
+          '<span class="hw-pv-op">×</span>' +
+          '<span class="hw-pv-term hw-pv-vie">VIE ' + vie + '</span>' +
+          (classPvBonus ? '<span class="hw-pv-op">+</span><span class="hw-pv-term hw-pv-cls">Classe ' + classPvBonus + '</span>' : '') +
+          '<span class="hw-pv-op">=</span>' +
+          '<span class="hw-pv-term hw-pv-total">PV ' + pv + '</span>' +
+        '</div>';
+      body.querySelectorAll('.hw-stat-pm').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          if (wiz.statClicks >= 3) return;
           const stat = btn.getAttribute('data-stat');
-          if (stat === 'endu') wiz.statBonuses.endu += 2;
-          else if (stat === 'damage') wiz.statBonuses.damage += 1;
-          else if (stat === 'vie') wiz.statBonuses.vie += 1;
-          wiz.statClicks++;
+          const dir = parseInt(btn.getAttribute('data-dir'), 10);
+          if (dir > 0) {
+            if (wiz.statClicks >= 3) return;
+            if (stat === 'endu') wiz.statBonuses.endu += 2;
+            else if (stat === 'damage') wiz.statBonuses.damage += 1;
+            else wiz.statBonuses.vie += 1;
+            wiz.statClicks++;
+          } else {
+            if ((wiz.statBonuses[stat] || 0) <= 0) return;
+            if (stat === 'endu') wiz.statBonuses.endu -= 2;
+            else if (stat === 'damage') wiz.statBonuses.damage -= 1;
+            else wiz.statBonuses.vie -= 1;
+            wiz.statClicks--;
+          }
           renderWizard();
         });
       });
     } else if (stepName === 'Équipement') {
-      // Seuls les équipements de Départ sont proposés à la création (si le MJ en a
-      // désigné ; sinon, repli sur tout le catalogue pour rester utilisable).
-      const anyStart = Store.state.items.some(function (i) { return i.startGear; });
-      const items = anyStart ? Store.state.items.filter(function (i) { return i.startGear; }) : Store.state.items;
-      const hands = items.filter(function (i) { return i.category === 'weapon' || (i.category === 'armor' && i.slot === 'shield'); });
-      const bodies = items.filter(function (i) { return i.category === 'armor' && (i.slot || 'body') === 'body'; });
-      const objects = items.filter(function (i) { return i.category === 'object' || i.category === 'misc'; });
-      body.innerHTML = '<p class="hint">Équipement de départ (facultatif).</p>' +
-        '<div class="form-row"><label>Main droite<select id="hw-maind"></select></label>' +
-        '<label>Main gauche<select id="hw-maing"></select></label></div>' +
-        '<div class="form-row"><label>Armure<select id="hw-armor"></select></label>' +
-        '<label>Objet<select id="hw-object"></select></label></div>';
-      fillEquipSelect($('#hw-maind'), hands, wiz.equipment.mainD, 'Vide');
-      fillEquipSelect($('#hw-maing'), hands, wiz.equipment.mainG, 'Vide');
-      fillEquipSelect($('#hw-armor'), bodies, wiz.equipment.armorId, 'Aucune');
-      fillEquipSelect($('#hw-object'), objects, wiz.equipment.objectId, 'Aucun');
-      $('#hw-maind').onchange = function () { wiz.equipment.mainD = this.value || null; };
-      $('#hw-maing').onchange = function () { wiz.equipment.mainG = this.value || null; };
-      $('#hw-armor').onchange = function () { wiz.equipment.armorId = this.value || null; };
-      $('#hw-object').onchange = function () { wiz.equipment.objectId = this.value || null; };
+      // Trois combinaisons d'armes de départ imposées (plus de catalogue libre).
+      body.innerHTML = '<p class="hint">Choisis ta <b>combinaison d\'armes</b> de départ.</p>' +
+        '<div class="hw-combo-list">' + START_COMBOS.map(function (c) {
+          const sel = wiz.equipCombo === c.id;
+          const missing = c.names.some(function (n) { return !findItemByName(n); });
+          return '<button type="button" class="hw-combo' + (sel ? ' selected' : '') + '" data-combo="' + c.id + '">' +
+            '<span class="hw-combo-label">' + esc(c.label) + '</span>' +
+            (missing ? '<span class="hw-combo-warn">objet introuvable dans l\'armurerie</span>' : '') +
+          '</button>';
+        }).join('') + '</div>';
+      body.querySelectorAll('.hw-combo').forEach(function (b) {
+        b.onclick = function () {
+          wiz.equipCombo = b.getAttribute('data-combo');
+          wiz.equipment = comboToEquip(wiz.equipCombo);
+          renderWizard();
+        };
+      });
     } else if (stepName === 'Talents') {
       const tals = level1Talents(wiz.klass);
       body.innerHTML = '<p class="hint">Choisis jusqu\'à <b>2 talents</b> de niveau 1. ' + wiz.talents.length + '/2</p>' +
@@ -826,16 +891,28 @@
         });
       });
     } else {
-      body.innerHTML = '<p class="hint">Choisis <b>2 compétences</b> (chacune +1). ' + wiz.skills.length + '/2</p>' +
-        '<div class="hw-skill-list">' + SKILLS.map(function (s) {
-          return '<button type="button" class="hw-skill' + (wiz.skills.indexOf(s) >= 0 ? ' selected' : '') + '" data-skill="' + s + '">' + s + '</button>';
+      const total = wizSkillTotal();
+      const rem = 3 - total;
+      body.innerHTML = '<p class="hint">Répartis tes <b>3 points</b> de compétence (max <b>2</b> dans une même). ' +
+        '<b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + '.</p>' +
+        '<div class="hw-skill-list2">' + SKILLS.map(function (s) {
+          const v = wiz.skills[s] || 0;
+          return '<div class="hw-skill-row">' +
+            '<span class="hw-skill-name">' + s + '</span>' +
+            '<div class="hw-stat-ctrl">' +
+              '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="-1"' + (v <= 0 ? ' disabled' : '') + '>−</button>' +
+              '<span class="hw-skill-val' + (v > 0 ? ' on' : '') + '">+' + v + '</span>' +
+              '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="1"' + (v >= 2 || rem <= 0 ? ' disabled' : '') + '>+</button>' +
+            '</div>' +
+          '</div>';
         }).join('') + '</div>';
-      body.querySelectorAll('.hw-skill').forEach(function (b) {
+      body.querySelectorAll('.hw-skill-pm').forEach(function (b) {
         b.onclick = function () {
           const s = this.getAttribute('data-skill');
-          const idx = wiz.skills.indexOf(s);
-          if (idx >= 0) wiz.skills.splice(idx, 1);
-          else { if (wiz.skills.length >= 2) return; wiz.skills.push(s); }
+          const dir = parseInt(this.getAttribute('data-dir'), 10);
+          const v = wiz.skills[s] || 0;
+          if (dir > 0) { if (v >= 2 || wizSkillTotal() >= 3) return; wiz.skills[s] = v + 1; }
+          else { if (v <= 0) return; wiz.skills[s] = v - 1; }
           renderWizard();
         };
       });
@@ -849,7 +926,7 @@
   function wizNext() {
     if (!wiz || $('#hw-next').disabled) return;
     if (wiz.step < WIZ_STEPS.length - 1) { wiz.step++; renderWizard(); return; }
-    const skills = {}; wiz.skills.forEach(function (s) { skills[s] = 1; });
+    const skills = {}; SKILLS.forEach(function (s) { if (wiz.skills[s]) skills[s] = wiz.skills[s]; });
     const eq = {
       mainG: wiz.equipment.mainG || null, mainD: wiz.equipment.mainD || null,
       armorId: wiz.equipment.armorId || null, objectId: wiz.equipment.objectId || null, twoH: false,
@@ -1037,6 +1114,7 @@
     Store.save();
     renderHeroes();
     global.dispatchEvent(new CustomEvent('heroes-changed'));
+    return copy.id;
   }
 
   function openPrebuiltPicker() {
@@ -1545,6 +1623,7 @@
     openPrebuiltPicker: openPrebuiltPicker,
     adventureHeroes: adventureHeroes,
     prebuiltHeroes: prebuiltHeroes,
+    clonePrebuilt: clonePrebuilt,
     heroGear: heroGear,
     normalizeEquip: normalizeEquip,
     weaponAttacks: weaponAttacks,
