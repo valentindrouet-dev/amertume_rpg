@@ -1425,14 +1425,6 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   outline: 3px solid var(--action);
   transition: background .15s, outline .1s;
 }
-/* Auto-move : héros sélectionné avec mouvement disponible → survol zone */
-.combat-zone.hero-movable { cursor: pointer; }
-.combat-zone.hero-movable:hover {
-  background: rgba(140,94,42,.15);
-  outline: 2px dashed rgba(140,94,42,.6);
-  outline-offset: -2px;
-  transition: background .15s;
-}
 .do-move.selected { background: var(--action); color: #fff; border-color: var(--action); }
 
 /* Éditeurs de zones (Combat Test + éditeur de scène) */

@@ -1289,12 +1289,7 @@
       '<div id="combat-actionbar" class="combat-actionbar"></div>' +
       '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
         zones().map(function (z, zi) {
-          const selHero = selectedIid ? byId(selectedIid) : null;
-          const heroCanMove = !pendingMove && selHero && selHero.side === 'hero' &&
-            selHero.status === 'active' && !selHero.used.move && selHero.zone !== zi &&
-            combat().phase === 'heroes' && !combat().outcome;
-          const zoneClass = pendingMove ? ' movable' : (heroCanMove ? ' hero-movable' : '');
-          return '<div class="combat-zone' + zoneClass + '" data-zone="' + zi + '">' +
+          return '<div class="combat-zone' + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
             '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
             '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
           '</div>';
@@ -1351,21 +1346,13 @@
     const ca = root.querySelector('#cancel-analyze');
     if (ca) ca.addEventListener('click', function () { pendingAnalyze = null; render(); });
 
-    // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement.
-    // Automatisation : si un héros est sélectionné et peut bouger, clic zone = déplacement.
+    // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement
+    // (uniquement après avoir cliqué le bouton Mouv.).
     root.querySelectorAll('.combat-zone').forEach(function (zEl) {
       zEl.addEventListener('click', function (e) {
+        if (!pendingMove) return;
         if (e.target.closest('button') || e.target.closest('.atk-row')) return;
-        const zi = parseInt(zEl.getAttribute('data-zone'), 10);
-        if (pendingMove) { moveCombatant(pendingMove, zi); return; }
-        if (selectedIid && !pendingAttack && !pendingAnalyze &&
-            combat().phase === 'heroes' && !combat().outcome) {
-          const hero = byId(selectedIid);
-          if (hero && hero.side === 'hero' && hero.status === 'active' &&
-              !hero.used.move && hero.zone !== zi) {
-            moveCombatant(selectedIid, zi);
-          }
-        }
+        moveCombatant(pendingMove, parseInt(zEl.getAttribute('data-zone'), 10));
       });
     });
 
@@ -1822,33 +1809,7 @@
           else execHeroAttack(attacker, pendingAttack.atkIndex, c);
           return;
         }
-        // 3) Automatisation : héros sélectionné + clic sur ennemi → attaque automatique
-        if (!pendingAttack && !pendingAnalyze && !pendingMove && selectedIid &&
-            c.side === 'monster' && c.status === 'active' &&
-            combat().phase === 'heroes' && !combat().outcome) {
-          const auto = byId(selectedIid);
-          if (auto && auto.side === 'hero' && auto.status === 'active') {
-            let atkIdx = -1;
-            for (let ai = 0; ai < auto.attacks.length; ai++) {
-              const a = auto.attacks[ai];
-              if (auto.attackUses[ai] === 0) continue;
-              if (!a.freeAction && auto.used.action) continue;
-              if (a.range === 'contact' && auto.zone !== c.zone && auto.used.move) continue;
-              atkIdx = ai; break;
-            }
-            if (atkIdx >= 0) {
-              const autoAtk = auto.attacks[atkIdx];
-              if (autoAtk.range === 'contact' && auto.zone !== c.zone) {
-                doMove(auto, c.zone, true);
-                if (auto.status !== 'active') { checkOutcome(); Store.save(); render(); return; }
-                movePrefix = { iid: auto.iid, zone: zname(auto.zone) };
-              }
-              execHeroAttack(auto, atkIdx, c);
-              return;
-            }
-          }
-        }
-        // 4) Sinon : sélectionne ce combattant et annule toute action en cours
+        // 3) Sinon : sélectionne ce combattant et annule toute action en cours
         selectedIid = c.iid;
         pendingAttack = null; pendingAnalyze = null; pendingMove = null;
         render();
