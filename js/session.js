@@ -742,7 +742,7 @@
     // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
     const rows = heroes.map(function (h) {
       return '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
-        Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id] }) +
+        Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
       '</label>';
     }).join('');
 

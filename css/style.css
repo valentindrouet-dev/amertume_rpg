@@ -2268,5 +2268,16 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 .hero-pick-card { display: block; cursor: pointer; }
 .hero-pick-card .roster-card { border: 2px solid transparent; transition: border-color .15s; cursor: pointer; }
 .hero-pick-card.selected .roster-card { border-color: var(--accent); }
-/* Masquer la section Attaques dans la liste de sélection */
-.hero-pick-list .roster-section { display: none; }
+/* Masquer uniquement la section Attaques dans la liste de sélection */
+.hero-pick-list .atk-section { display: none; }
+/* Avatar dans les cartes du picker */
+.hero-pick-list .hpc-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex: 0 0 auto;
+  background: rgba(0,0,0,.3); border: 2px solid rgba(255,255,255,.5);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: .8rem; color: #fff;
+  background-size: cover; background-position: center;
+  vertical-align: middle; margin-right: .3rem;
+}
+/* Icône DEF dans les cartes du picker : taille adaptée */
+.hero-pick-list .def-img { width: 1.4em; height: 1.55em; vertical-align: -.4em; }

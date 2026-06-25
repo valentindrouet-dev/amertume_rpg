@@ -377,21 +377,32 @@
 
   // Carte d'aventurier réutilisable (même design que l'onglet Groupe).
   // opts : { selectable, checked } pour la sélection de groupe.
+  function defIcon(val) {
+    if (val >= 1 && val <= 6) return '<img class="def-img" src="assets/DEF ' + val + '.png" alt="DEF ' + val + '">';
+    return '<span class="def-shield">' + val + '</span>';
+  }
+
   function heroCardHtml(h, opts) {
     opts = opts || {};
+    const def = heroDef(h);
+    const initials = (h.name || '?').trim().slice(0, 2).toUpperCase();
+    const avatarStyle = h.imageUrl
+      ? 'background-image:url(' + JSON.stringify(h.imageUrl) + ');background-size:cover;background-position:center;font-size:0;color:transparent'
+      : '';
     return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
       '<div class="roster-head hero-head">' +
         (opts.selectable ? '<input type="checkbox" class="hero-pick-cb" data-hero="' + h.id + '"' + (opts.checked ? ' checked' : '') + '>' : '') +
+        (opts.showAvatar ? '<div class="hpc-avatar" style="' + avatarStyle + '">' + esc(initials) + '</div>' : '') +
         '<span class="roster-name">' + esc(h.name) + '</span>' +
         (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
-        (h.rapide ? '<span class="tag">Rapide</span>' : '') +
+        (!opts.hideRapide && h.rapide ? '<span class="tag">Rapide</span>' : '') +
       '</div>' +
       '<div class="hero-stat-row">' +
         '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(h) + '</span></div>' +
-        '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + h.damage + '</span></div>' +
       '</div>' +
-      '<div class="roster-section"><div class="roster-label">Attaques</div>' +
+      '<div class="roster-section atk-section"><div class="roster-label">Attaques</div>' +
         '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(h)) + '</div></div>' +
       skillsSummary(h.skills) +
       (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
