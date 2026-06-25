@@ -268,9 +268,12 @@
     const adv = findAdventure(ses.adventureId);
     if (!adv) { root.innerHTML = '<p class="empty">Aventure introuvable.</p>'; return; }
 
-    // Montée de niveau en attente (ex. retour sur l'onglet) : on la reprend.
+    // Montée de niveau en attente : on la déclenche dès que le niveau de la session
+    // dépasse le dernier niveau résolu — sans dépendre de pendingNav (qui n'est posé
+    // que lors d'une navigation). On reste sur la scène courante après les choix.
     ensureLevelData(ses);
-    if (ses.pendingNav && (ses.levelDone || 1) < sessionLevel(ses)) {
+    if ((ses.levelDone || 1) < sessionLevel(ses)) {
+      if (!ses.pendingNav) { ses.pendingNav = ses.currentSceneId; save(); }
       renderLevelUp(root, ses, adv, (ses.levelDone || 1) + 1);
       return;
     }
