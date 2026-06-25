@@ -317,6 +317,7 @@
 
   function renderGrouped(items, canEdit) {
     const list = $('#item-list');
+    list.classList.add('inv-strip-layout');
 
     // Languette admin : pas de case à cocher, bouton édition à droite
     function adminStrip(i) {
