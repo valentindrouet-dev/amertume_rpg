@@ -1059,7 +1059,7 @@
         '<span class="cs-title">' + (OUT[out] || 'COMBAT TERMINÉ') + '</span>' +
       '</div>' +
       '<div class="cs-xpbig">' +
-        '<span class="cs-xpnum">+' + xp + '</span>' +
+        '<span class="cs-xpnum">+' + xp + ' XP</span>' +
         '<span class="cs-xplbl">Expérience Gagnée</span>' +
       '</div>' +
       '<div class="cs-statcard">' +
@@ -1276,7 +1276,7 @@
         '<div class="cb-mid">✦ XP : <strong>' + totalXp() + '</strong></div>' +
         '<div class="cb-right">' +
           (!c.outcome && c.phase === 'heroes'
-            ? '<button id="cb-enemy-turn" class="primary small' + (allHeroesActed ? ' enemy-turn-pulse' : '') + '">Tour des Adversaires →</button>'
+            ? '<button id="cb-enemy-turn" class="small enemy-turn-btn' + (allHeroesActed ? ' all-acted' : '') + '">Tour des Adversaires →</button>'
             : '') +
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
@@ -1585,7 +1585,9 @@
     const depleted = uses === 0;
     const blocked = !canAct || depleted || (!a.freeAction && usedA);
     const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average;
-    const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
+    const isEnemy = c.side === 'monster';
+    const revealed = !isEnemy || c.analyzed;
+    const showDmg = revealed && a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
     const info = [(a.range === 'distance' ? 'distance' : 'contact')];
     if (a.targets === 'all') info.push('toutes cibles');
     if (a.freeAction) info.push('gratuite');
@@ -1593,9 +1595,9 @@
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
         ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
       '<img class="ab-atk-name" src="' + (a.range === 'distance' ? 'assets/Attack_range_b.png' : 'assets/Attack_melee_b.png') + '" alt="' + (a.range === 'distance' ? 'Tir' : 'Attaque') + '">' +
-      '<span class="ab-atk-figs">' + Inventory.poolBadges(a.dice) +
+      '<span class="ab-atk-figs">' + (revealed ? Inventory.poolBadges(a.dice) : '') +
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
-        (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
+        (revealed && uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
       '</span>' +
     '</button>';
   }
@@ -1667,11 +1669,8 @@
           '<div class="cc-pvline">' +
             '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
               '<span class="pv-text">' + pvText + '</span></div>' +
+            (known ? '<span class="cc-def-icon">' + defShield(c.states.auSol ? 0 : c.def) + '</span>' : '') +
           '</div>' +
-          (known && isEnemy ? '<div class="cc-stats-line">' +
-            '<span class="cc-def">' + defShield(c.states.auSol ? 0 : c.def) + '</span>' +
-            (c.damage > 0 ? '<span class="cc-dmg">+' + c.damage + ' Dég.</span>' : '') +
-          '</div>' : '') +
           (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '') +
         '</div>' +
       '</div>';
@@ -1771,8 +1770,17 @@
           const hero = byId(pendingAnalyze);
           pendingAnalyze = null;
           if (!hero || hero.used.move) { render(); return; }
-          c.analyzed = true; hero.used.move = true;
-          log(cname(hero) + ' analyse ' + cname(c) + ' : DEF, Dégâts et XP révélés.', 'move');
+          // Révèle tous les adversaires du même nom de base (ex : "Répurgateur")
+          const baseName = c.name.replace(/\s*\d+$/, '').trim();
+          const combat_ = combat();
+          let revealed_ = 0;
+          combat_.combatants.forEach(function (m) {
+            if (m.side === 'monster' && m.name.replace(/\s*\d+$/, '').trim() === baseName) {
+              m.analyzed = true; revealed_++;
+            }
+          });
+          hero.used.move = true;
+          log(cname(hero) + ' analyse ' + esc(baseName) + (revealed_ > 1 ? ' (' + revealed_ + ' adversaires révélés)' : '') + ' : DEF, Dégâts et XP révélés.', 'move');
           Store.save(); render(); return;
         }
         // 2) Ciblage d'une attaque
