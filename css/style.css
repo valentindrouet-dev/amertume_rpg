@@ -2031,7 +2031,6 @@ img.ab-atk-name {
   box-shadow: 0 0 0 3px rgba(226,151,74,.55), 0 0 16px 3px rgba(226,151,74,.6);
   border-color: var(--accent-2) !important;
   position: relative; z-index: 2;
-  filter: brightness(0.5);
 }
 .combat-card.selected::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
