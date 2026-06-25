@@ -1027,24 +1027,46 @@
     // Tableau des combattants : aventuriers puis adversaires ayant agi/subi
     const parts = c.combatants.filter(function (x) { return x.side === 'hero' || x.dmgDealt > 0 || x.dmgTaken > 0; });
     parts.sort(function (a, b) { return (a.side === 'hero' ? 0 : 1) - (b.side === 'hero' ? 0 : 1) || b.dmgDealt - a.dmgDealt; });
+    // Statut de fin pour chaque combattant + couleur de ligne
+    var healMap = {};
+    if (c.healLines) c.healLines.forEach(function (h) { healMap[h.name] = h; });
+    function combatantStatus(x) {
+      if (x.side === 'hero') {
+        var hl = healMap[x.name];
+        if (x.status === 'coma') return { label: 'Coma', cls: 'st-coma' };
+        if (hl) return { label: '+' + hl.gained + ' PV soignés → ' + hl.pv + ' PV', cls: 'st-healed' };
+        return { label: 'Actif', cls: 'st-active' };
+      }
+      if (x.status === 'coma')  return { label: 'Vaincu', cls: 'st-dead' };
+      if (x.status === 'fled')  return { label: 'En fuite', cls: 'st-fled' };
+      return { label: 'Survivant', cls: 'st-alive' };
+    }
     function statRows() {
       return parts.map(function (x) {
-        return '<div class="cs-stat-row ' + (x.side === 'hero' ? 'is-hero' : 'is-foe') + '">' +
+        var st = combatantStatus(x);
+        return '<div class="cs-stat-row ' + (x.side === 'hero' ? 'is-hero' : 'is-foe') + ' ' + st.cls + '">' +
           '<span class="cs-name">' + (x.side === 'hero' ? '🛡️' : '⚔️') + ' ' + esc(x.name) + '</span>' +
           '<span class="cs-val cs-dealt" title="Dégâts infligés">' + x.dmgDealt + '</span>' +
           '<span class="cs-val cs-taken" title="Dégâts subis">' + x.dmgTaken + '</span>' +
+          '<span class="cs-val cs-status">' + st.label + '</span>' +
         '</div>';
       }).join('');
     }
-    function chips(list) { return list.map(function (x) { return '<span class="cs-chip">' + esc(x.name) + '</span>'; }).join(''); }
 
     root.innerHTML = '<div class="combat-summary cs-' + out + '">' +
-      '<div class="cs-banner"><span class="cs-icon">' + (ICON[out] || '⚔️') + '</span>' +
-        '<span class="cs-title">' + (OUT[out] || 'COMBAT TERMINÉ') + '</span></div>' +
-      '<div class="cs-xpbig"><span class="cs-xpnum">+' + xp + '</span><span class="cs-xplbl">XP gagnée</span></div>' +
+      '<div class="cs-banner">' +
+        '<span class="cs-icon">' + (ICON[out] || '⚔️') + '</span>' +
+        '<span class="cs-title">' + (OUT[out] || 'COMBAT TERMINÉ') + '</span>' +
+      '</div>' +
+      '<div class="cs-xpbig">' +
+        '<span class="cs-xpnum">+' + xp + '</span>' +
+        '<span class="cs-xplbl">Expérience Gagnée</span>' +
+      '</div>' +
       '<div class="cs-statcard">' +
         '<div class="cs-stat-head"><span class="cs-name">Combattant</span>' +
-          '<span class="cs-val">⚔️ Infligés</span><span class="cs-val">🩸 Subis</span></div>' +
+          '<span class="cs-val">⚔️ Infligés</span>' +
+          '<span class="cs-val">🩸 Subis</span>' +
+          '<span class="cs-val">Statut</span></div>' +
         statRows() +
       '</div>' +
       ((c.lootResults && c.lootResults.length)
@@ -1053,12 +1075,6 @@
               return '<span class="cs-chip">' + esc(L.name) + (L.qty > 1 ? ' ×' + L.qty : '') +
                 (L.toName ? ' <em>→ ' + esc(L.toName) + '</em>' : ' <em>(groupe)</em>') + '</span>';
             }).join('') + '</div></div>'
-        : '') +
-      (killed.length ? '<div class="cs-group cs-killed"><div class="cs-glabel">💀 Adversaires détruits</div><div class="cs-chips">' + chips(killed) + '</div></div>' : '') +
-      (fled.length ? '<div class="cs-group cs-fledg"><div class="cs-glabel">🏃 Adversaires en fuite</div><div class="cs-chips">' + chips(fled) + '</div></div>' : '') +
-      (c.healLines && c.healLines.length
-        ? '<div class="cs-group cs-healg"><div class="cs-glabel">✚ Soins de fin de combat (1d6 + END)</div><div class="cs-chips">' +
-            c.healLines.map(function (h) { return '<span class="cs-chip">' + esc(h.name) + ' · +' + h.gained + ' PV → ' + h.pv + '</span>'; }).join('') + '</div></div>'
         : '') +
       '<button class="primary big cs-continue-btn" id="cs-continue">Continuer l\'aventure →</button>' +
     '</div>';

@@ -1527,10 +1527,10 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 
 /* Écran de résumé de combat */
 .combat-summary { text-align: left; }
-.combat-summary .cs-title { margin: 0 0 .6rem; font-size: 1.4rem; }
-.combat-summary.cs-victory .cs-title { color: #4f8b4f; }
-.combat-summary.cs-minor .cs-title { color: #9a6c12; }
-.combat-summary.cs-defeat .cs-title { color: #c0392b; }
+.combat-summary .cs-title { margin: 0; font-size: 1.4rem; color: #fff; }
+.combat-summary.cs-victory .cs-title,
+.combat-summary.cs-minor .cs-title,
+.combat-summary.cs-defeat .cs-title { color: #fff; }
 .cs-line { margin: .3rem 0; }
 .cs-cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin: .7rem 0; }
 @media (max-width: 520px) { .cs-cols { grid-template-columns: 1fr; } }
@@ -1580,9 +1580,9 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 
 /* ---- Écran de résumé redessiné ---- */
 .combat-summary { max-width: 560px; margin: 0 auto; }
-.cs-banner { display: flex; align-items: center; justify-content: center; gap: .6rem; padding: 1rem;
+.cs-banner { display: flex; align-items: center; justify-content: center; gap: .7rem; padding: 1rem 1.2rem;
   border-radius: 14px; margin-bottom: .8rem; color: #fff; }
-.cs-banner .cs-icon { font-size: 2rem; }
+.cs-banner .cs-icon { font-size: 2.2rem; line-height: 1; flex: 0 0 auto; }
 .cs-banner .cs-title { font-size: 1.6rem; font-weight: 800; letter-spacing: .04em; }
 .combat-summary.cs-victory .cs-banner { background: linear-gradient(135deg, #4f8b4f, #2f6b3a); }
 .combat-summary.cs-minor   .cs-banner { background: linear-gradient(135deg, #b08d3a, #8a6c12); }
@@ -1592,7 +1592,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .cs-xpnum { display: block; font-size: 2rem; font-weight: 800; color: var(--accent-2); }
 .cs-xplbl { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .cs-statcard { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: .8rem; }
-.cs-stat-head, .cs-stat-row { display: grid; grid-template-columns: 1fr 90px 90px; align-items: center; padding: .45rem .6rem; }
+.cs-stat-head, .cs-stat-row { display: grid; grid-template-columns: 1fr 80px 80px 120px; align-items: center; padding: .45rem .6rem; }
 .cs-stat-head { background: rgba(0,0,0,.06); font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 700; }
 .cs-stat-row { border-top: 1px solid var(--border); }
 .cs-stat-row.is-hero { background: rgba(77,142,209,.06); }
@@ -1600,6 +1600,19 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .cs-stat-head .cs-val, .cs-stat-row .cs-val { text-align: center; font-weight: 700; }
 .cs-stat-row .cs-dealt { color: #c0563f; }
 .cs-stat-row .cs-taken { color: #8a4a8a; }
+/* Statut par combattant */
+.cs-stat-row .cs-status { font-size: .78rem; font-weight: 700; text-align: center; }
+.cs-stat-row.st-healed  { background: rgba(79,155,79,.10); }
+.cs-stat-row.st-healed .cs-status { color: #3a8a3a; }
+.cs-stat-row.st-active  .cs-status { color: var(--muted); }
+.cs-stat-row.st-coma    { background: rgba(160,50,35,.10); }
+.cs-stat-row.st-coma   .cs-status { color: #c0392b; }
+.cs-stat-row.st-dead    { background: rgba(80,70,60,.08); }
+.cs-stat-row.st-dead   .cs-status { color: var(--muted); }
+.cs-stat-row.st-fled   .cs-status { color: #8a6a12; }
+.cs-stat-row.st-alive  .cs-status { color: var(--muted); }
+/* Titre du bannière : toujours blanc pour lisibilité sur fond coloré */
+.cs-banner .cs-title { color: #fff !important; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
 .cs-group { margin: .55rem 0; }
 .cs-glabel { font-size: .78rem; font-weight: 700; color: var(--muted); margin-bottom: .3rem; }
 .cs-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
@@ -2250,27 +2263,10 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 /* Hero picker : stats compactes sur la ligne de sélection */
 .setup-skills { font-size: .72rem; color: var(--muted); }
 
-/* Carte compacte de sélection de personnage (hero-pick-card dans renderPlay) */
-.hero-pick-card {
-  display: flex; align-items: center; gap: .7rem;
-  background: var(--panel); border: 2px solid var(--border);
-  border-radius: 12px; padding: .6rem .8rem; cursor: pointer;
-  transition: border-color .15s, background .15s;
-}
-.hero-pick-card input[type="checkbox"] { flex: 0 0 auto; width: 18px; height: 18px; cursor: pointer; }
-.hero-pick-card.selected { border-color: var(--accent); background: rgba(160,120,60,.12); }
-.hpc-avatar {
-  flex: 0 0 auto; width: 48px; height: 48px; border-radius: 50%;
-  background: rgba(0,0,0,.3); border: 2px solid rgba(255,255,255,.5);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 1.1rem; color: #fff;
-  background-size: cover; background-position: center;
-}
-.hpc-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .3rem; }
-.hpc-head { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
-.hpc-name { font-family: "Georgia", serif; font-weight: 700; font-size: 1rem; color: var(--text); }
-.hpc-stats { display: flex; gap: .5rem; flex-wrap: wrap; }
-.hpc-stat { font-size: .82rem; font-weight: 700; color: var(--text); }
-.hpc-sl { font-size: .68rem; font-weight: 400; color: var(--muted); text-transform: uppercase; margin-right: .15rem; }
-.hpc-skills { display: flex; gap: .3rem; flex-wrap: wrap; }
-.hero-pick-list { display: flex; flex-direction: column; gap: .5rem; }
+/* Grille de sélection de personnage : 3 par ligne, design heroCardHtml */
+.hero-pick-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+.hero-pick-card { display: block; cursor: pointer; }
+.hero-pick-card .roster-card { border: 2px solid transparent; transition: border-color .15s; cursor: pointer; }
+.hero-pick-card.selected .roster-card { border-color: var(--accent); }
+/* Masquer la section Attaques dans la liste de sélection */
+.hero-pick-list .roster-section { display: none; }
