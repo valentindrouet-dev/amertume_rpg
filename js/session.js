@@ -106,9 +106,18 @@
     list.innerHTML = heroes.length
       ? heroes.map(function (h) {
           const pv = Combatants.heroCurPv(h), maxPv = Combatants.heroPv(h);
+          const def = Combatants.heroDef(h);
+          const dmg = h.damage || 0;
+          const skills = h.skills ? Object.keys(h.skills).filter(function (s) { return (h.skills[s] || 0) > 0; })
+            .map(function (s) { return s + ' +' + h.skills[s]; }).join(', ') : '';
           return '<label class="setup-row"><input type="checkbox" data-hero="' + h.id + '">' +
             '<span class="setup-name">' + esc(h.name) + (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
-            '<span class="stat-pills compact"><span class="stat-pill">❤ ' + pv + '/' + maxPv + '</span></span>' +
+            '<span class="stat-pills compact">' +
+              '<span class="stat-pill">❤ ' + pv + '/' + maxPv + '</span>' +
+              '<span class="stat-pill">🛡 ' + def + '</span>' +
+              '<span class="stat-pill">⚔ +' + dmg + '</span>' +
+              (skills ? '<span class="stat-pill setup-skills">' + esc(skills) + '</span>' : '') +
+            '</span>' +
           '</label>';
         }).join('')
       : '<p class="empty">Aucun aventurier pré-construit. Crée-en dans l\'onglet Aventuriers.</p>';
@@ -189,7 +198,7 @@
                 '<div><strong>' + esc(advTitle) + '</strong> <span class="tag">' + date + '</span></div>' +
                 '<div style="display:flex;gap:.4rem;margin-top:.35rem">' +
                   '<button class="primary ses-resume" data-id="' + s.id + '">Reprendre</button>' +
-                  '<button class="danger ses-end" data-id="' + s.id + '">Terminer</button>' +
+                  '<button class="danger ses-end" data-id="' + s.id + '">Supprimer</button>' +
                 '</div>' +
               '</div>';
             }).join('')
@@ -204,7 +213,7 @@
     });
     root.querySelectorAll('.ses-end').forEach(function (b) {
       b.addEventListener('click', function () {
-        if (!confirm('Terminer cette session ?')) return;
+        if (!confirm('Supprimer cette session ?')) return;
         sessions.forEach(function (s) { if (s.id === b.getAttribute('data-id')) s.status = 'ended'; });
         save(); render();
       });
@@ -721,7 +730,7 @@
             'Vos aventuriers restent disponibles pour rejouer l\'aventure autant de fois que vous le souhaitez.</p>' +
           '<div class="group-create-actions">' +
             '<button class="primary" id="grp-new">+ Nouvel Aventurier</button>' +
-            '<button class="ghost" id="grp-prebuilt">+ Aventurier Pré-Construit</button>' +
+            '<button class="btn-green" id="grp-prebuilt">+ Aventurier Pré-Construit</button>' +
           '</div>' +
         '</div>';
       document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
@@ -740,7 +749,7 @@
       '<div class="card">' +
         '<div class="card-head"><h2>Votre groupe — ' + esc(adv.title) + '</h2>' +
           '<div style="display:flex;gap:.4rem">' +
-            '<button class="ghost small" id="grp-prebuilt">+ Pré-Construit</button>' +
+            '<button class="btn-green small" id="grp-prebuilt">+ Pré-Construit</button>' +
             '<button class="primary small" id="grp-new">+ Aventurier</button>' +
           '</div>' +
         '</div>' +
@@ -909,7 +918,7 @@
                   '<span class="tag">XP : ' + (s.party ? s.party.xp : 0) + '</span></div>' +
                 '<div style="display:flex;gap:.4rem;margin-top:.35rem">' +
                   '<button class="primary ses-resume" data-id="' + s.id + '">Reprendre</button>' +
-                  '<button class="danger ses-end" data-id="' + s.id + '">Terminer</button>' +
+                  '<button class="danger ses-end" data-id="' + s.id + '">Supprimer</button>' +
                 '</div>' +
               '</div>';
             }).join('')
@@ -926,7 +935,7 @@
     });
     root.querySelectorAll('.ses-end').forEach(function (b) {
       b.addEventListener('click', function () {
-        if (!confirm('Terminer cette session ? L\'XP des aventuriers sera remise à 0.')) return;
+        if (!confirm('Supprimer cette session ? L\'XP des aventuriers sera remise à 0.')) return;
         const id = b.getAttribute('data-id');
         sessions.forEach(function (s) { if (s.id === id) { s.status = 'ended'; if (s.party) s.party.xp = 0; } });
         if (activeSession && activeSession.id === id) activeSession = null;

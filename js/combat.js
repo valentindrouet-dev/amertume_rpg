@@ -219,11 +219,16 @@
     if (!c) return;
     c.healLines = [];
     c.combatants.forEach(function (h) {
-      if (h.side === 'hero' && (h.status !== 'active' || h.pv <= 0)) {
-        const v = Math.min(h.maxPv, 1 + Math.floor(Math.random() * 6) + (h.endu || 0));
-        h.pv = v; h.status = 'active';
-        c.healLines.push({ name: h.name, pv: v });
+      if (h.side !== 'hero') return;
+      const wasDown = h.status !== 'active' || h.pv <= 0;
+      const roll = 1 + Math.floor(Math.random() * 6) + (h.endu || 0);
+      if (wasDown) {
+        h.pv = Math.min(h.maxPv, roll);
+        h.status = 'active';
+      } else {
+        h.pv = Math.min(h.maxPv, h.pv + roll);
       }
+      c.healLines.push({ name: h.name, pv: h.pv, gained: roll });
     });
     c.finalize = !!finalize;
     c.lootResults = finalize ? rollLoot(c) : [];
@@ -1052,8 +1057,8 @@
       (killed.length ? '<div class="cs-group cs-killed"><div class="cs-glabel">💀 Adversaires détruits</div><div class="cs-chips">' + chips(killed) + '</div></div>' : '') +
       (fled.length ? '<div class="cs-group cs-fledg"><div class="cs-glabel">🏃 Adversaires en fuite</div><div class="cs-chips">' + chips(fled) + '</div></div>' : '') +
       (c.healLines && c.healLines.length
-        ? '<div class="cs-group cs-healg"><div class="cs-glabel">✚ Aventuriers ranimés</div><div class="cs-chips">' +
-            c.healLines.map(function (h) { return '<span class="cs-chip">' + esc(h.name) + ' · ' + h.pv + ' PV</span>'; }).join('') + '</div></div>'
+        ? '<div class="cs-group cs-healg"><div class="cs-glabel">✚ Soins de fin de combat (1d6 + END)</div><div class="cs-chips">' +
+            c.healLines.map(function (h) { return '<span class="cs-chip">' + esc(h.name) + ' · +' + h.gained + ' PV → ' + h.pv + '</span>'; }).join('') + '</div></div>'
         : '') +
       '<button class="primary big cs-continue-btn" id="cs-continue">Continuer l\'aventure →</button>' +
     '</div>';

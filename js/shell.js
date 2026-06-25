@@ -42,20 +42,36 @@
       const badges = [];
       if (a.duration) badges.push('<span class="home-adv-badge">⏱ ' + esc(a.duration) + '</span>');
       if (a.difficulty) badges.push('<span class="home-adv-badge">📊 ' + esc(a.difficulty) + '</span>');
-      return '<div class="home-adv-card' + (locked ? ' locked' : '') + '">' +
+      if (locked) {
+        return '<div class="home-adv-card locked">' +
+          '<div class="home-adv-info">' +
+            '<div class="home-adv-toprow">' +
+              '<span class="home-adv-title">🔒 ' + esc(a.title) + '</span>' +
+              '<span class="home-adv-meta">' + chCount + ' ch. · ' + scCount + ' scène(s)</span>' +
+              (badges.length ? '<span class="home-adv-badges">' + badges.join('') + '</span>' : '') +
+            '</div>' +
+            (a.summary ? '<div class="home-adv-scroll"><span class="home-adv-summary">' + esc(a.summary) + '</span></div>' : '') +
+          '</div>' +
+          '<button class="ghost home-locked" data-id="' + a.id + '">🔒 Verrouillé</button>' +
+        '</div>';
+      }
+      return '<div class="home-adv-card home-play" data-id="' + a.id + '">' +
         '<div class="home-adv-info">' +
-          '<span class="home-adv-title">' + (locked ? '🔒 ' : '') + esc(a.title) + '</span>' +
-          '<span class="home-adv-meta">' + chCount + ' chapitre(s) · ' + scCount + ' scène(s)</span>' +
-          (badges.length ? '<span class="home-adv-badges">' + badges.join('') + '</span>' : '') +
-          (a.summary ? '<span class="home-adv-summary">' + esc(a.summary) + '</span>' : '') +
+          '<div class="home-adv-toprow">' +
+            '<span class="home-adv-title">' + esc(a.title) + '</span>' +
+            '<span class="home-adv-meta">' + chCount + ' ch. · ' + scCount + ' scène(s)</span>' +
+            (badges.length ? '<span class="home-adv-badges">' + badges.join('') + '</span>' : '') +
+            '<button class="primary home-play-btn" data-id="' + a.id + '">▶ Jouer</button>' +
+          '</div>' +
+          (a.summary ? '<div class="home-adv-scroll"><span class="home-adv-summary">' + esc(a.summary) + '</span></div>' : '') +
         '</div>' +
-        (locked
-          ? '<button class="ghost home-locked" data-id="' + a.id + '">🔒 Verrouillé</button>'
-          : '<button class="primary home-play" data-id="' + a.id + '">▶ Jouer</button>') +
       '</div>';
     }).join('');
-    box.querySelectorAll('.home-play').forEach(function (b) {
-      b.addEventListener('click', function () { enterPlayer(b.getAttribute('data-id')); });
+    box.querySelectorAll('.home-play').forEach(function (card) {
+      card.addEventListener('click', function (e) {
+        if (e.target.classList.contains('home-locked')) return;
+        enterPlayer(card.getAttribute('data-id'));
+      });
     });
     box.querySelectorAll('.home-locked').forEach(function (b) {
       b.addEventListener('click', function () {
