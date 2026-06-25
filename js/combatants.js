@@ -312,7 +312,24 @@
     const base = weaponAtks[0] || null;
     function baseDice() { return base ? Object.assign(D.emptyPool(), base.dice) : Object.assign(D.emptyPool(), { white: 1 }); }
     function baseRange() { return base ? base.range : 'contact'; }
-    return talents.filter(function (t) { return t.kind === 'action'; }).map(function (t) {
+    // Cumul : plusieurs talents partageant le même effet d'action s'empilent en
+    // UNE seule attaque (val sommées ; dés/portée hérités du 1er qui les définit).
+    // Un talent de niveau supérieur peut ainsi renforcer un talent existant
+    // (ex. « +1 Orbe de Feu » s'ajoute à l'effet de base).
+    const merged = {}; const order = [];
+    talents.filter(function (t) { return t.kind === 'action'; }).forEach(function (t) {
+      if (!merged[t.effect]) {
+        merged[t.effect] = { id: t.id, name: t.name, effect: t.effect, kind: 'action',
+          val: 0, dice: null, range: null };
+        order.push(t.effect);
+      }
+      const m = merged[t.effect];
+      m.val += (t.val || 0);
+      if (!m.dice && t.dice) m.dice = t.dice;
+      if (!m.range && t.range) m.range = t.range;
+    });
+    return order.map(function (eff) {
+      const t = merged[eff];
       const common = { name: t.name, special: true, generic: true, talentId: t.id,
         genericEffect: t.effect, useOwnDamage: true, targets: 'one',
         dice: baseDice(), range: baseRange(), effects: Store.noStates() };
