@@ -1963,7 +1963,14 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ab-atk:disabled { opacity: .5; cursor: not-allowed; }
 .ab-atk.selected { background: rgba(47,111,176,.85); box-shadow: 0 0 0 2px rgba(77,142,209,.5); }
 .ab-atk-name { font-weight: 700; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
-img.ab-atk-name { height: 1.5em; width: auto; object-fit: contain; flex: 1 1 auto; min-width: 0; max-width: 100%; display: block; }
+/* Icône d'attaque/tir dans une pastille ronde gris clair à contour plus sombre,
+   calée à gauche du bouton ; les dés de dégâts sont repoussés à droite. */
+img.ab-atk-name {
+  flex: 0 0 auto; margin-right: auto;
+  width: 1.7em; height: 1.7em; object-fit: contain; padding: .15em;
+  box-sizing: border-box; border-radius: 50%;
+  background: #e6e6e6; border: 1.5px solid #888; display: block;
+}
 .ab-atk-figs { display: inline-flex; align-items: center; gap: .2rem; flex: 0 0 auto; }
 .ab-atk .atk-dmg, .ab-atk .atk-uses {
   color: #fff; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.4);
@@ -2148,3 +2155,5 @@ img.ab-atk-name { height: 1.5em; width: auto; object-fit: contain; flex: 1 1 aut
    on neutralise les couleurs de texte héritées (le chiffre est noir sur blanc). */
 .ab-pvline .def-badge { flex: 0 0 auto; }
 .cc-def, .combat-card.side-monster .cc-def { color: inherit; }
+/* Images DEF 1..6 : le chiffre est déjà dessiné dans le blason. */
+.def-img { width: 1.55em; height: 1.75em; object-fit: contain; vertical-align: -.55em; display: inline-block; }
