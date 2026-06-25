@@ -1766,16 +1766,6 @@
     }
     html += '</div>';
 
-    // Rangée de gestion des états (toggle par le MJ)
-    html += '<div class="ab-state-row">';
-    Object.keys(STATE_META).forEach(function (s) {
-      const active = s === 'poison' ? (c.states.poison > 0) : !!(c.states[s]);
-      const lbl = s === 'poison' ? ('Poison ' + (c.states.poison || 0)) : STATE_META[s].l;
-      html += '<button class="ab-state-tog ' + (active ? 'state-active' : '') + ' ' + (STATE_META[s].neg ? 'state-neg' : 'state-pos') +
-        '" type="button" data-iid="' + c.iid + '" data-state="' + s + '" title="' + esc(lbl) + '">' + lbl + '</button>';
-    });
-    html += '</div>';
-
     html += '</div>';
     box.className = 'combat-actionbar active';
     box.innerHTML = html;
@@ -2289,26 +2279,6 @@
         if (s === 'poison') { c.states.poison = 0; } else { c.states[s] = false; }
         Store.save(); render();
       });
-    });
-    // Toggles d'états dans le bandeau d'action (ajout / retrait par le MJ)
-    root.querySelectorAll('.ab-state-tog[data-iid="' + c.iid + '"]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        const s = b.getAttribute('data-state');
-        if (s === 'poison') {
-          // Poison : incrément au clic gauche, remise à 0 au clic droit
-          b.addEventListener('contextmenu', function (e) { e.preventDefault(); c.states.poison = 0; Store.save(); render(); }, { once: true });
-          c.states.poison = (c.states.poison || 0) + 1;
-        } else {
-          c.states[s] = !c.states[s];
-        }
-        Store.save(); render();
-      });
-      // Clic droit sur Poison : remet à 0
-      if (b.getAttribute('data-state') === 'poison') {
-        b.addEventListener('contextmenu', function (e) {
-          e.preventDefault(); c.states.poison = 0; Store.save(); render();
-        });
-      }
     });
     if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active' && !combat().outcome) {
       // Action Analyser : arme l'analyse, puis on clique l'adversaire à examiner.
