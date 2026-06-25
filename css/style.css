@@ -20,6 +20,7 @@
   --die-green: #5fa45f;
   --die-black: #2b2b2b;
   --die-yellow: #d8c13a;
+  --die-pink:   #b84ec0;
 }
 
 * { box-sizing: border-box; }
@@ -684,6 +685,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .dnum.d-green  { color: #84cf84; }
 .dnum.d-black  { color: #d7d7d7; }
 .dnum.d-yellow { color: #e4d35f; }
+.dnum.d-pink   { color: #e879f9; }
 .dplus { color: var(--muted); margin: 0 1px; font-weight: 400; }
 .ldice { color: var(--muted); font-size: .92em; }
 .lamt { font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -2047,6 +2049,25 @@ img.ab-atk-name {
 .ab-tool.move-chip { background: rgba(140,94,42,.75); } .ab-tool.move-chip.selected { background: rgba(111,74,31,.9); }
 .ab-tool.obj-chip { background: rgba(95,164,95,.75); }
 .ab-tool.ana-chip { background: rgba(124,92,164,.75); } .ab-tool.ana-chip.selected { background: rgba(99,74,133,.9); }
+.ab-tool.standup-chip { background: rgba(200,120,30,.85); font-weight: 600; }
+.ab-tool.standup-chip:hover:not(:disabled) { background: rgba(220,140,50,.95); }
+.ab-tool.standup-chip:disabled { background: rgba(200,120,30,.3); opacity: .7; }
+
+/* ---- Bandeau d'action : badges d'états actifs ---- */
+.ab-states-badges { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .2rem; }
+
+/* ---- Rangée de toggles d'états (MJ) ---- */
+.ab-state-row { display: flex; flex-wrap: wrap; gap: .25rem; padding: .25rem .4rem; border-top: 1px solid rgba(255,255,255,.07); }
+.ab-state-tog {
+  font-size: .68rem; padding: .15rem .4rem; border-radius: 10px; border: 1px solid; cursor: pointer;
+  background: transparent; transition: background .15s, opacity .15s; opacity: .5;
+}
+.ab-state-tog.state-neg { color: var(--bad); border-color: var(--bad); }
+.ab-state-tog.state-pos { color: var(--good); border-color: var(--good); }
+.ab-state-tog.state-active { opacity: 1; }
+.ab-state-tog.state-neg.state-active { background: rgba(200,83,60,.18); }
+.ab-state-tog.state-pos.state-active { background: rgba(111,174,111,.18); }
+.ab-state-tog:hover { opacity: .85; }
 
 /* Emplacements de talents (une cellule de grille chacun, taille fixe) */
 .ab-talent {

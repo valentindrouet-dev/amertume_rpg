@@ -97,6 +97,37 @@
     return (title ? title + ' ' : '') + '2';
   }
 
+  // Contenu de la page États — toujours regénéré au démarrage pour rester à jour.
+  var ETATS_ID = 'tut_etats_systeme';
+  var ETATS_CONTENT = [
+    'AFFAIBLI : Un combattant AFFAIBLI n\'ajoute pas son bonus de Dégâts à ses attaques.',
+    '',
+    'AU SOL : Un combattant AU SOL ne peut pas attaquer, se déplacer ni utiliser de talent. Il doit utiliser son mouvement pour se relever dans sa zone.',
+    '',
+    'BLINDAGE : Un combattant avec BLINDAGE ignore la prochaine source de Dégâts, avant de perdre Blindage.',
+    '',
+    'BRISÉ : Un combattant BRISÉ possède DEF 0.',
+    '',
+    'FAILLE : Un combattant avec FAILLE ajoute 1 dé ROSE à toutes ses attaques. Les dés qui doublent avec le dé ROSE ne sont pas comptés lors du calcul des Dégâts.',
+    '',
+    'FEU : Un combattant avec FEU subit 1 dé noir de Dégâts à la fin de chaque tour (même avant de fuir).',
+    '',
+    'ONDE : Un combattant avec ONDE perd un État négatif, ou ignore le prochain s\'il n\'en possède pas encore.',
+    '',
+    'POISON X (cumulable) : Un combattant avec POISON X subit X Dégâts avant d\'effectuer une Attaque, un Talent ou un Mouvement.',
+  ].join('\n');
+
+  function ensureStatesTutorial() {
+    const arr = list();
+    const idx = arr.findIndex(function (t) { return t.id === ETATS_ID; });
+    if (idx >= 0) {
+      arr[idx].title = 'États de Combat'; arr[idx].content = ETATS_CONTENT;
+    } else {
+      arr.unshift({ id: ETATS_ID, title: 'États de Combat', content: ETATS_CONTENT });
+    }
+    Store.saveTutorials(arr);
+  }
+
   function addEntry() {
     const arr = list();
     arr.push({ id: 'tut_' + Store.uid(), title: 'Nouveau tutoriel', content: '' });
@@ -105,6 +136,7 @@
   }
 
   function init() {
+    ensureStatesTutorial();
     const addBtn = $('#btn-add-tutorial');
     if (addBtn) addBtn.addEventListener('click', addEntry);
   }

@@ -97,7 +97,7 @@
       talents: talents,                 // talents résolus (kind/effect/val) pour le moteur
       reactUsed: {},                    // réactions déjà déclenchées dans le tour courant
       freeMoveReady: hasTalent('pas_leger'), // PAS LÉGER : mouvement gratuit dispo dès le 1er tour
-      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
+      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 },
       used: { action: false, move: false, object: false },
       zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
       dmgDealt: 0, dmgTaken: 0,
@@ -117,7 +117,7 @@
       menace: m.menace, esquive: !!m.esquive, rapide: !!m.rapide, socle: m.socle,
       attacks: attacks, attackUses: initUses(attacks),
       talentLabels: Combatants.monsterTalentLabels(m),
-      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
+      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 },
       blindageCharges: armorT ? (armorT.charges || 0) : 0,
       used: { action: false, move: false, object: false },
       zone: 0, status: 'active', analyzed: false,
@@ -415,6 +415,9 @@
     if (!c || c.status !== 'active') { pendingMove = null; render(); return; }
     if (c.used.move && !c.freeMoveReady) { pendingMove = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; render(); return; }
+    // POISON X : inflige X dégâts avant de se déplacer
+    applyPoison(c);
+    if (c.status !== 'active') { pendingMove = null; checkOutcome(); Store.save(); render(); return; }
     const prevMove = c.used.move;
     doMove(c, zi); // doMove force used.move = true
     // PAS LÉGER : ce déplacement consomme d'abord le mouvement gratuit ; le
@@ -465,24 +468,33 @@
   }
 
   function applyStates(attacker, target, atk) {
-    const toApply = [];
+    const toApply = []; // liste ordonnée des états à appliquer (chacun pourra être ignoré par Onde)
     if (atk.effects.affaibli) toApply.push('affaibli');
+    if (atk.effects.brise) toApply.push('brise');
+    if (atk.effects.faille) toApply.push('faille');
+    if (atk.effects.feu) toApply.push('feu');
     if (atk.effects.auSol) {
       const biggerTarget = SOCLE_RANK[target.socle] > SOCLE_RANK[attacker.socle];
       if (target.type !== 'boss' && !biggerTarget) toApply.push('auSol');
     }
-    if (atk.effects.feu) toApply.push('feu');
+    const poisonVal = atk.effects.poison || 0;
+    if (poisonVal > 0) toApply.push('poison');
     if (!toApply.length) return;
     // Onde annule le prochain état négatif reçu
     let list = toApply.slice();
     if (target.states.onde && list.length) {
       const ignored = list.shift();
       target.states.onde = false;
-      log(cname(target) + ' utilise Onde et ignore <span class="lstate">' + stateLabel(ignored) + '</span>.', 'state');
+      log(cname(target) + ' utilise <span class="lstate">Onde</span> et ignore <span class="lstate">' + stateLabel(ignored) + '</span>.', 'state');
     }
     list.forEach(function (s) {
-      target.states[s] = true;
-      log(cname(target) + ' subit <span class="lstate">' + stateLabel(s) + '</span>.', 'state');
+      if (s === 'poison') {
+        target.states.poison = (target.states.poison || 0) + poisonVal;
+        log(cname(target) + ' subit <span class="lstate">Poison ' + target.states.poison + '</span>.', 'state');
+      } else {
+        target.states[s] = true;
+        log(cname(target) + ' subit <span class="lstate">' + stateLabel(s) + '</span>.', 'state');
+      }
     });
     if (list.length) pushFx({ type: 'state', iid: target.iid });
   }
@@ -491,10 +503,13 @@
     if (target.status !== 'active') return;
 
     const pool = Object.assign(D.emptyPool(), atk.dice);
+    // FAILLE : ajoute 1 dé rose au pool de l'attaquant (les doubles avec ce dé sont exclus des dégâts)
+    if (attacker.states.faille) pool.pink = (pool.pink || 0) + 1;
     const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
     const talentBonus = getTalentDmgBonus(attacker, target, atk);
     const dmg = baseDmg + talentBonus + (atk.bonusDmg || 0);
-    const def = target.states.auSol ? 0 : target.def;
+    // BRISÉ et AU SOL : DEF = 0
+    const def = (target.states.auSol || target.states.brise) ? 0 : target.def;
     const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn });
 
     let negated = false;
@@ -588,7 +603,10 @@
     checkComa(target);
   }
 
-  function hasEffect(atk) { return atk.effects && (atk.effects.affaibli || atk.effects.auSol || atk.effects.feu); }
+  function hasEffect(atk) {
+    return atk.effects && (atk.effects.affaibli || atk.effects.auSol || atk.effects.feu ||
+      atk.effects.brise || atk.effects.faille || atk.effects.poison);
+  }
 
   function checkComa(c) {
     if (c.status === 'active' && c.pv <= 0) {
@@ -864,12 +882,6 @@
       if (!fleeT) return;
       const after = fleeT.turns || 0;
       if (after <= 0 || c.turn < after) return;
-      if (m.states.feu) {
-        const v = 1 + Math.floor(Math.random() * 6); // ⬛ avant de fuir
-        m.pv = Math.max(0, m.pv - v);
-        log(cname(m) + ' subit ' + amt(v, 'dmg') + ' (Feu ⬛) avant de fuir.', 'state');
-        if (m.pv <= 0) { checkComa(m); return; }
-      }
       m.status = 'fled';
       log(cname(m) + ' fuit le combat (talent : fuite après le tour ' + after + ').', 'turn');
     });
@@ -906,6 +918,8 @@
 
   function endTurn() {
     pendingAttack = null; stateMenuFor = null;
+    applyEndOfTurnStates(); // FEU : 1 dé noir pour chaque combattant en feu
+    if (combat().outcome) { Store.save(); render(); return; }
     doFlee();
     if (combat().outcome) { Store.save(); render(); return; }
     advanceTurn();
@@ -928,6 +942,8 @@
     log('Tour des adversaires.', 'turn');
     Store.save(); render(); // affiche le passage en phase « adversaires »
     monstersActSequential(function () {
+      if (combat().outcome) { Store.save(); render(); return; }
+      applyEndOfTurnStates();
       if (combat().outcome) { Store.save(); render(); return; }
       doFlee();
       if (combat().outcome) { Store.save(); render(); return; }
@@ -1012,8 +1028,38 @@
   const STATE_META = {
     affaibli: { l: 'Affaibli', neg: true }, auSol: { l: 'Au sol', neg: true }, feu: { l: 'Feu', neg: true },
     blindage: { l: 'Blindage', neg: false }, onde: { l: 'Onde', neg: false }, ciblage: { l: 'Ciblage', neg: false },
+    brise: { l: 'Brisé', neg: true }, faille: { l: 'Faille', neg: true }, poison: { l: 'Poison', neg: true },
   };
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
+
+  // POISON X : inflige X dégâts au combattant avant qu'il agisse (Attaque, Talent, Mouvement)
+  function applyPoison(c) {
+    const dmg = (c.states && c.states.poison) || 0;
+    if (!dmg || c.status !== 'active') return;
+    const before = c.pv;
+    c.pv = Math.max(0, c.pv - dmg);
+    c.dmgTaken += dmg;
+    pushFx({ type: 'hit', iid: c.iid, amount: dmg, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
+    log(cname(c) + ' subit ' + amt(dmg, 'dmg') + ' (<span class="lstate">Poison ' + dmg + '</span>) avant d\'agir.', 'state');
+    checkComa(c);
+  }
+
+  // FEU et autres états de fin de tour (appelé avant doFlee)
+  function applyEndOfTurnStates() {
+    if (!combat()) return;
+    combat().combatants.forEach(function (c) {
+      if (c.status !== 'active' || !c.states.feu) return;
+      const v = 1 + Math.floor(Math.random() * 6);
+      const before = c.pv;
+      c.pv = Math.max(0, c.pv - v);
+      c.dmgTaken += v;
+      pushFx({ type: 'hit', iid: c.iid, amount: v, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
+      log(cname(c) + ' subit <span class="dnum d-black">' + v + '</span> Dégâts (<span class="lstate">Feu ⬛</span>) en fin de tour.', 'state');
+      if (c.side === 'monster' && c.pv <= 0 && !c.killedBy) c.killedBy = null;
+      checkComa(c);
+    });
+    checkOutcome();
+  }
 
   // =================== RENDU ===================
   // ---------- Animations de combat ----------
@@ -1637,9 +1683,10 @@
         '</div>' +
         '<div class="ab-pvline cc-pvline">' +
           '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div><span class="pv-text">' + pvText + '</span></div>' +
-          (known ? '<span class="def-badge">' + defShield(c.states.auSol ? 0 : c.def) + '</span>' : '') +
+          (known ? '<span class="def-badge">' + defShield((c.states.auSol || c.states.brise) ? 0 : c.def) + '</span>' : '') +
           (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage">🛡✦ ' + c.blindageCharges + '</span>' : '') +
         '</div>' +
+        (statesBadges(c) ? '<div class="ab-states-badges">' + statesBadges(c) + '</div>' : '') +
       '</div>';
 
     // Grille d'actions : 2 lignes, remplissage colonne par colonne (cf. croquis).
@@ -1677,6 +1724,16 @@
         html += '<button class="ab-talent ab-talent-empty" type="button" disabled title="Emplacement de talent vide">Talent ' + (i + 1) + '</button>';
       }
     }
+    html += '</div>';
+
+    // Rangée de gestion des états (toggle par le MJ)
+    html += '<div class="ab-state-row">';
+    Object.keys(STATE_META).forEach(function (s) {
+      const active = s === 'poison' ? (c.states.poison > 0) : !!(c.states[s]);
+      const lbl = s === 'poison' ? ('Poison ' + (c.states.poison || 0)) : STATE_META[s].l;
+      html += '<button class="ab-state-tog ' + (active ? 'state-active' : '') + ' ' + (STATE_META[s].neg ? 'state-neg' : 'state-pos') +
+        '" type="button" data-iid="' + c.iid + '" data-state="' + s + '" title="' + esc(lbl) + '">' + lbl + '</button>';
+    });
     html += '</div>';
 
     html += '</div>';
@@ -1755,11 +1812,13 @@
   }
 
   function statesBadges(c) {
-    return Object.keys(STATE_META).filter(function (s) { return c.states[s]; })
-      .map(function (s) {
-        return '<span class="state-badge ' + (STATE_META[s].neg ? 'neg' : 'pos') + '" data-state="' + s + '" data-iid="' + c.iid + '">' +
-          stateLabel(s) + ' ✕</span>';
-      }).join('');
+    return Object.keys(STATE_META).filter(function (s) {
+      return s === 'poison' ? (c.states.poison > 0) : c.states[s];
+    }).map(function (s) {
+      const lbl = s === 'poison' ? ('Poison ' + c.states.poison) : stateLabel(s);
+      return '<span class="state-badge ' + (STATE_META[s].neg ? 'neg' : 'pos') + '" data-state="' + s + '" data-iid="' + c.iid + '">' +
+        lbl + ' ✕</span>';
+    }).join('');
   }
 
   // Bouton d'attaque du bandeau d'action (arme ou spéciale logée en talent).
@@ -1843,7 +1902,8 @@
     const usedA = c.used.action;
     const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
     const depleted = uses === 0;
-    const blocked = !canAct || depleted || (!a.freeAction && usedA);
+    // AU SOL : aucune attaque ni talent possible tant que le combattant n'est pas relevé
+    const blocked = !canAct || depleted || (!a.freeAction && usedA) || (c.states && c.states.auSol);
     const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average;
     const isEnemy = c.side === 'monster';
     const revealed = !isEnemy || c.analyzed;
@@ -1875,15 +1935,21 @@
     const usedO = c.used.object;
     const usedMv = c.used.move;
     const multi = zoneCount() > 1;
-    return '<div class="ab-tools">' +
-      '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
+    const isAuSol = !!(c.states && c.states.auSol);
+    // AU SOL : le bouton mouvement est remplacé par « Se relever » (consomme le mouvement)
+    const moveBtn = isAuSol
+      ? '<button class="ab-tool standup-chip do-standup" type="button" data-iid="' + c.iid + '"' +
+          ((!canAct || usedMv) ? ' disabled' : '') + ' title="Utilise votre mouvement pour vous relever (retire AU SOL)">Se relever</button>'
+      : '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
           ' data-iid="' + c.iid + '"' + ((!canAct || !multi || (usedMv && !c.freeMoveReady)) ? ' disabled' : '') +
           ' title="' + (c.freeMoveReady ? 'Mouvement gratuit (Pas Léger) disponible' : 'Changer de zone') + '">Mouv.' +
-          (c.freeMoveReady ? ' <span class="free-move-dot" title="Mouvement gratuit">✦</span>' : '') + '</button>' +
+          (c.freeMoveReady ? ' <span class="free-move-dot" title="Mouvement gratuit">✦</span>' : '') + '</button>';
+    return '<div class="ab-tools">' +
+      moveBtn +
       '<button class="ab-tool obj-chip do-object" type="button" data-iid="' + c.iid + '"' +
-          ((!canAct || usedO) ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">Objet</button>' +
+          ((!canAct || usedO || isAuSol) ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">Objet</button>' +
       '<button class="ab-tool ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
-          ' data-iid="' + c.iid + '"' + ((!canAct || usedMv) ? ' disabled' : '') +
+          ' data-iid="' + c.iid + '"' + ((!canAct || usedMv || isAuSol) ? ' disabled' : '') +
           ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">Analyse</button>' +
     '</div>';
   }
@@ -1891,7 +1957,10 @@
   function renderCard(c) {
     // Garde-fous : un combattant persisté incomplet ne doit jamais faire planter
     // le rendu (sinon tout le plateau disparaît). On comble les sous-objets requis.
-    if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false };
+    if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 };
+    if (c.states.brise === undefined) c.states.brise = false;
+    if (c.states.faille === undefined) c.states.faille = false;
+    if (c.states.poison === undefined) c.states.poison = 0;
     if (!c.used) c.used = { action: false, move: false, object: false };
     if (!Array.isArray(c.attacks)) c.attacks = [];
     if (!Array.isArray(c.attackUses) || c.attackUses.length !== c.attacks.length) {
@@ -1963,6 +2032,9 @@
     if (!atk) return;
     if (attacker.attackUses[atkIndex] === 0) return;
     if (!atk.freeAction && attacker.used.action) return;
+    // POISON X : inflige X dégâts avant d'attaquer
+    applyPoison(attacker);
+    if (attacker.status !== 'active') return;
     const enemySide = attacker.side === 'hero' ? 'monster' : 'hero';
     let targets = (atk.targets === 'all')
       ? activeOf(enemySide).filter(function (t) { return canReach(attacker, t, atk); })
@@ -2016,6 +2088,9 @@
     const atk = c.attacks[atkIndex];
     if (!atk) return;
     if (!atk.freeAction && c.used.action) return;
+    // POISON X : inflige X dégâts avant d'utiliser un talent de soin
+    applyPoison(c);
+    if (c.status !== 'active') return;
     const before = c.pv;
     let heal = 0, detail = '';
     if (atk.selfHeal === 'soin_fixe') {
@@ -2167,11 +2242,33 @@
       });
     }
 
-    // Retirer un état (clic sur un badge existant)
+    // Retirer un état (clic sur un badge dans la carte)
     root.querySelectorAll('.state-badge[data-iid="' + c.iid + '"]').forEach(function (b) {
       b.addEventListener('click', function () {
-        c.states[b.getAttribute('data-state')] = false; Store.save(); render();
+        const s = b.getAttribute('data-state');
+        if (s === 'poison') { c.states.poison = 0; } else { c.states[s] = false; }
+        Store.save(); render();
       });
+    });
+    // Toggles d'états dans le bandeau d'action (ajout / retrait par le MJ)
+    root.querySelectorAll('.ab-state-tog[data-iid="' + c.iid + '"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const s = b.getAttribute('data-state');
+        if (s === 'poison') {
+          // Poison : incrément au clic gauche, remise à 0 au clic droit
+          b.addEventListener('contextmenu', function (e) { e.preventDefault(); c.states.poison = 0; Store.save(); render(); }, { once: true });
+          c.states.poison = (c.states.poison || 0) + 1;
+        } else {
+          c.states[s] = !c.states[s];
+        }
+        Store.save(); render();
+      });
+      // Clic droit sur Poison : remet à 0
+      if (b.getAttribute('data-state') === 'poison') {
+        b.addEventListener('contextmenu', function (e) {
+          e.preventDefault(); c.states.poison = 0; Store.save(); render();
+        });
+      }
     });
     if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active' && !combat().outcome) {
       // Action Analyser : arme l'analyse, puis on clique l'adversaire à examiner.
@@ -2223,6 +2320,15 @@
       const obj = root.querySelector('.do-object[data-iid="' + c.iid + '"]');
       if (obj) obj.addEventListener('click', function () {
         c.used.object = true; log(cname(c) + ' utilise un objet.', 'move'); Store.save(); render();
+      });
+      // AU SOL : Se relever (consomme le mouvement, retire l'état)
+      const standup = root.querySelector('.do-standup[data-iid="' + c.iid + '"]');
+      if (standup) standup.addEventListener('click', function () {
+        if (c.used.move) return;
+        c.states.auSol = false; c.used.move = true;
+        log(cname(c) + ' se relève (retire <span class="lstate">Au sol</span>).', 'state');
+        pushFx({ type: 'state', iid: c.iid });
+        Store.save(); render();
       });
       // Mouvement : arme le déplacement, puis on clique la zone de destination
       const mv = root.querySelector('.do-move[data-iid="' + c.iid + '"]');

@@ -16,9 +16,10 @@
     green:  { key: 'green',  label: 'Soin',     emoji: '🟩', ignoresDef: true,  heal: true  },
     black:  { key: 'black',  label: 'Mortel',   emoji: '⬛', ignoresDef: true,  heal: false },
     yellow: { key: 'yellow', label: 'Phase',    emoji: '🟨', ignoresDef: false, heal: false },
+    pink:   { key: 'pink',   label: 'Faille',   emoji: '🟪', ignoresDef: false, heal: false },
   };
-  // Ordre d'affichage : NOIR > ROUGE > BLEU > VERT > JAUNE > BLANC > OS
-  const DICE_ORDER = ['black', 'red', 'blue', 'green', 'yellow', 'white', 'bone'];
+  // Ordre d'affichage : NOIR > ROUGE > BLEU > VERT > JAUNE > BLANC > OS > ROSE
+  const DICE_ORDER = ['black', 'red', 'blue', 'green', 'yellow', 'white', 'bone', 'pink'];
 
   function emptyPool() {
     const p = {};
@@ -78,6 +79,13 @@
       }
     }
 
+    // 2.5. FAILLE (dé rose) : les dés partageant la même face qu'un dé rose sont exclus des dégâts.
+    const pinkVals = new Set();
+    dice.forEach(function (d) { if (d.color === 'pink') pinkVals.add(d.value); });
+    if (pinkVals.size) {
+      dice.forEach(function (d) { if (pinkVals.has(d.value)) d.faillePaired = true; });
+    }
+
     // 3. Détection des doubles (sur la face brute du dé, incluant les dés bonus)
     const faceCount = {};
     dice.forEach(function (d) { faceCount[d.value] = (faceCount[d.value] || 0) + 1; });
@@ -100,6 +108,12 @@
       let compare = d.value;       // valeur comparée à la DEF
       let removed = false;
       let note = '';
+
+      // FAILLE : ce dé partage sa face avec un dé rose → exclu des dégâts
+      if (d.faillePaired) {
+        d.contributed = 0; d.compare = d.value; d.passes = false; d.removed = true; d.note = 'Faille ✕';
+        return;
+      }
 
       if (d.color === 'yellow') {
         contributed = d.value * turnMult;
