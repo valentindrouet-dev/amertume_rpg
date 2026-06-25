@@ -141,6 +141,31 @@
     }
     h.equipment = e; return true;
   }
+  // Libère assez de mains pour équiper `item` en déséquipant d'autres objets tenus.
+  // Priorité de retrait : Armes avant Armures (boucliers) ; parmi les armes, celle
+  // la plus basse dans la liste d'inventaire (mêlée puis distance).
+  function ensureHandsFree(h, item, advId) {
+    const e = normEq(h);
+    const need = Number(item.hands) === 2 ? 2 : 1;
+    if (2 - handsUsed(e) >= need) return;
+    const owned = (window.Session && Session.ownedForHero) ? Session.ownedForHero(advId, h.id) : {};
+    const mine = Store.state.items.filter(function (i) { return owned[i.id]; });
+    const weaponOrder = mine.filter(function (i) { return i.category === 'weapon' && !i.ranged; })
+      .concat(mine.filter(function (i) { return i.category === 'weapon' && i.ranged; }))
+      .map(function (i) { return i.id; });
+    const held = [];
+    if (e.mainD) held.push(byId(e.mainD));
+    if (e.mainG && e.mainG !== e.mainD) held.push(byId(e.mainG));
+    const candidates = held.filter(Boolean).filter(function (i) { return i.id !== item.id; }).sort(function (a, b) {
+      const aw = a.category === 'weapon' ? 0 : 1, bw = b.category === 'weapon' ? 0 : 1;
+      if (aw !== bw) return aw - bw;            // Armes d'abord
+      return weaponOrder.indexOf(b.id) - weaponOrder.indexOf(a.id); // plus bas de la liste d'abord
+    });
+    for (let k = 0; k < candidates.length && (2 - handsUsed(e)) < need; k++) {
+      unequipItem(h, candidates[k]);
+    }
+  }
+
   function unequipItem(h, item) {
     const e = normEq(h);
     if (e.mainD === item.id) { e.mainD = null; e.twoH = false; }
@@ -223,8 +248,10 @@
         const h = Store.state.heroes.find(function (x) { return x.id === cb.getAttribute('data-hero'); });
         const item = byId(cb.getAttribute('data-item'));
         if (!h || !item) return;
-        if (cb.checked) { if (!equipItem(h, item)) { cb.checked = false; return; } }
-        else unequipItem(h, item);
+        if (cb.checked) {
+          if (isHandItem(item)) ensureHandsFree(h, item, advId);
+          if (!equipItem(h, item)) { cb.checked = false; return; }
+        } else unequipItem(h, item);
         Store.save();
         document.dispatchEvent(new CustomEvent('equipment-changed'));
         renderPlayer(advId);

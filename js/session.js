@@ -1220,20 +1220,24 @@
       const body = list.length
         ? list.map(function (e) {
             const checked = equipped.indexOf(e.id) >= 0;
-            return '<label class="tpe-row tpe-kind-' + (e.kind || 'none') + (checked ? ' selected' : '') + '" title="' + esc(e.t.description || '') + '">' +
-              '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + '>' +
-              '<span class="tpe-name">' + esc(e.t.name || '(sans nom)') + '</span>' +
-              '<span class="tpe-meta">' +
-                (e.kind ? '<span class="tl-kind tl-kind-' + e.kind + '">' + esc(KIND_SHORT(e.kind)) + '</span>' : '') +
-                '<span class="tpe-lvl">Niv. ' + (e.t.level || 1) + '</span>' +
-              '</span>' +
-            '</label>';
+            const desc = e.t.description || 'Aucune description.';
+            return '<div class="tpe-wrap">' +
+              '<div class="tpe-row tpe-kind-' + (e.kind || 'none') + (checked ? ' selected' : '') + '">' +
+                '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + '>' +
+                '<span class="tpe-name" data-info="' + esc(e.id) + '" title="Voir le descriptif">' + esc(e.t.name || '(sans nom)') + '</span>' +
+                '<span class="tpe-meta" data-info="' + esc(e.id) + '">' +
+                  (e.kind ? '<span class="tl-kind tl-kind-' + e.kind + '">' + esc(KIND_SHORT(e.kind)) + '</span>' : '') +
+                  '<span class="tpe-lvl">Niv. ' + (e.t.level || 1) + '</span>' +
+                '</span>' +
+              '</div>' +
+              '<div class="tpe-desc" id="tpe-desc-' + esc(e.id) + '-' + h.id + '" hidden>' + esc(desc) + '</div>' +
+            '</div>';
           }).join('')
         : '<p class="inv-col-empty">Aucun talent débloqué. Montez de niveau pour en gagner.</p>';
       return '<div class="tal-hero-block">' +
         '<div class="tal-hero-head' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' +
-          '<span class="tal-hero-name">' + esc(h.name) + '</span>' +
-          (h.klass ? '<span class="class-badge klass-' + slug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
+          '<span class="tal-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' + esc(h.name) + '</span>' +
+          (h.klass ? '<span class="tal-hero-class klass-' + slug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
           '<span class="tal-equip-count' + (equipped.length >= 6 ? ' full' : '') + '">' + equipped.length + '/6 équipés</span>' +
         '</div>' +
         '<div class="tal-col-body">' + body + '</div>' +
@@ -1258,6 +1262,14 @@
         toggleEquip(ses, hid, tid, cb.checked, byId, effMap);
         save();
         renderTalents(scopeAdventureId);
+      });
+    });
+    // Clic sur le nom/badge : affiche le descriptif (sans cocher/décocher)
+    root.querySelectorAll('[data-info]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        const wrap = el.closest('.tpe-wrap');
+        const desc = wrap ? wrap.querySelector('.tpe-desc') : null;
+        if (desc) desc.hidden = !desc.hidden;
       });
     });
   }

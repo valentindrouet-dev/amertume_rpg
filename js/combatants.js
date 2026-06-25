@@ -119,6 +119,7 @@
   let heroAttacks = [];
   let heroEquipment = { mainG: null, mainD: null, armorId: null, objectId: null };
   let heroSkills = emptySkills();
+  let heroStartTalents = [];
 
   function skillSlug(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 
@@ -846,6 +847,9 @@
     buildSkillsEditor($('#h-skills'), heroSkills);
     heroEquipment = isEdit ? normalizeEquip(h.equipment) : { mainG: null, mainD: null, armorId: null, objectId: null };
     buildHeroEquipmentUI();
+    heroStartTalents = (isEdit && Array.isArray(h.startTalents)) ? h.startTalents.slice() : [];
+    buildHeroTalentsUI();
+    $('#h-class').onchange = buildHeroTalentsUI;
     $('#btn-delete-hero').hidden = !isEdit;
     updateHeroPvPreview();
     $('#hero-modal').hidden = false;
@@ -888,6 +892,36 @@
     buildHeroEquipmentUI();
   }
 
+  // Liste à boutons des talents de niveau 1 (génériques + classe choisie) pour l'éditeur d'aventurier
+  function buildHeroTalentsUI() {
+    const box = $('#h-talents');
+    if (!box) return;
+    const klass = $('#h-class').value;
+    const tals = level1Talents(klass);
+    // Élague les talents sélectionnés qui ne sont plus disponibles (ex. changement de classe)
+    const ids = tals.map(function (t) { return t.id; });
+    heroStartTalents = heroStartTalents.filter(function (id) { return ids.indexOf(id) >= 0; });
+    if (!tals.length) { box.innerHTML = '<p class="hint">Aucun talent de niveau 1 disponible.</p>'; return; }
+    box.innerHTML = tals.map(function (t) {
+      const kind = wizTalentKind(t);
+      const sel = heroStartTalents.indexOf(t.id) >= 0;
+      return '<button type="button" class="lvl-choice-btn lvl-tal-btn' + (kind ? ' lvl-tal-' + kind : '') + (sel ? ' selected' : '') + '" ' +
+        'data-tal="' + esc(t.id) + '" title="' + esc(t.description || '') + '">' +
+        '<span class="lvl-tal-name">' + esc(t.name || '(sans nom)') + '</span>' +
+        '<span class="lvl-tal-lvl">' + esc(kind ? (KIND_BADGE[kind] || 'Talent') : 'Talent') + ' · Niv. 1</span>' +
+      '</button>';
+    }).join('');
+    box.querySelectorAll('.lvl-tal-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const id = b.getAttribute('data-tal');
+        const idx = heroStartTalents.indexOf(id);
+        if (idx >= 0) heroStartTalents.splice(idx, 1);
+        else heroStartTalents.push(id);
+        buildHeroTalentsUI();
+      });
+    });
+  }
+
   function updateEquipPreview() {
     const fake = { equipment: heroEquipment, attacks: [] };
     const atks = heroDerivedAttacks(heroEquipment);
@@ -915,6 +949,7 @@
       imageUrl: $('#h-image').value.trim() || null,
       attacks: heroAttacks,
       skills: mergeSkills(heroSkills),
+      startTalents: heroStartTalents.slice(),
       equipment: {
         mainG: heroEquipment.mainG || null,
         mainD: heroEquipment.mainD || null,
@@ -1142,7 +1177,6 @@
       '<div class="inv-strip tal-strip" data-edit="' + i + '" title="' + esc(c.desc || def.label) + '">' +
         '<span class="inv-strip-name">' + esc(c.name || '(sans nom)') + '</span>' +
         '<span class="inv-strip-val">' +
-          '<span class="tl-kind tl-kind-none">' + esc(def.label) + '</span>' +
           '<span class="tal-lvl">X = ' + (c.defaultVal !== undefined ? c.defaultVal : def.defaultVal) + '</span>' +
         '</span>' +
       '</div>' +

@@ -2766,6 +2766,24 @@ body.mode-player #item-list.roster-list { display: block; }
 .tpe-kind-upgrade  { border-left-color: #6cba78; }
 .tpe-kind-mastery  { border-left-color: #d4af37; }
 .tpe-kind-none     { border-left-color: #b8a684; }
+.tpe-name { cursor: pointer; }
+.tpe-meta { cursor: pointer; }
+.tpe-desc {
+  margin: .15rem 0 .1rem .4rem; padding: .35rem .55rem;
+  font-size: .78rem; line-height: 1.35; color: var(--text);
+  background: rgba(255,255,255,.05); border-left: 3px solid var(--border); border-radius: 6px;
+}
+
+/* Nom de la classe de l'aventurier coloré (onglet Talents, mode Joueur) */
+.tal-hero-class { font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.tal-hero-class.klass-apothicaire, .tal-hero-name.klass-apothicaire { color: #8fd07e; }
+.tal-hero-class.klass-artificier,  .tal-hero-name.klass-artificier  { color: #e7bf63; }
+.tal-hero-class.klass-chasseur,    .tal-hero-name.klass-chasseur    { color: #8fd078; }
+.tal-hero-class.klass-destructeur, .tal-hero-name.klass-destructeur { color: #e58368; }
+.tal-hero-class.klass-deviant,     .tal-hero-name.klass-deviant     { color: #b79be0; }
+.tal-hero-class.klass-gardien,     .tal-hero-name.klass-gardien     { color: #7fb0e6; }
+.tal-hero-class.klass-lamevent,    .tal-hero-name.klass-lamevent    { color: #6fcabb; }
+.tal-hero-class.klass-pyromane,    .tal-hero-name.klass-pyromane    { color: #f0a262; }
 .inv-strip-row.tal-row .tal-strip { flex: 1; min-width: 0; }
 
 /* ----- Encyclopédie : barre de tri + réordonnancement ----- */
