@@ -184,7 +184,7 @@
       if (!list.length) return;
       html += '<optgroup label="' + esc(KIND_LABEL[k]) + '">' +
         list.map(function (e) {
-          return '<option value="' + esc(e.effect) + '"' + (e.effect === cur ? ' selected' : '') + '>' + esc(e.name) + '</option>';
+          return '<option value="' + esc(e.effect) + '" title="' + esc(e.name) + '"' + (e.effect === cur ? ' selected' : '') + '>' + esc(e.desc) + '</option>';
         }).join('') +
       '</optgroup>';
     });
