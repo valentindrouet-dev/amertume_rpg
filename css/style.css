@@ -2031,6 +2031,7 @@ img.ab-atk-name {
   box-shadow: 0 0 0 3px rgba(193,78,53,.55), 0 0 16px 3px rgba(193,78,53,.6);
   border-color: var(--accent) !important;
   position: relative; z-index: 2;
+  filter: brightness(0.5);
 }
 .combat-card.selected::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
@@ -2325,9 +2326,12 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 /* Talents vides (pas de talent assigné) : 50% moins visibles */
 .ab-talent.ab-talent-empty { opacity: .3; }
 
-/* DEF icon dans les vignettes de zone : remonter légèrement */
-.cc-def-icon { margin-bottom: .25em; }
+/* ===================================================================
+   v2.73 — alignements DEF/Mouv., vignette sélectionnée assombrie
+   =================================================================== */
+
+/* DEF icon dans les vignettes de zone : remonter */
+.cc-def-icon { position: relative; top: -3px; }
 
 /* Mouv. légèrement remonté pour s'aligner avec Objet et Analyse */
-.ab-tools { align-items: flex-start; padding-top: 1px; }
-.ab-tool { height: calc(100% - 1px); }
+.ab-tool.move-chip { position: relative; top: -2px; }
