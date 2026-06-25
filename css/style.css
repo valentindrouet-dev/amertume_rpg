@@ -2126,6 +2126,22 @@ img.ab-atk-name {
   opacity: 1; color: rgba(107,90,62,.55); background: rgba(40,28,14,.06); cursor: default;
 }
 .ab-talent.ab-talent-named:disabled { opacity: 1; color: #9a3d20; }
+/* Libellés de talent d'aventurier (passif/amélioration/maîtrise) colorés par type */
+.ab-talent.ab-talent-kind-passive, .ab-talent.ab-talent-kind-passive:disabled {
+  background: rgba(150,150,150,.18); color: #d2d2d2; border-color: rgba(150,150,150,.45);
+}
+.ab-talent.ab-talent-kind-upgrade, .ab-talent.ab-talent-kind-upgrade:disabled {
+  background: rgba(110,180,120,.18); color: #b6e0bd; border-color: rgba(110,180,120,.45);
+}
+.ab-talent.ab-talent-kind-mastery, .ab-talent.ab-talent-kind-mastery:disabled {
+  background: rgba(214,175,70,.18); color: #ecd29a; border-color: rgba(214,175,70,.45);
+}
+.ab-talent.ab-talent-kind-action, .ab-talent.ab-talent-kind-action:disabled {
+  background: rgba(77,142,209,.18); color: #a8cbf0; border-color: rgba(77,142,209,.45);
+}
+.ab-talent.ab-talent-kind-reaction, .ab-talent.ab-talent-kind-reaction:disabled {
+  background: rgba(150,100,200,.18); color: #cdb1e6; border-color: rgba(150,100,200,.45);
+}
 
 /* 3. Dés plus grands dans les boutons du bandeau */
 .ab-atk .die-sq { width: 16px; height: 16px; }
@@ -2595,11 +2611,11 @@ body.mode-player #item-list.roster-list { display: block; }
 .lvl-tal-btn.lvl-tal-reaction { border-color: rgba(150,100,200,.5); background: rgba(150,100,200,.14); color: #cdb1e6; }
 .lvl-tal-btn.lvl-tal-reaction:hover { border-color: rgba(150,100,200,.8); background: rgba(150,100,200,.25); }
 .lvl-tal-btn.lvl-tal-reaction.selected { border-color: #a878d2; background: rgba(150,100,200,.38); color: #ecdcff; }
-/* Passif = vert · Amélioration = ambre */
-.lvl-tal-btn.lvl-tal-passive { border-color: rgba(110,180,120,.5); background: rgba(110,180,120,.13); color: #b6e0bd; }
-.lvl-tal-btn.lvl-tal-passive.selected { border-color: #6cba78; background: rgba(110,180,120,.34); color: #d9f5dd; }
-.lvl-tal-btn.lvl-tal-upgrade { border-color: rgba(212,160,90,.5); background: rgba(212,160,90,.13); color: #e6c38f; }
-.lvl-tal-btn.lvl-tal-upgrade.selected { border-color: #d4a05a; background: rgba(212,160,90,.34); color: #f5e2c2; }
+/* Passif = gris · Amélioration = vert */
+.lvl-tal-btn.lvl-tal-passive { border-color: rgba(150,150,150,.5); background: rgba(150,150,150,.13); color: #d2d2d2; }
+.lvl-tal-btn.lvl-tal-passive.selected { border-color: #9a9a9a; background: rgba(150,150,150,.34); color: #efefef; }
+.lvl-tal-btn.lvl-tal-upgrade { border-color: rgba(110,180,120,.5); background: rgba(110,180,120,.13); color: #b6e0bd; }
+.lvl-tal-btn.lvl-tal-upgrade.selected { border-color: #6cba78; background: rgba(110,180,120,.34); color: #d9f5dd; }
 .lvl-tal-name { font-weight: 700; }
 .lvl-tal-lvl { font-size: .6rem; color: var(--muted); }
 .lvlup-card #lvlup-continue { width: 100%; margin-top: .5rem; }
@@ -2624,8 +2640,8 @@ body.mode-player #item-list.roster-list { display: block; }
 }
 .tl-kind-action   { background: rgba(77,142,209,.25);  color: #a8cbf0; }
 .tl-kind-reaction { background: rgba(150,100,200,.25); color: #cdb1e6; }
-.tl-kind-passive  { background: rgba(110,180,120,.25); color: #b6e0bd; }
-.tl-kind-upgrade  { background: rgba(212,160,90,.25);  color: #e6c38f; }
+.tl-kind-passive  { background: rgba(150,150,150,.25); color: #d2d2d2; }
+.tl-kind-upgrade  { background: rgba(110,180,120,.25); color: #b6e0bd; }
 
 /* ====== Bibliothèque des effets ====== */
 .lib-card { padding: .6rem .8rem; }
@@ -2634,8 +2650,8 @@ body.mode-player #item-list.roster-list { display: block; }
 .lib-kind-head { font-weight: 800; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; padding: .3rem .55rem; }
 .lib-kind-action   > .lib-kind-head { background: rgba(77,142,209,.22);  color: #bcd6f2; }
 .lib-kind-reaction > .lib-kind-head { background: rgba(150,100,200,.22); color: #d6c0ec; }
-.lib-kind-passive  > .lib-kind-head { background: rgba(110,180,120,.22); color: #c4e8ca; }
-.lib-kind-upgrade  > .lib-kind-head { background: rgba(212,160,90,.22);  color: #ecd2ad; }
+.lib-kind-passive  > .lib-kind-head { background: rgba(150,150,150,.22); color: #dcdcdc; }
+.lib-kind-upgrade  > .lib-kind-head { background: rgba(110,180,120,.22); color: #c4e8ca; }
 .lib-row { display: grid; grid-template-columns: minmax(110px,auto) 1fr; gap: .15rem .6rem; padding: .35rem .55rem; border-top: 1px solid rgba(255,255,255,.06); align-items: baseline; }
 .lib-eff-name { font-weight: 700; }
 .lib-eff-var { font-size: .68rem; color: var(--muted); grid-column: 1; }
@@ -2643,8 +2659,8 @@ body.mode-player #item-list.roster-list { display: block; }
 .lib-leg { font-size: .72rem; font-weight: 700; padding: 0 .3rem; border-radius: 4px; }
 .lib-leg.lib-kind-action   { background: rgba(77,142,209,.25);  color: #a8cbf0; }
 .lib-leg.lib-kind-reaction { background: rgba(150,100,200,.25); color: #cdb1e6; }
-.lib-leg.lib-kind-passive  { background: rgba(110,180,120,.25); color: #b6e0bd; }
-.lib-leg.lib-kind-upgrade  { background: rgba(212,160,90,.25);  color: #e6c38f; }
+.lib-leg.lib-kind-passive  { background: rgba(150,150,150,.25); color: #d2d2d2; }
+.lib-leg.lib-kind-upgrade  { background: rgba(110,180,120,.25); color: #b6e0bd; }
 
 /* Badges de talent sur la feuille de perso */
 .tl-badges { display: flex; flex-wrap: wrap; gap: .3rem; }
@@ -2654,8 +2670,8 @@ body.mode-player #item-list.roster-list { display: block; }
 }
 .tl-badge.tl-kind-action   { background: rgba(77,142,209,.16);  color: #bcd6f2; border-color: rgba(77,142,209,.4); }
 .tl-badge.tl-kind-reaction { background: rgba(150,100,200,.16); color: #d6c0ec; border-color: rgba(150,100,200,.4); }
-.tl-badge.tl-kind-passive  { background: rgba(110,180,120,.16); color: #c4e8ca; border-color: rgba(110,180,120,.4); }
-.tl-badge.tl-kind-upgrade  { background: rgba(212,160,90,.16);  color: #ecd2ad; border-color: rgba(212,160,90,.4); }
+.tl-badge.tl-kind-passive  { background: rgba(150,150,150,.16); color: #dcdcdc; border-color: rgba(150,150,150,.4); }
+.tl-badge.tl-kind-upgrade  { background: rgba(110,180,120,.16); color: #c4e8ca; border-color: rgba(110,180,120,.4); }
 .tl-badge-kind { font-size: .6rem; text-transform: uppercase; letter-spacing: .03em; opacity: .8; }
 
 /* ====== Onglet Classes : colonnes de talents (design Armurerie) ====== */
@@ -2681,8 +2697,8 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Couleur de languette par type d'effet */
 .tal-row.tal-kind-action   .inv-strip { border-left-color: #4d8ed1; }
 .tal-row.tal-kind-reaction .inv-strip { border-left-color: #9664c8; }
-.tal-row.tal-kind-passive  .inv-strip { border-left-color: #6cba78; }
-.tal-row.tal-kind-upgrade  .inv-strip { border-left-color: #d4a05a; }
+.tal-row.tal-kind-passive  .inv-strip { border-left-color: #9a9a9a; }
+.tal-row.tal-kind-upgrade  .inv-strip { border-left-color: #6cba78; }
 .tal-row.tal-kind-none     .inv-strip { border-left-color: #b8a684; }
 .tl-kind-none { background: rgba(160,150,130,.25); color: #6a5e48; }
 /* Ligne de type dans la mini-fenêtre de talent */
@@ -2711,14 +2727,35 @@ body.mode-player #item-list.roster-list { display: block; }
 .tl-eff-dice-wrap { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .tl-eff-dice.dice-steppers { display: flex; flex-wrap: wrap; gap: .3rem; }
 
-/* ----- Maîtrise (nouvelle catégorie d'effet, teal) ----- */
-.tl-kind-mastery   { background: rgba(60,190,190,.25);  color: #9fe6e6; }
-.lvl-tal-btn.lvl-tal-mastery { border-color: rgba(60,190,190,.5); background: rgba(60,190,190,.13); color: #aee6e6; }
-.lvl-tal-btn.lvl-tal-mastery.selected { border-color: #38bcbc; background: rgba(60,190,190,.34); color: #d6f6f6; }
-.lib-kind-mastery  > .lib-kind-head { background: rgba(60,190,190,.22);  color: #b9eded; }
-.lib-leg.lib-kind-mastery  { background: rgba(60,190,190,.25);  color: #9fe6e6; }
-.tl-badge.tl-kind-mastery  { background: rgba(60,190,190,.16);  color: #c4eded; border-color: rgba(60,190,190,.4); }
-.tal-row.tal-kind-mastery  .inv-strip { border-left-color: #38bcbc; }
-.tl-eff-row:has(.tl-eff-kind .tl-kind-mastery) { border-left-color: #38bcbc; }
+/* ----- Maîtrise (nouvelle catégorie d'effet, doré) ----- */
+.tl-kind-mastery   { background: rgba(214,175,70,.25);  color: #ecd29a; }
+.lvl-tal-btn.lvl-tal-mastery { border-color: rgba(214,175,70,.5); background: rgba(214,175,70,.13); color: #ecd29a; }
+.lvl-tal-btn.lvl-tal-mastery.selected { border-color: #d4af37; background: rgba(214,175,70,.34); color: #f7e9c0; }
+.lib-kind-mastery  > .lib-kind-head { background: rgba(214,175,70,.22);  color: #f0dcab; }
+.lib-leg.lib-kind-mastery  { background: rgba(214,175,70,.25);  color: #ecd29a; }
+.tl-badge.tl-kind-mastery  { background: rgba(214,175,70,.16);  color: #f0dcab; border-color: rgba(214,175,70,.4); }
+.tal-row.tal-kind-mastery  .inv-strip { border-left-color: #d4af37; }
+.tl-eff-row:has(.tl-eff-kind .tl-kind-mastery) { border-left-color: #d4af37; }
 /* Pastille « mouvement gratuit » (Pas Léger) sur le bouton Mouv. */
 .free-move-dot { color: #5ee0e0; font-weight: 700; }
+
+/* ----- Assistant de création : choix des talents de niveau 1 ----- */
+.hw-tal-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+.hw-tal-list .lvl-tal-btn { flex: 1 1 160px; }
+
+/* ----- Onglet Talents (mode Joueur) : équipement des talents ----- */
+.tal-heroes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .8rem; align-items: start; }
+.tal-hero-block { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.tal-hero-head { display: flex; align-items: center; gap: .4rem; border-bottom: 2px solid var(--border); padding-bottom: .3rem; }
+.tal-hero-name { font-weight: 800; font-size: .9rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tal-equip-count { font-size: .7rem; color: var(--muted); white-space: nowrap; }
+.tal-equip-count.full { color: var(--accent-2); font-weight: 700; }
+.tal-equip-cb { flex: 0 0 auto; }
+.inv-strip-row.tal-equipped .inv-strip { box-shadow: inset 2px 0 0 currentColor; }
+.inv-strip-row.tal-row .tal-strip { flex: 1; min-width: 0; }
+
+/* ----- Encyclopédie : barre de tri + réordonnancement ----- */
+.tuto-sort-bar { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; }
+.te-move { display: flex; flex-direction: column; gap: .1rem; }
+.te-move .icon-btn { line-height: 1; padding: 0 .3rem; font-size: .7rem; }
+.te-move .icon-btn:disabled { opacity: .3; cursor: not-allowed; }

@@ -50,7 +50,24 @@
   function persist() { save(); saveGen(); }
 
   function newTalent() {
-    return { id: Store.uid(), name: '', level: 1, usage: 'both', kind: '', effects: [], description: '' };
+    // Par défaut « En combat » : c'est de loin le cas le plus fréquent.
+    return { id: Store.uid(), name: '', level: 1, usage: 'combat', kind: '', effects: [], description: '' };
+  }
+
+  // Type effectif d'un talent (depuis son effet si le kind n'est pas stocké)
+  function talentKind(t) {
+    return t.kind || (t.effect && effectMap()[t.effect] ? effectMap()[t.effect].kind : '');
+  }
+  // Tri des talents : par Niveau, puis par Type (KIND_ORDER), puis alphabétique.
+  function sortTalents(list) {
+    return list.slice().sort(function (a, b) {
+      const lvl = (a.level || 1) - (b.level || 1);
+      if (lvl) return lvl;
+      const ka = KIND_ORDER.indexOf(talentKind(a)); const kb = KIND_ORDER.indexOf(talentKind(b));
+      const ra = ka < 0 ? 99 : ka; const rb = kb < 0 ? 99 : kb;
+      if (ra !== rb) return ra - rb;
+      return (a.name || '').localeCompare(b.name || '');
+    });
   }
   function emptyPool() { return D ? D.emptyPool() : { black: 0, red: 0, blue: 0, green: 0, yellow: 0, white: 0, bone: 0 }; }
 
@@ -150,7 +167,7 @@
     if (!box) return;
     const shown = groups().filter(function (g) { return !groupFilter || g.ref === groupFilter; });
     box.innerHTML = '<div class="tal-cols">' + shown.map(function (g) {
-      const items = g.list.filter(matches);
+      const items = sortTalents(g.list.filter(matches));
       const strips = items.length
         ? items.map(function (t) { return talentStrip(t, g.ref); }).join('')
         : '<p class="inv-col-empty">—</p>';

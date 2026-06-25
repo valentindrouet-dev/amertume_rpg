@@ -59,9 +59,20 @@
       root.innerHTML = '<p class="empty">Aucune entrée. Ajoutez-en une avec le bouton ci-dessus.</p>';
       return;
     }
-    root.innerHTML = arr.map(function (t, i) {
+    function commit() { Store.saveTutorials(arr); }
+
+    root.innerHTML =
+      '<div class="tuto-sort-bar">' +
+        '<button type="button" class="ghost small" id="te-sort-az">⇅ Trier A → Z</button>' +
+        '<span class="hint">Réordonnez avec ▲ / ▼, ou triez par titre.</span>' +
+      '</div>' +
+      arr.map(function (t, i) {
       return '<div class="tuto-edit-card" data-i="' + i + '">' +
         '<div class="tuto-edit-head">' +
+          '<div class="te-move">' +
+            '<button type="button" class="icon-btn te-up" title="Monter"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
+            '<button type="button" class="icon-btn te-down" title="Descendre"' + (i === arr.length - 1 ? ' disabled' : '') + '>▼</button>' +
+          '</div>' +
           '<input type="text" class="te-title" value="' + esc(t.title) + '" placeholder="Titre du tutoriel" />' +
           '<button type="button" class="ghost small te-dup" title="Dupliquer">⧉ Dupliquer</button>' +
           '<button type="button" class="icon-btn te-del del-btn" title="Supprimer">✕</button>' +
@@ -70,10 +81,20 @@
       '</div>';
     }).join('');
 
-    function commit() { Store.saveTutorials(arr); }
+    const sortBtn = root.querySelector('#te-sort-az');
+    if (sortBtn) sortBtn.addEventListener('click', function () {
+      arr.sort(function (a, b) { return (a.title || '').localeCompare(b.title || ''); });
+      commit(); renderAdmin();
+    });
 
     root.querySelectorAll('.tuto-edit-card').forEach(function (card) {
       const i = +card.getAttribute('data-i');
+      card.querySelector('.te-up').addEventListener('click', function () {
+        if (i <= 0) return; const tmp = arr[i - 1]; arr[i - 1] = arr[i]; arr[i] = tmp; commit(); renderAdmin();
+      });
+      card.querySelector('.te-down').addEventListener('click', function () {
+        if (i >= arr.length - 1) return; const tmp = arr[i + 1]; arr[i + 1] = arr[i]; arr[i] = tmp; commit(); renderAdmin();
+      });
       card.querySelector('.te-title').addEventListener('input', function () { arr[i].title = this.value; commit(); });
       card.querySelector('.te-content').addEventListener('input', function () { arr[i].content = this.value; commit(); });
       card.querySelector('.te-dup').addEventListener('click', function () {

@@ -684,17 +684,33 @@
 
   // ----- Assistant de création (mode Joueur) : Nom → Classe → Équipement → Compétences -----
   let wiz = null;
-  const WIZ_STEPS = ['Nom', 'Classe', 'Équipement', 'Compétences'];
+  const WIZ_STEPS = ['Nom', 'Classe', 'Équipement', 'Talents', 'Compétences'];
   function openHeroWizard(advId) {
-    wiz = { advId: advId, step: 0, name: '', klass: '', equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, skills: [] };
+    wiz = { advId: advId, step: 0, name: '', klass: '', equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, talents: [], skills: [] };
     $('#hero-wizard-modal').hidden = false;
     renderWizard();
   }
+  // Talents de niveau 1 disponibles à la création : génériques + classe choisie
+  function level1Talents(klass) {
+    const gens = Store.loadGenericTalents().filter(function (t) { return (t.level || 1) <= 1; });
+    let cls = [];
+    const c = Store.loadClasses().find(function (x) { return x.name === klass; });
+    if (c && Array.isArray(c.talents)) cls = c.talents.filter(function (t) { return t.id && (t.level || 1) <= 1; });
+    return gens.concat(cls);
+  }
+  function wizTalentKind(t) {
+    if (t.kind) return t.kind;
+    const list = Store.talentEffectList(t);
+    const m = Store.talentEffectMap();
+    if (list.length && m[list[0].effect]) return m[list[0].effect].kind;
+    return '';
+  }
   function updateWizNav() {
     let ok = true;
-    if (wiz.step === 0) ok = !!wiz.name.trim();
-    else if (wiz.step === 1) ok = !!wiz.klass;
-    else if (wiz.step === 3) ok = wiz.skills.length === 2;
+    const step = WIZ_STEPS[wiz.step];
+    if (step === 'Nom') ok = !!wiz.name.trim();
+    else if (step === 'Classe') ok = !!wiz.klass;
+    else if (step === 'Compétences') ok = wiz.skills.length === 2;
     const nb = $('#hw-next'); if (nb) nb.disabled = !ok;
   }
   function renderWizard() {
@@ -702,12 +718,13 @@
     $('#hw-steps').innerHTML = WIZ_STEPS.map(function (s, i) {
       return '<span class="hw-step' + (i === wiz.step ? ' active' : '') + (i < wiz.step ? ' done' : '') + '">' + (i + 1) + '. ' + s + '</span>';
     }).join('');
-    if (wiz.step === 0) {
+    const stepName = WIZ_STEPS[wiz.step];
+    if (stepName === 'Nom') {
       body.innerHTML = '<label>Nom de l\'aventurier<input type="text" id="hw-name" value="' + esc(wiz.name) + '" placeholder="Son nom…" /></label>';
       const inp = $('#hw-name');
       inp.oninput = function () { wiz.name = this.value; updateWizNav(); };
       setTimeout(function () { inp.focus(); }, 0);
-    } else if (wiz.step === 1) {
+    } else if (stepName === 'Classe') {
       const classes = Store.loadClasses();
       body.innerHTML = '<p class="hint">Choisis une classe.</p><div class="hw-class-list">' +
         (classes.length ? classes.map(function (c) {
@@ -717,8 +734,11 @@
       body.querySelectorAll('.hw-class').forEach(function (b) {
         b.onclick = function () { wiz.klass = this.getAttribute('data-class'); renderWizard(); };
       });
-    } else if (wiz.step === 2) {
-      const items = Store.state.items;
+    } else if (stepName === 'Équipement') {
+      // Seuls les équipements de Départ sont proposés à la création (si le MJ en a
+      // désigné ; sinon, repli sur tout le catalogue pour rester utilisable).
+      const anyStart = Store.state.items.some(function (i) { return i.startGear; });
+      const items = anyStart ? Store.state.items.filter(function (i) { return i.startGear; }) : Store.state.items;
       const hands = items.filter(function (i) { return i.category === 'weapon' || (i.category === 'armor' && i.slot === 'shield'); });
       const bodies = items.filter(function (i) { return i.category === 'armor' && (i.slot || 'body') === 'body'; });
       const objects = items.filter(function (i) { return i.category === 'object' || i.category === 'misc'; });
@@ -735,6 +755,29 @@
       $('#hw-maing').onchange = function () { wiz.equipment.mainG = this.value || null; };
       $('#hw-armor').onchange = function () { wiz.equipment.armorId = this.value || null; };
       $('#hw-object').onchange = function () { wiz.equipment.objectId = this.value || null; };
+    } else if (stepName === 'Talents') {
+      const tals = level1Talents(wiz.klass);
+      body.innerHTML = '<p class="hint">Choisis jusqu\'à <b>2 talents</b> de niveau 1. ' + wiz.talents.length + '/2</p>' +
+        (tals.length
+          ? '<div class="hw-tal-list">' + tals.map(function (t) {
+              const kind = wizTalentKind(t);
+              const sel = wiz.talents.indexOf(t.id) >= 0;
+              return '<button type="button" class="lvl-choice-btn lvl-tal-btn' + (kind ? ' lvl-tal-' + kind : '') + (sel ? ' selected' : '') + '" ' +
+                'data-tal="' + esc(t.id) + '" title="' + esc(t.description || '') + '">' +
+                '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
+                '<span class="lvl-tal-lvl">' + esc(kind ? (KIND_BADGE[kind] || 'Talent') : 'Talent') + ' · Niv. ' + (t.level || 1) + '</span>' +
+              '</button>';
+            }).join('') + '</div>'
+          : '<p class="empty">Aucun talent de niveau 1 disponible pour cette classe.</p>');
+      body.querySelectorAll('.lvl-tal-btn').forEach(function (b) {
+        b.onclick = function () {
+          const id = this.getAttribute('data-tal');
+          const idx = wiz.talents.indexOf(id);
+          if (idx >= 0) wiz.talents.splice(idx, 1);
+          else { if (wiz.talents.length >= 2) return; wiz.talents.push(id); }
+          renderWizard();
+        };
+      });
     } else {
       body.innerHTML = '<p class="hint">Choisis <b>2 compétences</b> (chacune +1). ' + wiz.skills.length + '/2</p>' +
         '<div class="hw-skill-list">' + SKILLS.map(function (s) {
@@ -768,6 +811,7 @@
       id: Store.uid(), name: wiz.name.trim() || 'Aventurier', klass: wiz.klass,
       vie: 4, endu: 3, pvBonus: 0, damage: 2, rapide: false, notes: '',
       attacks: [], skills: mergeSkills(skills),
+      startTalents: wiz.talents.slice(),
       equipment: eq,
       baseEquipment: JSON.parse(JSON.stringify(eq)),
       adventureId: wiz.advId || null,

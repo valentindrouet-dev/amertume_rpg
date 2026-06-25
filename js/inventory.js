@@ -54,6 +54,27 @@
     weapon: 'Arme', ammo: 'Munition', armor: 'Armure', object: 'Objet', misc: 'Divers',
   };
 
+  // Puissance relative d'un dé (faible → fort) pour le tri des armes
+  const DIE_POWER = { bone: 1, white: 2, pink: 2, green: 3, blue: 3, yellow: 4, red: 5, black: 6 };
+  function diceCount(dice) {
+    dice = dice || {};
+    return D.DICE_ORDER.reduce(function (n, c) { return n + (dice[c] || 0); }, 0);
+  }
+  function dicePower(dice) {
+    dice = dice || {};
+    return D.DICE_ORDER.reduce(function (s, c) { return s + (dice[c] || 0) * (DIE_POWER[c] || 2); }, 0);
+  }
+  // Tri des armes : nombre de dés (croissant), puis puissance des dés (faible en haut), puis alphabétique
+  function sortWeapons(list) {
+    return list.slice().sort(function (a, b) {
+      const c = diceCount(a.dice) - diceCount(b.dice);
+      if (c) return c;
+      const p = dicePower(a.dice) - dicePower(b.dice);
+      if (p) return p;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }
+
   // ---- Liste d'armurerie ----
   function renderList() {
     const list = $('#item-list');
@@ -330,8 +351,8 @@
       return items2.length ? items2.map(adminStrip).join('') : '<p class="inv-col-empty">—</p>';
     }
 
-    const melee    = items.filter(function (i) { return i.category === 'weapon' && !i.ranged; });
-    const distance = items.filter(function (i) { return i.category === 'weapon' && i.ranged; });
+    const melee    = sortWeapons(items.filter(function (i) { return i.category === 'weapon' && !i.ranged; }));
+    const distance = sortWeapons(items.filter(function (i) { return i.category === 'weapon' && i.ranged; }));
     const armors   = items.filter(function (i) { return i.category === 'armor'; });
     const objects  = items.filter(function (i) {
       return i.category === 'object' || i.category === 'misc' || i.category === 'ammo';
@@ -380,6 +401,7 @@
     $('#f-ranged').checked = isEdit ? !!item.ranged : false;
     $('#f-uses-ammo').checked = isEdit ? !!item.usesAmmo : false;
     $('#f-consumable').checked = isEdit ? !!item.consumable : false;
+    $('#f-start').checked = isEdit ? !!item.startGear : false;
     $('#f-effects').value = isEdit ? (item.effects || '') : '';
     $('#f-notes').value = isEdit ? (item.notes || '') : '';
     const traits = isEdit ? (item.traits || []) : [];
@@ -423,6 +445,7 @@
       ranged: $('#f-ranged').checked,
       usesAmmo: $('#f-uses-ammo').checked,
       consumable: $('#f-consumable').checked,
+      startGear: $('#f-start').checked,
       dice: Object.assign(D.emptyPool(), weaponDicePool),
       traits: traits,
       price: parseInt(isArmor ? $('#f-armor-price').value : $('#f-price').value, 10) || 0,

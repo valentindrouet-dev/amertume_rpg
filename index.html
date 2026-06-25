@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertume — Inventaire &amp; Dés</title>
-  <link rel="stylesheet" href="css/style.css?v=2.96" />
+  <link rel="stylesheet" href="css/style.css?v=2.97" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -39,6 +39,7 @@
       <button class="tab" data-tab="session" data-modes="player">Aventure</button>
       <button class="tab" data-tab="heroes" data-modes="player">Groupe</button>
       <button class="tab" data-tab="armory" data-modes="player">Inventaire</button>
+      <button class="tab" data-tab="talents" data-modes="player">Talents</button>
       <button class="tab" data-tab="tutorial" data-modes="player">Tutoriel</button>
       <button class="tab" data-tab="saves" data-modes="player">Session</button>
       <!-- Onglets MJ / Admin -->
@@ -163,6 +164,11 @@
       <div id="saves-root"></div>
     </section>
 
+    <!-- ============ TALENTS (mode Joueur : équipement des talents) ============ -->
+    <section id="tab-talents" class="tab-panel">
+      <div id="talents-root"></div>
+    </section>
+
     <!-- ============ CLASSES (Admin) ============ -->
     <section id="tab-classes" class="tab-panel">
       <div id="classes-root"></div>
@@ -269,6 +275,9 @@
 
         <label class="checkbox inline">
           <input type="checkbox" id="f-consumable" /> Consommable (perdu après usage)
+        </label>
+        <label class="checkbox inline" title="Proposé au choix d'équipement lors de la création d'un aventurier (mode Aventure)">
+          <input type="checkbox" id="f-start" /> Équipement de Départ
         </label>
         <label>Notes
           <textarea id="f-notes" rows="2" placeholder="Description, provenance…"></textarea>
@@ -600,18 +609,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.96"></script>
-  <script src="js/store.js?v=2.96"></script>
-  <script src="js/inventory.js?v=2.96"></script>
-  <script src="js/combatants.js?v=2.96"></script>
-  <script src="js/combat.js?v=2.96"></script>
-  <script src="js/classes.js?v=2.96"></script>
-  <script src="js/tutorial.js?v=2.96"></script>
-  <script src="js/adventure.js?v=2.96"></script>
-  <script src="js/session.js?v=2.96"></script>
-  <script src="js/dataio.js?v=2.96"></script>
-  <script src="js/share.js?v=2.96"></script>
-  <script src="js/shell.js?v=2.96"></script>
-  <script src="js/main.js?v=2.96"></script>
+  <script src="js/dice.js?v=2.97"></script>
+  <script src="js/store.js?v=2.97"></script>
+  <script src="js/inventory.js?v=2.97"></script>
+  <script src="js/combatants.js?v=2.97"></script>
+  <script src="js/combat.js?v=2.97"></script>
+  <script src="js/classes.js?v=2.97"></script>
+  <script src="js/tutorial.js?v=2.97"></script>
+  <script src="js/adventure.js?v=2.97"></script>
+  <script src="js/session.js?v=2.97"></script>
+  <script src="js/dataio.js?v=2.97"></script>
+  <script src="js/share.js?v=2.97"></script>
+  <script src="js/shell.js?v=2.97"></script>
+  <script src="js/main.js?v=2.97"></script>
 </body>
 </html>

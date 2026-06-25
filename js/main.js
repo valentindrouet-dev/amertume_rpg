@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.96';
+  const APP_VERSION = 'v2.97';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
@@ -29,6 +29,7 @@
       if (mode === 'player') safe('armory.player', function () { Inventory.renderPlayer(advId); });
       else safe('armory', Inventory.render);
     }
+    if (target === 'talents') safe('talents.play', function () { Session.renderTalents(advId); });
     if (target === 'adventures') safe('adventures', Adventure.render);
     if (target === 'session') {
       if (mode === 'player') safe('session.play', function () { Session.renderPlay(advId); });

@@ -45,12 +45,27 @@
     if (!ses.levelGains || typeof ses.levelGains !== 'object') ses.levelGains = {};
   }
   function heroGains(ses, hid) {
-    if (!ses.levelGains[hid]) ses.levelGains[hid] = { endu: 0, damage: 0, talents: [] };
+    if (!ses.levelGains[hid]) {
+      // Talents de niveau 1 choisis à la création de l'aventurier
+      const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      const start = (h && Array.isArray(h.startTalents)) ? h.startTalents.slice() : [];
+      ses.levelGains[hid] = { endu: 0, damage: 0, talents: start, equipped: start.slice(0, 6) };
+    }
     const g = ses.levelGains[hid];
     if (typeof g.endu !== 'number') g.endu = 0;
     if (typeof g.damage !== 'number') g.damage = 0;
     if (!Array.isArray(g.talents)) g.talents = [];
+    // Talents équipés (≤ 6) : par défaut, les 6 premiers débloqués
+    if (!Array.isArray(g.equipped)) g.equipped = g.talents.slice(0, 6);
+    else g.equipped = g.equipped.filter(function (id) { return g.talents.indexOf(id) >= 0; });
     return g;
+  }
+  // Liste des talents équipés effectifs d'un aventurier (≤ 6)
+  function equippedTalents(g) {
+    if (!g) return [];
+    const unlocked = Array.isArray(g.talents) ? g.talents : [];
+    if (Array.isArray(g.equipped)) return g.equipped.filter(function (id) { return unlocked.indexOf(id) >= 0; }).slice(0, 6);
+    return unlocked.slice(0, 6);
   }
   // Niveau courant de la session d'après son XP
   function sessionLevel(ses) { return Store.levelInfo(ses.party ? ses.party.xp : 0).level; }
@@ -168,6 +183,7 @@
       const checked = list.querySelectorAll('[data-hero]:checked');
       if (!checked.length) { alert('Sélectionne au moins un aventurier.'); return; }
       activeSession.heroIds = Array.from(checked).map(function (cb) { return cb.getAttribute('data-hero'); });
+      activeSession.heroIds.forEach(function (hid) { heroGains(activeSession, hid); });
       modal.setAttribute('hidden', '');
       save();
       switchToSession();
@@ -376,7 +392,8 @@
     return Object.assign({}, h, {
       endu: (h.endu || 0) + (g ? g.endu || 0 : 0),
       damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
-      chosenTalents: (g && Array.isArray(g.talents)) ? g.talents : [],
+      // chosenTalents = talents ÉQUIPÉS (ce qui est actif en combat / sur la fiche)
+      chosenTalents: equippedTalents(g),
     });
   }
 
@@ -653,7 +670,12 @@
         } else if (statSel[idx] === 'damage') {
           g.damage += 1;
         }
-        if (talSel[idx] && g.talents.indexOf(talSel[idx]) < 0) g.talents.push(talSel[idx]);
+        if (talSel[idx] && g.talents.indexOf(talSel[idx]) < 0) {
+          g.talents.push(talSel[idx]);
+          // Auto-équipe le nouveau talent s'il reste un emplacement libre (≤ 6)
+          if (!Array.isArray(g.equipped)) g.equipped = [];
+          if (g.equipped.length < 6 && g.equipped.indexOf(talSel[idx]) < 0) g.equipped.push(talSel[idx]);
+        }
       });
       ses.levelDone = newLevel;
       const target = ses.pendingNav;
@@ -1060,6 +1082,8 @@
       levelDone: 1,              // dernier niveau pour lequel les choix ont été faits
       levelGains: {},            // { heroId: { endu, damage, talents:[] } }
     };
+    // Initialise les gains (talents de niveau 1 + équipement par défaut) de chaque engagé
+    heroIds.forEach(function (hid) { heroGains(ses, hid); });
     sessions.push(ses); save();
     activeSession = ses;
     setupSel = {};
@@ -1128,6 +1152,140 @@
     });
   }
 
+  // ============ Onglet « Talents » (mode Joueur) ============
+  // Catalogue de TOUS les talents par id (génériques + classes)
+  function talentsById() {
+    const map = {};
+    Store.loadGenericTalents().forEach(function (t) { map[t.id] = t; });
+    Store.loadClasses().forEach(function (c) { (c.talents || []).forEach(function (t) { map[t.id] = t; }); });
+    return map;
+  }
+  const TAL_KIND_ORDER = { action: 0, mastery: 1, reaction: 2, passive: 3, upgrade: 4 };
+  function talKindOf(t, effMap) {
+    if (!t) return '';
+    if (t.kind) return t.kind;
+    const list = Store.talentEffectList(t);
+    if (list.length && effMap[list[0].effect]) return effMap[list[0].effect].kind;
+    return '';
+  }
+  function talRank(k) { return TAL_KIND_ORDER[k] == null ? 9 : TAL_KIND_ORDER[k]; }
+
+  // Talents débloqués d'un aventurier, triés Action→Maîtrise→Réaction→Passif→Amélioration, puis niveau, puis nom
+  function sortedUnlocked(g, byId, effMap) {
+    const ids = Array.isArray(g.talents) ? g.talents.slice() : [];
+    return ids.map(function (id) {
+      const t = byId[id] || { id: id, name: '(talent supprimé)', level: 1 };
+      return { id: id, t: t, kind: talKindOf(t, effMap) };
+    }).sort(function (a, b) {
+      const r = talRank(a.kind) - talRank(b.kind);
+      if (r) return r;
+      const l = (a.t.level || 1) - (b.t.level || 1);
+      if (l) return l;
+      return (a.t.name || '').localeCompare(b.t.name || '');
+    });
+  }
+
+  function findActiveSessionFor(advId) {
+    if (activeSession && activeSession.adventureId === advId && activeSession.status === 'active') return activeSession;
+    const existing = sessions.filter(function (s) { return s.adventureId === advId && s.status === 'active'; });
+    existing.sort(function (a, b) { return (b.startedAt || 0) - (a.startedAt || 0); });
+    return existing[0] || null;
+  }
+
+  function renderTalents(advId) {
+    scopeAdventureId = advId || scopeAdventureId;
+    load();
+    if (activeSession) {
+      const m = sessions.find(function (s) { return s.id === activeSession.id; });
+      activeSession = m || activeSession;
+    }
+    const root = $('#talents-root');
+    if (!root) return;
+    const adv = findAdventure(scopeAdventureId);
+    const ses = findActiveSessionFor(scopeAdventureId);
+    if (!ses) {
+      root.innerHTML = '<div class="card"><div class="card-head"><h2>Talents</h2></div>' +
+        '<p class="empty">Commencez ou reprenez une partie pour gérer les talents équipés de vos aventuriers.</p></div>';
+      return;
+    }
+    const byId = talentsById();
+    const effMap = Store.talentEffectMap();
+    const heroes = engagedHeroes(ses);
+    let changed = false;
+
+    const sections = heroes.map(function (h) {
+      const g = heroGains(ses, h.id); changed = true; // seed éventuel
+      const list = sortedUnlocked(g, byId, effMap);
+      const equipped = equippedTalents(g);
+      const body = list.length
+        ? list.map(function (e) {
+            const checked = equipped.indexOf(e.id) >= 0;
+            return '<label class="inv-strip-row tal-row tal-kind-' + (e.kind || 'none') + (checked ? ' tal-equipped' : '') + '">' +
+              '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + '>' +
+              '<div class="inv-strip tal-strip" title="' + esc(e.t.description || '') + '">' +
+                '<span class="inv-strip-name">' + esc(e.t.name || '(sans nom)') + '</span>' +
+                '<span class="inv-strip-val">' +
+                  (e.kind ? '<span class="tl-kind tl-kind-' + e.kind + '">' + esc(KIND_SHORT(e.kind)) + '</span>' : '') +
+                  '<span class="tal-lvl">Niv. ' + (e.t.level || 1) + '</span>' +
+                '</span>' +
+              '</div>' +
+            '</label>';
+          }).join('')
+        : '<p class="inv-col-empty">Aucun talent débloqué. Montez de niveau pour en gagner.</p>';
+      return '<div class="tal-hero-block">' +
+        '<div class="tal-hero-head' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' +
+          '<span class="tal-hero-name">' + esc(h.name) + '</span>' +
+          (h.klass ? '<span class="class-badge klass-' + slug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
+          '<span class="tal-equip-count' + (equipped.length >= 6 ? ' full' : '') + '">' + equipped.length + '/6 équipés</span>' +
+        '</div>' +
+        '<div class="tal-col-body">' + body + '</div>' +
+      '</div>';
+    }).join('');
+
+    if (changed) save();
+
+    root.innerHTML =
+      '<div class="card">' +
+        '<div class="card-head"><h2>Talents — ' + esc(adv ? adv.title : '') + '</h2></div>' +
+        '<p class="hint">Coche jusqu\'à <b>6 talents</b> par aventurier : ce sont eux qui apparaissent dans les emplacements du bandeau de combat. ' +
+          'Cocher un 7ᵉ talent décoche automatiquement le plus bas de la liste.</p>' +
+        (heroes.length ? '<div class="tal-heroes">' + sections + '</div>'
+          : '<p class="empty">Aucun aventurier engagé dans cette partie.</p>') +
+      '</div>';
+
+    root.querySelectorAll('.tal-equip-cb').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        const hid = cb.getAttribute('data-hero');
+        const tid = cb.getAttribute('data-tal');
+        toggleEquip(ses, hid, tid, cb.checked, byId, effMap);
+        save();
+        renderTalents(scopeAdventureId);
+      });
+    });
+  }
+
+  // (Dé)équipe un talent. Au-delà de 6, décoche le talent le plus bas de la liste affichée.
+  function toggleEquip(ses, hid, tid, checked, byId, effMap) {
+    const g = heroGains(ses, hid);
+    if (!Array.isArray(g.equipped)) g.equipped = [];
+    if (!checked) {
+      g.equipped = g.equipped.filter(function (id) { return id !== tid; });
+      return;
+    }
+    if (g.equipped.indexOf(tid) >= 0) return;
+    if (g.equipped.length >= 6) {
+      // Retire l'équipé le plus bas dans l'ordre d'affichage
+      const order = sortedUnlocked(g, byId, effMap).map(function (e) { return e.id; });
+      let lowestId = null, lowestIdx = -1;
+      g.equipped.forEach(function (id) {
+        const idx = order.indexOf(id);
+        if (idx > lowestIdx) { lowestIdx = idx; lowestId = id; }
+      });
+      if (lowestId != null) g.equipped = g.equipped.filter(function (id) { return id !== lowestId; });
+    }
+    g.equipped.push(tid);
+  }
+
   function playAdventure(advId) {
     scopeAdventureId = advId;
     renderPlay(advId);
@@ -1152,6 +1310,7 @@
     render: render,
     renderPlay: renderPlay,
     renderSaves: renderSaves,
+    renderTalents: renderTalents,
     playAdventure: playAdventure,
     beginNewGame: beginNewGame,
     startFromAdventure: startFromAdventure,

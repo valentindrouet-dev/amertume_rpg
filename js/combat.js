@@ -79,10 +79,18 @@
     // tableau, vide si aucun) pour que les talents NON choisis restent indisponibles.
     // En mode Admin (sessionGains null), la fiche brute sert aux tests d'équilibrage.
     const g = sessionGains && sessionGains[h.id];
+    // Talents ÉQUIPÉS (≤ 6) : sous-ensemble des talents débloqués que le joueur a
+    // coché dans l'onglet Talents. À défaut d'une sélection, on équipe les 6 premiers.
+    function equippedOf(gg) {
+      if (!gg) return [];
+      const unlocked = Array.isArray(gg.talents) ? gg.talents : [];
+      if (Array.isArray(gg.equipped)) return gg.equipped.filter(function (id) { return unlocked.indexOf(id) >= 0; }).slice(0, 6);
+      return unlocked.slice(0, 6);
+    }
     const hero = sessionGains ? Object.assign({}, h, {
       endu: (h.endu || 0) + (g ? g.endu || 0 : 0),
       damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
-      chosenTalents: (g && Array.isArray(g.talents)) ? g.talents : [],
+      chosenTalents: equippedOf(g),
     }) : h;
     const attacks = Combatants.heroCombatAttacks(hero);
     const talents = Combatants.resolveHeroTalents(Array.isArray(hero.chosenTalents) ? hero.chosenTalents : null);
@@ -1636,6 +1644,36 @@
   // Bandeau d'action au-dessus des zones : fiche horizontale du combattant
   // sélectionné (avatar, nom, PV, DEF, attaques d'arme, Mouv/Objet/Analyse,
   // puis 6 emplacements de talents — occupés par les attaques spéciales).
+  // Ordre des emplacements de talent dans le bandeau de combat.
+  const KIND_SLOT_ORDER = { action: 0, mastery: 1, reaction: 2, passive: 3, upgrade: 4 };
+  function slotRank(k) { return KIND_SLOT_ORDER[k] == null ? 9 : KIND_SLOT_ORDER[k]; }
+  // Construit un emplacement par talent équipé : action jouable (bouton d'attaque),
+  // réaction (bouton violet) ou libellé non cliquable (passif/amélioration/maîtrise).
+  function heroTalentSlots(c, canAct) {
+    if (!Array.isArray(c.talents)) return [];
+    const byId = {}; const order = [];
+    c.talents.forEach(function (t) {
+      if (!byId[t.id]) { byId[t.id] = { id: t.id, name: t.name, kinds: [] }; order.push(t.id); }
+      if (byId[t.id].kinds.indexOf(t.kind) < 0) byId[t.id].kinds.push(t.kind);
+    });
+    const slots = order.map(function (id) {
+      const t = byId[id];
+      t.kind = t.kinds.slice().sort(function (a, b) { return slotRank(a) - slotRank(b); })[0];
+      return t;
+    });
+    slots.sort(function (a, b) { return slotRank(a.kind) - slotRank(b.kind); });
+    const reactions = heroReactions(c);
+    const atks = Array.isArray(c.attacks) ? c.attacks : [];
+    return slots.map(function (t) {
+      const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
+      if (ai >= 0) return abAttackBtn(c, atks[ai], ai, canAct);
+      const r = reactions.find(function (x) { return x.t.id === t.id; });
+      if (r) return reactionBtn(c, r.t, r.ready && canAct);
+      return '<button class="ab-talent ab-talent-named ab-talent-kind-' + t.kind + '" type="button" disabled ' +
+        'title="' + esc(t.name) + '">' + esc(t.name) + '</button>';
+    });
+  }
+
   function renderActionBar() {
     const root = $(rootSel);
     const box = root ? root.querySelector('#combat-actionbar') : null;
@@ -1705,11 +1743,13 @@
     //  • aventuriers → leurs attaques spéciales (boutons jouables) ;
     //  • adversaires → leurs talents passifs (FUYARD, SOUTIEN… en libellés).
     const labels = isEnemy ? (c.talentLabels || []) : null;
-    // Boutons jouables de l'aventurier : attaques de talent (action) puis réactions.
+    // Boutons jouables de l'aventurier : un emplacement par TALENT ÉQUIPÉ, trié
+    // ACTION → MAÎTRISE → RÉACTION → PASSIF → AMÉLIORATION ; puis les attaques
+    // spéciales manuelles (non liées à un talent).
     const heroSlots = [];
     if (!isEnemy) {
-      specialAtks.forEach(function (s) { heroSlots.push(abAttackBtn(c, s.a, s.i, canAct)); });
-      heroReactions(c).forEach(function (r) { heroSlots.push(reactionBtn(c, r.t, r.ready && canAct)); });
+      heroTalentSlots(c, canAct).forEach(function (slot) { heroSlots.push(slot); });
+      specialAtks.forEach(function (s) { if (!s.a.generic) heroSlots.push(abAttackBtn(c, s.a, s.i, canAct)); });
     }
     for (let i = 0; i < 6; i++) {
       if (!isEnemy && i < heroSlots.length) {
