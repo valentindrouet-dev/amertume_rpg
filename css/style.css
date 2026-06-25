@@ -2309,3 +2309,25 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 /* Écran résultat : vaincus = fond rouge clair, fuite = fond gris clair */
 .cs-stat-row.st-dead  { background: rgba(192,57,43,.13); }
 .cs-stat-row.st-fled  { background: rgba(140,130,120,.12); }
+
+/* ===================================================================
+   v2.72 — divers : résumé +30%, talents inconnus/vides, DEF alignée, Mouv.
+   =================================================================== */
+
+/* Résumé d'aventure (parchemin accueil) : +30% */
+.home-adv-scroll .home-adv-summary { font-size: 1.07rem; }
+
+/* Talents adversaires non analysés : nom masqué → "Talent Inconnu" */
+.ab-talent.ab-talent-unknown {
+  background: rgba(80,60,40,.18); color: #7a6040; border-color: rgba(80,60,40,.35);
+  font-style: italic; opacity: 1;
+}
+/* Talents vides (pas de talent assigné) : 50% moins visibles */
+.ab-talent.ab-talent-empty { opacity: .3; }
+
+/* DEF icon dans les vignettes de zone : remonter légèrement */
+.cc-def-icon { margin-bottom: .25em; }
+
+/* Mouv. légèrement remonté pour s'aligner avec Objet et Analyse */
+.ab-tools { align-items: flex-start; padding-top: 1px; }
+.ab-tool { height: calc(100% - 1px); }

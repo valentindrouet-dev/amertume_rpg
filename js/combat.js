@@ -1475,9 +1475,13 @@
       if (!isEnemy && i < specialAtks.length) {
         html += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct);
       } else if (isEnemy && i < labels.length) {
-        html += '<button class="ab-talent ab-talent-named" type="button" disabled title="' + esc(labels[i]) + '">' + esc(labels[i]) + '</button>';
+        if (c.analyzed) {
+          html += '<button class="ab-talent ab-talent-named" type="button" disabled title="' + esc(labels[i]) + '">' + esc(labels[i]) + '</button>';
+        } else {
+          html += '<button class="ab-talent ab-talent-unknown" type="button" disabled title="Analysez cet adversaire pour révéler ses talents">Talent Inconnu</button>';
+        }
       } else {
-        html += '<button class="ab-talent" type="button" disabled title="Emplacement de talent (à venir)">Talent ' + (i + 1) + '</button>';
+        html += '<button class="ab-talent ab-talent-empty" type="button" disabled title="Emplacement de talent vide">Talent ' + (i + 1) + '</button>';
       }
     }
     html += '</div>';
