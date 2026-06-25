@@ -175,6 +175,30 @@
     h.equipment = e;
   }
 
+  // Déséquipe UN SEUL exemplaire d'un objet (important pour les armes en double
+  // portant le même id : décocher une copie ne doit pas retirer l'autre).
+  function unequipOneCopy(h, item) {
+    const e = normEq(h);
+    if (isHandItem(item)) {
+      // On libère d'abord la main gauche (2e exemplaire), puis la main droite.
+      if (e.mainG === item.id) e.mainG = null;
+      else if (e.mainD === item.id) { e.mainD = null; e.twoH = false; }
+    } else if (item.category === 'armor') {
+      if (e.armorId === item.id) e.armorId = null;
+    } else {
+      if (e.objectId === item.id) e.objectId = null;
+    }
+    h.equipment = e;
+  }
+  // Nombre d'exemplaires d'un objet actuellement équipés (slots occupés)
+  function equippedCount(e, item) {
+    if (isHandItem(item)) {
+      return (e.mainD === item.id ? 1 : 0) + (e.mainG === item.id ? 1 : 0);
+    }
+    if (item.category === 'armor') return e.armorId === item.id ? 1 : 0;
+    return e.objectId === item.id ? 1 : 0;
+  }
+
   function renderPlayer(advId) {
     const list = $('#item-list');
     if (!list) return;
@@ -195,19 +219,21 @@
       return i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc';
     };
 
-    // Une seule languette (une copie)
-    const singleStrip = function (h, e, i) {
-      const eq = isEquipped(e, i);
-      return '<label class="inv-strip-row cat-' + i.category + (eq ? ' equipped' : '') + '">' +
-        '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (eq ? ' checked' : '') + '>' +
+    // Une seule languette (une copie). `checked` est calculé PAR EXEMPLAIRE.
+    const singleStrip = function (h, i, checked) {
+      return '<label class="inv-strip-row cat-' + i.category + (checked ? ' equipped' : '') + '">' +
+        '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
         '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) + '</div>' +
       '</label>';
     };
-    // Expansion quantité : armes/objets → N languettes ; armures → 1 (dédup)
+    // Expansion quantité : armes/objets → N languettes ; armures → 1 (dédup).
+    // Les `filled` premières copies sont cochées (autant que de slots occupés) :
+    // ainsi deux armes identiques peuvent être équipées indépendamment.
     const stripRows = function (h, e, owned, i) {
       const qty = i.category === 'armor' ? 1 : (Number(owned[i.id]) || 1);
+      const filled = equippedCount(e, i);
       let out = '';
-      for (let k = 0; k < qty; k++) out += singleStrip(h, e, i);
+      for (let k = 0; k < qty; k++) out += singleStrip(h, i, k < filled);
       return out;
     };
     const colContent = function (h, e, owned, items) {
@@ -256,7 +282,7 @@
         if (cb.checked) {
           if (isHandItem(item)) ensureHandsFree(h, item, advId);
           if (!equipItem(h, item)) { cb.checked = false; return; }
-        } else unequipItem(h, item);
+        } else unequipOneCopy(h, item);
         Store.save();
         document.dispatchEvent(new CustomEvent('equipment-changed'));
         renderPlayer(advId);

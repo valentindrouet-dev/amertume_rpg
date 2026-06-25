@@ -1350,10 +1350,19 @@
         statRows() +
       '</div>' +
       ((c.lootResults && c.lootResults.length)
-        ? '<div class="cs-group cs-lootg"><div class="cs-glabel">🎁 Butin récupéré</div><div class="cs-chips">' +
+        ? '<div class="cs-group cs-lootg"><div class="cs-glabel">🎁 Butin récupéré</div>' +
+            '<div class="cs-loot-strips inv-strip-layout">' +
             c.lootResults.map(function (L) {
-              return '<span class="cs-chip">' + esc(L.name) + (L.qty > 1 ? ' ×' + L.qty : '') +
-                (L.toName ? ' <em>→ ' + esc(L.toName) + '</em>' : ' <em>(groupe)</em>') + '</span>';
+              const it = Store.state.items.find(function (x) { return x.id === L.itemId; });
+              const dest = '<span class="cs-loot-dest">' + (L.qty > 1 ? '×' + L.qty + ' ' : '') +
+                (L.toName ? '→ ' + esc(L.toName) : '(groupe)') + '</span>';
+              if (!it || !window.Inventory || !Inventory.itemStripHtml) {
+                return '<div class="inv-strip-row"><span class="cs-chip">' + esc(L.name) +
+                  (L.qty > 1 ? ' ×' + L.qty : '') + '</span>' + dest + '</div>';
+              }
+              return '<div class="inv-strip-row cat-' + it.category + '">' +
+                '<div class="inv-strip">' + Inventory.itemStripHtml(it) + '</div>' + dest +
+              '</div>';
             }).join('') + '</div></div>'
         : '') +
       ((c.comaVieEvents && c.comaVieEvents.length)
