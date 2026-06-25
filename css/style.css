@@ -2100,8 +2100,8 @@ img.ab-atk-name {
 /* Emplacements de talents (une cellule de grille chacun, taille fixe) */
 .ab-talent {
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--border); border-radius: 7px; padding: 0 .4rem;
-  background: rgba(40,28,14,.12); color: #6b5a3e; font-size: 1.05rem; font-weight: 700;
+  border: 1px solid var(--border); border-radius: 7px; padding: 0 .3rem;
+  background: rgba(40,28,14,.12); color: #6b5a3e; font-size: .7rem; font-weight: 700;
   cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
 }
 .ab-talent:disabled { opacity: .6; cursor: default; }
@@ -2449,8 +2449,8 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 
 /* Attaque spéciale / talent dans le bandeau : même couleur bleue que l'attaque normale */
 .ab-atk-talname {
-  font-size: .72rem; font-weight: 700; color: #fff; line-height: 1.05;
-  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 1.08rem; font-weight: 700; color: #fff; line-height: 1.05;
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
 }
 
 /* Cible déjà sélectionnée pour une attaque à cibles multiples */

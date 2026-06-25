@@ -868,22 +868,28 @@
   // combat.js a déjà remis Store.state.sessionCombat à null ; on garde le contexte
   // de scène via la session elle-même (currentSceneId).
   window.addEventListener('adventure-combat-end', function (e) {
-    const detail = e.detail;
+    const detail = e.detail || {};
+    try {
     load();
     const ses = sessions.find(function (s) { return s.id === detail.sessionId; });
-    if (!ses) return;
+    // Session introuvable : on réaffiche tout de même la vue pour ne pas rester
+    // bloqué sur l'écran de résumé de combat.
+    if (!ses) { render(); return; }
     activeSession = ses;
     const adv = findAdventure(ses.adventureId);
-    if (!adv) return;
+    if (!adv) { render(); return; }
 
     // Récupérer la scène de combat courante pour connaître les cibles
     const found = findScene(adv, ses.currentSceneId);
     const scene = found ? found.scene : null;
 
-    // Synchroniser les PV des héros engagés depuis l'issue du combat
+    // Synchroniser les PV des héros engagés depuis l'issue du combat. On FUSIONNE
+    // (sans écraser viePenalty/dead posés par le coma pendant le combat).
     ses.heroIds.forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
-      if (h && typeof h.pv === 'number') ses.heroStates[hid] = { pv: h.pv };
+      if (h && typeof h.pv === 'number') {
+        ses.heroStates[hid] = Object.assign({}, ses.heroStates[hid], { pv: h.pv });
+      }
     });
     // XP du combat attribuée à la session (décorrélée de l'XP du mode Admin)
     if (detail.xp) ses.party.xp = (ses.party.xp || 0) + detail.xp;
@@ -909,10 +915,16 @@
       else if (detail.outcome === 'victory' || detail.outcome === 'minor') targetId = scene.outcomeSceneId;
     }
 
-    if (targetId) {
-      navigateTo(ses, adv, targetId);   // avance vers la scène de suite
+    // Avance vers la scène de suite si elle existe réellement ; sinon on réaffiche
+    // la scène courante (jamais bloqué sur le résumé de combat).
+    if (targetId && findScene(adv, targetId)) {
+      navigateTo(ses, adv, targetId);
     } else {
-      render();                          // combat quitté sans issue : on réaffiche la scène
+      render();
+    }
+    } catch (err) {
+      console.error('[session] fin de combat', err);
+      try { render(); } catch (e2) {}
     }
   });
 

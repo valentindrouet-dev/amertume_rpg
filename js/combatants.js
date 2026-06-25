@@ -566,8 +566,7 @@
     list.innerHTML = heroes.map(function (h) {
       const dh = displayHero(h);
       const gear = heroGear(h).map(function (it) { return it.name; });
-      return '<div class="roster-card hero-card' + (player ? ' clickable-sheet' : '') + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '"' +
-          (player ? ' data-sheet-hero="' + h.id + '" title="Voir la fiche complète"' : '') + '>' +
+      return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
         '<div class="roster-head hero-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
           (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
@@ -582,16 +581,17 @@
           '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
         '</div>' +
-        // En mode Joueur, l'équipement n'est pas affiché ici (doublon avec l'onglet Inventaire)
+        // En mode Joueur : ni équipement, ni attaques, ni talents (consultables dans
+        // leurs onglets dédiés). On n'affiche que les caractéristiques et compétences.
         (player ? '' :
           '<div class="roster-section">' +
             '<div class="roster-label">Équipement</div>' +
             '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div>' +
+          '</div>' +
+          '<div class="roster-section">' +
+            '<div class="roster-label">Attaques</div>' +
+            '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div>' +
           '</div>') +
-        '<div class="roster-section">' +
-          '<div class="roster-label">Attaques</div>' +
-          '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div>' +
-        '</div>' +
         skillsSummary(h.skills) +
         (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
       '</div>';
