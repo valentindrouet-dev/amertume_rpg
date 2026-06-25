@@ -268,9 +268,7 @@
   function itemStripHtml(i) {
     let right;
     if (i.category === 'weapon') {
-      const avg = avgOf(i.dice || {});
-      right = '<span class="inv-strip-val inv-strip-dice">' + poolBadges(i.dice) +
-        '<span class="inv-strip-avg">~' + avg + '</span></span>';
+      right = '<span class="inv-strip-val inv-strip-dice">' + poolBadges(i.dice) + '</span>';
     } else if (i.category === 'armor') {
       right = '<span class="inv-strip-val inv-strip-def">' + defShieldImg(i.def || 0) + '</span>';
     } else {
