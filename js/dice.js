@@ -78,17 +78,20 @@
       }
     }
 
-    // 3. Échec : au moins deux 1 sur des dés NON mortels
-    const echec = dice.filter(function (d) {
-      return d.value === 1 && !DICE_TYPES[d.color].heal && d.color !== 'black';
-    }).length >= 2;
-
-    // 4. Détection des doubles (sur la face brute du dé)
+    // 3. Détection des doubles (sur la face brute du dé, incluant les dés bonus)
     const faceCount = {};
     dice.forEach(function (d) { faceCount[d.value] = (faceCount[d.value] || 0) + 1; });
     function isDouble(d) { return faceCount[d.value] >= 2; }
 
-    // 5. Calcul de la contribution de chaque dé
+    // 4. Échec : au moins deux 1 sur des dés NON mortels.
+    // Les dés Os (bone) sur un double sont retirés du pool → ils n'entrent pas dans le
+    // décompte des échecs (un double 1 os + autre dé ne déclenche pas l'échec).
+    const echec = dice.filter(function (d) {
+      return d.value === 1 && !DICE_TYPES[d.color].heal && d.color !== 'black'
+        && !(d.color === 'bone' && isDouble(d));
+    }).length >= 2;
+
+    // 5. Calcul de la contribution de chaque dé (le double est déjà détecté ci-dessus)
     let damageTotal = 0;
     let healTotal = 0;
     dice.forEach(function (d) {

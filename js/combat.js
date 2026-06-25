@@ -428,11 +428,6 @@
 
   function resolveAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
-    // Dégâts-choc : tirer à distance avec des adversaires dans sa propre zone
-    if (atk.range === 'distance' && attacker.side === 'hero') {
-      enemyZoneMates(attacker).forEach(function (m) { dchocFrom(m, attacker, 'distance'); });
-    }
-    if (attacker.status !== 'active') return; // peut être tombé au coma sur dégâts-choc
 
     const pool = Object.assign(D.emptyPool(), atk.dice);
     const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
@@ -495,6 +490,14 @@
     applyStates(attacker, target, atk);
     checkMonsterTalents(target, res.pvLost);
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
+    // Dégâts-choc (attaque d'opportunité) : tirer à distance dans une zone ennemie.
+    // Résolus APRÈS l'attaque : la cible éliminée (pv ≤ 0) ne contre-attaque pas.
+    if (atk.range === 'distance' && attacker.side === 'hero') {
+      enemyZoneMates(attacker).forEach(function (m) {
+        if (m.iid === target.iid && target.pv <= 0) return;
+        if (attacker.status === 'active') dchocFrom(m, attacker, 'distance');
+      });
+    }
     checkComa(target);
   }
 
@@ -1343,12 +1346,21 @@
     const ca = root.querySelector('#cancel-analyze');
     if (ca) ca.addEventListener('click', function () { pendingAnalyze = null; render(); });
 
-    // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement
+    // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement.
+    // Automatisation : si un héros est sélectionné et peut bouger, clic zone = déplacement.
     root.querySelectorAll('.combat-zone').forEach(function (zEl) {
       zEl.addEventListener('click', function (e) {
-        if (!pendingMove) return;
         if (e.target.closest('button') || e.target.closest('.atk-row')) return;
-        moveCombatant(pendingMove, parseInt(zEl.getAttribute('data-zone'), 10));
+        const zi = parseInt(zEl.getAttribute('data-zone'), 10);
+        if (pendingMove) { moveCombatant(pendingMove, zi); return; }
+        if (selectedIid && !pendingAttack && !pendingAnalyze &&
+            combat().phase === 'heroes' && !combat().outcome) {
+          const hero = byId(selectedIid);
+          if (hero && hero.side === 'hero' && hero.status === 'active' &&
+              !hero.used.move && hero.zone !== zi) {
+            moveCombatant(selectedIid, zi);
+          }
+        }
       });
     });
 
@@ -1640,6 +1652,7 @@
     if (c.side === 'monster' && (c.socle === 'large' || c.socle === 'huge')) cls.push('socle-' + c.socle);
     if (dead) cls.push('is-' + c.status);
     if (selectedIid === c.iid) cls.push('selected');
+    if (!isEnemy && !dead && !c.used.action) cls.push('has-action');
     // Cible valide pendant le ciblage au clic (attaque ou analyse)
     if (pendingAttack && !dead) {
       const attacker = byId(pendingAttack.iid);
@@ -1710,10 +1723,6 @@
   // Résout les dégâts moyens garantis (sans dé, sans risque d'échec)
   function resolveAverageAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
-    if (atk.range === 'distance' && attacker.side === 'hero') {
-      enemyZoneMates(attacker).forEach(function (m) { dchocFrom(m, attacker, 'distance'); });
-    }
-    if (attacker.status !== 'active') return;
     // Dégâts moyens = moyenne des dés de l'arme seulement (sans le bonus de dégâts)
     const avgDice = Math.round(avgDicePool(atk.dice));
     const def = target.states.auSol ? 0 : target.def;
@@ -1734,6 +1743,12 @@
     log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
       ' <span class="lavg">(dégâts moyens)</span> : ' + amt(pvLost, 'dmg') + ' Dégâts infligés !', 'attack');
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
+    if (atk.range === 'distance' && attacker.side === 'hero') {
+      enemyZoneMates(attacker).forEach(function (m) {
+        if (m.iid === target.iid && target.pv <= 0) return;
+        if (attacker.status === 'active') dchocFrom(m, attacker, 'distance');
+      });
+    }
     checkComa(target);
   }
 
@@ -1802,7 +1817,33 @@
           else execHeroAttack(attacker, pendingAttack.atkIndex, c);
           return;
         }
-        // 3) Sinon : sélectionne ce combattant et annule toute action en cours
+        // 3) Automatisation : héros sélectionné + clic sur ennemi → attaque automatique
+        if (!pendingAttack && !pendingAnalyze && !pendingMove && selectedIid &&
+            c.side === 'monster' && c.status === 'active' &&
+            combat().phase === 'heroes' && !combat().outcome) {
+          const auto = byId(selectedIid);
+          if (auto && auto.side === 'hero' && auto.status === 'active') {
+            let atkIdx = -1;
+            for (let ai = 0; ai < auto.attacks.length; ai++) {
+              const a = auto.attacks[ai];
+              if (auto.attackUses[ai] === 0) continue;
+              if (!a.freeAction && auto.used.action) continue;
+              if (a.range === 'contact' && auto.zone !== c.zone && auto.used.move) continue;
+              atkIdx = ai; break;
+            }
+            if (atkIdx >= 0) {
+              const autoAtk = auto.attacks[atkIdx];
+              if (autoAtk.range === 'contact' && auto.zone !== c.zone) {
+                doMove(auto, c.zone, true);
+                if (auto.status !== 'active') { checkOutcome(); Store.save(); render(); return; }
+                movePrefix = { iid: auto.iid, zone: zname(auto.zone) };
+              }
+              execHeroAttack(auto, atkIdx, c);
+              return;
+            }
+          }
+        }
+        // 4) Sinon : sélectionne ce combattant et annule toute action en cours
         selectedIid = c.iid;
         pendingAttack = null; pendingAnalyze = null; pendingMove = null;
         render();
