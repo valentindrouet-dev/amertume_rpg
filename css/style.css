@@ -1420,7 +1420,19 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .zone-empty { text-align: center; color: var(--muted); font-style: italic; padding: .6rem 0; margin: 0; }
 /* Pendant un déplacement, les zones deviennent des cibles cliquables */
 .combat-zone.movable { cursor: pointer; outline: 2px dashed var(--action); outline-offset: -2px; }
-.combat-zone.movable:hover { background: rgba(77,142,209,.14); }
+.combat-zone.movable:hover {
+  background: rgba(77,142,209,.28);
+  outline: 3px solid var(--action);
+  transition: background .15s, outline .1s;
+}
+/* Auto-move : héros sélectionné avec mouvement disponible → survol zone */
+.combat-zone.hero-movable { cursor: pointer; }
+.combat-zone.hero-movable:hover {
+  background: rgba(140,94,42,.15);
+  outline: 2px dashed rgba(140,94,42,.6);
+  outline-offset: -2px;
+  transition: background .15s;
+}
 .do-move.selected { background: var(--action); color: #fff; border-color: var(--action); }
 
 /* Éditeurs de zones (Combat Test + éditeur de scène) */
@@ -2034,7 +2046,7 @@ img.ab-atk-name {
 }
 .combat-card.selected::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: rgba(226,151,74,.12); pointer-events: none;
+  background: rgba(0,0,0,.45); pointer-events: none; z-index: 1;
 }
 .combat-card { cursor: pointer; }
 
@@ -2326,14 +2338,14 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 .ab-talent.ab-talent-empty { opacity: .3; }
 
 /* ===================================================================
-   v2.74 — alignements DEF/Mouv., automatisation clic, journal, dés Os
+   v2.77 — alignements DEF/Mouv., sélectionné assombri, survol zones
    =================================================================== */
 
-/* DEF icon dans les vignettes de zone : remonter */
-.cc-def-icon { position: relative; top: -6px; }
+/* DEF icon dans les vignettes de zone : décalage vertical sans impacter le flux */
+.cc-def-icon { transform: translateY(-4px); }
 
-/* Mouv. légèrement remonté pour s'aligner avec Objet et Analyse */
-.ab-tool.move-chip { position: relative; top: -4px; }
+/* Mouv. légèrement remonté sans impacter la hauteur du bouton */
+.ab-tool.move-chip { transform: translateY(-3px); }
 
 /* Vignette avec action disponible : contour bleu (effacé quand sélectionnée) */
 .combat-card.has-action:not(.selected) {

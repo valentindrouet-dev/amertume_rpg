@@ -1289,7 +1289,12 @@
       '<div id="combat-actionbar" class="combat-actionbar"></div>' +
       '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
         zones().map(function (z, zi) {
-          return '<div class="combat-zone' + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
+          const selHero = selectedIid ? byId(selectedIid) : null;
+          const heroCanMove = !pendingMove && selHero && selHero.side === 'hero' &&
+            selHero.status === 'active' && !selHero.used.move && selHero.zone !== zi &&
+            combat().phase === 'heroes' && !combat().outcome;
+          const zoneClass = pendingMove ? ' movable' : (heroCanMove ? ' hero-movable' : '');
+          return '<div class="combat-zone' + zoneClass + '" data-zone="' + zi + '">' +
             '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
             '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
           '</div>';
