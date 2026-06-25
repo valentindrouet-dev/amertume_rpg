@@ -2371,12 +2371,10 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
   letter-spacing: .04em; color: #7848a0; margin-bottom: .15rem;
 }
 
-/* Attaque spéciale / talent dans le bandeau : nom affiché (pas d'icône mêlée/tir) */
-.ab-atk.ab-atk-special { background: rgba(120,72,160,.8); }
-.ab-atk.ab-atk-special.selected { background: rgba(99,58,133,.95); box-shadow: 0 0 0 2px rgba(170,120,210,.6); }
+/* Attaque spéciale / talent dans le bandeau : même couleur bleue que l'attaque normale */
 .ab-atk-talname {
   font-size: .72rem; font-weight: 700; color: #fff; line-height: 1.05;
-  display: block; max-width: 92px; overflow: hidden; text-overflow: ellipsis;
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 /* Cible déjà sélectionnée pour une attaque à cibles multiples */

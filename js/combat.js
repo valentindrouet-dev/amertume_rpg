@@ -1627,7 +1627,7 @@
   // est déjà dessiné dans le blason). Pour 0 (ou >6, rare), on retombe sur le
   // blason vide (DEF VIDE.png) avec la valeur en texte centré par-dessus.
   function defShield(val) {
-    if (val >= 1 && val <= 6) {
+    if (val >= 0 && val <= 6) {
       return '<img class="def-img" src="assets/DEF ' + val + '.png" alt="DEF ' + val + '">';
     }
     return '<span class="def-shield">' + val + '</span>';

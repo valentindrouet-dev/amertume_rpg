@@ -255,10 +255,10 @@
     '</div>';
   }
 
-  // Image bouclier DEF (assets/DEF N.png pour N 1-6)
+  // Image bouclier DEF (assets/DEF N.png pour N 0-6)
   function defShieldImg(val) {
     val = Number(val) || 0;
-    if (val >= 1 && val <= 6) {
+    if (val >= 0 && val <= 6) {
       return '<img class="def-img inv-def-img" src="assets/DEF ' + val + '.png" alt="DEF ' + val + '">';
     }
     return '<span class="def-shield">' + val + '</span>';
