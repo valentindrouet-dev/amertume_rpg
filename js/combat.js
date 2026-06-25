@@ -166,7 +166,7 @@
       });
     });
     pendingAttack = null; pendingMove = null; stateMenuFor = null;
-    setCombat({ turn: 1, phase: 'heroes', bonusXp: 0, zones: zones, combatants: combatants, log: [], outcome: null });
+    setCombat({ turn: 1, phase: 'heroes', bonusXp: 0, analyzeXp: 0, noDmgXp: 0, zones: zones, combatants: combatants, log: [], outcome: null });
   }
 
   function startCombat() {
@@ -230,6 +230,8 @@
       }
       c.healLines.push({ name: h.name, pv: h.pv, gained: roll });
     });
+    // Bonus +1 XP par aventurier n'ayant subi aucun dégât pendant le combat
+    c.noDmgXp = unscathedHeroes().length;
     c.finalize = !!finalize;
     c.lootResults = finalize ? rollLoot(c) : [];
     c.finished = true;
@@ -313,7 +315,21 @@
     return combat().combatants.filter(function (c) { return c.side === 'monster' && c.status === 'coma'; });
   }
   function totalXp() {
-    return comaMonsters().reduce(function (n, c) { return n + (c.xp || 0); }, 0) + (combat().bonusXp || 0);
+    const cb = combat();
+    return comaMonsters().reduce(function (n, c) { return n + (c.xp || 0); }, 0) +
+      (cb.bonusXp || 0) + (cb.analyzeXp || 0) + (cb.noDmgXp || 0);
+  }
+  // Liste des aventuriers n'ayant subi aucun dégât (bonus +1 XP chacun en fin de combat)
+  function unscathedHeroes() {
+    return combat().combatants.filter(function (x) { return x.side === 'hero' && (x.dmgTaken || 0) === 0; });
+  }
+  // Noms de base (sans numéro) des groupes d'adversaires analysés
+  function analyzedGroups() {
+    const set = {};
+    combat().combatants.forEach(function (x) {
+      if (x.side === 'monster' && x.analyzed) set[x.name.replace(/\s*\d+$/, '').trim()] = true;
+    });
+    return Object.keys(set);
   }
   function log(text, kind) {
     combat().log.unshift({ turn: combat().turn, text: text, kind: kind || '' });
@@ -1027,6 +1043,28 @@
     const killed = c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; });
     const fled = c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'fled'; });
     const xp = totalXp(); // XP des adversaires tués (accordée même en défaite)
+    const killXp = killed.reduce(function (n, x) { return n + (x.xp || 0); }, 0);
+    const anaGroups = analyzedGroups();
+    const anaXp = c.analyzeXp || 0;
+    const unscathed = unscathedHeroes();
+    const noDmgXp = c.noDmgXp || 0;
+    function xpBreakdown() {
+      const lines = [];
+      lines.push('<div class="cs-xpline"><span class="cs-xpic">⚔️</span>' +
+        '<span class="cs-xptxt">Adversaires vaincus</span><span class="cs-xpamt">+' + killXp + '</span></div>');
+      if (anaXp > 0) {
+        lines.push('<div class="cs-xpline"><span class="cs-xpic">🔍</span>' +
+          '<span class="cs-xptxt">Analyse' + (anaGroups.length ? ' — ' + esc(anaGroups.join(', ')) : '') +
+          '</span><span class="cs-xpamt">+' + anaXp + '</span></div>');
+      }
+      if (noDmgXp > 0) {
+        lines.push('<div class="cs-xpline"><span class="cs-xpic">💪</span>' +
+          '<span class="cs-xptxt">Sans une égratignure' +
+          (unscathed.length ? ' — ' + esc(unscathed.map(function (h) { return h.name; }).join(', ')) : '') +
+          '</span><span class="cs-xpamt">+' + noDmgXp + '</span></div>');
+      }
+      return '<div class="cs-xpbreak">' + lines.join('') + '</div>';
+    }
     // Tableau des combattants : aventuriers puis adversaires ayant agi/subi
     const parts = c.combatants.filter(function (x) { return x.side === 'hero' || x.dmgDealt > 0 || x.dmgTaken > 0; });
     parts.sort(function (a, b) { return (a.side === 'hero' ? 0 : 1) - (b.side === 'hero' ? 0 : 1) || b.dmgDealt - a.dmgDealt; });
@@ -1037,7 +1075,7 @@
       if (x.side === 'hero') {
         var hl = healMap[x.name];
         if (x.status === 'coma') return { label: 'Coma', cls: 'st-coma' };
-        if (hl) return { label: '+' + hl.gained + ' PV soignés → ' + hl.pv + ' PV', cls: 'st-healed' };
+        if (hl) return { label: 'Soin ' + hl.gained + ' PV ! (' + hl.pv + ')', cls: 'st-healed' };
         return { label: 'Actif', cls: 'st-active' };
       }
       if (x.status === 'coma')  return { label: 'Vaincu', cls: 'st-dead' };
@@ -1065,6 +1103,7 @@
         '<span class="cs-xpnum">+' + xp + ' XP</span>' +
         '<span class="cs-xplbl">Expérience Gagnée</span>' +
       '</div>' +
+      xpBreakdown() +
       '<div class="cs-statcard">' +
         '<div class="cs-stat-head"><span class="cs-name">Combattant</span>' +
           '<span class="cs-val">⚔️ Infligés</span>' +
@@ -1375,6 +1414,13 @@
     if (pendingAttack) {
       const at = byId(pendingAttack.iid);
       const ak = at && at.attacks[pendingAttack.atkIndex];
+      if (at && ak && pendingAttack.multi) {
+        const n = (pendingAttack.picked || []).length;
+        return '🎯 <b>' + esc(at.name) + '</b> — ' + esc(ak.name) +
+          ' <span class="lavg">(2 adversaires d\'une même zone)</span> : <b>clique ' +
+          (n === 0 ? 'la 1<sup>re</sup>' : 'la 2<sup>e</sup>') + ' cible</b> (' + n + '/' + pendingAttack.multi + '). ' +
+          '<button id="cancel-target" class="ghost xs">Annuler</button>';
+      }
       if (at && ak) {
         return '🎯 <b>' + esc(at.name) + '</b> — ' + esc(ak.name) +
           (pendingAttack.average ? ' <span class="lavg">(dégâts moyens)</span>' : '') +
@@ -1599,10 +1645,14 @@
     const info = [(a.range === 'distance' ? 'distance' : 'contact')];
     if (a.targets === 'all') info.push('toutes cibles');
     if (a.freeAction) info.push('gratuite');
-    return '<button class="ab-atk atk-chip' + (isThisAtk ? ' selected' : '') +
+    // Attaque spéciale (talent) : on affiche son nom ; attaque d'arme : icône mêlée/tir.
+    const nameHtml = a.special
+      ? '<span class="ab-atk-talname">' + esc(a.name) + '</span>'
+      : '<img class="ab-atk-name" src="' + (a.range === 'distance' ? 'assets/Attack_range_b.png' : 'assets/Attack_melee_b.png') + '" alt="' + (a.range === 'distance' ? 'Tir' : 'Attaque') + '">';
+    return '<button class="ab-atk atk-chip' + (a.special ? ' ab-atk-special' : '') + (isThisAtk ? ' selected' : '') +
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
         ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
-      '<img class="ab-atk-name" src="' + (a.range === 'distance' ? 'assets/Attack_range_b.png' : 'assets/Attack_melee_b.png') + '" alt="' + (a.range === 'distance' ? 'Tir' : 'Attaque') + '">' +
+      nameHtml +
       '<span class="ab-atk-figs">' + (revealed ? Inventory.poolBadges(a.dice) : '') +
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
         (revealed && uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
@@ -1648,9 +1698,17 @@
     // Cible valide pendant le ciblage au clic (attaque ou analyse)
     if (pendingAttack && !dead) {
       const attacker = byId(pendingAttack.iid);
-      if (attacker && attacker.side !== c.side) cls.push('targetable');
+      if (attacker && attacker.side !== c.side) {
+        if (pendingAttack.multi) {
+          // Cibles multiples d'une même zone : après la 1re cible, on verrouille la zone.
+          const okZone = (pendingAttack.zone == null) || c.zone === pendingAttack.zone;
+          const notPicked = (pendingAttack.picked || []).indexOf(c.iid) === -1;
+          if (okZone && notPicked) cls.push('targetable');
+          if ((pendingAttack.picked || []).indexOf(c.iid) !== -1) cls.push('multi-picked');
+        } else cls.push('targetable');
+      }
     }
-    if (pendingAnalyze && !dead && c.side === 'monster') cls.push('targetable');
+    if (pendingAnalyze && !dead && c.side === 'monster' && !c.analyzed) cls.push('targetable');
 
     const isEnemy = c.side === 'monster';
     const known = !isEnemy || c.analyzed;   // stats ennemies cachées avant Analyse
@@ -1703,6 +1761,34 @@
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
     }
     if (!atk.freeAction) attacker.used.action = true;
+  }
+
+  // Attaque à cibles multiples (talent Double Attaque) : frappe plusieurs
+  // adversaires d'une même zone avec les dégâts de l'arme.
+  function applyMultiAttack(attacker, atkIndex, zoneIdx, iids) {
+    const atk = attacker.attacks[atkIndex];
+    if (!atk) return;
+    if (!atk.freeAction && attacker.used.action) return;
+    // Attaque de contact : l'aventurier rejoint la zone ciblée (s'il le peut)
+    if (atk.range === 'contact' && attacker.zone !== zoneIdx) {
+      if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cette zone.'); return; }
+      doMove(attacker, zoneIdx, true);
+      if (attacker.status !== 'active') return;
+      movePrefix = { iid: attacker.iid, zone: zname(zoneIdx) };
+    }
+    iids.forEach(function (iid) {
+      const t = byId(iid);
+      if (t && t.status === 'active') resolveAttack(attacker, t, atk);
+    });
+    if (attacker.attackUses[atkIndex] !== null && attacker.attackUses[atkIndex] !== undefined) {
+      attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
+    }
+    if (!atk.freeAction) attacker.used.action = true;
+  }
+  function execHeroMultiAttack(attacker, atkIndex, zoneIdx, iids) {
+    applyMultiAttack(attacker, atkIndex, zoneIdx, iids);
+    pendingAttack = null;
+    checkOutcome(); Store.save(); render();
   }
 
   // Version UI : applique puis rafraîchit
@@ -1784,6 +1870,7 @@
           // Révèle tous les adversaires du même nom de base (ex : "Répurgateur")
           const baseName = c.name.replace(/\s*\d+$/, '').trim();
           const combat_ = combat();
+          const firstTime = !c.analyzed;
           let revealed_ = 0;
           combat_.combatants.forEach(function (m) {
             if (m.side === 'monster' && m.name.replace(/\s*\d+$/, '').trim() === baseName) {
@@ -1791,8 +1878,25 @@
             }
           });
           hero.used.move = true;
-          log(cname(hero) + ' analyse ' + esc(baseName) + (revealed_ > 1 ? ' (' + revealed_ + ' adversaires révélés)' : '') + ' : DEF, Dégâts et XP révélés.', 'move');
+          // Chaque groupe nommé n'est analysable qu'une fois : +2 XP au groupe.
+          if (firstTime) combat_.analyzeXp = (combat_.analyzeXp || 0) + 2;
+          log(cname(hero) + ' analyse ' + esc(baseName) + (revealed_ > 1 ? ' (' + revealed_ + ' adversaires révélés)' : '') +
+            ' : DEF, Dégâts et XP révélés' + (firstTime ? ' <span class="atk-dmg">+2 XP</span>' : '') + '.', 'move');
           Store.save(); render(); return;
+        }
+        // 2) Ciblage d'une attaque à cibles multiples (talent Double Attaque)
+        if (targetable && pendingAttack && pendingAttack.multi) {
+          const attacker = byId(pendingAttack.iid);
+          if (!attacker) return;
+          if (pendingAttack.zone == null) pendingAttack.zone = c.zone;
+          if (pendingAttack.picked.indexOf(c.iid) === -1) pendingAttack.picked.push(c.iid);
+          const remaining = activeOf('monster').filter(function (m) {
+            return m.zone === pendingAttack.zone && pendingAttack.picked.indexOf(m.iid) === -1;
+          });
+          if (pendingAttack.picked.length >= pendingAttack.multi || remaining.length === 0) {
+            execHeroMultiAttack(attacker, pendingAttack.atkIndex, pendingAttack.zone, pendingAttack.picked.slice());
+          } else { Store.save(); render(); }
+          return;
         }
         // 2) Ciblage d'une attaque
         if (targetable && pendingAttack) {
@@ -1840,7 +1944,10 @@
           if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average) {
             pendingAttack = null; render(); return; // re-clic = annuler
           }
-          if (atk.targets === 'all') { execHeroAttack(c, i, null); }
+          if (atk.multiTarget) {
+            pendingAttack = { iid: c.iid, atkIndex: i, average: false, multi: atk.multiTarget, picked: [], zone: null };
+            pendingAnalyze = null; pendingMove = null; stateMenuFor = null; render();
+          } else if (atk.targets === 'all') { execHeroAttack(c, i, null); }
           else { pendingAttack = { iid: c.iid, atkIndex: i, average: false }; pendingAnalyze = null; stateMenuFor = null; render(); }
         });
       });

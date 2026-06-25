@@ -1177,6 +1177,17 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 .talent-edit-top .tl-level { width: 52px; }
 .talent-edit-top .tl-usage { width: auto; }
 
+/* Onglet Talents : groupe générique en tête + cartes (style armurerie) */
+.class-card.klass-generique { border-left-color: #a878d2; }
+.talent-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; border-left: 3px solid var(--border); }
+.class-card.klass-generique .talent-card { border-left-color: #a878d2; }
+.talent-card-top { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: .35rem; }
+.talent-card-top .tl-name { flex: 1; min-width: 140px; }
+.talent-card-top .tl-lvl { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; }
+.talent-card-top .tl-level { width: 52px; }
+.talent-card-top .tl-usage { width: auto; }
+.talent-effect-tag { font-size: .72rem; color: #b58fe0; font-weight: 700; margin-bottom: .3rem; }
+
 /* ---- Blocs de texte : conteneurs colorés par type ---- */
 .scene-block { line-height: 1.7; font-size: .97rem; border-radius: 0 8px 8px 0; padding: .55rem .8rem; border-left: 3px solid var(--border); }
 .scene-block-narrative { font-style: italic; background: rgba(141,134,118,.1); border-left-color: #9b968a; color: var(--text); }
@@ -1595,6 +1606,16 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .cs-xpbig { text-align: center; margin: .4rem 0 .9rem; }
 .cs-xpnum { display: block; font-size: 2rem; font-weight: 800; color: var(--accent-2); }
 .cs-xplbl { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+/* Détail du calcul d'XP (adversaires / analyse / sans dégât) */
+.cs-xpbreak { max-width: 460px; margin: -.4rem auto .9rem; display: flex; flex-direction: column; gap: .25rem; }
+.cs-xpline {
+  display: flex; align-items: center; gap: .5rem;
+  background: rgba(226,151,74,.08); border: 1px solid rgba(226,151,74,.25);
+  border-radius: 8px; padding: .3rem .6rem; font-size: .85rem;
+}
+.cs-xpic { flex: 0 0 auto; }
+.cs-xptxt { flex: 1; min-width: 0; color: var(--muted); }
+.cs-xpamt { flex: 0 0 auto; font-weight: 800; color: var(--accent-2); }
 .cs-statcard { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: .8rem; }
 .cs-stat-head, .cs-stat-row { display: grid; grid-template-columns: 1fr 80px 80px 120px; align-items: center; padding: .45rem .6rem; }
 .cs-stat-head { background: rgba(0,0,0,.06); font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 700; }
@@ -1663,6 +1684,9 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .combat-summary.cs-end     .cs-banner { background: #8a7a66; }
 .cs-xpnum { color: #a8631f; }
 .cs-xplbl { color: #7a6a55; }
+.cs-xpline { background: rgba(168,99,31,.08); border-color: rgba(168,99,31,.25); }
+.cs-xptxt { color: #6b5640; }
+.cs-xpamt { color: #a8631f; }
 .cs-statcard { border-color: #cdb98f; background: #f4ecda; }
 .cs-stat-head { background: rgba(141,110,70,.18); color: #6b5640; }
 .cs-stat-row { border-top-color: #dccbab; }
@@ -2035,7 +2059,7 @@ img.ab-atk-name {
   box-shadow: 0 0 0 3px rgba(226,151,74,.55), 0 0 16px 3px rgba(226,151,74,.6);
   border-color: var(--accent-2) !important;
   position: relative; z-index: 2;
-  filter: saturate(1.5);
+  filter: saturate(2);
 }
 .combat-card.selected::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
@@ -2334,11 +2358,32 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
    v2.77 — alignements DEF/Mouv., sélectionné assombri, survol zones
    =================================================================== */
 
-/* DEF icon dans les vignettes de zone : décalage vertical sans impacter le flux */
-.cc-def-icon { transform: translateY(-4px); }
+/* DEF icon dans les vignettes de zone : centrage fin sur la barre de PV */
+.cc-def-icon { transform: translateY(-1px); }
 
-/* Mouv. légèrement remonté sans impacter la hauteur du bouton */
-.ab-tool.move-chip { transform: translateY(-3px); }
+/* Mouv. : aligné avec Objet / Analyse (plus de décalage vertical) */
+.ab-tool.move-chip { transform: none; }
+
+/* Badge de talent générique dans la feuille de perso */
+.atk-badge.atk-badge-talent { border-color: rgba(120,72,160,.55); background: rgba(120,72,160,.1); }
+.atk-badge-tag {
+  display: inline-block; font-size: .62rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .04em; color: #7848a0; margin-bottom: .15rem;
+}
+
+/* Attaque spéciale / talent dans le bandeau : nom affiché (pas d'icône mêlée/tir) */
+.ab-atk.ab-atk-special { background: rgba(120,72,160,.8); }
+.ab-atk.ab-atk-special.selected { background: rgba(99,58,133,.95); box-shadow: 0 0 0 2px rgba(170,120,210,.6); }
+.ab-atk-talname {
+  font-size: .72rem; font-weight: 700; color: #fff; line-height: 1.05;
+  display: block; max-width: 92px; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Cible déjà sélectionnée pour une attaque à cibles multiples */
+.combat-card.multi-picked {
+  outline: 3px solid #a878d2; outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(168,120,210,.5);
+}
 
 /* Vignette avec action disponible : contour bleu (effacé quand sélectionnée) */
 .combat-card.has-action:not(.selected) {

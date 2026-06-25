@@ -315,6 +315,35 @@
     try { global.localStorage.setItem(CLS_KEY, JSON.stringify(classes)); } catch (e) {}
   }
 
+  // ---------- Talents génériques d'aventuriers ----------
+  // Talents accessibles à TOUS les aventuriers dès qu'ils atteignent le niveau
+  // requis (XP de groupe). Le champ `effect` rattache le talent au moteur de
+  // combat (ex. 'double_attaque' = frappe 2 cibles d'une même zone).
+  const GENTALENT_KEY = 'amertume_gentalents_v1';
+  const DEFAULT_GENTALENTS = [
+    { id: 'gt_double_attaque', name: 'Double Attaque', level: 2, usage: 'combat',
+      effect: 'double_attaque',
+      description: 'Vous infligez les dégâts de votre arme à 2 adversaires dans la même zone.' },
+  ];
+  function loadGenericTalents() {
+    let arr = null;
+    try {
+      const raw = global.localStorage.getItem(GENTALENT_KEY);
+      arr = raw ? JSON.parse(raw) : null;
+    } catch (e) { arr = null; }
+    if (!Array.isArray(arr)) return JSON.parse(JSON.stringify(DEFAULT_GENTALENTS));
+    // Complète avec les talents intégrés manquants (ex. Double Attaque)
+    DEFAULT_GENTALENTS.forEach(function (d) {
+      if (!arr.some(function (t) { return t.id === d.id || (d.effect && t.effect === d.effect); })) {
+        arr.push(JSON.parse(JSON.stringify(d)));
+      }
+    });
+    return arr;
+  }
+  function saveGenericTalents(arr) {
+    try { global.localStorage.setItem(GENTALENT_KEY, JSON.stringify(arr)); } catch (e) {}
+  }
+
   // ---------- Talents adverses (catalogue MJ/Admin) ----------
   // Chaque talent du catalogue se rattache à un déclencheur du moteur de combat
   // (trigger). Le champ X est variable, ajustable par monstre dans son éditeur.
@@ -393,6 +422,8 @@
     saveSessions: saveSessions,
     loadClasses: loadClasses,
     saveClasses: saveClasses,
+    loadGenericTalents: loadGenericTalents,
+    saveGenericTalents: saveGenericTalents,
     loadMonsterTalents: loadMonsterTalents,
     saveMonsterTalents: saveMonsterTalents,
     loadTutorials: loadTutorials,

@@ -100,10 +100,12 @@
     if (!attacks || !attacks.length) return '<span class="hint">—</span>';
     return attacks.map(function (a) {
       const meta = [RANGE_LABEL[a.range] || a.range];
+      if (a.multiTarget) meta.push(a.multiTarget + ' cibles / zone');
       if (a.targets === 'all') meta.push('toutes cibles');
       if (a.uses > 0) meta.push(a.uses + '×/tour');
       if (a.freeAction) meta.push('gratuite');
-      return '<div class="atk-badge">' +
+      return '<div class="atk-badge' + (a.generic ? ' atk-badge-talent' : '') + '">' +
+        (a.generic ? '<span class="atk-badge-tag">★ Talent</span>' : '') +
         '<div class="atk-badge-line">' +
           '<span class="atk-badge-name">' + esc(cleanAttackName(a.name)) + '</span>' +
           Inventory.poolBadges(a.dice) +
@@ -273,15 +275,41 @@
     return (m.def || 0) + armorDef;
   }
 
-  // Attaques utilisées en combat : armes + spéciales (+ secours mains nues)
+  // Niveau du groupe (XP partagée) — détermine les talents génériques débloqués
+  function heroGroupLevel() {
+    return Store.levelInfo((Store.state.party && Store.state.party.xp) || 0).level;
+  }
+
+  // Talents génériques actifs en combat selon le niveau du groupe.
+  // Chaque talent est traduit en attaque spéciale jouable (ex. Double Attaque).
+  function genericTalentAttacks(weaponAtks) {
+    const lvl = heroGroupLevel();
+    const base = weaponAtks[0] || null; // arme de référence pour les dégâts
+    return Store.loadGenericTalents().filter(function (t) {
+      return (t.level || 1) <= lvl && (t.usage === 'combat' || t.usage === 'both') && t.effect;
+    }).map(function (t) {
+      if (t.effect === 'double_attaque') {
+        return {
+          name: t.name, special: true, generic: true, genericEffect: 'double_attaque',
+          multiTarget: 2, sameZone: true, useOwnDamage: true, targets: 'one',
+          dice: base ? Object.assign(D.emptyPool(), base.dice) : Object.assign(D.emptyPool(), { white: 1 }),
+          range: base ? base.range : 'contact', effects: Store.noStates(),
+        };
+      }
+      return null;
+    }).filter(Boolean);
+  }
+
+  // Attaques utilisées en combat : armes + spéciales (+ secours mains nues) + talents génériques
   function heroCombatAttacks(h) {
+    const weapon = heroDerivedAttacks(h.equipment);
     const special = JSON.parse(JSON.stringify(h.attacks || [])).map(function (a) { a.special = true; return a; });
-    let atks = heroDerivedAttacks(h.equipment).concat(special);
+    let atks = weapon.concat(special);
     if (!atks.length) {
       atks = [{ name: 'Mains nues', dice: Object.assign(D.emptyPool(), { white: 1 }),
         range: 'contact', targets: 'one', useOwnDamage: true, effects: Store.noStates() }];
     }
-    return atks;
+    return atks.concat(genericTalentAttacks(weapon.length ? weapon : atks));
   }
 
   // ---- Progression du groupe (XP / niveaux) ----
