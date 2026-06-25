@@ -297,7 +297,12 @@
   // Quitte réellement le combat (après l'écran de résumé) et reprend l'aventure
   function finishCombat() {
     const c = combat();
-    if (!c) return;
+    if (!c) {
+      // Résumé devenu obsolète (combat déjà purgé) : on s'assure tout de même de
+      // quitter l'écran de résumé en réaffichant la vue Aventure.
+      if (window.Session && Session.renderPlay) { try { Session.renderPlay(); } catch (e) {} }
+      return;
+    }
     const isSession = combatKey === 'combat';
     const sessionCtx = isSession ? (Store.state.sessionCombat || null) : null;
     const outcomeLabel = c.outcome || null;
@@ -321,9 +326,16 @@
         detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained,
           loot: loot.map(function (L) { return { itemId: L.itemId, qty: L.qty, toHeroId: L.toHeroId }; }) }
       }));
-    } else {
+    } else if (!isSession) {
       rootSel = '#combat-root';
       render();
+    }
+    // Filet de sécurité : le combat est terminé (combat() == null), donc réafficher
+    // la vue Aventure ne peut PLUS relancer le combat — cela garantit la sortie de
+    // l'écran de résumé même si le gestionnaire d'événement n'a pas pu re-rendre
+    // (renderScene gère lui-même une éventuelle montée de niveau en attente).
+    if (isSession && window.Session && Session.renderPlay) {
+      try { Session.renderPlay(); } catch (e) { console.error('[combat] reprise session', e); }
     }
     // Rafraîchissements secondaires, isolés (ne doivent pas bloquer la reprise)
     try {
@@ -1354,7 +1366,10 @@
         : '') +
       '<button class="primary big cs-continue-btn" id="cs-continue">Continuer l\'aventure →</button>' +
     '</div>';
-    $('#cs-continue').addEventListener('click', finishCombat);
+    // On rattache l'écouteur au bouton DANS le conteneur courant (évite de viser un
+    // éventuel bouton homonyme resté dans un autre panneau de combat masqué).
+    const contBtn = (root && root.querySelector('#cs-continue')) || $('#cs-continue');
+    if (contBtn) contBtn.addEventListener('click', finishCombat);
   }
 
   function renderSetup(root) {
