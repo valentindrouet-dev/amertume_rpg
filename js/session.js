@@ -1220,8 +1220,8 @@
       const body = list.length
         ? list.map(function (e) {
             const checked = equipped.indexOf(e.id) >= 0;
-            return '<label class="inv-strip-row tal-row tal-kind-' + (e.kind || 'none') + (checked ? ' tal-equipped' : '') + '">' +
-              '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + '>' +
+            return '<div class="inv-strip-row tal-row tal-kind-' + (e.kind || 'none') + (checked ? ' tal-equipped' : '') + '">' +
+              '<input type="checkbox" class="inv-equip-cb tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + '>' +
               '<div class="inv-strip tal-strip" title="' + esc(e.t.description || '') + '">' +
                 '<span class="inv-strip-name">' + esc(e.t.name || '(sans nom)') + '</span>' +
                 '<span class="inv-strip-val">' +
@@ -1229,7 +1229,7 @@
                   '<span class="tal-lvl">Niv. ' + (e.t.level || 1) + '</span>' +
                 '</span>' +
               '</div>' +
-            '</label>';
+            '</div>';
           }).join('')
         : '<p class="inv-col-empty">Aucun talent débloqué. Montez de niveau pour en gagner.</p>';
       return '<div class="tal-hero-block">' +
