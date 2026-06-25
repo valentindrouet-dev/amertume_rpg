@@ -557,15 +557,18 @@
   // un héros avec chosenTalents: [] pour que les talents non débloqués restent masqués.
   function displayHero(h) {
     if (!isPlayerMode()) return h;
-    if (global.Session && Session.effectiveHero) return Session.effectiveHero(h);
-    return Object.assign({}, h, { chosenTalents: [] });
+    let dh = (global.Session && Session.effectiveHero) ? Session.effectiveHero(h) : h;
+    // En mode Joueur, un aventurier ne possède QUE les talents explicitement choisis.
+    // Sans choix (ou hors session), on force la liste vide pour ne pas retomber sur
+    // le fallback « niveau de groupe » (qui afficherait des talents non débloqués).
+    if (!Array.isArray(dh.chosenTalents)) dh = Object.assign({}, dh, { chosenTalents: [] });
+    return dh;
   }
   function heroSheetHtml(h) {
     const dh = displayHero(h);
     const e = normalizeEquip(h.equipment);
     const gear = [e.mainG, e.mainD, e.armorId, e.objectId].map(itemById).filter(Boolean).map(function (it) { return it.name; });
-    return (h.klass ? '<div class="sheet-class class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</div>' : '') +
-      '<div class="hero-stat-row">' +
+    return '<div class="hero-stat-row">' +
         '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(dh) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
@@ -573,10 +576,22 @@
       '<div class="roster-section"><div class="roster-label">Équipement</div>' +
         '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div></div>' +
       '<div class="roster-section"><div class="roster-label">Attaques</div>' +
-        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div></div>' +
+        '<div class="atk-badges">' + sheetWeaponAttacks(heroCombatAttacks(dh)) + '</div></div>' +
       talentSection(dh) +
       skillsSummary(h.skills) +
       (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '');
+  }
+  // Attaques d'arme sur la feuille de perso : nom + dés de dégâts alignés à droite,
+  // sans le type (contact/distance) ni les bonus. Les talents sont listés à part.
+  function sheetWeaponAttacks(attacks) {
+    const weap = (attacks || []).filter(function (a) { return !a.generic; });
+    if (!weap.length) return '<span class="hint">—</span>';
+    return weap.map(function (a) {
+      return '<div class="atk-badge atk-badge-weapon">' +
+        '<span class="atk-badge-name">' + esc(cleanAttackName(a.name)) + '</span>' +
+        '<span class="atk-badge-dice">' + Inventory.poolBadges(a.dice) + '</span>' +
+      '</div>';
+    }).join('');
   }
   // Section « Talents » de la fiche : badges colorés par type (Action/Réaction/Passif/Amélioration)
   const KIND_BADGE = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.' };
@@ -594,6 +609,13 @@
     const h = Store.state.heroes.find(function (x) { return x.id === id; });
     if (!h) return;
     $('#hero-sheet-title').textContent = h.name;
+    // Classe affichée dans l'en-tête, alignée à droite (à côté de la croix)
+    const clsEl = $('#hero-sheet-class');
+    if (clsEl) {
+      clsEl.hidden = !h.klass;
+      clsEl.textContent = h.klass || '';
+      clsEl.className = 'sheet-class-head class-badge' + (h.klass ? ' klass-' + classSlug(h.klass) : '');
+    }
     // Carte aux couleurs de la classe, comme dans l'onglet Aventuriers
     $('#hero-sheet-body').innerHTML =
       '<div class="roster-card hero-card hero-sheet-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +

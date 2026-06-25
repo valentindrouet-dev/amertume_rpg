@@ -1298,6 +1298,13 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 
 /* Fiche d'aventurier (lecture seule) */
 .sheet-class { display: inline-block; margin-bottom: .6rem; }
+/* Classe dans l'en-tête de la fiche : poussée à droite, à côté de la croix */
+#hero-sheet-modal .modal-head #hero-sheet-title { flex: 1; }
+.sheet-class-head { margin-right: .6rem; }
+.sheet-class-head[hidden] { display: none; }
+/* Attaque d'arme sur la fiche : nom à gauche, dés alignés à droite */
+.atk-badge-weapon { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.atk-badge-weapon .atk-badge-dice { display: inline-flex; gap: .2rem; margin-left: auto; }
 
 /* Bannière de ciblage : espace réservé en permanence (pas de saut d'UI) */
 .targeting-banner {
