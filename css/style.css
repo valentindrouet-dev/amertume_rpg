@@ -2157,3 +2157,33 @@ img.ab-atk-name {
 .cc-def, .combat-card.side-monster .cc-def { color: inherit; }
 /* Images DEF 1..6 : le chiffre est déjà dessiné dans le blason. */
 .def-img { width: 1.55em; height: 1.75em; object-fit: contain; vertical-align: -.55em; display: inline-block; }
+
+/* ===================================================================
+   v2.66 — Bandeau de combat : +25 % de hauteur (tout proportionnel) ;
+            suppression du carré blanc derrière l'icône de DEF
+   =================================================================== */
+
+/* Le blason de DEF se suffit à lui-même : on retire la pastille blanche
+   (fond + bordure) qui l'entourait dans le bandeau. */
+.def-badge, .combat-card.side-monster .def-badge {
+  background: transparent; border: none; padding: 0;
+}
+
+/* Hauteur du bandeau et de ses boutons +25 %, contenu agrandi d'autant. */
+.ab-acts { grid-template-rows: 40px 40px; }
+.ab-acts > * { height: 40px; }
+.ab-avatar { width: 50px; height: 50px; font-size: 1.44rem; }
+.ab-id { flex: 0 0 238px; }
+.ab-name .roster-name { font-size: 1.19rem; }
+.ab-pvline .pv-bar { height: 27px; }
+.ab-card .pv-text { font-size: .98rem; line-height: 27px; }
+.ab-pvline .def-badge { font-size: .88rem; }
+.ab-atk-name { font-size: .9rem; }
+img.ab-atk-name { width: 2.1em; height: 2.1em; }
+.ab-atk .atk-dmg, .ab-atk .atk-uses { font-size: .75rem; }
+.ab-atk .die-sq { width: 27px !important; height: 27px !important; border-radius: 6px; }
+.ab-atk .die-sq::after { width: 9px !important; height: 9px !important; }
+.ab-tool { font-size: .83rem; }
+/* Le blason de DEF du bandeau (.def-img / .def-shield, dimensionnés en em) suit
+   automatiquement le font-size +25 % de .ab-pvline .def-badge ci-dessus ;
+   inutile de retoucher leur taille (qui agrandirait aussi les vignettes). */
