@@ -1127,6 +1127,23 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 .hero-stat .hs-label { font-size: .64rem; text-transform: uppercase; letter-spacing: .06em; color: #7c6646; font-weight: 700; }
 .hero-stat .hs-val { font-size: 1.15rem; font-weight: 800; color: #2a1d10; font-variant-numeric: tabular-nums; }
 
+/* Couleurs par type de stat sur la fiche d'aventurier */
+.hero-stat:nth-child(1) { background: #f3e8ff; border-color: #c48fe0; } /* Vie : violet/rose */
+.hero-stat:nth-child(1) .hs-label { color: #7c3fa0; }
+.hero-stat:nth-child(1) .hs-val   { color: #5a1d85; }
+.hero-stat:nth-child(2) { background: #d6f5ec; border-color: #5bbfa0; } /* Endurance : teal */
+.hero-stat:nth-child(2) .hs-label { color: #2a7a60; }
+.hero-stat:nth-child(2) .hs-val   { color: #1a5a45; }
+.hero-stat:nth-child(3) { background: #d4edda; border-color: #5aab6a; } /* PV : vert */
+.hero-stat:nth-child(3) .hs-label { color: #2a7a3a; }
+.hero-stat:nth-child(3) .hs-val   { color: #1a5a2a; }
+.hero-stat:nth-child(4) { background: #e8e8f0; border-color: #9090b0; } /* Défense : gris */
+.hero-stat:nth-child(4) .hs-label { color: #505070; }
+.hero-stat:nth-child(4) .hs-val   { color: #30304a; }
+.hero-stat:nth-child(5) { background: #fde8e8; border-color: #e07070; } /* Dégâts : rouge */
+.hero-stat:nth-child(5) .hs-label { color: #a03030; }
+.hero-stat:nth-child(5) .hs-val   { color: #7a1010; }
+
 /* ---- Compétences (fiche) ---- */
 .skill-badges { display: flex; flex-wrap: wrap; gap: .35rem; }
 .skill-badge {
@@ -2812,6 +2829,24 @@ body.mode-player #item-list.roster-list { display: block; }
 .hw-combo:hover { border-color: var(--accent-2); }
 .hw-combo.selected { outline: 2px solid var(--action); background: var(--panel); }
 .hw-combo-warn { font-size: .68rem; color: var(--bad, #e07070); font-weight: 500; }
+.hw-combo-dice { font-size: .72rem; color: var(--muted); font-weight: 500; }
+.hw-combo.selected .hw-combo-dice { color: #c8d8c0; }
+
+/* ----- Descriptions de stats dans le wizard ----- */
+.hw-stat-desc { font-size: .71rem; color: var(--muted); margin: -.2rem 0 .5rem .5rem; line-height: 1.35; }
+
+/* ----- Sections de talents dans le wizard ----- */
+.hw-tal-section-title { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin: .6rem 0 .25rem; }
+.lvl-tal-auto { opacity: .9; }
+.lvl-tal-auto-badge { font-size: .62rem; background: rgba(212,175,90,.25); border: 1px solid rgba(212,175,90,.5); color: #d4a830; border-radius: 4px; padding: .05rem .35rem; font-weight: 700; }
+
+/* ----- Level-up stat button hint ----- */
+.lvl-stat-btn2 .lsb-hint { font-size: .58rem; color: var(--muted); margin-top: .1rem; display: block; }
+.lvl-stat-btn2.selected .lsb-hint { color: #c8b878; }
+
+/* ----- Group setup delete buttons ----- */
+.hero-pick-card-wrap { position: relative; display: inline-block; width: 100%; }
+.grp-del-btn { position: absolute; top: .4rem; right: .4rem; font-size: .65rem; padding: .15rem .4rem; z-index: 2; }
 
 /* ----- Assistant de création : compétences (steppers) ----- */
 .hw-skill-list2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .4rem; margin-top: .4rem; }

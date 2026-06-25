@@ -786,9 +786,9 @@
       });
     } else if (stepName === 'Caractéristiques') {
       const classPvBonus = CLASS_PV[wiz.klass] || 0;
-      const vie = 4 + wiz.statBonuses.vie;
-      const endu = 3 + wiz.statBonuses.endu;
-      const dmg = 2 + wiz.statBonuses.damage;
+      const vie = 3 + wiz.statBonuses.vie;
+      const endu = 0 + wiz.statBonuses.endu;
+      const dmg = 0 + wiz.statBonuses.damage;
       const pv = Math.max(1, vie * endu + classPvBonus);
       const rem = 3 - wiz.statClicks;
       // Une ligne par caractéristique avec boutons − / + (modifiables jusqu'à validation)
@@ -809,8 +809,11 @@
         '<b>' + rem + '</b> point' + (rem > 1 ? 's' : '') + ' restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-stat-list2">' +
           statRow('damage', '⚔ DÉGÂTS <small>(+1 / point)</small>', 1, dmg, wiz.statBonuses.damage) +
+          '<p class="hw-stat-desc">Augmente les dégâts infligés par toutes vos attaques de +X (utiliser la valeur).</p>' +
           statRow('endu', '🏃 ENDURANCE <small>(+2 / point)</small>', 2, endu, wiz.statBonuses.endu) +
+          '<p class="hw-stat-desc">Augmente vos PV, votre résistance et vos soins.</p>' +
           statRow('vie', '❤ VIE <small>(+1 / point)</small>', 1, vie, wiz.statBonuses.vie) +
+          '<p class="hw-stat-desc">Augmente vos PV et votre survie. À chaque coma, vous perdez 1 VIE. Si votre VIE tombe à 0, votre aventurier meurt.</p>' +
         '</div>' +
         '<div class="hw-pv-formula">' +
           '<span class="hw-pv-term hw-pv-endu">ENDU ' + endu + '</span>' +
@@ -842,12 +845,18 @@
       });
     } else if (stepName === 'Équipement') {
       // Trois combinaisons d'armes de départ imposées (plus de catalogue libre).
+      const COMBO_DICE_HINT = {
+        dual:   '4 dés (2 épées × 2 dés)',
+        shield: 'Épée : 2 dés · Bouclier : DEF 1',
+        bow:    '3 dés (arc)',
+      };
       body.innerHTML = '<p class="hint">Choisis ta <b>combinaison d\'armes</b> de départ.</p>' +
         '<div class="hw-combo-list">' + START_COMBOS.map(function (c) {
           const sel = wiz.equipCombo === c.id;
           const missing = c.names.some(function (n) { return !findItemByName(n); });
           return '<button type="button" class="hw-combo' + (sel ? ' selected' : '') + '" data-combo="' + c.id + '">' +
             '<span class="hw-combo-label">' + esc(c.label) + '</span>' +
+            '<span class="hw-combo-dice">' + esc(COMBO_DICE_HINT[c.id] || '') + '</span>' +
             (missing ? '<span class="hw-combo-warn">objet introuvable dans l\'armurerie</span>' : '') +
           '</button>';
         }).join('') + '</div>';
@@ -859,31 +868,52 @@
         };
       });
     } else if (stepName === 'Talents') {
-      const tals = level1Talents(wiz.klass);
-      body.innerHTML = '<p class="hint">Choisis jusqu\'à <b>2 talents</b> de niveau 1. ' + wiz.talents.length + '/2</p>' +
-        (tals.length
-          ? '<div class="hw-tal-list">' + tals.map(function (t) {
-              const kind = wizTalentKind(t);
-              const sel = wiz.talents.indexOf(t.id) >= 0;
-              return '<div class="lvl-tal-wrap">' +
-                '<div class="lvl-choice-btn lvl-tal-btn' + (kind ? ' lvl-tal-' + kind : '') + (sel ? ' selected' : '') + '" data-tal="' + esc(t.id) + '">' +
-                  '<input type="checkbox" class="lvl-tal-cb"' + (sel ? ' checked' : '') + ' aria-label="Sélectionner ' + esc(t.name) + '">' +
-                  '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
-                  '<span class="lvl-tal-lvl">' + esc(kind ? (KIND_BADGE[kind] || 'Talent') : 'Talent') + ' · Niv. ' + (t.level || 1) + '</span>' +
-                '</div>' +
-                (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(t.description) + '</div>' : '') +
-              '</div>';
-            }).join('') + '</div>'
-          : '<p class="empty">Aucun talent de niveau 1 disponible pour cette classe.</p>');
+      // Maîtrise de niveau 1 auto-ajoutée (ne peut pas être décochée)
+      const allTals = level1Talents(wiz.klass);
+      const masteryTal = allTals.find(function (t) { return wizTalentKind(t) === 'mastery'; });
+      if (masteryTal && wiz.talents.indexOf(masteryTal.id) < 0) wiz.talents.push(masteryTal.id);
+      // Trier : génériques d'abord, puis talents de classe (hors maîtrise auto)
+      const gens = Store.loadGenericTalents().filter(function (t) { return (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); });
+      const klass = Store.loadClasses().find(function (x) { return x.name === wiz.klass; });
+      const clsTals = klass && Array.isArray(klass.talents)
+        ? klass.talents.filter(function (t) { return t.id && (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); })
+        : [];
+      // Talents sélectionnés (hors maîtrise auto)
+      const selCount = wiz.talents.filter(function (id) { return !masteryTal || id !== masteryTal.id; }).length;
+      function talRow(t, isAuto) {
+        const kind = wizTalentKind(t);
+        const sel = wiz.talents.indexOf(t.id) >= 0;
+        return '<div class="lvl-tal-wrap">' +
+          '<div class="lvl-choice-btn lvl-tal-btn' + (kind ? ' lvl-tal-' + kind : '') + (sel ? ' selected' : '') + (isAuto ? ' lvl-tal-auto' : '') + '" data-tal="' + esc(t.id) + '" data-auto="' + (isAuto ? '1' : '0') + '">' +
+            (isAuto
+              ? '<span class="lvl-tal-auto-badge">Automatique</span>'
+              : '<input type="checkbox" class="lvl-tal-cb"' + (sel ? ' checked' : '') + ' aria-label="Sélectionner ' + esc(t.name) + '">') +
+            '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
+          '</div>' +
+          (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(t.description) + '</div>' : '') +
+        '</div>';
+      }
+      const choiceRemaining = 1 - selCount;
+      body.innerHTML = '<p class="hint">Le Talent de Maîtrise est automatiquement ajouté. Choisis <b>1 talent</b> supplémentaire. ' +
+        '<b>' + Math.max(0, choiceRemaining) + '</b> restant.</p>' +
+        (masteryTal ? '<div class="hw-tal-section-title">Talent de Maîtrise</div><div class="hw-tal-list">' + talRow(masteryTal, true) + '</div>' : '') +
+        (gens.length ? '<div class="hw-tal-section-title">Talents Génériques</div><div class="hw-tal-list">' + gens.map(function (t) { return talRow(t, false); }).join('') + '</div>' : '') +
+        (clsTals.length ? '<div class="hw-tal-section-title">Talents de Classe</div><div class="hw-tal-list">' + clsTals.map(function (t) { return talRow(t, false); }).join('') + '</div>' : '') +
+        (!gens.length && !clsTals.length && !masteryTal ? '<p class="empty">Aucun talent de niveau 1 disponible pour cette classe.</p>' : '');
       body.querySelectorAll('.lvl-tal-wrap').forEach(function (wrap) {
         const btn = wrap.querySelector('.lvl-tal-btn');
         const desc = wrap.querySelector('.lvl-tal-desc');
         btn.addEventListener('click', function (e) {
+          if (btn.getAttribute('data-auto') === '1') { if (desc) desc.hidden = !desc.hidden; return; }
           const id = btn.getAttribute('data-tal');
           if (e.target.classList.contains('lvl-tal-cb')) {
             const idx = wiz.talents.indexOf(id);
             if (idx >= 0) wiz.talents.splice(idx, 1);
-            else { if (wiz.talents.length >= 2) { e.target.checked = false; return; } wiz.talents.push(id); }
+            else {
+              const nonAutoSel = wiz.talents.filter(function (x) { return !masteryTal || x !== masteryTal.id; }).length;
+              if (nonAutoSel >= 1) { e.target.checked = false; return; }
+              wiz.talents.push(id);
+            }
             renderWizard();
           } else {
             if (desc) desc.hidden = !desc.hidden;
@@ -933,7 +963,7 @@
     };
     Store.state.heroes.push({
       id: Store.uid(), name: wiz.name.trim() || 'Aventurier', klass: wiz.klass,
-      vie: 4 + (wiz.statBonuses.vie || 0), endu: 3 + (wiz.statBonuses.endu || 0), pvBonus: 0, damage: 2 + (wiz.statBonuses.damage || 0), rapide: false, notes: '',
+      vie: 3 + (wiz.statBonuses.vie || 0), endu: 0 + (wiz.statBonuses.endu || 0), pvBonus: 0, damage: 0 + (wiz.statBonuses.damage || 0), rapide: false, notes: '',
       attacks: [], skills: mergeSkills(skills),
       startTalents: wiz.talents.slice(),
       equipment: eq,

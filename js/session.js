@@ -53,6 +53,7 @@
     }
     const g = ses.levelGains[hid];
     if (typeof g.endu !== 'number') g.endu = 0;
+    if (typeof g.vie !== 'number') g.vie = 0;
     if (typeof g.damage !== 'number') g.damage = 0;
     if (!Array.isArray(g.talents)) g.talents = [];
     // Talents équipés (≤ 6) : par défaut, les 6 premiers débloqués
@@ -391,7 +392,7 @@
     const g = ses.levelGains ? ses.levelGains[h.id] : null;
     const state = ses.heroStates ? (ses.heroStates[h.id] || {}) : {};
     return Object.assign({}, h, {
-      vie: Math.max(0, (h.vie || 0) + (state.viePenalty || 0)),
+      vie: Math.max(0, (h.vie || 0) + (g ? g.vie || 0 : 0) + (state.viePenalty || 0)),
       endu: (h.endu || 0) + (g ? g.endu || 0 : 0),
       damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
       // chosenTalents = talents ÉQUIPÉS (ce qui est actif en combat / sur la fiche)
@@ -595,9 +596,18 @@
     // en haut, talents listés en colonne dessous.
     function heroBlock(h, idx) {
       const talents = availableTalents(ses, h, newLevel);
+      const g = ses.levelGains ? (ses.levelGains[h.id] || {}) : {};
+      const curEndu = (h.endu || 0) + (g.endu || 0);
+      const curVie  = (h.vie  || 0) + (g.vie  || 0) + ((ses.heroStates && ses.heroStates[h.id] && ses.heroStates[h.id].viePenalty) || 0);
+      const pvFromEndu2 = 2 * curVie;
+      const pvFromVie1  = curEndu + 2; // (+1 VIE) × (curEndu+2) - curVie×curEndu = curEndu (simplified: delta = curEndu)
       const statHtml =
         '<button type="button" class="lvl-stat-btn2" data-idx="' + idx + '" data-stat="endu">' +
-          '<span class="lsb-main">+2</span><span class="lsb-sub">ENDURANCE</span></button>' +
+          '<span class="lsb-main">+2</span><span class="lsb-sub">ENDURANCE</span>' +
+          '<span class="lsb-hint">ENDU ' + curEndu + ' → ' + (curEndu + 2) + ' · +' + pvFromEndu2 + ' PV</span></button>' +
+        '<button type="button" class="lvl-stat-btn2" data-idx="' + idx + '" data-stat="vie">' +
+          '<span class="lsb-main">+1</span><span class="lsb-sub">VIE</span>' +
+          '<span class="lsb-hint">VIE ' + curVie + ' → ' + (curVie + 1) + ' · +' + curEndu + ' PV</span></button>' +
         '<button type="button" class="lvl-stat-btn2" data-idx="' + idx + '" data-stat="damage">' +
           '<span class="lsb-main">+1</span><span class="lsb-sub">DÉGÂTS</span></button>';
       const talHtml = talents.length
@@ -680,9 +690,18 @@
     contBtn.addEventListener('click', function () {
       heroes.forEach(function (h, idx) {
         const g = heroGains(ses, h.id);
+        const curEndu = (h.endu || 0) + (g.endu || 0);
+        const curVie  = (h.vie  || 0) + (g.vie  || 0) + ((ses.heroStates && ses.heroStates[h.id] && ses.heroStates[h.id].viePenalty) || 0);
         if (statSel[idx] === 'endu') {
           g.endu += 2;
-          const delta = 2 * (h.vie || 0);
+          const delta = 2 * curVie;
+          if (delta > 0 && ses.heroStates && ses.heroStates[h.id]) {
+            ses.heroStates[h.id].pv = (ses.heroStates[h.id].pv || 0) + delta;
+          }
+        } else if (statSel[idx] === 'vie') {
+          if (typeof g.vie !== 'number') g.vie = 0;
+          g.vie += 1;
+          const delta = curEndu;
           if (delta > 0 && ses.heroStates && ses.heroStates[h.id]) {
             ses.heroStates[h.id].pv = (ses.heroStates[h.id].pv || 0) + delta;
           }
@@ -940,10 +959,13 @@
 
     // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
     // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
-    function cardHtml(h) {
-      return '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
-        Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
-      '</label>';
+    function cardHtml(h, isPrebuilt) {
+      return '<div class="hero-pick-card-wrap">' +
+        '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
+          Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
+        '</label>' +
+        '<button type="button" class="ghost small grp-del-btn" data-grp-del="' + h.id + '" title="Supprimer">✕</button>' +
+      '</div>';
     }
     // Deux catégories : aventuriers du groupe (custom + clones déjà ajoutés) et
     // modèles pré-construits encore disponibles (clonés au lancement de l'aventure).
@@ -966,8 +988,8 @@
       document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
       return;
     }
-    const customRows = heroes.map(cardHtml).join('');
-    const prebuiltRows = prebuilts.map(cardHtml).join('');
+    const customRows = heroes.map(function (h) { return cardHtml(h, false); }).join('');
+    const prebuiltRows = prebuilts.map(function (h) { return cardHtml(h, true); }).join('');
 
     root.innerHTML =
       '<div class="card">' +
@@ -1003,6 +1025,19 @@
         const lbl = cb.closest('.hero-pick-card');
         if (lbl) lbl.classList.toggle('selected', cb.checked);
         refresh();
+      });
+    });
+    root.querySelectorAll('[data-grp-del]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const id = b.getAttribute('data-grp-del');
+        const h = Store.state.heroes.find(function (x) { return x.id === id; });
+        if (!h) return;
+        if (!confirm('Supprimer l\'aventurier « ' + h.name + ' » ?')) return;
+        Store.state.heroes = Store.state.heroes.filter(function (x) { return x.id !== id; });
+        delete setupSel[id];
+        Store.save();
+        renderGroupSetup(root, advId);
       });
     });
     document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
@@ -1157,7 +1192,7 @@
     });
     root.innerHTML =
       '<div class="card">' +
-        '<div class="card-head"><h2>Sessions — ' + esc(adv ? adv.title : '') + '</h2>' +
+        '<div class="card-head"><h2>Sauvegardes — ' + esc(adv ? adv.title : '') + '</h2>' +
           '<button class="primary" id="saves-new">+ Nouvelle partie</button>' +
         '</div>' +
         (active.length
