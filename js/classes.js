@@ -1,9 +1,9 @@
 /*
- * Éditeur des talents génériques et des talents de classe (partie MJ / Admin).
- * Le premier groupe rassemble les talents GÉNÉRIQUES (accessibles à tous les
- * aventuriers au niveau requis) ; viennent ensuite les 8 classes.
- * Chaque talent peut être rattaché à un EFFET de la bibliothèque (câblé au
- * moteur de combat) : Action (bleu), Réaction (violet), Passif ou Amélioration.
+ * Éditeur des talents génériques et de classe (partie MJ / Admin).
+ * Reprend le design de l'Armurerie : carte d'en-tête, recherche, colonnes à
+ * languettes (une colonne par groupe : Génériques + 8 classes), édition par
+ * mini-fenêtre. Chaque talent peut être relié à un EFFET de la bibliothèque
+ * (Action bleu · Réaction violet · Passif vert · Amélioration ambre).
  */
 (function (global) {
   'use strict';
@@ -21,15 +21,18 @@
     { value: 'out',    label: 'Hors combat' },
   ];
   const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration' };
+  const KIND_SHORT = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.' };
   const KIND_ORDER = ['action', 'reaction', 'passive', 'upgrade'];
 
   let classes = [];
   let generics = [];
+  let term = '';
+  let groupFilter = '';
 
   function effectCatalog() { return Store.talentEffects ? Store.talentEffects() : []; }
   function effectMap() { return Store.talentEffectMap ? Store.talentEffectMap() : {}; }
+  function classSlug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 
-  // Charge les classes en garantissant la présence des 8 classes officielles
   function load() {
     const stored = Store.loadClasses();
     const byName = {};
@@ -43,14 +46,23 @@
   }
   function save() { Store.saveClasses(classes); }
   function saveGen() { Store.saveGenericTalents(generics); }
+  function persist() { save(); saveGen(); }
 
   function newTalent() {
     return { id: Store.uid(), name: '', level: 1, usage: 'both', kind: '', effect: '', val: 0, description: '' };
   }
 
-  function classSlug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  // Liste des groupes (Génériques + chaque classe), avec leur tableau de talents
+  function groups() {
+    const g = [{ key: 'generic', ref: 'generic', name: '★ Génériques', slug: 'generique', list: generics }];
+    classes.forEach(function (c) {
+      g.push({ key: 'class', ref: c.name, name: c.name, slug: classSlug(c.name), list: c.talents });
+    });
+    return g;
+  }
+  function groupByRef(ref) { return groups().find(function (g) { return g.ref === ref; }) || null; }
 
-  // ---- Bibliothèque des effets (panneau de référence pour le MJ) ----
+  // ---- Bibliothèque des effets (panneau de référence repliable) ----
   function libraryHTML() {
     const cat = effectCatalog();
     const byKind = {};
@@ -68,11 +80,10 @@
     }).join('');
     return '<details class="card lib-card">' +
       '<summary><b>📖 Bibliothèque des effets</b> — ' + cat.length + ' effets câblés au moteur</summary>' +
-      '<p class="hint">Choisissez un effet dans un talent pour le relier au moteur de combat. ' +
-        'Les effets avec une variable <b>X</b> sont ajustables par talent. ' +
-        '<span class="lib-leg lib-kind-action">Action</span> (bleu, consomme l\'action) · ' +
-        '<span class="lib-leg lib-kind-reaction">Réaction</span> (violet, déclenchée) · ' +
-        '<span class="lib-leg lib-kind-passive">Passif</span> (automatique) · ' +
+      '<p class="hint">Reliez un talent à un effet pour le rendre actif en combat. ' +
+        '<span class="lib-leg lib-kind-action">Action</span> · ' +
+        '<span class="lib-leg lib-kind-reaction">Réaction</span> · ' +
+        '<span class="lib-leg lib-kind-passive">Passif</span> · ' +
         '<span class="lib-leg lib-kind-upgrade">Amélioration</span>.</p>' +
       sections +
     '</details>';
@@ -82,20 +93,89 @@
     load();
     const root = $('#classes-root');
     if (!root) return;
+    const groupOpts = '<option value="">Tous les groupes</option>' +
+      groups().map(function (g) {
+        return '<option value="' + esc(g.ref) + '"' + (g.ref === groupFilter ? ' selected' : '') + '>' +
+          esc(g.name.replace('★ ', '')) + '</option>';
+      }).join('');
     root.innerHTML =
       libraryHTML() +
       '<div class="card">' +
-        '<div class="card-head"><h2>Talents</h2></div>' +
-        '<p class="hint">Le premier groupe rassemble les <b>talents génériques</b> ' +
-          '(accessibles à tous les aventuriers au niveau requis). Viennent ensuite ' +
-          'les talents propres à chaque classe. Reliez un talent à un <b>effet</b> ' +
-          'pour le rendre actif en combat.</p>' +
-        '<div id="class-list"></div>' +
+        '<div class="card-head">' +
+          '<h2>Talents</h2>' +
+          '<div style="display:flex; gap:.4rem;">' +
+            '<button id="tl-add" class="primary">+ Ajouter</button>' +
+          '</div>' +
+        '</div>' +
+        '<p class="hint">Catalogue des talents d\'aventuriers. Le premier groupe rassemble les ' +
+          '<b>talents génériques</b> (accessibles à tous au niveau requis) ; viennent ensuite ' +
+          'les talents propres à chaque classe.</p>' +
+        '<div class="filters">' +
+          '<input id="tl-search" type="search" placeholder="Rechercher…" value="' + esc(term) + '" />' +
+          '<select id="tl-groupfilter">' + groupOpts + '</select>' +
+        '</div>' +
+        '<div id="class-list" class="roster-list inv-strip-layout"></div>' +
       '</div>';
-    renderClasses();
+    $('#tl-add').addEventListener('click', function () { openTalentModal(null); });
+    $('#tl-search').addEventListener('input', function () { term = this.value.toLowerCase().trim(); renderColumns(); });
+    $('#tl-groupfilter').addEventListener('change', function () { groupFilter = this.value; renderColumns(); });
+    renderColumns();
   }
 
-  // Options du sélecteur d'effet, groupées par type
+  function matches(t) {
+    if (!term) return true;
+    return (t.name || '').toLowerCase().indexOf(term) >= 0 ||
+           (t.description || '').toLowerCase().indexOf(term) >= 0;
+  }
+
+  // Languette d'un talent (design Armurerie), colorée par type d'effet
+  function talentStrip(t, ref) {
+    const kind = t.kind || (t.effect && effectMap()[t.effect] ? effectMap()[t.effect].kind : '');
+    const right =
+      (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT[kind] || kind) + '</span>' : '<span class="tl-kind tl-kind-none">Descriptif</span>') +
+      '<span class="tal-lvl">Niv. ' + (t.level || 1) + '</span>';
+    return '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + '">' +
+      '<div class="inv-strip tal-strip" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '">' +
+        '<span class="inv-strip-name">' + esc(t.name || '(sans nom)') + '</span>' +
+        '<span class="inv-strip-val">' + right + '</span>' +
+      '</div>' +
+      '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
+    '</div>';
+  }
+
+  function renderColumns() {
+    const box = $('#class-list');
+    if (!box) return;
+    const shown = groups().filter(function (g) { return !groupFilter || g.ref === groupFilter; });
+    box.innerHTML = '<div class="tal-cols">' + shown.map(function (g) {
+      const items = g.list.filter(matches);
+      const strips = items.length
+        ? items.map(function (t) { return talentStrip(t, g.ref); }).join('')
+        : '<p class="inv-col-empty">—</p>';
+      return '<div class="tal-col">' +
+        '<div class="tal-col-hdr klass-' + g.slug + '">' +
+          '<span class="tal-col-name">' + esc(g.name) + '</span>' +
+          '<span class="tag">' + g.list.length + '</span>' +
+          '<button class="ghost small tl-col-add" data-ref="' + esc(g.ref) + '">+</button>' +
+        '</div>' +
+        '<div class="tal-col-body">' + strips + '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+
+    box.querySelectorAll('.tl-col-add').forEach(function (b) {
+      b.addEventListener('click', function () { openTalentModal(null, b.getAttribute('data-ref')); });
+    });
+    box.querySelectorAll('[data-edit]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        openTalentModal(el.getAttribute('data-tid'), el.getAttribute('data-edit'));
+      });
+    });
+  }
+
+  // ---- Mini-fenêtre d'édition d'un talent ----
+  let editing = null; // { ref, id } du talent en cours d'édition (null = création)
+
   function effectOptions(cur) {
     const cat = effectCatalog();
     let html = '<option value="">— Aucun (descriptif) —</option>';
@@ -110,131 +190,112 @@
     });
     return html;
   }
-
-  // Carte d'édition d'un talent (générique ou de classe)
-  function talentCard(t, scope, ref, i) {
-    const usageOpts = USAGE.map(function (u) {
-      return '<option value="' + u.value + '"' + (u.value === t.usage ? ' selected' : '') + '>' + esc(u.label) + '</option>';
+  function groupOptions(cur) {
+    return groups().map(function (g) {
+      return '<option value="' + esc(g.ref) + '"' + (g.ref === cur ? ' selected' : '') + '>' +
+        esc(g.name.replace('★ ', '')) + '</option>';
     }).join('');
-    const eff = t.effect ? (effectMap()[t.effect] || null) : null;
-    const kind = eff ? eff.kind : (t.kind || '');
-    const kindBadge = kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_LABEL[kind] || kind) + '</span>' : '';
-    const valHtml = (eff && eff.hasVal)
-      ? '<label class="tl-val">' + esc(eff.valLabel || 'X') + ' <input type="number" class="tl-valnum" min="0" max="99" value="' + (t.val || 0) + '" /></label>'
-      : '';
-    return '<div class="talent-card" data-scope="' + scope + '" data-ref="' + esc(ref) + '" data-i="' + i + '">' +
-      '<div class="talent-card-top">' +
-        '<input type="text" class="tl-name" value="' + esc(t.name) + '" placeholder="Nom du talent" />' +
-        '<label class="tl-lvl">Niv. <input type="number" class="tl-level" min="1" max="7" value="' + (t.level || 1) + '" /></label>' +
-        '<select class="tl-usage">' + usageOpts + '</select>' +
-        '<button type="button" class="icon-btn tl-del" title="Supprimer">✕</button>' +
-      '</div>' +
-      '<div class="talent-card-eff">' +
-        kindBadge +
-        '<select class="tl-effect">' + effectOptions(t.effect || '') + '</select>' +
-        valHtml +
-      '</div>' +
-      '<textarea class="tl-desc" rows="2" placeholder="Description affichée au joueur…">' + esc(t.description || '') + '</textarea>' +
-    '</div>';
   }
 
-  function genericsHTML() {
-    if (!generics.length) return '<p class="empty" style="padding:.3rem 0">Aucun talent générique.</p>';
-    return generics.map(function (t, i) { return talentCard(t, 'generic', 'generic', i); }).join('');
+  function findTalent(ref, id) {
+    const g = groupByRef(ref);
+    if (!g) return null;
+    return g.list.find(function (t) { return t.id === id; }) || null;
   }
 
-  function classTalentsHTML(c) {
-    if (!c.talents.length) return '<p class="empty" style="padding:.3rem 0">Aucun talent.</p>';
-    return c.talents.map(function (t, i) { return talentCard(t, 'class', c.name, i); }).join('');
+  function syncValAndKind() {
+    const eff = effectMap()[$('#tl-f-effect').value] || null;
+    const wrap = $('#tl-f-val-wrap');
+    if (eff && eff.hasVal) {
+      wrap.hidden = false;
+      $('#tl-f-val-label').textContent = eff.valLabel || 'Valeur X';
+    } else {
+      wrap.hidden = true;
+    }
+    const kind = eff ? eff.kind : '';
+    $('#tl-f-kindrow').innerHTML = kind
+      ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_LABEL[kind]) + '</span> ' +
+        '<span class="hint">Type déterminé par l\'effet choisi.</span>'
+      : '<span class="hint">Talent descriptif (aucun effet moteur).</span>';
   }
 
-  function renderClasses() {
-    const box = $('#class-list');
-    if (!box) return;
-    let html = '';
-    // 1) Groupe générique (en tête)
-    html += '<div class="class-card klass-generique" data-scope="generic">' +
-      '<div class="class-head">' +
-        '<span class="class-name">★ Talents génériques</span>' +
-        '<span class="tag">' + generics.length + ' talent(s)</span>' +
-        '<button type="button" class="ghost small gen-add">+ Talent</button>' +
-      '</div>' +
-      '<div class="class-talents">' + genericsHTML() + '</div>' +
-    '</div>';
-    // 2) Chaque classe
-    html += classes.map(function (c) {
-      return '<div class="class-card klass-' + classSlug(c.name) + '" data-class="' + esc(c.name) + '">' +
-        '<div class="class-head">' +
-          '<span class="class-name">' + esc(c.name) + '</span>' +
-          '<span class="tag">' + c.talents.length + ' talent(s)</span>' +
-          '<button type="button" class="ghost small cl-add" data-class="' + esc(c.name) + '">+ Talent</button>' +
-        '</div>' +
-        '<div class="class-talents">' + classTalentsHTML(c) + '</div>' +
-      '</div>';
-    }).join('');
-    box.innerHTML = html;
-    wire();
+  function openTalentModal(id, ref) {
+    const m = $('#talent-modal');
+    if (!m) return;
+    const existing = (id && ref) ? findTalent(ref, id) : null;
+    editing = existing ? { ref: ref, id: id } : null;
+    const t = existing || newTalent();
+
+    $('#talent-modal-title').textContent = existing ? 'Éditer le talent' : 'Ajouter un talent';
+    $('#tl-f-id').value = t.id;
+    $('#tl-f-name').value = t.name || '';
+    $('#tl-f-group').innerHTML = groupOptions(ref || 'generic');
+    $('#tl-f-level').value = t.level || 1;
+    $('#tl-f-usage').value = t.usage || 'both';
+    $('#tl-f-effect').innerHTML = effectOptions(t.effect || '');
+    $('#tl-f-val').value = t.val || 0;
+    $('#tl-f-desc').value = t.description || '';
+    $('#tl-f-delete').hidden = !existing;
+    syncValAndKind();
+    m.hidden = false;
+    $('#tl-f-name').focus();
   }
 
-  function classByName(name) { return classes.find(function (c) { return c.name === name; }); }
+  function closeTalentModal() { $('#talent-modal').hidden = true; editing = null; }
 
-  function wire() {
-    const box = $('#class-list');
-    // Ajout talent générique
-    const genAdd = box.querySelector('.gen-add');
-    if (genAdd) genAdd.addEventListener('click', function () {
-      generics.push(newTalent()); saveGen(); renderClasses();
-    });
-    // Ajout talent de classe
-    box.querySelectorAll('.cl-add').forEach(function (b) {
-      b.addEventListener('click', function () {
-        const c = classByName(b.getAttribute('data-class'));
-        if (!c) return;
-        c.talents.push(newTalent());
-        save(); renderClasses();
-      });
-    });
-    // Édition / suppression (génériques + classes)
-    box.querySelectorAll('.talent-card').forEach(function (row) {
-      const scope = row.getAttribute('data-scope');
-      const i = parseInt(row.getAttribute('data-i'), 10);
-      let list, persist;
-      if (scope === 'generic') {
-        list = generics; persist = saveGen;
-      } else {
-        const c = classByName(row.getAttribute('data-ref'));
-        if (!c) return;
-        list = c.talents; persist = save;
-      }
-      const t = list[i];
-      if (!t) return;
-      row.querySelector('.tl-name').oninput = function () { t.name = this.value; persist(); };
-      row.querySelector('.tl-level').oninput = function () { t.level = Math.max(1, Math.min(7, parseInt(this.value, 10) || 1)); persist(); };
-      row.querySelector('.tl-usage').onchange = function () { t.usage = this.value; persist(); };
-      row.querySelector('.tl-desc').oninput = function () { t.description = this.value; persist(); };
-      // Sélection d'un effet : fixe kind + valeur par défaut, et pré-remplit nom/description si vides
-      row.querySelector('.tl-effect').onchange = function () {
-        const e = effectMap()[this.value] || null;
-        t.effect = this.value || '';
-        t.kind = e ? e.kind : '';
-        t.val = (e && e.hasVal) ? (e.defaultVal || 0) : 0;
-        if (e) {
-          if (!t.name) t.name = e.name;
-          if (!t.description) t.description = e.desc;
-          if (t.usage === 'out') t.usage = 'combat';
-        }
-        persist(); renderClasses();
-      };
-      const valNum = row.querySelector('.tl-valnum');
-      if (valNum) valNum.oninput = function () { t.val = Math.max(0, Math.min(99, parseInt(this.value, 10) || 0)); persist(); };
-      row.querySelector('.tl-del').onclick = function () {
-        if (t.effect && !confirm('Ce talent possède un effet de combat intégré (' + t.effect + '). Le supprimer ?')) return;
-        list.splice(i, 1); persist(); renderClasses();
-      };
-    });
+  function submitTalent(ev) {
+    ev.preventDefault();
+    const targetRef = $('#tl-f-group').value;
+    const eff = effectMap()[$('#tl-f-effect').value] || null;
+    const data = {
+      id: $('#tl-f-id').value || Store.uid(),
+      name: ($('#tl-f-name').value || '').trim() || 'Talent',
+      level: Math.max(1, Math.min(7, parseInt($('#tl-f-level').value, 10) || 1)),
+      usage: $('#tl-f-usage').value,
+      effect: $('#tl-f-effect').value || '',
+      kind: eff ? eff.kind : '',
+      val: (eff && eff.hasVal) ? Math.max(0, Math.min(99, parseInt($('#tl-f-val').value, 10) || 0)) : 0,
+      description: ($('#tl-f-desc').value || '').trim(),
+    };
+    // Retire l'ancienne occurrence (changement de groupe possible)
+    if (editing) {
+      const og = groupByRef(editing.ref);
+      if (og) { const idx = og.list.findIndex(function (x) { return x.id === editing.id; }); if (idx >= 0) og.list.splice(idx, 1); }
+    }
+    const dest = groupByRef(targetRef);
+    if (dest) dest.list.push(data);
+    persist();
+    closeTalentModal();
+    render();
   }
 
-  function init() { render(); }
+  function deleteTalent() {
+    if (!editing) { closeTalentModal(); return; }
+    const g = groupByRef(editing.ref);
+    if (g) {
+      const t = g.list.find(function (x) { return x.id === editing.id; });
+      if (t && t.effect && !confirm('Ce talent possède un effet de combat intégré (' + t.effect + '). Le supprimer ?')) return;
+      const idx = g.list.findIndex(function (x) { return x.id === editing.id; });
+      if (idx >= 0) g.list.splice(idx, 1);
+    }
+    persist();
+    closeTalentModal();
+    render();
+  }
+
+  function init() {
+    const f = $('#talent-form');
+    if (f) f.addEventListener('submit', submitTalent);
+    const c = $('#talent-modal-close');
+    if (c) c.addEventListener('click', closeTalentModal);
+    const d = $('#tl-f-delete');
+    if (d) d.addEventListener('click', deleteTalent);
+    const e = $('#tl-f-effect');
+    if (e) e.addEventListener('change', syncValAndKind);
+    const m = $('#talent-modal');
+    if (m) m.addEventListener('click', function (ev) { if (ev.target.id === 'talent-modal') closeTalentModal(); });
+    render();
+  }
 
   global.Classes = { init: init, render: render };
 })(window);

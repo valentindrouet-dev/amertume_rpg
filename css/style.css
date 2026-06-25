@@ -2636,3 +2636,33 @@ body.mode-player #item-list.roster-list { display: block; }
 .tl-badge.tl-kind-passive  { background: rgba(110,180,120,.16); color: #c4e8ca; border-color: rgba(110,180,120,.4); }
 .tl-badge.tl-kind-upgrade  { background: rgba(212,160,90,.16);  color: #ecd2ad; border-color: rgba(212,160,90,.4); }
 .tl-badge-kind { font-size: .6rem; text-transform: uppercase; letter-spacing: .03em; opacity: .8; }
+
+/* ====== Onglet Classes : colonnes de talents (design Armurerie) ====== */
+#class-list.inv-strip-layout { display: block; }
+.tal-cols {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: .7rem; align-items: start; margin-top: .3rem;
+}
+.tal-col { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.tal-col-hdr {
+  display: flex; align-items: center; gap: .4rem;
+  font-weight: 800; font-size: .82rem;
+  border-bottom: 2px solid var(--border); padding-bottom: .3rem;
+}
+.tal-col-hdr .tal-col-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tal-col-hdr .tag { font-size: .68rem; }
+.tal-col-hdr .tl-col-add { padding: 0 .45rem; line-height: 1.4; font-size: .95rem; }
+.tal-col-hdr.klass-generique { color: #c79bec; border-bottom-color: rgba(150,100,200,.5); }
+.tal-col-body { display: flex; flex-direction: column; gap: .35rem; }
+.tal-lvl { font-size: .68rem; color: #6a563a; white-space: nowrap; }
+.tal-strip { cursor: pointer; }
+.tal-strip .inv-strip-val { gap: .35rem; }
+/* Couleur de languette par type d'effet */
+.tal-row.tal-kind-action   .inv-strip { border-left-color: #4d8ed1; }
+.tal-row.tal-kind-reaction .inv-strip { border-left-color: #9664c8; }
+.tal-row.tal-kind-passive  .inv-strip { border-left-color: #6cba78; }
+.tal-row.tal-kind-upgrade  .inv-strip { border-left-color: #d4a05a; }
+.tal-row.tal-kind-none     .inv-strip { border-left-color: #b8a684; }
+.tl-kind-none { background: rgba(160,150,130,.25); color: #6a5e48; }
+/* Ligne de type dans la mini-fenêtre de talent */
+.talent-kind-row { display: flex; align-items: center; gap: .5rem; }
