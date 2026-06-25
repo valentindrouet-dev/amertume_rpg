@@ -287,7 +287,11 @@
   function resolveHeroTalents(chosenIds) {
     const cat = Store.talentEffectMap();
     const out = [];
-    Store.loadGenericTalents().forEach(function (t) {
+    // Talents génériques + talents de toutes les classes (un aventurier peut équiper
+    // un talent de sa classe : il doit donc être résolu pour le bandeau de combat).
+    const all = Store.loadGenericTalents().slice();
+    Store.loadClasses().forEach(function (c) { if (Array.isArray(c.talents)) all.push.apply(all, c.talents); });
+    all.forEach(function (t) {
       if (!(t.usage === 'combat' || t.usage === 'both')) return;
       const list = Store.talentEffectList(t);
       if (!list.length) return;
