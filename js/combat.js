@@ -1561,7 +1561,7 @@
     return '<button class="ab-atk atk-chip' + (isThisAtk ? ' selected' : '') +
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
         ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
-      '<span class="ab-atk-name">' + (a.range === 'distance' ? 'Tir' : 'Attaque') + '</span>' +
+      '<img class="ab-atk-name" src="' + (a.range === 'distance' ? 'assets/Attack_range_b.png' : 'assets/Attack_melee_b.png') + '" alt="' + (a.range === 'distance' ? 'Tir' : 'Attaque') + '">' +
       '<span class="ab-atk-figs">' + Inventory.poolBadges(a.dice) +
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
         (uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
