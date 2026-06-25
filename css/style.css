@@ -2743,6 +2743,29 @@ body.mode-player #item-list.roster-list { display: block; }
 .tal-equip-count.full { color: var(--accent-2); font-weight: 700; }
 .tal-equip-cb { flex: 0 0 auto; }
 .inv-strip-row.tal-equipped .inv-strip { box-shadow: inset 2px 0 0 currentColor; }
+
+/* Languette d'équipement de talent (mode Joueur) — auto-portée, robuste */
+.tpe-row {
+  display: flex; align-items: center; gap: .5rem; width: 100%;
+  padding: .35rem .55rem; border-radius: 8px;
+  border: 1px solid #cdb98f; border-left: 4px solid #b8a684;
+  background: #efe4cf; color: #33271a; cursor: pointer; transition: filter .12s;
+}
+.tpe-row:hover { filter: brightness(1.03); }
+.tpe-row .tal-equip-cb { flex: 0 0 auto; width: 16px; height: 16px; cursor: pointer; margin: 0; }
+.tpe-name {
+  flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: .85rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tpe-meta { flex: 0 0 auto; display: flex; align-items: center; gap: .3rem; }
+.tpe-lvl { font-size: .68rem; color: #6a563a; white-space: nowrap; }
+.tpe-row.selected { outline: 2px solid var(--action); outline-offset: 1px; }
+.tpe-kind-action   { border-left-color: #4d8ed1; }
+.tpe-kind-reaction { border-left-color: #9664c8; }
+.tpe-kind-passive  { border-left-color: #9a9a9a; }
+.tpe-kind-upgrade  { border-left-color: #6cba78; }
+.tpe-kind-mastery  { border-left-color: #d4af37; }
+.tpe-kind-none     { border-left-color: #b8a684; }
 .inv-strip-row.tal-row .tal-strip { flex: 1; min-width: 0; }
 
 /* ----- Encyclopédie : barre de tri + réordonnancement ----- */
