@@ -1694,6 +1694,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .loot-pct, .loot-qty { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: .25rem; }
 .loot-pct input { width: 58px; } .loot-qty input { width: 48px; }
 .cs-lootg .cs-chip { background: rgba(214,178,42,.16); border-color: rgba(214,178,42,.45); }
+.cs-comag .cs-chip, .cs-chip.cs-chip-coma { background: rgba(150,40,40,.14); border-color: rgba(180,50,50,.45); color: #c04040; }
 .cs-chip em { font-style: normal; color: var(--muted); }
 
 /* ===================================================================
@@ -2099,8 +2100,8 @@ img.ab-atk-name {
 /* Emplacements de talents (une cellule de grille chacun, taille fixe) */
 .ab-talent {
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--border); border-radius: 7px; padding: 0 .3rem;
-  background: rgba(40,28,14,.12); color: #6b5a3e; font-size: .7rem; font-weight: 700;
+  border: 1px solid var(--border); border-radius: 7px; padding: 0 .4rem;
+  background: rgba(40,28,14,.12); color: #6b5a3e; font-size: 1.05rem; font-weight: 700;
   cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
 }
 .ab-talent:disabled { opacity: .6; cursor: default; }
@@ -2835,6 +2836,12 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Vignettes d'objets (dés / DEF) dans les combinaisons de départ */
 .hw-combo-strips { display: flex; flex-direction: column; gap: .3rem; margin-top: .15rem; width: 100%; }
 .hw-combo-strips .inv-strip-row { cursor: inherit; }
+
+/* Tenue de voyage : équipement de départ imposé (hors combo) */
+.hw-combo-fixed { margin-top: .8rem; padding: .6rem .8rem; border-radius: 9px;
+  border: 1px dashed var(--border); background: rgba(255,255,255,.04); }
+.hw-combo-fixed-label { display: block; font-size: .65rem; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); font-weight: 700; margin-bottom: .35rem; }
 
 /* Écran d'introduction d'aventure */
 .ses-intro-card { max-width: 640px; margin: 1rem auto; text-align: center; }

@@ -857,6 +857,16 @@
           '</div>';
         }).join('');
       }
+      // Tenue de voyage : affichée comme équipement de départ imposé (non décoché)
+      const tenueDeVoyage = findItemByName('tenue de voyage');
+      const tenueHtml = tenueDeVoyage
+        ? '<div class="hw-combo-fixed">' +
+            '<span class="hw-combo-fixed-label">Équipement de départ</span>' +
+            '<div class="inv-strip-layout hw-combo-strips"><div class="inv-strip-row cat-' + tenueDeVoyage.category + '">' +
+              '<div class="inv-strip">' + Inventory.itemStripHtml(tenueDeVoyage) + '</div>' +
+            '</div></div>' +
+          '</div>'
+        : '';
       body.innerHTML = '<p class="hint">Choisis ta <b>combinaison d\'armes</b> de départ.</p>' +
         '<div class="hw-combo-list">' + START_COMBOS.map(function (c) {
           const sel = wiz.equipCombo === c.id;
@@ -864,7 +874,7 @@
             '<span class="hw-combo-label">' + esc(c.label) + '</span>' +
             '<div class="hw-combo-strips inv-strip-layout">' + comboStrips(c) + '</div>' +
           '</button>';
-        }).join('') + '</div>';
+        }).join('') + '</div>' + tenueHtml;
       body.querySelectorAll('.hw-combo').forEach(function (b) {
         b.onclick = function () {
           wiz.equipCombo = b.getAttribute('data-combo');
@@ -962,9 +972,12 @@
     if (!wiz || $('#hw-next').disabled) return;
     if (wiz.step < WIZ_STEPS.length - 1) { wiz.step++; renderWizard(); return; }
     const skills = {}; SKILLS.forEach(function (s) { if (wiz.skills[s]) skills[s] = wiz.skills[s]; });
+    // Tenue de voyage : objet de départ automatique (s'il existe dans l'armurerie)
+    const tenueDev = findItemByName('tenue de voyage');
     const eq = {
       mainG: wiz.equipment.mainG || null, mainD: wiz.equipment.mainD || null,
-      armorId: wiz.equipment.armorId || null, objectId: wiz.equipment.objectId || null, twoH: false,
+      armorId: wiz.equipment.armorId || null,
+      objectId: wiz.equipment.objectId || (tenueDev ? tenueDev.id : null), twoH: false,
     };
     Store.state.heroes.push({
       id: Store.uid(), name: wiz.name.trim() || 'Aventurier', klass: wiz.klass,

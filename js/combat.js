@@ -619,7 +619,8 @@
   function applyHeroComaVieLoss(combatant) {
     const sessionCtx = Store.state.sessionCombat;
     if (!sessionCtx || !sessionCtx.sessionId) return;
-    const sessions = Store.state.sessions || [];
+    // Sessions stored in localStorage, not in Store.state — must load then re-save.
+    const sessions = Store.loadSessions();
     const ses = sessions.find(function (s) { return s.id === sessionCtx.sessionId; });
     if (!ses) return;
     const hid = combatant.templateId;
@@ -628,14 +629,24 @@
     const state = ses.heroStates[hid];
     state.viePenalty = (state.viePenalty || 0) - 1;
     const h = Store.state.heroes.find(function (x) { return x.id === hid; });
-    const effVie = (h ? (h.vie || 0) : 0) + state.viePenalty;
+    // VIE effective = VIE de base + gains de niveau + pénalité coma
+    const gains = ses.levelGains ? (ses.levelGains[hid] || {}) : {};
+    const baseVie = (h ? (h.vie || 0) : 0) + (gains.vie || 0);
+    const effVie = baseVie + state.viePenalty;
     if (effVie <= 0) {
       state.dead = true;
       ses.heroIds = ses.heroIds.filter(function (id) { return id !== hid; });
       log(cname(combatant) + ' <span class="lcoma">perd sa dernière VIE — il quitte l\'aventure définitivement.</span>', 'down');
     } else {
-      log(cname(combatant) + ' perd 1 point de VIE (VIE restante : ' + effVie + ').', 'down');
+      log(cname(combatant) + ' <span class="lcoma">tombe dans le coma et perd 1 VIE (VIE restante : ' + effVie + ').</span>', 'down');
     }
+    // Record for combat summary display
+    const cmb = combat();
+    if (cmb) {
+      if (!Array.isArray(cmb.comaVieEvents)) cmb.comaVieEvents = [];
+      cmb.comaVieEvents.push({ name: combatant.name, effVie: effVie, dead: effVie <= 0 });
+    }
+    Store.saveSessions(sessions);
     Store.save();
   }
 
@@ -1331,6 +1342,14 @@
             c.lootResults.map(function (L) {
               return '<span class="cs-chip">' + esc(L.name) + (L.qty > 1 ? ' ×' + L.qty : '') +
                 (L.toName ? ' <em>→ ' + esc(L.toName) + '</em>' : ' <em>(groupe)</em>') + '</span>';
+            }).join('') + '</div></div>'
+        : '') +
+      ((c.comaVieEvents && c.comaVieEvents.length)
+        ? '<div class="cs-group cs-comag"><div class="cs-glabel">💀 Coma — Perte de VIE</div><div class="cs-chips">' +
+            c.comaVieEvents.map(function (ev) {
+              return '<span class="cs-chip cs-chip-coma">' + esc(ev.name) + (ev.dead
+                ? ' — <strong>VIE à 0 : quitte l\'aventure !</strong>'
+                : ' — VIE restante : <strong>' + ev.effVie + '</strong>') + '</span>';
             }).join('') + '</div></div>'
         : '') +
       '<button class="primary big cs-continue-btn" id="cs-continue">Continuer l\'aventure →</button>' +

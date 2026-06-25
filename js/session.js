@@ -996,6 +996,7 @@
         '<div class="card-head"><h2>Votre groupe — ' + esc(adv.title) + '</h2>' +
           '<div style="display:flex;gap:.4rem">' +
             '<button class="primary small" id="grp-new">+ Aventurier</button>' +
+            '<button class="ghost small" id="grp-prebuilt">+ Pré-construit</button>' +
           '</div>' +
         '</div>' +
         '<p class="hint">Choisis 1 à 4 aventuriers qui partent à l\'aventure.</p>' +
@@ -1041,6 +1042,8 @@
       });
     });
     document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
+    const grpPre = document.getElementById('grp-prebuilt');
+    if (grpPre) grpPre.onclick = function () { if (Combatants.openPrebuiltPicker) Combatants.openPrebuiltPicker(); };
     document.getElementById('grp-start').onclick = function () {
       const ids = Array.from(root.querySelectorAll('[data-hero]:checked')).map(function (cb) { return cb.getAttribute('data-hero'); });
       if (!ids.length || ids.length > 4) return;
