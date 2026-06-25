@@ -738,12 +738,38 @@
       return;
     }
 
-    // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
-    const rows = heroes.map(function (h) {
+    // Carte compacte de sélection : avatar + Nom/Classe/PV/DEF/DÉGÂTS/COMPÉTENCES
+    function heroPickCardHtml(h) {
+      const pv = Combatants.heroCurPv(h), maxPv = Combatants.heroPv(h);
+      const def = Combatants.heroDef(h);
+      const dmg = h.damage || 0;
+      const initials = (h.name || '?').trim().slice(0, 2).toUpperCase();
+      const avatarStyle = h.imageUrl
+        ? 'background-image:url(' + JSON.stringify(h.imageUrl) + ');background-size:cover;background-position:center;font-size:0;color:transparent'
+        : '';
+      const skills = h.skills ? Object.keys(h.skills)
+        .filter(function (s) { return (h.skills[s] || 0) > 0; })
+        .map(function (s) { return '<span class="skill-badge">' + esc(s) + ' <b>+' + h.skills[s] + '</b></span>'; })
+        .join('') : '';
       return '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
-        Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id] }) +
+        '<input type="checkbox" class="hero-pick-cb" data-hero="' + h.id + '"' + (setupSel[h.id] ? ' checked' : '') + '>' +
+        '<div class="hpc-avatar" style="' + avatarStyle + '">' + esc(initials) + '</div>' +
+        '<div class="hpc-body">' +
+          '<div class="hpc-head">' +
+            '<span class="hpc-name">' + esc(h.name) + '</span>' +
+            (h.klass ? '<span class="class-badge klass-' + (h.klass || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') + '">' + esc(h.klass) + '</span>' : '') +
+            (h.rapide ? '<span class="tag">Rapide</span>' : '') +
+          '</div>' +
+          '<div class="hpc-stats">' +
+            '<span class="hpc-stat"><span class="hpc-sl">PV</span> ' + pv + '/' + maxPv + '</span>' +
+            '<span class="hpc-stat"><span class="hpc-sl">DEF</span> ' + def + '</span>' +
+            '<span class="hpc-stat"><span class="hpc-sl">DÉG</span> +' + dmg + '</span>' +
+          '</div>' +
+          (skills ? '<div class="hpc-skills">' + skills + '</div>' : '') +
+        '</div>' +
       '</label>';
-    }).join('');
+    }
+    const rows = heroes.map(heroPickCardHtml).join('');
 
     root.innerHTML =
       '<div class="card">' +
