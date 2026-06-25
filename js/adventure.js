@@ -110,6 +110,29 @@
     save();
     return ns.id;
   }
+  // « Titre » → « Titre 2 », « Titre 2 » → « Titre 3 »
+  function incrementSceneTitle(title) {
+    const m = (title || '').match(/^(.*?)(\d+)\s*$/);
+    if (m) return m[1] + (parseInt(m[2], 10) + 1);
+    return (title ? title + ' ' : '') + '2';
+  }
+
+  // Duplique une scène juste après l'originale, avec de nouveaux identifiants
+  // (scène, blocs, choix) et un titre incrémenté.
+  function duplicateScene(a, chId, sceneId) {
+    const ch = a.chapters.find(function (c) { return c.id === chId; });
+    if (!ch) return;
+    const idx = ch.scenes.findIndex(function (s) { return s.id === sceneId; });
+    if (idx < 0) return;
+    const copy = JSON.parse(JSON.stringify(ch.scenes[idx]));
+    copy.id = Store.uid();
+    if (Array.isArray(copy.blocks)) copy.blocks.forEach(function (b) { b.id = Store.uid(); });
+    if (Array.isArray(copy.choices)) copy.choices.forEach(function (c) { c.id = Store.uid(); });
+    copy.title = incrementSceneTitle(ch.scenes[idx].title);
+    ch.scenes.splice(idx + 1, 0, copy);
+    save(); renderChapters(a);
+  }
+
   function moveScene(a, chId, sceneId, dir) {
     const ch = a.chapters.find(function (c) { return c.id === chId; });
     if (!ch) return;
@@ -323,6 +346,12 @@
         moveScene(a, b.getAttribute('data-ch'), b.getAttribute('data-scene'), 1);
       });
     });
+    box.querySelectorAll('.sc-dup').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        duplicateScene(a, b.getAttribute('data-ch'), b.getAttribute('data-scene'));
+      });
+    });
     box.querySelectorAll('.adv-del-scene').forEach(function (b) {
       b.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -357,6 +386,7 @@
           '<span class="adv-scene-tools">' +
             '<button type="button" class="icon-btn sc-up" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Monter"' + (si === 0 ? ' disabled' : '') + '>↑</button>' +
             '<button type="button" class="icon-btn sc-down" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Descendre"' + (last ? ' disabled' : '') + '>↓</button>' +
+            '<button type="button" class="icon-btn sc-dup" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Dupliquer">⧉</button>' +
             '<button type="button" class="icon-btn adv-del-scene del-btn" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Supprimer">✕</button>' +
           '</span>' +
         '</div>' +

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertume — Inventaire &amp; Dés</title>
-  <link rel="stylesheet" href="css/style.css?v=2.79" />
+  <link rel="stylesheet" href="css/style.css?v=2.80" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -39,6 +39,7 @@
       <button class="tab" data-tab="session" data-modes="player">Aventure</button>
       <button class="tab" data-tab="heroes" data-modes="player">Groupe</button>
       <button class="tab" data-tab="armory" data-modes="player">Inventaire</button>
+      <button class="tab" data-tab="tutorial" data-modes="player">Tutoriel</button>
       <button class="tab" data-tab="saves" data-modes="player">Session</button>
       <!-- Onglets MJ / Admin -->
       <button class="tab" data-tab="adventures" data-modes="admin">Aventures</button>
@@ -47,6 +48,7 @@
       <button class="tab" data-tab="armory" data-modes="admin">Armurerie</button>
       <button class="tab" data-tab="bestiary" data-modes="admin">Bestiaire</button>
       <button class="tab" data-tab="talentadv" data-modes="admin">Talents Adv.</button>
+      <button class="tab" data-tab="tutorial-admin" data-modes="admin">Encyclopédie</button>
       <button class="tab" data-tab="combat" data-modes="admin">Combat Test</button>
     </nav>
     <div class="topbar-actions">
@@ -123,6 +125,23 @@
         </div>
         <p class="hint">Crée ici les talents que tu pourras attribuer aux adversaires dans leur éditeur. Le <b>X</b> est une valeur variable, ajustée par monstre. Chaque talent se rattache à un effet du moteur de combat.</p>
         <div id="talentadv-list" class="talentadv-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ TUTORIEL (Joueur, deux colonnes) ============ -->
+    <section id="tab-tutorial" class="tab-panel">
+      <div id="tutorial-root"></div>
+    </section>
+
+    <!-- ============ ENCYCLOPÉDIE (édition des tutoriels, Admin) ============ -->
+    <section id="tab-tutorial-admin" class="tab-panel">
+      <div class="card">
+        <div class="card-head">
+          <h2>Encyclopédie (Tutoriels)</h2>
+          <button id="btn-add-tutorial" class="primary">+ Nouvelle entrée</button>
+        </div>
+        <p class="hint">Crée et édite ici les entrées de tutoriel visibles par les joueurs dans l'onglet <b>Tutoriel</b>. Utilise <b>⧉ Dupliquer</b> pour partir d'une copie d'une entrée existante.</p>
+        <div id="tutorial-admin-root"></div>
       </div>
     </section>
 
@@ -529,17 +548,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.79"></script>
-  <script src="js/store.js?v=2.79"></script>
-  <script src="js/inventory.js?v=2.79"></script>
-  <script src="js/combatants.js?v=2.79"></script>
-  <script src="js/combat.js?v=2.79"></script>
-  <script src="js/classes.js?v=2.79"></script>
-  <script src="js/adventure.js?v=2.79"></script>
-  <script src="js/session.js?v=2.79"></script>
-  <script src="js/dataio.js?v=2.79"></script>
-  <script src="js/share.js?v=2.79"></script>
-  <script src="js/shell.js?v=2.79"></script>
-  <script src="js/main.js?v=2.79"></script>
+  <script src="js/dice.js?v=2.80"></script>
+  <script src="js/store.js?v=2.80"></script>
+  <script src="js/inventory.js?v=2.80"></script>
+  <script src="js/combatants.js?v=2.80"></script>
+  <script src="js/combat.js?v=2.80"></script>
+  <script src="js/classes.js?v=2.80"></script>
+  <script src="js/tutorial.js?v=2.80"></script>
+  <script src="js/adventure.js?v=2.80"></script>
+  <script src="js/session.js?v=2.80"></script>
+  <script src="js/dataio.js?v=2.80"></script>
+  <script src="js/share.js?v=2.80"></script>
+  <script src="js/shell.js?v=2.80"></script>
+  <script src="js/main.js?v=2.80"></script>
 </body>
 </html>

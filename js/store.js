@@ -346,6 +346,31 @@
     try { global.localStorage.setItem(MONTALENT_KEY, JSON.stringify(talents)); } catch (e) {}
   }
 
+  // ---------- Tutoriels / Encyclopédie ----------
+  // Entrées pédagogiques affichées aux joueurs (onglet Tutoriel) et éditées
+  // par le MJ (onglet Encyclopédie). Chaque entrée : { id, title, content }.
+  const TUTO_KEY = 'amertume_tutorials_v1';
+  const DEFAULT_TUTORIALS = [
+    { id: 'tut_bienvenue', title: 'Bienvenue dans Amertüme', content:
+      'Amertüme est un jeu de rôle solo.\n\nChoisis une aventure depuis l\'accueil, constitue ton groupe d\'aventuriers, puis progresse de scène en scène en lisant la narration et en faisant tes choix.\n\nConsulte les autres tutoriels pour maîtriser le combat, les dés et l\'inventaire.' },
+    { id: 'tut_combat', title: 'Le module de combat', content:
+      'Le combat se déroule par tours, en zones.\n\n• Clique un aventurier pour afficher son bandeau d\'action.\n• Clique une de ses attaques, puis l\'adversaire à frapper.\n• Le bouton Mouv. permet de changer de zone : clique-le, puis clique la zone de destination.\n• Le bouton Analyse révèle la DEF, les dégâts et les talents d\'un adversaire.\n\nUne attaque de contact rapproche l\'aventurier de sa cible ; une attaque à distance (tir) frappe sans se déplacer, mais déclenche les attaques d\'opportunité des ennemis présents dans la zone de l\'aventurier.' },
+    { id: 'tut_des', title: 'Les dés', content:
+      'Chaque attaque lance un ensemble de dés colorés.\n\n• Deux 6 ou plus = Critique (relances bonus).\n• Deux 1 sur des dés non mortels = Échec.\n• Les dés Os (légers) sont retirés du total sur un double.\n\nLa DEF de la cible bloque les dés dont la valeur ne la dépasse pas (sauf dés lourds, mortels et soins qui l\'ignorent).' },
+  ];
+  function loadTutorials() {
+    let arr = null;
+    try {
+      const raw = global.localStorage.getItem(TUTO_KEY);
+      arr = raw ? JSON.parse(raw) : null;
+    } catch (e) { arr = null; }
+    if (!Array.isArray(arr)) return JSON.parse(JSON.stringify(DEFAULT_TUTORIALS));
+    return arr;
+  }
+  function saveTutorials(arr) {
+    try { global.localStorage.setItem(TUTO_KEY, JSON.stringify(arr)); } catch (e) {}
+  }
+
   global.Store = {
     uid: uid,
     noStates: noStates,
@@ -370,6 +395,8 @@
     saveClasses: saveClasses,
     loadMonsterTalents: loadMonsterTalents,
     saveMonsterTalents: saveMonsterTalents,
+    loadTutorials: loadTutorials,
+    saveTutorials: saveTutorials,
     loadUnlocked: loadUnlocked,
     saveUnlocked: saveUnlocked,
   };

@@ -2349,3 +2349,51 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 
 /* Journal compact : hauteur pour 4 lignes visibles */
 .combat-log.compact { max-height: 6.8rem; min-height: 6.8rem; }
+
+/* ===================================================================
+   v2.80 — Tutoriel (Joueur, 2 colonnes) + Encyclopédie (Admin)
+   =================================================================== */
+
+/* Vue Joueur : liste de vignettes à gauche, contenu à droite */
+.tuto-layout {
+  display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 640px) { .tuto-layout { grid-template-columns: 1fr; } }
+
+.tuto-list { display: flex; flex-direction: column; gap: .4rem; }
+.tuto-item {
+  padding: .6rem .8rem; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--panel); cursor: pointer; font-weight: 600;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.tuto-item:hover { border-color: var(--accent-2); transform: translateX(2px); }
+.tuto-item.active {
+  border-color: var(--accent); background: rgba(193,78,53,.12);
+  color: var(--accent-2);
+}
+
+.tuto-content {
+  background: #f5ecd7; border: 1px solid #c9a96e; border-radius: 10px;
+  padding: 1rem 1.2rem; color: #33271a; min-height: 200px;
+}
+.tuto-content-title {
+  margin: 0 0 .6rem; color: #6b3a1e; font-family: "Georgia", serif;
+  border-bottom: 1px dashed #c9a96e; padding-bottom: .4rem;
+}
+.tuto-content-body { line-height: 1.55; font-size: 1.02rem; }
+
+/* Vue Admin : cartes d'édition */
+.tuto-edit-card {
+  border: 1px solid var(--border); border-radius: 10px; padding: .7rem;
+  margin-bottom: .7rem; background: rgba(0,0,0,.03);
+}
+.tuto-edit-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.tuto-edit-head .te-title { flex: 1; min-width: 120px; font-weight: 700; }
+.tuto-edit-card .te-content {
+  width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit;
+  line-height: 1.45;
+}
+
+/* Bouton dupliquer d'une scène (éditeur d'aventure) */
+.adv-scene-tools .sc-dup { font-size: .85rem; }
