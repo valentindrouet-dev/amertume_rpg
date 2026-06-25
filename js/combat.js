@@ -1661,14 +1661,17 @@
     const nameHtml = a.special
       ? '<span class="ab-atk-talname">' + esc(a.name) + '</span>'
       : '<img class="ab-atk-name" src="' + (a.range === 'distance' ? 'assets/Attack_range_b.png' : 'assets/Attack_melee_b.png') + '" alt="' + (a.range === 'distance' ? 'Tir' : 'Attaque') + '">';
+    // Les boutons de talent n'affichent que le nom (pas de dés ni de bonus).
+    const figsHtml = a.special ? '' :
+      '<span class="ab-atk-figs">' + (revealed ? Inventory.poolBadges(a.dice) : '') +
+        (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
+        (revealed && uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
+      '</span>';
     return '<button class="ab-atk atk-chip' + (a.special ? ' ab-atk-special' : '') + (isThisAtk ? ' selected' : '') +
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
         ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
       nameHtml +
-      '<span class="ab-atk-figs">' + (revealed ? Inventory.poolBadges(a.dice) : '') +
-        (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
-        (revealed && uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
-      '</span>' +
+      figsHtml +
     '</button>';
   }
 

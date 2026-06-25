@@ -567,82 +567,101 @@
 
   function renderLevelUp(root, ses, adv, newLevel) {
     const heroes = engagedHeroes(ses);
-    const cards = heroes.map(function (h, idx) {
+    const statSel = {}; // idx -> 'endu'|'damage'
+    const talSel  = {}; // idx -> talentId
+
+    function isCombatTalent(t) {
+      return t.usage === 'combat' || (t.usage === 'both' && !!t.effect);
+    }
+
+    function heroBlock(h, idx) {
       const talents = availableTalents(ses, h, newLevel);
-      const talentHtml = talents.length
-        ? talents.map(function (t, ti) {
-            return '<label class="lvl-talent">' +
-              '<input type="radio" name="lvl-tal-' + idx + '" value="' + esc(t.id) + '">' +
-              '<span class="lvl-tal-body"><b>' + esc(t.name) + '</b> <span class="lvl-tal-lvl">Niv. ' + (t.level || 1) + '</span>' +
-              (t.description ? '<span class="lvl-tal-desc">' + esc(t.description) + '</span>' : '') + '</span>' +
-            '</label>';
+      const statHtml =
+        '<button type="button" class="lvl-choice-btn lvl-stat-btn" data-idx="' + idx + '" data-stat="endu">+2 ENDURANCE</button>' +
+        '<button type="button" class="lvl-choice-btn lvl-stat-btn" data-idx="' + idx + '" data-stat="damage">+1 Dégâts</button>';
+      const talHtml = talents.length
+        ? talents.map(function (t) {
+            return '<button type="button" class="lvl-choice-btn lvl-tal-btn' +
+              (isCombatTalent(t) ? ' lvl-tal-action' : '') + '" ' +
+              'data-idx="' + idx + '" data-tal="' + esc(t.id) + '" ' +
+              'title="' + esc(t.description || '') + '">' +
+              '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
+              '<span class="lvl-tal-lvl">Niv. ' + (t.level || 1) + '</span>' +
+            '</button>';
           }).join('')
-        : '<p class="hint" style="margin:.2rem 0">Aucun nouveau talent disponible à ce niveau.</p>';
-      return '<div class="lvl-hero" data-idx="' + idx + '" data-hid="' + esc(h.id) + '">' +
-        '<div class="lvl-hero-head"><span class="lvl-hero-name">' + esc(h.name) + '</span>' +
-          (h.klass ? '<span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</div>' +
-        '<div class="lvl-section-title">Caractéristique</div>' +
-        '<div class="lvl-stats">' +
-          '<label class="lvl-stat"><input type="radio" name="lvl-stat-' + idx + '" value="endu">' +
-            '<span>+2 ENDURANCE</span></label>' +
-          '<label class="lvl-stat"><input type="radio" name="lvl-stat-' + idx + '" value="damage">' +
-            '<span>+1 Dégâts</span></label>' +
+        : '<span class="hint" style="font-size:.8rem">Aucun talent disponible.</span>';
+      return '<div class="lvl-hero" data-idx="' + idx + '">' +
+        '<div class="lvl-hero-head">' +
+          '<span class="lvl-hero-name">' + esc(h.name) + '</span>' +
+          (h.klass ? '<span class="class-badge klass-' + slug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
         '</div>' +
-        '<div class="lvl-section-title">Talent' + (talents.length ? '' : ' (aucun)') + '</div>' +
-        '<div class="lvl-talents">' + talentHtml + '</div>' +
+        '<div class="lvl-section-title">Caractéristique</div>' +
+        '<div class="lvl-row">' + statHtml + '</div>' +
+        (talents.length
+          ? '<div class="lvl-section-title">Talent</div><div class="lvl-row lvl-tal-row">' + talHtml + '</div>'
+          : '') +
       '</div>';
-    }).join('');
+    }
+
+    const cards = heroes.map(function (h, idx) { return heroBlock(h, idx); }).join('');
 
     root.innerHTML =
       '<div class="card lvlup-card">' +
-        '<div class="lvlup-banner">⭐ Niveau Supérieur ! <span class="lvlup-num">Niveau ' + newLevel + '</span></div>' +
-        '<p class="hint">Pour chaque aventurier, choisissez une amélioration de caractéristique' +
-          ' et, si disponible, un nouveau talent.</p>' +
+        '<div class="lvlup-banner">⭐ <span>Niveau Supérieur !</span>' +
+          '<span class="lvlup-num">Niveau ' + newLevel + '</span></div>' +
         '<div class="lvlup-heroes">' + cards + '</div>' +
         '<button class="primary big" id="lvlup-continue" disabled>Continuer →</button>' +
       '</div>';
 
     const contBtn = root.querySelector('#lvlup-continue');
-    // Met à jour l'état du bouton : tous les héros doivent avoir une caractéristique
-    // choisie + un talent (si au moins un est disponible).
+
     function refresh() {
       let ok = true;
       heroes.forEach(function (h, idx) {
-        const stat = root.querySelector('input[name="lvl-stat-' + idx + '"]:checked');
-        if (!stat) ok = false;
-        const hasTalent = availableTalents(ses, h, newLevel).length > 0;
-        if (hasTalent && !root.querySelector('input[name="lvl-tal-' + idx + '"]:checked')) ok = false;
+        if (!statSel[idx]) ok = false;
+        if (availableTalents(ses, h, newLevel).length > 0 && !talSel[idx]) ok = false;
       });
       contBtn.disabled = !ok;
     }
-    root.querySelectorAll('input[type="radio"]').forEach(function (r) {
-      r.addEventListener('change', refresh);
+
+    root.querySelectorAll('.lvl-stat-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const idx = btn.getAttribute('data-idx');
+        root.querySelectorAll('.lvl-stat-btn[data-idx="' + idx + '"]').forEach(function (b) { b.classList.remove('selected'); });
+        btn.classList.add('selected');
+        statSel[idx] = btn.getAttribute('data-stat');
+        refresh();
+      });
+    });
+    root.querySelectorAll('.lvl-tal-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const idx = btn.getAttribute('data-idx');
+        root.querySelectorAll('.lvl-tal-btn[data-idx="' + idx + '"]').forEach(function (b) { b.classList.remove('selected'); });
+        btn.classList.add('selected');
+        talSel[idx] = btn.getAttribute('data-tal');
+        refresh();
+      });
     });
 
     contBtn.addEventListener('click', function () {
       heroes.forEach(function (h, idx) {
         const g = heroGains(ses, h.id);
-        const stat = root.querySelector('input[name="lvl-stat-' + idx + '"]:checked');
-        if (stat && stat.value === 'endu') {
+        if (statSel[idx] === 'endu') {
           g.endu += 2;
-          // L'ENDU augmente les PV max ; on soigne d'autant les PV courants.
           const delta = 2 * (h.vie || 0);
           if (delta > 0 && ses.heroStates && ses.heroStates[h.id]) {
             ses.heroStates[h.id].pv = (ses.heroStates[h.id].pv || 0) + delta;
           }
-        } else if (stat && stat.value === 'damage') {
+        } else if (statSel[idx] === 'damage') {
           g.damage += 1;
         }
-        const tal = root.querySelector('input[name="lvl-tal-' + idx + '"]:checked');
-        if (tal && g.talents.indexOf(tal.value) < 0) g.talents.push(tal.value);
+        if (talSel[idx] && g.talents.indexOf(talSel[idx]) < 0) g.talents.push(talSel[idx]);
       });
       ses.levelDone = newLevel;
       const target = ses.pendingNav;
       ses.pendingNav = null;
       save();
       Store.save();
-      // Poursuit : s'il reste des niveaux à valider, l'écran se réaffiche ;
-      // sinon on avance vers la scène mémorisée.
       navigateTo(ses, adv, target);
     });
   }

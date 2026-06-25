@@ -798,11 +798,11 @@ main { padding: 1.5rem 1.25rem 3rem; }
 /* Bonus de dégâts (+N) dans le chip d'attaque */
 .atk-dmg {
   font-size: .76rem; font-weight: 700;
-  color: #9a5e1c; background: rgba(226,151,74,.18);
+  color: #fff; background: rgba(200,50,50,.75);
   border: 1px solid rgba(226,151,74,.35); border-radius: 5px;
   padding: .1rem .35rem;
 }
-.combat-card .atk-dmg { color: #9a5a1c; }
+.combat-card .atk-dmg { color: #fff; background: rgba(200,50,50,.75); }
 
 /* Ligne d'attaque : chip dé + bouton moy. côte-à-côte */
 .atk-row { display: flex; gap: .35rem; align-items: stretch; }
@@ -2013,6 +2013,9 @@ img.ab-atk-name {
   background: #e6e6e6; border: 1.5px solid #888; display: block;
 }
 .ab-atk-figs { display: inline-flex; align-items: center; gap: .2rem; flex: 0 0 auto; }
+.ab-atk .atk-dmg {
+  background: rgba(200,50,50,.85); border-color: rgba(200,50,50,.6);
+}
 .ab-atk .atk-dmg, .ab-atk .atk-uses {
   color: #fff; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.4);
   border-radius: 4px; padding: 0 .2rem; font-weight: 700; font-size: .6rem;
@@ -2526,38 +2529,41 @@ body.mode-player #item-list.roster-list { display: block; }
 .adv-scene-tools .sc-dup { font-size: .85rem; }
 
 /* ====== Écran « Niveau Supérieur ! » ====== */
-.lvlup-card { border: 1px solid rgba(212,175,90,.5); }
+.lvlup-card { border: 1px solid rgba(212,175,90,.4); }
 .lvlup-banner {
-  text-align: center; font-size: 1.5rem; font-weight: 800; color: #f3d27a;
-  text-shadow: 0 0 12px rgba(212,175,90,.5); margin: .2rem 0 .4rem;
-  display: flex; flex-direction: column; gap: .15rem;
+  display: flex; align-items: center; gap: .5rem; justify-content: center;
+  font-size: 1.15rem; font-weight: 800; color: #f3d27a;
+  text-shadow: 0 0 10px rgba(212,175,90,.4); padding: .5rem 0 .1rem;
 }
-.lvlup-num { font-size: 1rem; color: var(--muted); font-weight: 700; }
-.lvlup-heroes { display: flex; flex-direction: column; gap: .8rem; margin: .8rem 0; }
+.lvlup-num { font-size: .85rem; color: var(--muted); font-weight: 600; }
+.lvlup-heroes { display: flex; flex-direction: column; gap: .7rem; margin: .7rem 0; }
 .lvl-hero {
-  border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
-  padding: .7rem .8rem; background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
+  padding: .6rem .7rem; background: rgba(255,255,255,.03);
 }
-.lvl-hero-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
-.lvl-hero-name { font-weight: 800; font-size: 1.05rem; }
+.lvl-hero-head { display: flex; align-items: center; gap: .4rem; margin-bottom: .45rem; }
+.lvl-hero-name { font-weight: 800; }
 .lvl-section-title {
-  font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted); margin: .5rem 0 .25rem; font-weight: 700;
+  font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); font-weight: 700; margin: .4rem 0 .2rem;
 }
-.lvl-stats { display: flex; gap: .5rem; flex-wrap: wrap; }
-.lvl-stat, .lvl-talent {
-  display: flex; align-items: flex-start; gap: .45rem; cursor: pointer;
-  border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
-  padding: .45rem .6rem; background: rgba(255,255,255,.03); transition: all .12s;
+.lvl-row { display: flex; gap: .35rem; flex-wrap: wrap; }
+/* Boutons de sélection de montée de niveau */
+.lvl-choice-btn {
+  padding: .35rem .65rem; border-radius: 8px; border: 1.5px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.06); color: #e0e0e0; font-size: .8rem; font-weight: 700;
+  cursor: pointer; transition: border-color .1s, background .1s;
+  display: flex; flex-direction: column; align-items: center; gap: .05rem;
 }
-.lvl-stat { flex: 1; min-width: 120px; font-weight: 700; align-items: center; }
-.lvl-stat input, .lvl-talent input { margin-top: .15rem; accent-color: #d4af5a; }
-.lvl-stat:has(input:checked), .lvl-talent:has(input:checked) {
-  border-color: #d4af5a; background: rgba(212,175,90,.14);
+.lvl-choice-btn:hover { border-color: rgba(255,255,255,.4); background: rgba(255,255,255,.1); }
+.lvl-choice-btn.selected { border-color: #d4af5a; background: rgba(212,175,90,.18); color: #f3d27a; }
+/* Talent de type action (combat) = bleu comme les boutons d'attaque */
+.lvl-tal-btn.lvl-tal-action {
+  border-color: rgba(77,142,209,.5); background: rgba(77,142,209,.14); color: #a8cbf0;
 }
-.lvl-talents { display: flex; flex-direction: column; gap: .4rem; }
-.lvl-tal-body { display: flex; flex-direction: column; gap: .1rem; }
-.lvl-tal-lvl { font-size: .68rem; color: var(--muted); font-weight: 600; }
-.lvl-tal-desc { font-size: .82rem; color: var(--muted); font-weight: 400; }
-.lvlup-card #lvlup-continue { width: 100%; margin-top: .4rem; }
-.lvlup-card #lvlup-continue:disabled { opacity: .5; cursor: not-allowed; }
+.lvl-tal-btn.lvl-tal-action:hover { border-color: rgba(77,142,209,.8); background: rgba(77,142,209,.25); }
+.lvl-tal-btn.lvl-tal-action.selected { border-color: #5a9de0; background: rgba(77,142,209,.38); color: #d4eaff; }
+.lvl-tal-name { font-weight: 700; }
+.lvl-tal-lvl { font-size: .6rem; color: var(--muted); }
+.lvlup-card #lvlup-continue { width: 100%; margin-top: .5rem; }
+.lvlup-card #lvlup-continue:disabled { opacity: .45; cursor: not-allowed; }

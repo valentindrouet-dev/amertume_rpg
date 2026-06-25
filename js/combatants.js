@@ -515,8 +515,12 @@
 
   // Fiche d'aventurier en lecture seule (ouverte depuis la narration)
   // En mode Joueur, on reflète les gains de niveau + talents choisis de la partie.
+  // Sans session active (onglet Groupe avant de jouer), on renvoie tout de même
+  // un héros avec chosenTalents: [] pour que les talents non débloqués restent masqués.
   function displayHero(h) {
-    return (isPlayerMode() && global.Session && Session.effectiveHero) ? Session.effectiveHero(h) : h;
+    if (!isPlayerMode()) return h;
+    if (global.Session && Session.effectiveHero) return Session.effectiveHero(h);
+    return Object.assign({}, h, { chosenTalents: [] });
   }
   function heroSheetHtml(h) {
     const dh = displayHero(h);
