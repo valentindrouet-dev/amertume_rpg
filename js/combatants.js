@@ -734,6 +734,7 @@
     const step = WIZ_STEPS[wiz.step];
     if (step === 'Nom') ok = !!wiz.name.trim();
     else if (step === 'Classe') ok = !!wiz.klass;
+    else if (step === 'Caractéristiques') ok = wiz.statClicks === 3;
     else if (step === 'Équipement') ok = !!wiz.equipCombo;
     else if (step === 'Compétences') ok = wizSkillTotal() === 3;
     const nb = $('#hw-next'); if (nb) nb.disabled = !ok;
@@ -809,7 +810,7 @@
         '<b>' + rem + '</b> point' + (rem > 1 ? 's' : '') + ' restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-stat-list2">' +
           statRow('damage', '⚔ DÉGÂTS <small>(+1 / point)</small>', 1, dmg, wiz.statBonuses.damage) +
-          '<p class="hw-stat-desc">Augmente les dégâts infligés par toutes vos attaques de +X (utiliser la valeur).</p>' +
+          '<p class="hw-stat-desc">Augmente les dégâts infligés par toutes vos attaques de <b>+' + dmg + '</b>.</p>' +
           statRow('endu', '🏃 ENDURANCE <small>(+2 / point)</small>', 2, endu, wiz.statBonuses.endu) +
           '<p class="hw-stat-desc">Augmente vos PV, votre résistance et vos soins.</p>' +
           statRow('vie', '❤ VIE <small>(+1 / point)</small>', 1, vie, wiz.statBonuses.vie) +
@@ -845,19 +846,23 @@
       });
     } else if (stepName === 'Équipement') {
       // Trois combinaisons d'armes de départ imposées (plus de catalogue libre).
-      const COMBO_DICE_HINT = {
-        dual:   '4 dés (2 épées × 2 dés)',
-        shield: 'Épée : 2 dés · Bouclier : DEF 1',
-        bow:    '3 dés (arc)',
-      };
+      // Chaque combinaison affiche les vignettes d'objets (avec dés / DEF) comme
+      // dans l'inventaire et l'armurerie, pour une cohérence visuelle.
+      function comboStrips(c) {
+        return c.names.map(function (n) {
+          const it = findItemByName(n);
+          if (!it) return '<div class="inv-strip-row"><span class="hw-combo-warn">« ' + esc(n) +' » introuvable</span></div>';
+          return '<div class="inv-strip-row cat-' + it.category + '">' +
+            '<div class="inv-strip">' + Inventory.itemStripHtml(it) + '</div>' +
+          '</div>';
+        }).join('');
+      }
       body.innerHTML = '<p class="hint">Choisis ta <b>combinaison d\'armes</b> de départ.</p>' +
         '<div class="hw-combo-list">' + START_COMBOS.map(function (c) {
           const sel = wiz.equipCombo === c.id;
-          const missing = c.names.some(function (n) { return !findItemByName(n); });
           return '<button type="button" class="hw-combo' + (sel ? ' selected' : '') + '" data-combo="' + c.id + '">' +
             '<span class="hw-combo-label">' + esc(c.label) + '</span>' +
-            '<span class="hw-combo-dice">' + esc(COMBO_DICE_HINT[c.id] || '') + '</span>' +
-            (missing ? '<span class="hw-combo-warn">objet introuvable dans l\'armurerie</span>' : '') +
+            '<div class="hw-combo-strips inv-strip-layout">' + comboStrips(c) + '</div>' +
           '</button>';
         }).join('') + '</div>';
       body.querySelectorAll('.hw-combo').forEach(function (b) {

@@ -178,9 +178,14 @@
   function renderPlayer(advId) {
     const list = $('#item-list');
     if (!list) return;
-    const heroes = (window.Combatants && Combatants.adventureHeroes) ? Combatants.adventureHeroes(advId) : [];
+    let heroes = (window.Combatants && Combatants.adventureHeroes) ? Combatants.adventureHeroes(advId) : [];
+    // Seuls les aventuriers engagés dans la partie active s'affichent (max 4).
+    const engaged = (window.Session && Session.engagedHeroIds) ? Session.engagedHeroIds() : null;
+    if (engaged) heroes = heroes.filter(function (h) { return engaged.indexOf(h.id) >= 0; });
     if (!heroes.length) {
-      list.innerHTML = '<p class="empty">Aucun aventurier : crée ton groupe d\'abord.</p>';
+      list.innerHTML = engaged
+        ? '<p class="empty">Aucun aventurier engagé dans cette partie.</p>'
+        : '<p class="empty">Lance une aventure pour voir l\'inventaire de ton groupe.</p>';
       return;
     }
     const ownedOf = function (heroId) {
@@ -547,6 +552,7 @@
     openItemSheet: openItemSheet,
     buildDiceSteppers: buildDiceSteppers,
     poolBadges: poolBadges,
+    itemStripHtml: itemStripHtml,
     escapeHtml: escapeHtml,
   };
 })(window);

@@ -955,7 +955,10 @@
     forceSetup = false;
     const adv = findAdventure(advId);
     if (!adv) { root.innerHTML = '<p class="empty">Aventure introuvable.</p>'; return; }
-    const heroes = Combatants.adventureHeroes(advId);
+    // Pool « Aventuriers » : uniquement les aventuriers créés par le joueur pour
+    // cette aventure (on exclut les clones de modèles pré-construits, qui ont leur
+    // propre pool ci-dessous).
+    const heroes = Combatants.adventureHeroes(advId).filter(function (h) { return !h.prebuiltId; });
 
     // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
     // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
@@ -967,12 +970,9 @@
         '<button type="button" class="ghost small grp-del-btn" data-grp-del="' + h.id + '" title="Supprimer">✕</button>' +
       '</div>';
     }
-    // Deux catégories : aventuriers du groupe (custom + clones déjà ajoutés) et
-    // modèles pré-construits encore disponibles (clonés au lancement de l'aventure).
-    const used = {};
-    heroes.forEach(function (h) { if (h.prebuiltId) used[h.prebuiltId] = true; });
-    const prebuilts = (Combatants.prebuiltHeroes ? Combatants.prebuiltHeroes() : [])
-      .filter(function (h) { return !used[h.id]; });
+    // Pool « Aventuriers Pré-construit » : tous les modèles (adventureId null).
+    // La sélection d'un modèle le clone (ou réutilise son clone) au lancement.
+    const prebuilts = (Combatants.prebuiltHeroes ? Combatants.prebuiltHeroes() : []);
 
     // Ni aventurier créé ni modèle disponible : inviter à en créer un.
     if (!heroes.length && !prebuilts.length) {
@@ -1167,7 +1167,36 @@
     activeSession = ses;
     setupSel = {};
     const root = $('#session-root');
-    if (root) renderScene(root);
+    if (root) renderAdventureIntro(root, ses, adv);
+  }
+
+  // Écran d'introduction affiché juste après « Commencer l'aventure » (style scène).
+  function renderAdventureIntro(root, ses, adv) {
+    const names = (ses.heroIds || []).map(function (hid) {
+      const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      return h ? h.name : null;
+    }).filter(Boolean);
+    let nameList;
+    if (names.length <= 1) nameList = names.join('');
+    else nameList = names.slice(0, -1).map(esc).join(', ') + ' et ' + esc(names[names.length - 1]);
+    const namesHtml = names.length <= 1 ? esc(nameList) : nameList;
+    root.innerHTML =
+      '<div class="ses-content">' +
+        '<div class="ses-scene-card ses-intro-card">' +
+          '<h2 class="ses-scene-title">L\'Aventure commence !</h2>' +
+          '<div class="ses-scene-blocks">' +
+            '<div class="scene-block scene-block-narrative"><strong>' + namesHtml + '</strong> ' +
+              (names.length > 1 ? 'ont' : 'a') + ' rejoint le Groupe !</div>' +
+            '<div class="scene-block scene-block-narrative">Vous pouvez retrouver leurs Caractéristiques, ' +
+              'leurs Talents et leur Inventaire dans les Onglets dédiés. N\'hésitez pas à consulter ' +
+              'l\'Index pour plus d\'informations sur le jeu !</div>' +
+            '<div class="scene-block scene-block-narrative">Bon courage en Amertüme !</div>' +
+          '</div>' +
+          '<div class="ses-actions"><button class="primary big" id="ses-intro-go">▶ Commencer</button></div>' +
+        '</div>' +
+      '</div>';
+    const go = document.getElementById('ses-intro-go');
+    if (go) go.addEventListener('click', function () { renderScene(root); });
   }
 
   // Démarre une nouvelle partie (depuis l'onglet Session) même si une partie est active
