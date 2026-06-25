@@ -320,6 +320,16 @@
   // requis (XP de groupe). Le champ `effect` rattache le talent au moteur de
   // combat (ex. 'double_attaque' = frappe 2 cibles d'une même zone).
   const GENTALENT_KEY = 'amertume_gentalents_v1';
+  // Talents génériques intégrés supprimés par le MJ (pierres tombales) : empêche
+  // que le complément automatique des talents intégrés ne les réinjecte.
+  const GENTALENT_DEL_KEY = 'amertume_gentalents_deleted_v1';
+  function loadGenTombstones() {
+    try {
+      const raw = global.localStorage.getItem(GENTALENT_DEL_KEY);
+      const arr = raw ? JSON.parse(raw) : null;
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
 
   // ===== Bibliothèque des effets de talent (patterns câblés au moteur) =====
   // kind : 'action' (bleu, consomme l'action du tour) · 'reaction' (violet,
@@ -442,8 +452,11 @@
       arr = raw ? JSON.parse(raw) : null;
     } catch (e) { arr = null; }
     if (!Array.isArray(arr)) return JSON.parse(JSON.stringify(DEFAULT_GENTALENTS));
-    // Complète avec les talents intégrés manquants (nouveaux effets ajoutés à l'app)
+    // Complète avec les talents intégrés manquants (nouveaux effets ajoutés à l'app),
+    // SAUF ceux que le MJ a explicitement supprimés (pierres tombales).
+    const tomb = loadGenTombstones();
     DEFAULT_GENTALENTS.forEach(function (d) {
+      if (tomb.indexOf(d.id) >= 0) return;
       if (!arr.some(function (t) { return t.id === d.id || (d.effect && t.effect === d.effect); })) {
         arr.push(JSON.parse(JSON.stringify(d)));
       }
@@ -460,6 +473,15 @@
   }
   function saveGenericTalents(arr) {
     try { global.localStorage.setItem(GENTALENT_KEY, JSON.stringify(arr)); } catch (e) {}
+    // Recalcule les pierres tombales : tout talent intégré absent du tableau
+    // sauvegardé est considéré comme supprimé par le MJ (et ne sera pas réinjecté).
+    try {
+      const list = Array.isArray(arr) ? arr : [];
+      const tomb = DEFAULT_GENTALENTS.filter(function (d) {
+        return !list.some(function (t) { return t.id === d.id || (d.effect && t.effect === d.effect); });
+      }).map(function (d) { return d.id; });
+      global.localStorage.setItem(GENTALENT_DEL_KEY, JSON.stringify(tomb));
+    } catch (e) {}
   }
 
   // ---------- Talents adverses (catalogue MJ/Admin) ----------

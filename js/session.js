@@ -955,14 +955,12 @@
     forceSetup = false;
     const adv = findAdventure(advId);
     if (!adv) { root.innerHTML = '<p class="empty">Aventure introuvable.</p>'; return; }
-    // Pool « Aventuriers » : uniquement les aventuriers créés par le joueur pour
-    // cette aventure (on exclut les clones de modèles pré-construits, qui ont leur
-    // propre pool ci-dessous).
-    const heroes = Combatants.adventureHeroes(advId).filter(function (h) { return !h.prebuiltId; });
+    // Pool « Aventuriers » : les aventuriers créés par le joueur pour cette aventure.
+    const heroes = Combatants.adventureHeroes(advId);
 
     // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
     // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
-    function cardHtml(h, isPrebuilt) {
+    function cardHtml(h) {
       return '<div class="hero-pick-card-wrap">' +
         '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
           Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
@@ -970,12 +968,9 @@
         '<button type="button" class="ghost small grp-del-btn" data-grp-del="' + h.id + '" title="Supprimer">✕</button>' +
       '</div>';
     }
-    // Pool « Aventuriers Pré-construit » : tous les modèles (adventureId null).
-    // La sélection d'un modèle le clone (ou réutilise son clone) au lancement.
-    const prebuilts = (Combatants.prebuiltHeroes ? Combatants.prebuiltHeroes() : []);
 
-    // Ni aventurier créé ni modèle disponible : inviter à en créer un.
-    if (!heroes.length && !prebuilts.length) {
+    // Aucun aventurier créé : inviter à en créer un.
+    if (!heroes.length) {
       root.innerHTML =
         '<div class="card">' +
           '<div class="card-head"><h2>Créez votre groupe d\'aventuriers</h2></div>' +
@@ -988,24 +983,19 @@
       document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
       return;
     }
-    const customRows = heroes.map(function (h) { return cardHtml(h, false); }).join('');
-    const prebuiltRows = prebuilts.map(function (h) { return cardHtml(h, true); }).join('');
+    const customRows = heroes.map(function (h) { return cardHtml(h); }).join('');
 
     root.innerHTML =
       '<div class="card">' +
         '<div class="card-head"><h2>Votre groupe — ' + esc(adv.title) + '</h2>' +
           '<div style="display:flex;gap:.4rem">' +
             '<button class="primary small" id="grp-new">+ Aventurier</button>' +
-            '<button class="ghost small" id="grp-prebuilt">+ Pré-construit</button>' +
           '</div>' +
         '</div>' +
         '<p class="hint">Choisis 1 à 4 aventuriers qui partent à l\'aventure.</p>' +
         '<div class="grp-cat-title">Aventuriers</div>' +
         '<div id="grp-list" class="hero-pick-list">' +
           (customRows || '<p class="empty">Aucun aventurier créé. Clique sur « + Aventurier ».</p>') + '</div>' +
-        '<div class="grp-cat-title">Aventuriers Pré-construit</div>' +
-        '<div id="grp-list-pre" class="hero-pick-list">' +
-          (prebuiltRows || '<p class="empty">Aucun aventurier pré-construit disponible.</p>') + '</div>' +
         '<p class="diff-advice" id="grp-advice"></p>' +
         '<div class="roll-actions"><button class="primary big" id="grp-start">▶ Commencer l\'aventure</button></div>' +
       '</div>';
@@ -1042,8 +1032,6 @@
       });
     });
     document.getElementById('grp-new').onclick = function () { Combatants.openHeroModal(null); };
-    const grpPre = document.getElementById('grp-prebuilt');
-    if (grpPre) grpPre.onclick = function () { if (Combatants.openPrebuiltPicker) Combatants.openPrebuiltPicker(); };
     document.getElementById('grp-start').onclick = function () {
       const ids = Array.from(root.querySelectorAll('[data-hero]:checked')).map(function (cb) { return cb.getAttribute('data-hero'); });
       if (!ids.length || ids.length > 4) return;
