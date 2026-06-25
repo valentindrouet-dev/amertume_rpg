@@ -17,6 +17,8 @@
   let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
 
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  const KIND_LABELS = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration' };
+  function KIND_SHORT(k) { return KIND_LABELS[k] || 'Talent'; }
 
   // Conseil de difficulté selon le nombre d'aventuriers engagés
   function difficultyAdvice(n) {
@@ -570,10 +572,6 @@
     const statSel = {}; // idx -> 'endu'|'damage'
     const talSel  = {}; // idx -> talentId
 
-    function isCombatTalent(t) {
-      return t.usage === 'combat' || (t.usage === 'both' && !!t.effect);
-    }
-
     function heroBlock(h, idx) {
       const talents = availableTalents(ses, h, newLevel);
       const statHtml =
@@ -582,11 +580,11 @@
       const talHtml = talents.length
         ? talents.map(function (t) {
             return '<button type="button" class="lvl-choice-btn lvl-tal-btn' +
-              (isCombatTalent(t) ? ' lvl-tal-action' : '') + '" ' +
+              (t.kind ? ' lvl-tal-' + t.kind : '') + '" ' +
               'data-idx="' + idx + '" data-tal="' + esc(t.id) + '" ' +
               'title="' + esc(t.description || '') + '">' +
               '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
-              '<span class="lvl-tal-lvl">Niv. ' + (t.level || 1) + '</span>' +
+              '<span class="lvl-tal-lvl">' + esc(KIND_SHORT(t.kind)) + ' · Niv. ' + (t.level || 1) + '</span>' +
             '</button>';
           }).join('')
         : '<span class="hint" style="font-size:.8rem">Aucun talent disponible.</span>';

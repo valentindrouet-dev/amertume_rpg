@@ -85,13 +85,17 @@
       chosenTalents: (g && Array.isArray(g.talents)) ? g.talents : [],
     }) : h;
     const attacks = Combatants.heroCombatAttacks(hero);
+    const talents = Combatants.resolveHeroTalents(Array.isArray(hero.chosenTalents) ? hero.chosenTalents : null);
+    const hasTalent = function (e) { return talents.some(function (t) { return t.effect === e; }); };
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
       side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: hero.endu || 1, imageUrl: h.imageUrl || null,
       maxPv: Combatants.heroPv(hero), pv: Combatants.heroCurPv(hero),
       def: Combatants.heroDef(hero), damage: hero.damage, xp: 0, type: 'hero',
-      menace: null, esquive: false, rapide: !!h.rapide, socle: 'medium',
+      menace: null, esquive: hasTalent('esquive_innee') || false, rapide: !!h.rapide, socle: 'medium',
       attacks: attacks, attackUses: initUses(attacks),
+      talents: talents,                 // talents résolus (kind/effect/val) pour le moteur
+      reactUsed: {},                    // réactions déjà déclenchées dans le tour courant
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false },
       used: { action: false, move: false, object: false },
       zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
@@ -459,8 +463,8 @@
 
     const pool = Object.assign(D.emptyPool(), atk.dice);
     const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
-    const talentBonus = getTalentDmgBonus(attacker, target);
-    const dmg = baseDmg + talentBonus;
+    const talentBonus = getTalentDmgBonus(attacker, target, atk);
+    const dmg = baseDmg + talentBonus + (atk.bonusDmg || 0);
     const def = target.states.auSol ? 0 : target.def;
     const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn });
 
@@ -478,6 +482,10 @@
       if (!negated && target.blindageCharges > 0) {
         negated = true; target.blindageCharges -= 1;
         reason = 'Blindage' + (target.blindageCharges > 0 ? ' (' + target.blindageCharges + ' restante' + (target.blindageCharges > 1 ? 's' : '') + ')' : ' épuisé');
+      }
+      // GARDE IMPRENABLE (talent) : annule la 1ʳᵉ source de dégâts de chaque tour.
+      if (!negated && heroHasTalent(target, 'garde_imprenable') && target.gardeUsedTurn !== combat().turn) {
+        negated = true; target.gardeUsedTurn = combat().turn; reason = 'Garde Imprenable';
       }
     }
 
@@ -504,8 +512,24 @@
       return;
     }
 
+    // CUIRASSE (talent passif) : réduit les dégâts subis par l'aventurier.
+    let cuir = 0;
+    if (res.pvLost > 0 && target.side === 'hero') {
+      cuir = heroTalentVal(target, 'cuirasse');
+      if (cuir > 0) {
+        const before = res.pvLost;
+        res.pvLost = Math.max(0, res.pvLost - cuir);
+        if (before !== res.pvLost) log(cname(target) + ' encaisse (Cuirasse) : -' + (before - res.pvLost) + ' dégâts.', 'state');
+      }
+    }
     const pvBefore = target.pv;
-    if (res.pvLost > 0) { target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; attacker.dmgDealt += res.pvLost; }
+    if (res.pvLost > 0) {
+      target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; attacker.dmgDealt += res.pvLost;
+      // RÉACTION Contre-Attaque : l'aventurier blessé pourra riposter à son tour.
+      if (target.side === 'hero' && attacker.side === 'monster' && heroHasTalent(target, 'contre_attaque')) {
+        target.tookDamage = true; target.lastAttacker = attacker.iid;
+      }
+    }
     if (res.pvHealed > 0) target.pv = Math.min(target.maxPv, target.pv + res.pvHealed);
     const fromPct = pct(pvBefore, target.maxPv), toPct = pct(target.pv, target.maxPv);
     if (res.pvLost > 0) pushFx({ type: res.critique ? 'crit' : 'hit', iid: target.iid, amount: res.pvLost, fromPct: fromPct, toPct: toPct });
@@ -565,8 +589,44 @@
     return tpl.talents.find(function (t) { return t.trigger === trigger; }) || null;
   }
 
+  // Bonus de dégâts des talents PASSIFS d'un aventurier attaquant
+  function getHeroTalentDmgBonus(attacker, target, atk) {
+    if (!Array.isArray(attacker.talents)) return 0;
+    let bonus = 0;
+    attacker.talents.forEach(function (t) {
+      if (t.kind !== 'passive') return;
+      switch (t.effect) {
+        case 'frappe_lourde': bonus += t.val || 0; break;
+        case 'maitre_distance': if (atk && atk.range === 'distance') bonus += t.val || 0; break;
+        case 'tueur_au_sol': if (target.states.auSol) bonus += t.val || 0; break;
+        case 'tueur_affaibli': if (target.states.affaibli) bonus += t.val || 0; break;
+        case 'meute': {
+          const allies = combat().combatants.filter(function (c) {
+            return c.side === 'hero' && c.status === 'active' && c.iid !== attacker.iid && c.zone === target.zone;
+          }).length;
+          bonus += allies * (t.val || 1);
+          break;
+        }
+      }
+    });
+    return bonus;
+  }
+
+  // Un aventurier possède-t-il un talent d'effet donné ?
+  function heroHasTalent(c, effect) {
+    return c && c.side === 'hero' && Array.isArray(c.talents) &&
+      c.talents.some(function (t) { return t.effect === effect; });
+  }
+  // Valeur X d'un talent de l'aventurier (0 si absent)
+  function heroTalentVal(c, effect) {
+    if (!c || !Array.isArray(c.talents)) return 0;
+    const t = c.talents.find(function (x) { return x.effect === effect; });
+    return t ? (t.val || 0) : 0;
+  }
+
   // Retourne le bonus de dégâts (talents de l'attaquant + soutien de zone)
-  function getTalentDmgBonus(attacker, target) {
+  function getTalentDmgBonus(attacker, target, atk) {
+    if (attacker.side === 'hero') return getHeroTalentDmgBonus(attacker, target, atk);
     if (attacker.side !== 'monster') return 0;
     const tpl = Store.state.monsters.find(function (m) { return m.id === attacker.templateId; });
     let bonus = 0;
@@ -696,8 +756,17 @@
     });
   }
 
+  // Réinitialise les marqueurs de réaction « subi des dégâts » avant que les
+  // adversaires ne frappent : seul un coup reçu CE tour-ci ouvre la riposte.
+  function clearHeroReactionMarks() {
+    combat().combatants.forEach(function (h) {
+      if (h.side === 'hero') { h.tookDamage = false; h.lastAttacker = null; }
+    });
+  }
+
   // Version synchrone (auto-combat, abandon) : tous les adversaires agissent d'un coup
   function monstersActCore() {
+    clearHeroReactionMarks();
     activationOrder().forEach(actOneMonster);
     checkOutcome();
   }
@@ -707,6 +776,7 @@
   // appelé quand toute la vague a agi (ou que le combat est résolu).
   const AI_STEP_MS = 550;
   function monstersActSequential(onDone) {
+    clearHeroReactionMarks();
     const order = activationOrder();
     const myToken = aiToken; // si le combat change, cette séquence est abandonnée
     let i = 0;
@@ -777,6 +847,24 @@
     resetActivations();
     c.phase = 'heroes';
     log('Tour ' + c.turn + '.', 'turn');
+    startHeroTurn();
+  }
+
+  // Début du tour des aventuriers : réinitialise les réactions et applique
+  // les talents passifs « par tour » (Régénération).
+  function startHeroTurn() {
+    activeOf('hero').forEach(function (h) {
+      h.reactUsed = {};
+      const regen = heroTalentVal(h, 'regeneration');
+      if (regen > 0 && h.pv < h.maxPv) {
+        const before = h.pv;
+        h.pv = Math.min(h.maxPv, h.pv + regen);
+        if (h.pv > before) {
+          pushFx({ type: 'heal', iid: h.iid, amount: h.pv - before, fromPct: pct(before, h.maxPv), toPct: pct(h.pv, h.maxPv) });
+          log(cname(h) + ' régénère ' + (h.pv - before) + ' PV.', 'state');
+        }
+      }
+    });
   }
 
   function endTurn() {
@@ -1533,9 +1621,15 @@
     //  • aventuriers → leurs attaques spéciales (boutons jouables) ;
     //  • adversaires → leurs talents passifs (FUYARD, SOUTIEN… en libellés).
     const labels = isEnemy ? (c.talentLabels || []) : null;
+    // Boutons jouables de l'aventurier : attaques de talent (action) puis réactions.
+    const heroSlots = [];
+    if (!isEnemy) {
+      specialAtks.forEach(function (s) { heroSlots.push(abAttackBtn(c, s.a, s.i, canAct)); });
+      heroReactions(c).forEach(function (r) { heroSlots.push(reactionBtn(c, r.t, r.ready && canAct)); });
+    }
     for (let i = 0; i < 6; i++) {
-      if (!isEnemy && i < specialAtks.length) {
-        html += abAttackBtn(c, specialAtks[i].a, specialAtks[i].i, canAct);
+      if (!isEnemy && i < heroSlots.length) {
+        html += heroSlots[i];
       } else if (isEnemy && i < labels.length) {
         if (c.analyzed) {
           html += '<button class="ab-talent ab-talent-named" type="button" disabled title="' + esc(labels[i]) + '">' + esc(labels[i]) + '</button>';
@@ -1643,6 +1737,69 @@
       return '<img class="def-img" src="assets/DEF ' + val + '.png" alt="DEF ' + val + '">';
     }
     return '<span class="def-shield">' + val + '</span>';
+  }
+
+  // ---- Réactions d'aventurier (talents violets, déclenchés par le joueur) ----
+  // Cible de Réanimation : un allié au coma dans une zone où un adversaire est mort.
+  function reanimTarget(c) {
+    const deadZones = {};
+    combat().combatants.forEach(function (m) {
+      if (m.side === 'monster' && m.status === 'coma') deadZones[m.zone] = true;
+    });
+    return combat().combatants.find(function (h) {
+      return h.side === 'hero' && h.status === 'coma' && deadZones[h.zone];
+    }) || null;
+  }
+  function reactionReady(c, t) {
+    if (c.reactUsed && c.reactUsed[t.effect]) return false;
+    if (t.effect === 'contre_attaque') return !!c.tookDamage && !!byId(c.lastAttacker);
+    if (t.effect === 'reanimation') return reanimTarget(c) != null;
+    return false;
+  }
+  function heroReactions(c) {
+    if (!Array.isArray(c.talents)) return [];
+    return c.talents.filter(function (t) { return t.kind === 'reaction'; })
+      .map(function (t) { return { t: t, ready: reactionReady(c, t) }; });
+  }
+  const REACT_HINT = {
+    contre_attaque: 'Disponible après avoir subi des dégâts.',
+    reanimation: 'Disponible si un allié est au coma dans une zone où un adversaire est mort.',
+  };
+  function reactionBtn(c, t, ready) {
+    return '<button class="ab-atk ab-atk-react' + (ready ? '' : ' ab-react-off') + '" type="button"' +
+      ' data-iid="' + c.iid + '" data-react="' + esc(t.effect) + '"' + (ready ? '' : ' disabled') +
+      ' title="' + esc(t.name + ' — ' + (REACT_HINT[t.effect] || '')) + '">' +
+      '<span class="ab-atk-talname">' + esc(t.name) + '</span>' +
+    '</button>';
+  }
+  function firstWeaponIdx(c) {
+    for (let i = 0; i < c.attacks.length; i++) { if (!c.attacks[i].special) return i; }
+    return c.attacks.length ? 0 : -1;
+  }
+  function execHeroReaction(c, effect) {
+    if (!c || c.status !== 'active') return;
+    if (c.reactUsed && c.reactUsed[effect]) return;
+    if (effect === 'contre_attaque') {
+      const tgt = byId(c.lastAttacker);
+      const wi = firstWeaponIdx(c);
+      if (tgt && tgt.status === 'active' && wi >= 0) {
+        log(cname(c) + ' <span class="lreact">riposte</span> !', 'state');
+        resolveAttack(c, tgt, c.attacks[wi]);
+      }
+      c.reactUsed.contre_attaque = true; c.tookDamage = false;
+    } else if (effect === 'reanimation') {
+      const ally = reanimTarget(c);
+      const val = heroTalentVal(c, 'reanimation');
+      if (ally) {
+        ally.status = 'active';
+        const before = ally.pv;
+        ally.pv = Math.max(1, Math.min(ally.maxPv, val));
+        pushFx({ type: 'heal', iid: ally.iid, amount: ally.pv - before, fromPct: 0, toPct: pct(ally.pv, ally.maxPv) });
+        log(cname(c) + ' <span class="lreact">réanime</span> ' + cname(ally) + ' (' + ally.pv + ' PV).', 'state');
+      }
+      c.reactUsed.reanimation = true;
+    }
+    checkOutcome(); Store.save(); render();
   }
 
   function abAttackBtn(c, a, i, canAct) {
@@ -1771,6 +1928,8 @@
     let targets = (atk.targets === 'all')
       ? activeOf(enemySide).filter(function (t) { return canReach(attacker, t, atk); })
       : (target ? [target] : []);
+    // Frappe Tournoyante : limitée aux adversaires de la zone de l'aventurier.
+    if (atk.zoneOnly) targets = targets.filter(function (t) { return t.zone === attacker.zone; });
     targets.forEach(function (t) { resolveAttack(attacker, t, atk); });
     if (attacker.attackUses[atkIndex] !== null) {
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
@@ -1964,6 +2123,13 @@
             pendingAnalyze = null; pendingMove = null; stateMenuFor = null; render();
           } else if (atk.targets === 'all') { execHeroAttack(c, i, null); }
           else { pendingAttack = { iid: c.iid, atkIndex: i, average: false }; pendingAnalyze = null; stateMenuFor = null; render(); }
+        });
+      });
+      // Boutons de réaction (talents violets)
+      root.querySelectorAll('.ab-atk-react[data-iid="' + c.iid + '"]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (b.disabled) return;
+          execHeroReaction(c, b.getAttribute('data-react'));
         });
       });
       // Chips dégâts moyens (≈)

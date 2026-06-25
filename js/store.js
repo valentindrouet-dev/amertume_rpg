@@ -320,11 +320,81 @@
   // requis (XP de groupe). Le champ `effect` rattache le talent au moteur de
   // combat (ex. 'double_attaque' = frappe 2 cibles d'une même zone).
   const GENTALENT_KEY = 'amertume_gentalents_v1';
-  const DEFAULT_GENTALENTS = [
-    { id: 'gt_double_attaque', name: 'Double Attaque', level: 2, usage: 'combat',
-      effect: 'double_attaque',
-      description: 'Vous infligez les dégâts de votre arme à 2 adversaires dans la même zone.' },
+
+  // ===== Bibliothèque des effets de talent (patterns câblés au moteur) =====
+  // kind : 'action' (bleu, consomme l'action du tour) · 'reaction' (violet,
+  // déclenché par le joueur quand un prérequis est rempli) · 'passive' (toujours
+  // actif si la condition est remplie) · 'upgrade' (améliore un élément existant).
+  // hasVal : l'effet utilise une variable X (valLabel décrit X).
+  const TALENT_EFFECTS = [
+    // --- Actions (attaques spéciales jouables) ---
+    { effect: 'double_attaque', name: 'Double Attaque', kind: 'action', hasVal: false,
+      desc: 'Frappe 2 adversaires d\'une même zone avec les dégâts de votre arme.' },
+    { effect: 'frappe_puissante', name: 'Frappe Puissante', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+      desc: 'Attaque de contact infligeant +X dégâts.' },
+    { effect: 'coup_renversant', name: 'Coup Renversant', kind: 'action', hasVal: false,
+      desc: 'Attaque de contact qui met la cible AU SOL.' },
+    { effect: 'attaque_affaiblissante', name: 'Attaque Affaiblissante', kind: 'action', hasVal: false,
+      desc: 'Attaque qui inflige AFFAIBLI à la cible.' },
+    { effect: 'attaque_enflammee', name: 'Attaque Enflammée', kind: 'action', hasVal: false,
+      desc: 'Attaque de contact qui inflige FEU à la cible.' },
+    { effect: 'frappe_tournoyante', name: 'Frappe Tournoyante', kind: 'action', hasVal: false,
+      desc: 'Frappe TOUS les adversaires présents dans votre zone.' },
+    { effect: 'tir_charge', name: 'Tir Chargé', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+      desc: 'Attaque à distance infligeant +X dégâts.' },
+    // --- Passifs (automatiques) ---
+    { effect: 'tueur_au_sol', name: 'Tueur au Sol', kind: 'passive', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+      desc: '+X dégâts contre une cible AU SOL.' },
+    { effect: 'tueur_affaibli', name: 'Achèvement', kind: 'passive', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+      desc: '+X dégâts contre une cible AFFAIBLI.' },
+    { effect: 'meute', name: 'Meute', kind: 'passive', hasVal: true, defaultVal: 1, valLabel: 'Dégâts/allié',
+      desc: '+X dégâts par allié présent dans la zone de la cible.' },
+    { effect: 'frappe_lourde', name: 'Frappe Lourde', kind: 'passive', hasVal: true, defaultVal: 1, valLabel: 'Dégâts bonus',
+      desc: '+X dégâts à toutes vos attaques.' },
+    { effect: 'maitre_distance', name: 'Maître à Distance', kind: 'passive', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+      desc: '+X dégâts à vos attaques à distance.' },
+    { effect: 'cuirasse', name: 'Cuirasse', kind: 'passive', hasVal: true, defaultVal: 1, valLabel: 'Réduction',
+      desc: 'Réduit de X les dégâts que vous subissez (minimum 0).' },
+    { effect: 'regeneration', name: 'Régénération', kind: 'passive', hasVal: true, defaultVal: 2, valLabel: 'PV/tour',
+      desc: 'Récupère X PV au début de chacun de vos tours.' },
+    // --- Améliorations (modifient un élément existant) ---
+    { effect: 'arme_enflammee', name: 'Arme Enflammée', kind: 'upgrade', hasVal: false,
+      desc: 'Vos attaques de contact infligent FEU.' },
+    { effect: 'arme_affaiblissante', name: 'Arme Vampirique', kind: 'upgrade', hasVal: false,
+      desc: 'Vos attaques infligent AFFAIBLI.' },
+    { effect: 'esquive_innee', name: 'Esquive Innée', kind: 'upgrade', hasVal: false,
+      desc: 'Vous gagnez Esquive : un 6+ annule l\'attaque que vous subissez.' },
+    { effect: 'garde_imprenable', name: 'Garde Imprenable', kind: 'upgrade', hasVal: false,
+      desc: 'La 1ʳᵉ source de dégâts de chaque tour est annulée.' },
+    // --- Réactions (déclenchées par le joueur) ---
+    { effect: 'contre_attaque', name: 'Contre-Attaque', kind: 'reaction', hasVal: false,
+      desc: 'Après avoir subi des dégâts, ripostez par une attaque gratuite.' },
+    { effect: 'reanimation', name: 'Réanimation', kind: 'reaction', hasVal: true, defaultVal: 5, valLabel: 'PV rendus',
+      desc: 'Relevez un allié au coma situé dans une zone où un adversaire est mort (X PV).' },
   ];
+  function talentEffects() { return JSON.parse(JSON.stringify(TALENT_EFFECTS)); }
+  function talentEffectMap() {
+    const m = {};
+    TALENT_EFFECTS.forEach(function (e) { m[e.effect] = e; });
+    return m;
+  }
+  // Niveau par défaut suggéré pour chaque effet seedé (purement indicatif, éditable)
+  const SEED_LEVELS = {
+    double_attaque: 2, frappe_puissante: 2, coup_renversant: 3, attaque_affaiblissante: 3,
+    attaque_enflammee: 4, frappe_tournoyante: 4, tir_charge: 2, tueur_au_sol: 2,
+    tueur_affaibli: 3, meute: 2, frappe_lourde: 3, maitre_distance: 2, cuirasse: 3,
+    regeneration: 4, arme_enflammee: 4, arme_affaiblissante: 5, esquive_innee: 3,
+    garde_imprenable: 5, contre_attaque: 4, reanimation: 5,
+  };
+  // Talents génériques par défaut : un talent prêt à l'emploi par effet câblé.
+  const DEFAULT_GENTALENTS = TALENT_EFFECTS.map(function (e) {
+    return {
+      id: 'gt_' + e.effect, name: e.name, level: SEED_LEVELS[e.effect] || 2,
+      usage: 'combat', kind: e.kind, effect: e.effect,
+      val: e.hasVal ? (e.defaultVal || 0) : 0,
+      description: e.desc,
+    };
+  });
   function loadGenericTalents() {
     let arr = null;
     try {
@@ -332,10 +402,18 @@
       arr = raw ? JSON.parse(raw) : null;
     } catch (e) { arr = null; }
     if (!Array.isArray(arr)) return JSON.parse(JSON.stringify(DEFAULT_GENTALENTS));
-    // Complète avec les talents intégrés manquants (ex. Double Attaque)
+    // Complète avec les talents intégrés manquants (nouveaux effets ajoutés à l'app)
     DEFAULT_GENTALENTS.forEach(function (d) {
       if (!arr.some(function (t) { return t.id === d.id || (d.effect && t.effect === d.effect); })) {
         arr.push(JSON.parse(JSON.stringify(d)));
+      }
+    });
+    // Normalise : un talent rattaché à un effet hérite de son kind si absent (anciennes sauvegardes)
+    const cat = talentEffectMap();
+    arr.forEach(function (t) {
+      if (t.effect && cat[t.effect]) {
+        if (!t.kind) t.kind = cat[t.effect].kind;
+        if (typeof t.val !== 'number') t.val = cat[t.effect].hasVal ? (cat[t.effect].defaultVal || 0) : 0;
       }
     });
     return arr;
@@ -424,6 +502,8 @@
     saveClasses: saveClasses,
     loadGenericTalents: loadGenericTalents,
     saveGenericTalents: saveGenericTalents,
+    talentEffects: talentEffects,
+    talentEffectMap: talentEffectMap,
     loadMonsterTalents: loadMonsterTalents,
     saveMonsterTalents: saveMonsterTalents,
     loadTutorials: loadTutorials,

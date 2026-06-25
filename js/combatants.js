@@ -280,31 +280,67 @@
     return Store.levelInfo((Store.state.party && Store.state.party.xp) || 0).level;
   }
 
-  // Talents génériques actifs en combat.
-  // En mode Joueur/Aventure, ce sont les talents EXPLICITEMENT choisis par
-  // l'aventurier lors de ses montées de niveau (chosenIds). En mode Admin
-  // (chosenIds non fourni), on retombe sur le niveau du groupe pour les tests.
-  // Chaque talent est traduit en attaque spéciale jouable (ex. Double Attaque).
-  function genericTalentAttacks(weaponAtks, chosenIds) {
-    const base = weaponAtks[0] || null; // arme de référence pour les dégâts
+  // Résout les talents d'un aventurier en objets complets (fusion avec la
+  // bibliothèque des effets : kind, val). chosenIds = liste choisie aux montées
+  // de niveau ; null (mode Admin) → tous les talents jusqu'au niveau du groupe.
+  function resolveHeroTalents(chosenIds) {
+    const cat = Store.talentEffectMap();
     return Store.loadGenericTalents().filter(function (t) {
       if (!((t.usage === 'combat' || t.usage === 'both') && t.effect)) return false;
       if (Array.isArray(chosenIds)) return chosenIds.indexOf(t.id) >= 0;
       return (t.level || 1) <= heroGroupLevel();
     }).map(function (t) {
-      if (t.effect === 'double_attaque') {
-        return {
-          name: t.name, special: true, generic: true, genericEffect: 'double_attaque',
-          multiTarget: 2, sameZone: true, useOwnDamage: true, targets: 'one',
-          dice: base ? Object.assign(D.emptyPool(), base.dice) : Object.assign(D.emptyPool(), { white: 1 }),
-          range: base ? base.range : 'contact', effects: Store.noStates(),
-        };
+      const c = cat[t.effect] || {};
+      return {
+        id: t.id, name: t.name, effect: t.effect,
+        kind: t.kind || c.kind || 'passive',
+        val: (typeof t.val === 'number') ? t.val : (c.defaultVal || 0),
+      };
+    });
+  }
+
+  // Traduit les talents de type ACTION en attaques spéciales jouables.
+  function talentActionAttacks(weaponAtks, talents) {
+    const base = weaponAtks[0] || null;
+    function baseDice() { return base ? Object.assign(D.emptyPool(), base.dice) : Object.assign(D.emptyPool(), { white: 1 }); }
+    function baseRange() { return base ? base.range : 'contact'; }
+    return talents.filter(function (t) { return t.kind === 'action'; }).map(function (t) {
+      const common = { name: t.name, special: true, generic: true, talentId: t.id,
+        genericEffect: t.effect, useOwnDamage: true, targets: 'one',
+        dice: baseDice(), range: baseRange(), effects: Store.noStates() };
+      switch (t.effect) {
+        case 'double_attaque':
+          return Object.assign(common, { multiTarget: 2, sameZone: true });
+        case 'frappe_puissante':
+          return Object.assign(common, { range: 'contact', bonusDmg: t.val || 0 });
+        case 'coup_renversant':
+          return Object.assign(common, { range: 'contact', effects: Object.assign(Store.noStates(), { auSol: true }) });
+        case 'attaque_affaiblissante':
+          return Object.assign(common, { effects: Object.assign(Store.noStates(), { affaibli: true }) });
+        case 'attaque_enflammee':
+          return Object.assign(common, { range: 'contact', effects: Object.assign(Store.noStates(), { feu: true }) });
+        case 'frappe_tournoyante':
+          return Object.assign(common, { range: 'contact', targets: 'all', zoneOnly: true });
+        case 'tir_charge':
+          return Object.assign(common, { range: 'distance', bonusDmg: t.val || 0 });
+        default:
+          return null;
       }
-      return null;
     }).filter(Boolean);
   }
 
-  // Attaques utilisées en combat : armes + spéciales (+ secours mains nues) + talents génériques
+  // Applique les talents d'AMÉLIORATION aux attaques d'arme (états ajoutés sur frappe).
+  function applyUpgrades(atks, talents) {
+    talents.filter(function (t) { return t.kind === 'upgrade'; }).forEach(function (t) {
+      atks.forEach(function (a) {
+        if (!a.effects) a.effects = Store.noStates();
+        if (t.effect === 'arme_enflammee' && a.range === 'contact') a.effects.feu = true;
+        if (t.effect === 'arme_affaiblissante') a.effects.affaibli = true;
+      });
+    });
+  }
+
+  // Attaques utilisées en combat : armes (+ améliorations) + spéciales (+ secours mains nues) + actions de talent
   function heroCombatAttacks(h) {
     const weapon = heroDerivedAttacks(h.equipment);
     const special = JSON.parse(JSON.stringify(h.attacks || [])).map(function (a) { a.special = true; return a; });
@@ -314,7 +350,9 @@
         range: 'contact', targets: 'one', useOwnDamage: true, effects: Store.noStates() }];
     }
     const chosen = Array.isArray(h.chosenTalents) ? h.chosenTalents : null;
-    return atks.concat(genericTalentAttacks(weapon.length ? weapon : atks, chosen));
+    const talents = resolveHeroTalents(chosen);
+    applyUpgrades(atks, talents);
+    return atks.concat(talentActionAttacks(weapon.length ? weapon : atks, talents));
   }
 
   // ---- Progression du groupe (XP / niveaux) ----
@@ -536,8 +574,21 @@
         '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div></div>' +
       '<div class="roster-section"><div class="roster-label">Attaques</div>' +
         '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div></div>' +
+      talentSection(dh) +
       skillsSummary(h.skills) +
       (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '');
+  }
+  // Section « Talents » de la fiche : badges colorés par type (Action/Réaction/Passif/Amélioration)
+  const KIND_BADGE = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.' };
+  function talentSection(dh) {
+    const talents = resolveHeroTalents(Array.isArray(dh.chosenTalents) ? dh.chosenTalents : null);
+    if (!talents.length) return '';
+    const badges = talents.map(function (t) {
+      return '<span class="tl-badge tl-kind-' + (t.kind || 'passive') + '" title="' + esc(t.name) + '">' +
+        esc(t.name) + ' <span class="tl-badge-kind">' + esc(KIND_BADGE[t.kind] || 'Talent') + '</span></span>';
+    }).join('');
+    return '<div class="roster-section"><div class="roster-label">Talents</div>' +
+      '<div class="tl-badges">' + badges + '</div></div>';
   }
   function openHeroSheet(id) {
     const h = Store.state.heroes.find(function (x) { return x.id === id; });
@@ -1250,6 +1301,7 @@
     heroRestLong: heroRestLong,
     heroDef: heroDef,
     heroCombatAttacks: heroCombatAttacks,
+    resolveHeroTalents: resolveHeroTalents,
     attacksSummary: attacksSummary,
     heroCardHtml: heroCardHtml,
     TYPE_LABEL: TYPE_LABEL,
