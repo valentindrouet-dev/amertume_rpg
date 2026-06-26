@@ -14,6 +14,8 @@
   const TYPE_LABEL = { standard: 'Sbire', solitaire: 'Solitaire', alpha: 'Alpha', boss: 'Boss' };
   const CLASSES = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
     'Gardien', 'Lamevent', 'Pyromane'];
+  // Classes actuellement jouables (les autres existent en base mais sont cachées).
+  const PLAYABLE_CLASSES = ['Destructeur', 'Gardien', 'Lamevent', 'Pyromane'];
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
   function emptySkills() { const o = {}; SKILLS.forEach(function (s) { o[s] = 0; }); return o; }
   function mergeSkills(src) {
@@ -776,7 +778,7 @@
       inp.oninput = function () { wiz.name = this.value; updateWizNav(); };
       setTimeout(function () { inp.focus(); }, 0);
     } else if (stepName === 'Classe') {
-      const classes = Store.loadClasses();
+      const classes = Store.loadClasses().filter(function (c) { return PLAYABLE_CLASSES.indexOf(c.name) >= 0; });
       body.innerHTML = '<p class="hint">Choisis une classe.</p><div class="hw-class-list">' +
         (classes.length ? classes.map(function (c) {
           return '<button type="button" class="hw-class klass-' + classSlug(c.name) + (wiz.klass === c.name ? ' selected' : '') + '" data-class="' + esc(c.name) + '">' +
@@ -809,11 +811,11 @@
         '<p class="hint">Répartis tes <b>3 points</b> entre les caractéristiques (tu peux ajuster avant de valider). ' +
         '<b>' + rem + '</b> point' + (rem > 1 ? 's' : '') + ' restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-stat-list2">' +
-          statRow('damage', '⚔ DÉGÂTS <small>(+1 / point)</small>', 1, dmg, wiz.statBonuses.damage) +
+          statRow('damage', 'DÉGÂTS <small>(+1 / point)</small>', 1, dmg, wiz.statBonuses.damage) +
           '<p class="hw-stat-desc">Augmente les dégâts infligés par toutes vos attaques de <b>+' + dmg + '</b>.</p>' +
-          statRow('endu', '🏃 ENDURANCE <small>(+2 / point)</small>', 2, endu, wiz.statBonuses.endu) +
+          statRow('endu', 'ENDURANCE <small>(+2 / point)</small>', 2, endu, wiz.statBonuses.endu) +
           '<p class="hw-stat-desc">Augmente vos PV, votre résistance et vos soins.</p>' +
-          statRow('vie', '❤ VIE <small>(+1 / point)</small>', 1, vie, wiz.statBonuses.vie) +
+          statRow('vie', 'VIE <small>(+1 / point)</small>', 1, vie, wiz.statBonuses.vie) +
           '<p class="hw-stat-desc">Augmente vos PV et votre survie. À chaque coma, vous perdez 1 VIE. Si votre VIE tombe à 0, votre aventurier meurt.</p>' +
         '</div>' +
         '<div class="hw-pv-formula">' +
@@ -924,14 +926,21 @@
       body.querySelectorAll('.inv-strip-row[data-tal]').forEach(function (row) {
         const desc = row.nextElementSibling && row.nextElementSibling.classList.contains('lvl-tal-desc') ? row.nextElementSibling : null;
         row.addEventListener('click', function (e) {
-          if (row.getAttribute('data-auto') === '1') { if (desc) desc.hidden = !desc.hidden; return; }
+          const isAuto = row.getAttribute('data-auto') === '1';
+          const cb = row.querySelector('.lvl-tal-cb');
+          const clickedCb = cb && (e.target === cb || e.target.closest('input'));
+          if (isAuto || !clickedCb) {
+            // Clic sur la languette (hors case à cocher) : afficher/masquer la description
+            if (desc) desc.hidden = !desc.hidden;
+            if (isAuto) return;
+            return;
+          }
+          // Clic sur la case à cocher : sélection radio
           const id = row.getAttribute('data-tal');
           const idx = wiz.talents.indexOf(id);
           if (idx >= 0) {
-            // Deselect if already chosen
             wiz.talents.splice(idx, 1);
           } else {
-            // Radio: remove any previously chosen non-mastery talent first
             wiz.talents = wiz.talents.filter(function (x) { return masteryTal && x === masteryTal.id; });
             wiz.talents.push(id);
           }
@@ -945,7 +954,7 @@
         '<b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-skill-list2">' + SKILLS.map(function (s) {
           const v = wiz.skills[s] || 0;
-          return '<div class="hw-skill-row">' +
+          return '<div class="hw-skill-row skill-' + skillSlug(s) + '">' +
             '<span class="hw-skill-name">' + s + '</span>' +
             '<div class="hw-stat-ctrl">' +
               '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="-1"' + (v <= 0 ? ' disabled' : '') + '>−</button>' +
@@ -970,22 +979,19 @@
     const nb = $('#hw-next'); if (nb) nb.textContent = isLast ? '✓ Créer l\'aventurier' : 'Suivant →';
     updateWizNav();
   }
-  // Garantit que la Tenue de voyage est dans le slot objectId de h.equipment ET h.baseEquipment.
-  // À appeler à la création et au lancement de session pour les héros qui en sont dépourvus.
+  // Garantit que la Tenue de voyage est équipée dans le bon slot (armorId si c'est une armure,
+  // objectId sinon) sur h.equipment ET h.baseEquipment.
+  // À appeler à la création et au lancement de session.
   function ensureStartEquipment(h) {
     if (!h) return;
+    const tenue = findItemByName('tenue de voyage');
+    if (!tenue) return;
+    const slot = (tenue.category === 'armor') ? 'armorId' : 'objectId';
     const eq = h.equipment = normalizeEquip(h.equipment || {});
-    if (!eq.objectId) {
-      const tenue = findItemByName('tenue de voyage');
-      if (tenue) eq.objectId = tenue.id;
-    }
-    // Synchronise baseEquipment si objectId y est également absent
+    if (!eq[slot]) eq[slot] = tenue.id;
     if (h.baseEquipment) {
       const beq = normalizeEquip(h.baseEquipment);
-      if (!beq.objectId) {
-        const tenue = findItemByName('tenue de voyage');
-        if (tenue) { beq.objectId = tenue.id; h.baseEquipment = beq; }
-      }
+      if (!beq[slot]) { beq[slot] = tenue.id; h.baseEquipment = beq; }
     } else {
       h.baseEquipment = JSON.parse(JSON.stringify(eq));
     }
@@ -1714,5 +1720,6 @@
     MENACE_LABEL: MENACE_LABEL,
     RANGE_LABEL: RANGE_LABEL,
     ensureStartEquipment: ensureStartEquipment,
+    PLAYABLE_CLASSES: PLAYABLE_CLASSES,
   };
 })(window);

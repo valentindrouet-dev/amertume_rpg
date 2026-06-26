@@ -2834,10 +2834,13 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Couleurs par stat dans le wizard */
 .hw-stat-row2--damage { background:#fde8e8; border-color:#e07070; }
 .hw-stat-row2--damage .hw-stat-label2 { color:#a03030; }
+.hw-stat-row2--damage .hw-stat-cur2 { color:#7a1010; }
 .hw-stat-row2--endu   { background:#d6f5ec; border-color:#5bbfa0; }
 .hw-stat-row2--endu   .hw-stat-label2 { color:#2a7a60; }
+.hw-stat-row2--endu   .hw-stat-cur2 { color:#1a5a45; }
 .hw-stat-row2--vie    { background:#f3e8ff; border-color:#c48fe0; }
 .hw-stat-row2--vie    .hw-stat-label2 { color:#7c3fa0; }
+.hw-stat-row2--vie    .hw-stat-cur2 { color:#5a1d85; }
 .hw-stat-label2 { font-weight: 700; font-size: .85rem; }
 .hw-stat-label2 small { color: var(--muted); font-weight: 500; font-size: .7rem; }
 .hw-stat-ctrl { display: flex; align-items: center; gap: .5rem; }
@@ -2901,6 +2904,23 @@ body.mode-player #item-list.roster-list { display: block; }
 .hw-skill-list2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .4rem; margin-top: .4rem; }
 .hw-skill-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
   padding: .4rem .6rem; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-2); }
+/* Couleurs de compétence sur les vignettes du wizard */
+.hw-skill-row.skill-agilite    { background:rgba(95,164,95,.14);  border-color:rgba(95,164,95,.4); }
+.hw-skill-row.skill-force      { background:rgba(193,78,53,.14);  border-color:rgba(193,78,53,.4); }
+.hw-skill-row.skill-mysticisme { background:rgba(157,114,196,.14);border-color:rgba(157,114,196,.4); }
+.hw-skill-row.skill-perception { background:rgba(216,193,58,.14); border-color:rgba(216,193,58,.4); }
+.hw-skill-row.skill-robustesse { background:rgba(176,122,46,.14); border-color:rgba(176,122,46,.4); }
+.hw-skill-row.skill-ruse       { background:rgba(99,99,99,.18);   border-color:rgba(120,120,120,.4); }
+.hw-skill-row.skill-savoir     { background:rgba(63,123,192,.14); border-color:rgba(63,123,192,.4); }
+.hw-skill-row.skill-technique  { background:rgba(63,174,159,.14); border-color:rgba(63,174,159,.4); }
+.hw-skill-row.skill-agilite    .hw-skill-name { color:#4f8b4f; }
+.hw-skill-row.skill-force      .hw-skill-name { color:#b0432b; }
+.hw-skill-row.skill-mysticisme .hw-skill-name { color:#7c52a8; }
+.hw-skill-row.skill-perception .hw-skill-name { color:#8a7714; }
+.hw-skill-row.skill-robustesse .hw-skill-name { color:#8a5e22; }
+.hw-skill-row.skill-ruse       .hw-skill-name { color:#5a5a5a; }
+.hw-skill-row.skill-savoir     .hw-skill-name { color:#2c5a93; }
+.hw-skill-row.skill-technique  .hw-skill-name { color:#1f6b5e; }
 .hw-skill-name { font-weight: 600; font-size: .82rem; }
 .hw-skill-val { min-width: 1.6rem; text-align: center; font-weight: 800; color: var(--muted); }
 .hw-skill-val.on { color: var(--good); }

@@ -14,8 +14,11 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   };
 
-  const CLASS_NAMES = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
+  // Toutes les classes connues (données préservées même pour les classes cachées)
+  const CLASS_NAMES_ALL = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
     'Gardien', 'Lamevent', 'Pyromane'];
+  // Classes actuellement affichées (sync avec PLAYABLE_CLASSES dans combatants.js)
+  const CLASS_NAMES = ['Destructeur', 'Gardien', 'Lamevent', 'Pyromane'];
   const USAGE = [
     { value: 'both',   label: 'Combat & hors combat' },
     { value: 'combat', label: 'En combat' },
@@ -34,6 +37,7 @@
   function effectMap() { return Store.talentEffectMap ? Store.talentEffectMap() : {}; }
   function classSlug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 
+  let hiddenClasses = []; // classes non-jouables chargées mais non affichées
   function load() {
     const stored = Store.loadClasses();
     const byName = {};
@@ -43,9 +47,13 @@
       if (!Array.isArray(c.talents)) c.talents = [];
       return c;
     });
+    // Préserver les données des classes cachées pour ne pas les perdre lors d'un save()
+    hiddenClasses = CLASS_NAMES_ALL.filter(function (n) { return CLASS_NAMES.indexOf(n) < 0; })
+      .map(function (name) { return byName[name] || { name: name, talents: [] }; });
     generics = Store.loadGenericTalents();
   }
-  function save() { Store.saveClasses(classes); }
+  // Sauvegarde les classes affichées + les classes cachées (données préservées)
+  function save() { Store.saveClasses(classes.concat(hiddenClasses)); }
   function saveGen() { Store.saveGenericTalents(generics); }
   function persist() { save(); saveGen(); }
 
