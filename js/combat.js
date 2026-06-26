@@ -208,6 +208,9 @@
     };
     buildCombat(heroObjs, cfg);
     log('Début du combat — Tour 1.', 'turn');
+    if (needsPretour()) {
+      startPretour();
+    }
     Store.save();
     render();
   }
@@ -952,23 +955,63 @@
     checkOutcome();
   }
 
+  // Retourne vrai si au moins un combattant actif possède un talent de Pré-Tour.
+  function needsPretour() {
+    return activeOf('hero').some(function (h) { return heroHasTalent(h, 'pas_leger') || !!h.rapide; }) ||
+      activeOf('monster').some(function (m) { return !!m.rapide; });
+  }
+
+  // Phase de Pré-Tour : les adversaires rapides agissent, les héros éligibles
+  // conservent leur freeMoveReady pour agir avant le vrai tour.
+  function pretourMonstersAct() {
+    clearHeroReactionMarks();
+    activationOrder().filter(function (m) { return !!m.rapide; }).forEach(actOneMonster);
+    checkOutcome();
+  }
+
+  function startPretour() {
+    const c = combat();
+    c.phase = 'pretour';
+    // Octroie le mouvement gratuit (Pas Léger) et l'action rapide (Rapide) aux héros.
+    activeOf('hero').forEach(function (h) {
+      h.freeMoveReady = heroHasTalent(h, 'pas_leger') || !!h.rapide;
+    });
+    log('Pré-Tour ' + c.turn + '.', 'turn');
+    centerText('Pré-Tour ' + c.turn, 'fx-center-turn');
+    pretourMonstersAct();
+  }
+
+  // Démarre le vrai tour des héros après le Pré-Tour (ne réattribue pas freeMoveReady).
+  function startTurnFromPretour() {
+    if (combat().outcome) return;
+    const c = combat();
+    c.phase = 'heroes';
+    startHeroTurn(true);
+    Store.save(); render();
+  }
+
   function advanceTurn() {
     const c = combat();
     c.turn += 1;
     resetActivations();
-    c.phase = 'heroes';
     log('Tour ' + c.turn + '.', 'turn');
     centerText('Tour ' + c.turn, 'fx-center-turn');
-    startHeroTurn();
+    if (needsPretour()) {
+      startPretour();
+    } else {
+      c.phase = 'heroes';
+      startHeroTurn(false);
+    }
   }
 
   // Début du tour des aventuriers : réinitialise les réactions et applique
   // les talents passifs « par tour » (Régénération).
-  function startHeroTurn() {
+  // afterPretour = true → freeMoveReady déjà consommé/utilisé en Pré-Tour.
+  function startHeroTurn(afterPretour) {
     activeOf('hero').forEach(function (h) {
       h.reactUsed = {};
-      // PAS LÉGER (maîtrise) : 1 mouvement gratuit disponible ce tour.
-      h.freeMoveReady = heroHasTalent(h, 'pas_leger');
+      // PAS LÉGER (maîtrise) : 1 mouvement gratuit disponible ce tour (sauf si Pré-Tour déjà joué).
+      if (!afterPretour) h.freeMoveReady = heroHasTalent(h, 'pas_leger');
       const regen = heroTalentVal(h, 'regeneration');
       if (regen > 0 && h.pv < h.maxPv) {
         const before = h.pv;
@@ -1578,16 +1621,22 @@
     });
     const OUTCOME_LABEL = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
     const phaseLabel = c.outcome ? OUTCOME_LABEL[c.outcome]
-      : (c.phase === 'heroes' ? 'Activation des aventuriers' : 'Activation des adversaires');
+      : c.phase === 'pretour' ? 'Pré-Tour ' + c.turn
+      : c.phase === 'heroes' ? 'Activation des aventuriers'
+      : 'Activation des adversaires';
     // Clignotement du bouton "Tour des Adversaires" quand tous les aventuriers ont agi
     const allHeroesActed = !c.outcome && c.phase === 'heroes' && activeOf('hero').length > 0 &&
       activeOf('hero').every(function (h) { return h.used.action; });
+    const isPretour = !c.outcome && c.phase === 'pretour';
     root.innerHTML =
       '<div class="combat-bar">' +
         '<div class="cb-left"><span class="turn-pill">Tour ' + c.turn + '</span>' +
           '<span class="phase-pill ' + (c.phase) + '">' + phaseLabel + '</span></div>' +
         '<div class="cb-mid">✦ XP : <strong>' + totalXp() + '</strong></div>' +
         '<div class="cb-right">' +
+          (isPretour
+            ? '<button id="cb-start-turn" class="small start-turn-btn">Tour ' + c.turn + ' →</button>'
+            : '') +
           (!c.outcome && c.phase === 'heroes'
             ? '<button id="cb-enemy-turn" class="small enemy-turn-btn' + (allHeroesActed ? ' all-acted' : '') + '">Tour des Adversaires →</button>'
             : '') +
@@ -1647,6 +1696,8 @@
         if (confirm('Terminer et quitter ce combat ?')) endCombat(false);
       }
     });
+    const cst = root.querySelector('#cb-start-turn');
+    if (cst) cst.addEventListener('click', startTurnFromPretour);
     const cet = root.querySelector('#cb-enemy-turn');
     if (cet) cet.addEventListener('click', enemyTurnAndAdvance);
     const ct = root.querySelector('#cancel-target');

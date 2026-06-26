@@ -300,6 +300,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .turn-pill { background: var(--accent); color: #fff; padding: .25rem .7rem; border-radius: 20px; font-weight: 600; }
 .phase-pill { padding: .25rem .7rem; border-radius: 20px; border: 1px solid var(--border); margin-left: .5rem; font-size: .85rem; }
 .phase-pill.monsters { color: var(--accent-2); border-color: var(--accent-2); }
+.phase-pill.pretour { color: #8b5e10; border-color: #c98b28; background: #fdf4e3; }
 .phase-pill.over { color: var(--good); border-color: var(--good); }
 
 .combat-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
@@ -2428,6 +2429,15 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 .cc-def-icon { flex: 0 0 auto; display: inline-flex; align-items: center; }
 .cc-def-icon .def-img { width: 1.3em; height: 1.45em; vertical-align: middle; }
 .cc-def-icon .def-shield { font-size: .75rem; width: 1.3em; height: 1.45em; vertical-align: middle; }
+
+/* Bouton "Tour X →" (Pré-Tour → Tour normal) : doré */
+.start-turn-btn {
+  border: none; border-radius: 7px; padding: .3rem .7rem; font-size: .82rem;
+  font-weight: 700; cursor: pointer; color: #fff;
+  background: #8b5e10;
+  transition: background .25s;
+}
+.start-turn-btn:hover { filter: brightness(1.15); }
 
 /* Bouton "Tour des Adversaires" : brun par défaut, rouge vif quand tous ont agi */
 .enemy-turn-btn {
