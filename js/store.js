@@ -380,6 +380,12 @@
       desc: 'Récupère X PV au début de chacun de vos tours.' },
     { effect: 'devance_rapides', name: 'Réflexes Aiguisés', kind: 'passive', hasVal: false,
       desc: 'Vous agissez avant les adversaires rapides.' },
+    { effect: 'ignore_opportunite', name: 'Insaisissable', kind: 'passive', hasVal: false,
+      desc: 'Vous ignorez les dégâts des attaques d\'opportunité (tir dans la zone, ou mouvement pour quitter la zone).' },
+    { effect: 'pas_echec_ausol', name: 'Coup de Grâce', kind: 'passive', hasVal: false,
+      desc: 'Vous n\'effectuez pas d\'échec (double 1) contre les adversaires AU SOL (les 1 sont infligés normalement comme des dégâts, s\'ils passent la DEF).' },
+    { effect: 'crit_en_echec', name: 'Mur Imbrisable', kind: 'passive', hasVal: false,
+      desc: 'Les critiques adverses contre vous deviennent des échecs.' },
     // --- Améliorations (modifient un élément existant) ---
     { effect: 'arme_enflammee', name: 'Arme Enflammée', kind: 'upgrade', hasVal: false,
       desc: 'Vos attaques de contact infligent FEU.' },
@@ -393,11 +399,19 @@
       desc: 'Vos attaques ignorent Blindage.' },
     { effect: 'bourreau_rapides', name: 'Bourreau des Rapides', kind: 'upgrade', hasVal: false,
       desc: 'Vous doublez les dégâts infligés à un adversaire rapide.' },
+    { effect: 'boost_competence', name: 'Expertise', kind: 'upgrade', hasVal: true, defaultVal: 1, valLabel: 'Réussites bonus',
+      hasChoice: true, choiceLabel: 'Compétence', choices: ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'],
+      desc: 'Vous ajoutez +X réussites à tous vos tests de la compétence choisie.' },
+    { effect: 'charge_etat', name: 'Assaut Handicapant', kind: 'upgrade', hasVal: false,
+      hasChoice: true, choiceLabel: 'État infligé', choices: ['feu', 'auSol', 'affaibli'],
+      desc: 'Vous infligez l\'état choisi (FEU / AU SOL / AFFAIBLI) en arrivant au contact d\'un adversaire.' },
     // --- Maîtrises (effets permanents de positionnement / tempo) ---
     { effect: 'pas_leger', name: 'Pas Léger', kind: 'mastery', hasVal: false,
       desc: 'Vous effectuez 1 mouvement gratuit avant le début de chaque tour.' },
     { effect: 'charge_devastatrice', name: 'Charge Dévastatrice', kind: 'mastery', hasVal: true, defaultVal: 1, valLabel: 'Nb de cibles',
       desc: 'Vous infligez votre bonus de dégâts à X adversaires en arrivant dans leur zone.' },
+    { effect: 'action_mouvement', name: 'Course', kind: 'action', hasVal: false,
+      desc: 'Action : vous effectuez un mouvement.' },
     // --- Réactions (déclenchées par le joueur) ---
     { effect: 'contre_attaque', name: 'Contre-Attaque', kind: 'reaction', hasVal: false,
       desc: 'Après avoir subi des dégâts, ripostez par une attaque gratuite.' },
@@ -437,11 +451,11 @@
   function talentEffectList(t) {
     if (t && Array.isArray(t.effects) && t.effects.length) {
       return t.effects.filter(function (e) { return e && e.effect; }).map(function (e) {
-        return { effect: e.effect, val: e.val || 0, dice: e.dice || null, range: e.range || null };
+        return { effect: e.effect, val: e.val || 0, dice: e.dice || null, range: e.range || null, choice: e.choice || null };
       });
     }
     if (t && t.effect) {
-      return [{ effect: t.effect, val: t.val || 0, dice: t.dice || null, range: t.range || null }];
+      return [{ effect: t.effect, val: t.val || 0, dice: t.dice || null, range: t.range || null, choice: t.choice || null }];
     }
     return [];
   }

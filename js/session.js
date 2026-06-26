@@ -509,16 +509,37 @@
 
   // ----- Tests de compétence -----
   const SKILL_DIFF = { facile: 1, moyen: 2, difficile: 3 };
-  // Aventurier du groupe ayant le meilleur bonus dans la compétence
+  // Réussites bonus accordées par les talents « Expertise » (boost_competence) équipés
+  // d'un aventurier pour une compétence donnée.
+  function skillTalentBonus(ses, hid, skill) {
+    const g = ses.levelGains ? ses.levelGains[hid] : null;
+    if (!g) return 0;
+    const equipped = equippedTalents(g);
+    if (!equipped.length) return 0;
+    const all = Store.loadGenericTalents().slice();
+    Store.loadClasses().forEach(function (c) { if (Array.isArray(c.talents)) all.push.apply(all, c.talents); });
+    let sum = 0;
+    equipped.forEach(function (id) {
+      const t = all.find(function (x) { return x.id === id; });
+      if (!t) return;
+      Store.talentEffectList(t).forEach(function (e) {
+        if (e.effect === 'boost_competence' && e.choice === skill) sum += (e.val || 0);
+      });
+    });
+    return sum;
+  }
+  // Aventurier du groupe ayant le meilleur bonus dans la compétence (talents inclus)
   function bestHeroForSkill(ses, skill) {
-    let best = null, bestVal = -1;
+    let best = null, bestEff = -1, bestSkill = 0, bestTal = 0;
     (ses.heroIds || []).forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (!h) return;
       const v = (h.skills && h.skills[skill]) || 0;
-      if (v > bestVal) { bestVal = v; best = h; }
+      const tal = skillTalentBonus(ses, hid, skill);
+      const eff = v + tal;
+      if (eff > bestEff) { bestEff = eff; best = h; bestSkill = v; bestTal = tal; }
     });
-    return { hero: best, bonus: Math.max(0, bestVal) };
+    return { hero: best, bonus: Math.max(0, bestSkill), talentSucc: Math.max(0, bestTal) };
   }
   // 1d6 + 1d6 par point de compétence ; réussite = dé à 4+ ; les 6 sont explosifs
   function rollSkill(bonus) {
@@ -542,9 +563,13 @@
     const need = SKILL_DIFF[diff] || 2;
     const bh = bestHeroForSkill(ses, skill);
     const res = rollSkill(bh.bonus);
-    const passed = res.successes >= need;
+    const talSucc = bh.talentSucc || 0;
+    const totalSucc = res.successes + talSucc;
+    const passed = totalSucc >= need;
     const who = bh.hero ? bh.hero.name : 'Le groupe';
-    alert(who + ' effectue un test de ' + skill + ' : ' + res.successes + ' réussite(s) = ' + (passed ? 'Réussite' : 'Échec') + '.\n\n' +
+    alert(who + ' effectue un test de ' + skill + ' : ' + totalSucc + ' réussite(s)' +
+      (talSucc > 0 ? ' (' + res.successes + ' aux dés + ' + talSucc + ' Expertise)' : '') +
+      ' = ' + (passed ? 'Réussite' : 'Échec') + '.\n\n' +
       (passed ? 'Vous avez réussi le test.' : 'Vous avez échoué le test.') +
       '\n\nDés (' + (1 + bh.bonus) + ' + explosifs) : ' + res.rolls.join(', '));
     const target = passed ? ch.successSceneId : ch.failSceneId;

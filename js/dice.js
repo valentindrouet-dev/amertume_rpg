@@ -94,7 +94,9 @@
     // 4. Échec : au moins deux 1 sur des dés NON mortels.
     // Les dés Os (bone) sur un double sont retirés du pool → ils n'entrent pas dans le
     // décompte des échecs (un double 1 os + autre dé ne déclenche pas l'échec).
-    const echec = dice.filter(function (d) {
+    // noFumble (talent « Coup de Grâce » contre une cible AU SOL) : l'échec ne peut
+    // pas se produire ; les 1 sont alors comptés comme des dés normaux (dégâts si > DEF).
+    const echec = !opts.noFumble && dice.filter(function (d) {
       return d.value === 1 && !DICE_TYPES[d.color].heal && d.color !== 'black'
         && !(d.color === 'bone' && isDouble(d));
     }).length >= 2;

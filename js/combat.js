@@ -18,6 +18,7 @@
   // État d'interaction du plateau
   let pendingAttack = null;   // { iid, atkIndex } quand on choisit une cible au clic
   let pendingMove = null;     // iid du combattant en cours de déplacement
+  let moveAsAction = false;   // le déplacement en cours consomme l'ACTION (talent « Course ») au lieu du mouvement
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
@@ -418,6 +419,25 @@
   // CHARGE DÉVASTATRICE (maîtrise) : en arrivant dans une zone, l'aventurier
   // inflige son bonus de dégâts à X adversaires qui s'y trouvent.
   function chargeOnEnter(c) {
+    // ASSAUT HANDICAPANT (amélioration) : inflige l'état choisi à un adversaire de la zone.
+    if (heroHasTalent(c, 'charge_etat')) {
+      const st = heroTalentChoice(c, 'charge_etat');
+      const foe = combat().combatants.find(function (m) {
+        return m.side === 'monster' && m.status === 'active' && m.zone === c.zone;
+      });
+      if (st && foe) {
+        // AU SOL ne s'applique pas aux boss ni aux socles plus grands (cohérent avec applyStates).
+        const blockAuSol = st === 'auSol' && (foe.type === 'boss' || SOCLE_RANK[foe.socle] > SOCLE_RANK[c.socle]);
+        if (!blockAuSol) {
+          if (st === 'feu') foe.states.feu = true;
+          else if (st === 'auSol') foe.states.auSol = true;
+          else if (st === 'affaibli') foe.states.affaibli = true;
+          pushFx({ type: 'state', iid: foe.iid });
+          log('<b class="lopp">' + esc(heroTalentName(c, 'charge_etat')) + ' !</b> ' + cname(c) +
+            ' inflige <span class="lstate">' + stateLabel(st) + '</span> à ' + cname(foe) + ' en chargeant.', 'state');
+        }
+      }
+    }
     const n = heroTalentVal(c, 'charge_devastatrice');
     const dmg = c.damage || 0;
     if (n <= 0 || dmg <= 0) return;
@@ -439,17 +459,24 @@
 
   function moveCombatant(iid, zi) {
     const c = byId(iid);
+    const asAction = moveAsAction; moveAsAction = false;
     if (!c || c.status !== 'active') { pendingMove = null; render(); return; }
-    if (c.used.move && !c.freeMoveReady) { pendingMove = null; render(); return; }
+    if (asAction) { if (c.used.action) { pendingMove = null; render(); return; } }
+    else if (c.used.move && !c.freeMoveReady) { pendingMove = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; render(); return; }
     // POISON X : inflige X dégâts avant de se déplacer
     applyPoison(c);
     if (c.status !== 'active') { pendingMove = null; checkOutcome(); Store.save(); render(); return; }
     const prevMove = c.used.move;
     doMove(c, zi); // doMove force used.move = true
-    // PAS LÉGER : ce déplacement consomme d'abord le mouvement gratuit ; le
-    // mouvement normal reste alors disponible.
-    if (c.freeMoveReady) { c.freeMoveReady = false; c.used.move = prevMove; }
+    if (asAction) {
+      // COURSE (action) : le déplacement coûte l'action, pas le mouvement.
+      c.used.action = true; c.used.move = prevMove;
+    } else if (c.freeMoveReady) {
+      // PAS LÉGER : ce déplacement consomme d'abord le mouvement gratuit ; le
+      // mouvement normal reste alors disponible.
+      c.freeMoveReady = false; c.used.move = prevMove;
+    }
     pendingMove = null; checkOutcome(); Store.save(); render();
   }
 
@@ -481,6 +508,12 @@
     if (monster.status !== 'active' || monster.states.affaibli) return 0;
     const dmg = monster.damage || 0;
     if (dmg <= 0) return 0;
+    // INSAISISSABLE (passif) : l'aventurier ignore les dégâts des attaques d'opportunité.
+    if (hero.side === 'hero' && heroHasTalent(hero, 'ignore_opportunite')) {
+      log('<b class="lopp">Attaque d\'Opportunité</b> ignorée par ' + cname(hero) +
+        ' (<span class="lstate">' + esc(heroTalentName(hero, 'ignore_opportunite')) + '</span>).', 'dchoc');
+      return 0;
+    }
     const pvBefore = hero.pv;
     hero.pv = Math.max(0, hero.pv - dmg);
     hero.dmgTaken += dmg; monster.dmgDealt += dmg;
@@ -537,7 +570,16 @@
     const dmg = baseDmg + talentBonus + (atk.bonusDmg || 0);
     // BRISÉ et AU SOL : DEF = 0
     const def = (target.states.auSol || target.states.brise) ? 0 : target.def;
-    const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn });
+    // COUP DE GRÂCE (passif) : pas d'échec (double 1) contre une cible AU SOL.
+    const noFumble = target.states.auSol && attacker.side === 'hero' && heroHasTalent(attacker, 'pas_echec_ausol');
+    const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble });
+
+    // MUR IMBRISABLE (passif) : un critique adverse contre cet aventurier devient un échec.
+    let critToEchec = false;
+    if (res.critique && attacker.side === 'monster' && target.side === 'hero' && heroHasTalent(target, 'crit_en_echec')) {
+      res.critique = false; res.echec = true; res.pvLost = 0; res.pvHealed = 0;
+      critToEchec = true;
+    }
 
     let negated = false;
     let reason = '';
@@ -571,8 +613,11 @@
       movePrefix = null;
     }
     if (res.echec) {
+      const failTxt = critToEchec
+        ? ' — <span class="lstate">' + esc(heroTalentName(target, 'crit_en_echec')) + '</span> : le <span class="lcrit">CRITIQUE</span> devient un <span class="lfail">Échec</span> !'
+        : ' — <span class="lfail">Échec</span>.';
       log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
-        ' ' + diceStr + ' — <span class="lfail">Échec</span>.', 'attack');
+        ' ' + diceStr + failTxt, 'attack');
       pushFx({ type: 'miss', iid: target.iid, text: 'ÉCHEC', center: true });
       return;
     }
@@ -742,6 +787,12 @@
     if (!c || !Array.isArray(c.talents)) return effect;
     const t = c.talents.find(function (x) { return x.effect === effect; });
     return t ? (t.name || effect) : effect;
+  }
+  // Valeur de choix d'un talent (compétence, état infligé…) — null si absent
+  function heroTalentChoice(c, effect) {
+    if (!c || !Array.isArray(c.talents)) return null;
+    const t = c.talents.find(function (x) { return x.effect === effect; });
+    return t ? (t.choice || null) : null;
   }
 
   // Retourne le bonus de dégâts (talents de l'attaquant + soutien de zone)
@@ -2444,6 +2495,13 @@
           if (!atk) return;
           // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
           if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
+          // COURSE (action de déplacement) : arme un mouvement qui consomme l'action.
+          if (atk.moveAction) {
+            if (c.used.action) return;
+            moveAsAction = (pendingMove !== c.iid);
+            pendingMove = (pendingMove === c.iid) ? null : c.iid;
+            pendingAttack = null; pendingAnalyze = null; render(); return;
+          }
           if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average) {
             pendingAttack = null; render(); return; // re-clic = annuler
           }

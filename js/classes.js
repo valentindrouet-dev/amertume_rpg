@@ -27,6 +27,8 @@
   const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration', mastery: 'Maîtrise' };
   const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', upgrade: 'AME', mastery: 'MAIT' };
   const KIND_ORDER = ['action', 'reaction', 'passive', 'upgrade', 'mastery'];
+  // Libellés lisibles des valeurs de choix (les états internes → noms affichés).
+  const CHOICE_LABELS = { feu: 'Feu', auSol: 'Au sol', affaibli: 'Affaibli' };
 
   let classes = [];
   let generics = [];
@@ -252,6 +254,20 @@
     if (eff && eff.hasVal) row.querySelector('.tl-eff-val-label').textContent = eff.valLabel || 'Valeur X';
     rangeWrap.hidden = !(eff && eff.hasRange);
     diceWrap.hidden = !(eff && eff.hasDice);
+    // Choix paramétrable (compétence, état infligé…) : peuple et affiche le select.
+    const choiceWrap = row.querySelector('.tl-eff-choice-wrap');
+    if (choiceWrap) {
+      const hasChoice = !!(eff && eff.hasChoice);
+      choiceWrap.hidden = !hasChoice;
+      if (hasChoice) {
+        const sel = choiceWrap.querySelector('.tl-eff-choice');
+        const prev = row._choice || sel.value || '';
+        row.querySelector('.tl-eff-choice-label').textContent = eff.choiceLabel || 'Choix';
+        sel.innerHTML = (eff.choices || []).map(function (ch) {
+          return '<option value="' + esc(ch) + '"' + (ch === prev ? ' selected' : '') + '>' + esc(CHOICE_LABELS[ch] || ch) + '</option>';
+        }).join('');
+      }
+    }
     const kind = eff ? eff.kind : '';
     row.querySelector('.tl-eff-kind').innerHTML = kind
       ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_LABEL[kind]) + '</span>'
@@ -280,8 +296,12 @@
           '</select></label>' +
         '<div class="tl-eff-dice-wrap" hidden><span class="tl-eff-dice-label">Dés de dégâts</span>' +
           '<div class="tl-eff-dice dice-steppers"></div></div>' +
+        '<label class="tl-eff-choice-wrap" hidden><span class="tl-eff-choice-label">Choix</span>' +
+          '<select class="tl-eff-choice"></select></label>' +
       '</div>';
     list.appendChild(row);
+    // Choix mémorisé (compétence, état…) pour réafficher la sélection à l'édition.
+    row._choice = e.choice || '';
     // Pool de dés propre à la ligne (référence mutée par les steppers)
     row._pool = Object.assign(emptyPool(), e.dice || {});
     if (Inventory && Inventory.buildDiceSteppers) {
@@ -289,6 +309,8 @@
     }
     row.querySelector('.tl-eff-effect').addEventListener('change', function () { syncEffectRow(row); });
     row.querySelector('.tl-eff-del').addEventListener('click', function () { row.remove(); });
+    const choiceSel = row.querySelector('.tl-eff-choice');
+    if (choiceSel) choiceSel.addEventListener('change', function () { row._choice = choiceSel.value; });
     syncEffectRow(row);
     return row;
   }
@@ -333,6 +355,10 @@
       if (meta.hasVal) e.val = Math.max(0, Math.min(99, parseInt(row.querySelector('.tl-eff-val').value, 10) || 0));
       if (meta.hasRange) e.range = row.querySelector('.tl-eff-range').value || 'contact';
       if (meta.hasDice) e.dice = Object.assign(emptyPool(), row._pool || {});
+      if (meta.hasChoice) {
+        const cs = row.querySelector('.tl-eff-choice');
+        e.choice = (cs && cs.value) || (meta.choices && meta.choices[0]) || '';
+      }
       effects.push(e);
     });
     const first = effects[0] || null;

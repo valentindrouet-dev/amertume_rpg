@@ -325,6 +325,7 @@
           val: (typeof e.val === 'number') ? e.val : (c.defaultVal || 0),
           dice: e.dice || null,
           range: e.range || null,
+          choice: e.choice || null,
         });
       });
     });
@@ -344,7 +345,7 @@
     talents.filter(function (t) { return t.kind === 'action'; }).forEach(function (t) {
       if (!merged[t.effect]) {
         merged[t.effect] = { id: t.id, name: t.name, effect: t.effect, kind: 'action',
-          val: 0, dice: null, range: null };
+          val: 0, dice: null, range: null, choice: t.choice || null };
         order.push(t.effect);
       }
       const m = merged[t.effect];
@@ -371,6 +372,9 @@
         }
         case 'assaut_mobile':
           return Object.assign(common, { range: baseRange(), freeMove: true });
+        case 'action_mouvement':
+          // Action pure de déplacement : pas d'attaque, juste un mouvement.
+          return Object.assign(common, { moveAction: true, targets: 'self', useOwnDamage: false });
         case 'soin_fixe':
         case 'soin_endu':
         case 'soin_des':
