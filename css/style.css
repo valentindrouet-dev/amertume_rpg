@@ -1697,9 +1697,12 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .cs-comag .cs-chip, .cs-chip.cs-chip-coma { background: rgba(150,40,40,.14); border-color: rgba(180,50,50,.45); color: #c04040; }
 .cs-chip em { font-style: normal; color: var(--muted); }
 /* Butin de fin de combat : vignettes d'équipement (même design que l'inventaire) */
-.cs-loot-strips { display: flex; flex-direction: column; gap: .35rem; margin-top: .3rem; }
+.cs-loot-strips { display: flex; flex-direction: column; gap: .35rem; margin-top: .3rem; max-width: 26rem; }
 .cs-loot-strips .inv-strip-row { align-items: center; }
-.cs-loot-dest { flex: 0 0 auto; align-self: center; font-size: .78rem; font-weight: 600; color: #7a6a55; padding-left: .2rem; white-space: nowrap; }
+/* Largeur fixe pour le nom du destinataire → toutes les languettes ont la même taille */
+.cs-loot-dest { flex: 0 0 4.8rem; width: 4.8rem; text-align: right; align-self: center;
+  font-size: .75rem; font-weight: 600; color: #7a6a55; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; padding-left: .2rem; }
 
 /* ===================================================================
    v2.19 — Résumé & bouton « Résultat » sur la DA parchemin + chips typées
