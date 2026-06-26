@@ -168,20 +168,22 @@
     const m = heroPv(h);
     return (typeof h.pv === 'number') ? Math.max(0, Math.min(m, h.pv)) : m;
   }
-  // Vignette de la caractéristique VIE : VIE actuelle / VIE max (rouge si réduite par un coma)
+  // Vignette de la caractéristique VIE : VIE actuelle / VIE max
+  // Seule la valeur actuelle passe en rouge quand réduite par un coma ; le max reste neutre.
   function vieStatHtml(dh) {
     const cur = dh.vie || 0;
     const max = (typeof dh.maxVie === 'number') ? dh.maxVie : cur;
-    return '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val' +
-      (cur < max ? ' hs-val--danger' : '') + '">' + cur +
-      '<span class="hs-val-max">/' + max + '</span></span></div>';
+    const curHtml = cur < max
+      ? '<span class="hs-val-cur--danger">' + cur + '</span>'
+      : cur;
+    return '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val">' +
+      curHtml + '<span class="hs-val-sep">/' + max + '</span></span></div>';
   }
-  // Vignette des Points de Vie : PV actuels / PV max (rouge si entamés)
+  // Vignette des Points de Vie : affiche le max (la valeur courante de session est
+  // dans la barre PV de renderHeroesState ; ici on n'a pas de contexte de session fiable).
   function pvStatHtml(dh) {
-    const cur = heroCurPv(dh), max = heroPv(dh);
-    return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val' +
-      (cur < max ? ' hs-val--danger' : '') + '">' + cur +
-      '<span class="hs-val-max">/' + max + '</span></span></div>';
+    return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' +
+      heroPv(dh) + '</span></div>';
   }
   // Repos court : Endu × 🟩 (somme de dés). Repos long : tout au max.
   function heroRestShort() {
@@ -1222,7 +1224,7 @@
           return '<div class="setup-row">' +
             '<span class="setup-name">' + esc(h.name) +
               (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
-            (function () { const cp = heroCurPv(h), mp = heroPv(h); return '<span class="stat-pills compact"><span class="stat-pill' + (cp < mp ? ' stat-pill--danger' : '') + '">❤ ' + cp + '/' + mp + '</span>'; })() +
+            '<span class="stat-pills compact"><span class="stat-pill">❤ ' + heroPv(h) + '</span>' +
               '<span class="stat-pill">⚔ ' + h.damage + '</span></span>' +
             '<button type="button" class="primary small pb-pick" data-id="' + h.id + '">Ajouter</button>' +
           '</div>';
