@@ -956,9 +956,12 @@
   }
 
   // Retourne vrai si au moins un combattant actif possède un talent de Pré-Tour.
+  // Vérifie également freeMoveReady (posé par instFromHero au Tour 1 avant que
+  // startHeroTurn n'ait recalculé le flag) pour une détection fiable dès le début.
   function needsPretour() {
-    return activeOf('hero').some(function (h) { return heroHasTalent(h, 'pas_leger') || !!h.rapide; }) ||
-      activeOf('monster').some(function (m) { return !!m.rapide; });
+    return activeOf('hero').some(function (h) {
+      return h.freeMoveReady || heroHasTalent(h, 'pas_leger') || !!h.rapide;
+    }) || activeOf('monster').some(function (m) { return !!m.rapide; });
   }
 
   // Phase de Pré-Tour : les adversaires rapides agissent, les héros éligibles
@@ -985,6 +988,8 @@
   function startTurnFromPretour() {
     if (combat().outcome) return;
     const c = combat();
+    log('Tour ' + c.turn + '.', 'turn');
+    centerText('Tour ' + c.turn, 'fx-center-turn');
     c.phase = 'heroes';
     startHeroTurn(true);
     Store.save(); render();
@@ -994,11 +999,11 @@
     const c = combat();
     c.turn += 1;
     resetActivations();
-    log('Tour ' + c.turn + '.', 'turn');
-    centerText('Tour ' + c.turn, 'fx-center-turn');
     if (needsPretour()) {
-      startPretour();
+      startPretour(); // logue 'Pré-Tour X' ; 'Tour X' sera loggué au clic du bouton
     } else {
+      log('Tour ' + c.turn + '.', 'turn');
+      centerText('Tour ' + c.turn, 'fx-center-turn');
       c.phase = 'heroes';
       startHeroTurn(false);
     }
@@ -1808,8 +1813,8 @@
     if (!box) return;
     const cmb = combat();
     let sel = selectedIid ? byId(selectedIid) : null;
-    // Auto-sélection : en phase héros, défaut = 1er aventurier actif.
-    if ((!sel || sel.status !== 'active') && cmb.phase === 'heroes' && !cmb.outcome) {
+    // Auto-sélection : en phase héros ou Pré-Tour, défaut = 1er aventurier actif.
+    if ((!sel || sel.status !== 'active') && (cmb.phase === 'heroes' || cmb.phase === 'pretour') && !cmb.outcome) {
       const fh = activeOf('hero')[0];
       if (fh) { sel = fh; selectedIid = fh.iid; }
     }
@@ -1824,6 +1829,8 @@
     const known = !isEnemy || c.analyzed;
     const pct = Math.round((c.pv / c.maxPv) * 100);
     const canAct = !dead && !cmb.outcome && c.side === 'hero' && cmb.phase === 'heroes';
+    // Pendant le Pré-Tour, seul le mouvement gratuit (freeMoveReady) est autorisé.
+    const canPretour = !dead && !cmb.outcome && c.side === 'hero' && cmb.phase === 'pretour';
     const cls = ['ab-card', 'side-' + c.side];
     if (c.klass) cls.push('klass-' + slug(c.klass));
     if (isEnemy && c.type) cls.push('type-' + c.type);
@@ -1866,7 +1873,7 @@
         : '<div class="ab-noatk">—</div>') +
       '</div>';
     // Cellule (col. action, ligne 2) : Mouv / Objet / Analyse (aventuriers)
-    html += (c.side === 'hero') ? abToolsHtml(c, canAct) : '<div class="ab-tools ab-tools-empty"></div>';
+    html += (c.side === 'hero') ? abToolsHtml(c, canAct, canPretour) : '<div class="ab-tools ab-tools-empty"></div>';
     // Cellules talents T1..T6 (remplies colonne par colonne) :
     //  • aventuriers → leurs attaques spéciales (boutons jouables) ;
     //  • adversaires → leurs talents passifs (FUYARD, SOUTIEN… en libellés).
@@ -2089,17 +2096,19 @@
 
   // Rangée Mouv. / Objet / Analyse : 3 boutons de largeur égale qui occupent,
   // à eux trois, la même largeur que le bouton d'attaque au-dessus.
-  function abToolsHtml(c, canAct) {
+  function abToolsHtml(c, canAct, canPretour) {
     const usedO = c.used.object;
     const usedMv = c.used.move;
     const multi = zoneCount() > 1;
     const isAuSol = !!(c.states && c.states.auSol);
+    // Pendant le Pré-Tour, seul le mouvement gratuit est disponible.
+    const canMove = canAct || (canPretour && c.freeMoveReady && !usedMv);
     // AU SOL : le bouton mouvement est remplacé par « Se relever » (consomme le mouvement)
     const moveBtn = isAuSol
       ? '<button class="ab-tool standup-chip do-standup" type="button" data-iid="' + c.iid + '"' +
           ((!canAct || usedMv) ? ' disabled' : '') + ' title="Utilise votre mouvement pour vous relever (retire AU SOL)">Se relever</button>'
       : '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
-          ' data-iid="' + c.iid + '"' + ((!canAct || !multi || (usedMv && !c.freeMoveReady)) ? ' disabled' : '') +
+          ' data-iid="' + c.iid + '"' + ((!canMove || !multi || (usedMv && !c.freeMoveReady)) ? ' disabled' : '') +
           ' title="' + (c.freeMoveReady ? 'Mouvement gratuit (Pas Léger) disponible' : 'Changer de zone') + '">Mouv.' +
           (c.freeMoveReady ? ' <span class="free-move-dot" title="Mouvement gratuit">✦</span>' : '') + '</button>';
     return '<div class="ab-tools">' +
@@ -2408,6 +2417,16 @@
         Store.save(); render();
       });
     });
+    // Pendant le Pré-Tour : seul le mouvement gratuit est câblé (ci-dessous dans le bloc heroes).
+    const isPretourMove = combat().phase === 'pretour' && c.side === 'hero' && c.status === 'active' && !combat().outcome && c.freeMoveReady;
+    if (isPretourMove) {
+      const mv = root.querySelector('.do-move[data-iid="' + c.iid + '"]');
+      if (mv) mv.addEventListener('click', function () {
+        if (c.used.move) return;
+        pendingMove = (pendingMove === c.iid) ? null : c.iid;
+        pendingAttack = null; pendingAnalyze = null; render();
+      });
+    }
     if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active' && !combat().outcome) {
       // Action Analyser : arme l'analyse, puis on clique l'adversaire à examiner.
       // Consomme la même ressource que le mouvement (exclusivité mouvement/analyse).
