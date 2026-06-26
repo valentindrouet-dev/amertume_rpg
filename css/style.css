@@ -1672,6 +1672,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .cs-banner .cs-title { color: #fff !important; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
 .cs-group { margin: .55rem 0; }
 .cs-glabel { font-size: .78rem; font-weight: 700; color: var(--muted); margin-bottom: .3rem; }
+.cs-loot-hint { font-weight: 400; font-style: italic; }
 .cs-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
 .cs-chip { font-size: .78rem; padding: .12rem .5rem; border-radius: 10px; background: rgba(0,0,0,.06); border: 1px solid var(--border); }
 .cs-killed .cs-chip { background: rgba(192,57,43,.12); border-color: rgba(192,57,43,.35); }
@@ -2703,8 +2704,13 @@ body.mode-player #item-list.roster-list { display: block; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lvl-sec-title { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em;
   color: var(--muted); font-weight: 700; margin: .25rem 0 .1rem; }
-/* Choix de caractéristique : deux boutons fixes côte à côte (pas de stretch) */
-.lvl-stat-choice { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+/* Choix de caractéristique : lignes cliquables dans le style création d'aventurier */
+.lvl-stat-choice { display: flex; flex-direction: column; gap: .35rem; }
+.lvl-stat-row { cursor: pointer; transition: box-shadow .1s; }
+.lvl-stat-row:hover { box-shadow: 0 0 0 2px var(--accent); }
+.lvl-stat-row.selected { box-shadow: 0 0 0 2.5px #d4af5a; }
+.lvl-stat-pick-icon { font-size: 1.1rem; font-weight: 700; min-width: 1.4rem; text-align: center; }
+.lvl-stat-row.selected .lvl-stat-pick-icon { color: #2a7a40; }
 .lvl-stat-btn2 { display: flex; flex-direction: column; align-items: center; gap: .05rem;
   padding: .4rem .3rem; border-radius: 9px; border: 1.5px solid rgba(255,255,255,.18);
   background: rgba(255,255,255,.06); color: #e0e0e0; cursor: pointer; transition: border-color .1s, background .1s; }
@@ -2715,6 +2721,9 @@ body.mode-player #item-list.roster-list { display: block; }
 .lvl-stat-btn2.selected .lsb-sub { color: #e8cf94; }
 /* Talents en colonne (réutilise .tpe-row de l'onglet Talents) */
 .lvl-tal-col { display: flex; flex-direction: column; gap: .3rem; }
+.lvl-tal-section { margin-bottom: .5rem; }
+.lvl-sec-sub { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); font-weight: 700; margin: .4rem 0 .25rem; border-bottom: 1px solid var(--border); padding-bottom: .15rem; }
 
 /* Catégories de l'écran de constitution du groupe */
 .grp-cat-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;

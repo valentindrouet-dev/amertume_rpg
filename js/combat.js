@@ -1346,17 +1346,14 @@
       const lines = [];
       lines.push('<div class="cs-xpline"><span class="cs-xpic">⚔️</span>' +
         '<span class="cs-xptxt">Adversaires vaincus</span><span class="cs-xpamt">+' + killXp + '</span></div>');
-      if (anaXp > 0) {
-        lines.push('<div class="cs-xpline"><span class="cs-xpic">🔍</span>' +
-          '<span class="cs-xptxt">Analyse' + (anaGroups.length ? ' — ' + esc(anaGroups.join(', ')) : '') +
-          '</span><span class="cs-xpamt">+' + anaXp + '</span></div>');
-      }
-      if (noDmgXp > 0) {
-        lines.push('<div class="cs-xpline"><span class="cs-xpic">💪</span>' +
-          '<span class="cs-xptxt">Sans une égratignure' +
-          (unscathed.length ? ' — ' + esc(unscathed.map(function (h) { return h.name; }).join(', ')) : '') +
-          '</span><span class="cs-xpamt">+' + noDmgXp + '</span></div>');
-      }
+      lines.push('<div class="cs-xpline"><span class="cs-xpic">🔍</span>' +
+        '<span class="cs-xptxt">Analyse' +
+        (anaGroups.length ? ' — ' + esc(anaGroups.join(', ')) : ' — <em>Aucune</em>') +
+        '</span><span class="cs-xpamt">+' + anaXp + '</span></div>');
+      lines.push('<div class="cs-xpline"><span class="cs-xpic">💪</span>' +
+        '<span class="cs-xptxt">Sans une égratignure' +
+        (unscathed.length ? ' — ' + esc(unscathed.map(function (h) { return h.name; }).join(', ')) : ' — <em>Aucun</em>') +
+        '</span><span class="cs-xpamt">+' + noDmgXp + '</span></div>');
       return '<div class="cs-xpbreak">' + lines.join('') + '</div>';
     }
     // Tableau des combattants : aventuriers puis adversaires ayant agi/subi
@@ -1406,7 +1403,7 @@
         statRows() +
       '</div>' +
       ((c.lootResults && c.lootResults.length)
-        ? '<div class="cs-group cs-lootg"><div class="cs-glabel">🎁 Butin récupéré</div>' +
+        ? '<div class="cs-group cs-lootg"><div class="cs-glabel">🎁 Butin récupéré <span class="cs-loot-hint">(À équiper dans l\'Inventaire)</span></div>' +
             '<div class="cs-loot-strips inv-strip-layout">' +
             c.lootResults.map(function (L) {
               const it = Store.state.items.find(function (x) { return x.id === L.itemId; });

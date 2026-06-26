@@ -596,42 +596,68 @@
 
   function renderLevelUp(root, ses, adv, newLevel) {
     const heroes = engagedHeroes(ses);
-    const statSel = {}; // idx -> 'endu'|'damage'
+    const statSel = {}; // idx -> 'endu'|'damage'|'vie'
     const talSel  = {}; // idx -> talentId
 
-    // Une colonne par aventurier (design de l'onglet Talents) : choix ENDU/DÉGÂTS
-    // en haut, talents listés en colonne dessous.
     function heroBlock(h, idx) {
-      const talents = availableTalents(ses, h, newLevel);
+      // Sépare les talents génériques et de classe pour l'affichage en deux sections.
+      const taken = heroGains(ses, h.id).talents;
+      const genTalents = Store.loadGenericTalents().filter(function (t) {
+        return (t.level || 1) <= newLevel && taken.indexOf(t.id) < 0;
+      });
+      var clsTalents = [];
+      try {
+        var cls = Store.loadClasses().find(function (x) { return x.name === h.klass; });
+        if (cls && Array.isArray(cls.talents)) {
+          clsTalents = cls.talents.filter(function (t) {
+            return t.id && (t.level || 1) <= newLevel && taken.indexOf(t.id) < 0;
+          });
+        }
+      } catch (e) {}
+
       const g = ses.levelGains ? (ses.levelGains[h.id] || {}) : {};
       const curEndu = (h.endu || 0) + (g.endu || 0);
       const curVie  = (h.vie  || 0) + (g.vie  || 0) + ((ses.heroStates && ses.heroStates[h.id] && ses.heroStates[h.id].viePenalty) || 0);
       const pvFromEndu2 = 2 * curVie;
-      const pvFromVie1  = curEndu + 2; // (+1 VIE) × (curEndu+2) - curVie×curEndu = curEndu (simplified: delta = curEndu)
+
+      // Lignes de choix de carac dans le même style que la création d'aventurier.
+      function statRow(stat, label, hint) {
+        return '<div class="lvl-stat-row hw-stat-row2 hw-stat-row2--' + stat + '" data-idx="' + idx + '" data-stat="' + stat + '">' +
+          '<span class="hw-stat-label2">' + label + ' <small>(' + hint + ')</small></span>' +
+          '<span class="lvl-stat-pick-icon">○</span>' +
+        '</div>';
+      }
       const statHtml =
-        '<button type="button" class="lvl-stat-btn2" data-idx="' + idx + '" data-stat="endu">' +
-          '<span class="lsb-main">+2</span><span class="lsb-sub">ENDURANCE</span>' +
-          '<span class="lsb-hint">ENDU ' + curEndu + ' → ' + (curEndu + 2) + ' · +' + pvFromEndu2 + ' PV</span></button>' +
-        '<button type="button" class="lvl-stat-btn2" data-idx="' + idx + '" data-stat="vie">' +
-          '<span class="lsb-main">+1</span><span class="lsb-sub">VIE</span>' +
-          '<span class="lsb-hint">VIE ' + curVie + ' → ' + (curVie + 1) + ' · +' + curEndu + ' PV</span></button>' +
-        '<button type="button" class="lvl-stat-btn2" data-idx="' + idx + '" data-stat="damage">' +
-          '<span class="lsb-main">+1</span><span class="lsb-sub">DÉGÂTS</span></button>';
-      const talHtml = talents.length
-        ? talents.map(function (t) {
-            return '<div class="lvl-tal-wrap">' +
-              '<div class="tpe-row tpe-kind-' + (t.kind || 'none') + '" data-idx="' + idx + '" data-tal="' + esc(t.id) + '">' +
-                '<input type="checkbox" class="lvl-tal-cb" aria-label="Sélectionner ' + esc(t.name) + '">' +
-                '<span class="tpe-name" title="Voir le descriptif">' + esc(t.name) + '</span>' +
-                '<span class="tpe-meta">' +
-                  '<span class="tl-kind tl-kind-' + (t.kind || 'passive') + '">' + esc(KIND_SHORT(t.kind)) + '</span>' +
-                  '<span class="tpe-lvl">Niv. ' + (t.level || 1) + '</span>' +
-                '</span>' +
-              '</div>' +
-              (t.description ? '<div class="tpe-desc" hidden>' + esc(t.description) + '</div>' : '') +
-            '</div>';
-          }).join('')
-        : '<span class="hint" style="font-size:.8rem">Aucun talent disponible.</span>';
+        statRow('damage', 'DÉGÂTS', '+1') +
+        statRow('endu', 'ENDURANCE', '+2 · +' + pvFromEndu2 + ' PV') +
+        statRow('vie', 'VIE', '+1 · +' + curEndu + ' PV');
+
+      function talentRows(list) {
+        return list.map(function (t) {
+          return '<div class="lvl-tal-wrap">' +
+            '<div class="tpe-row tpe-kind-' + (t.kind || 'none') + '" data-idx="' + idx + '" data-tal="' + esc(t.id) + '">' +
+              '<input type="checkbox" class="lvl-tal-cb" aria-label="Sélectionner ' + esc(t.name) + '">' +
+              '<span class="tpe-name" title="Voir le descriptif">' + esc(t.name) + '</span>' +
+              '<span class="tpe-meta">' +
+                '<span class="tl-kind tl-kind-' + (t.kind || 'passive') + '">' + esc(KIND_SHORT(t.kind)) + '</span>' +
+                '<span class="tpe-lvl">Niv. ' + (t.level || 1) + '</span>' +
+              '</span>' +
+            '</div>' +
+            (t.description ? '<div class="tpe-desc" hidden>' + esc(t.description) + '</div>' : '') +
+          '</div>';
+        }).join('');
+      }
+      const noTalent = '<span class="hint" style="font-size:.8rem">Aucun talent disponible.</span>';
+      const talHtml =
+        '<div class="lvl-tal-section">' +
+          '<div class="lvl-sec-sub">Talents Génériques</div>' +
+          (genTalents.length ? talentRows(genTalents) : noTalent) +
+        '</div>' +
+        '<div class="lvl-tal-section">' +
+          '<div class="lvl-sec-sub">Talents de Classe</div>' +
+          (clsTalents.length ? talentRows(clsTalents) : noTalent) +
+        '</div>';
+
       return '<div class="lvl-col" data-idx="' + idx + '">' +
         '<div class="lvl-col-head">' +
           '<span class="lvl-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' + esc(h.name) + '</span>' +
@@ -665,12 +691,18 @@
       contBtn.disabled = !ok;
     }
 
-    root.querySelectorAll('.lvl-stat-btn2').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const idx = btn.getAttribute('data-idx');
-        root.querySelectorAll('.lvl-stat-btn2[data-idx="' + idx + '"]').forEach(function (b) { b.classList.remove('selected'); });
-        btn.classList.add('selected');
-        statSel[idx] = btn.getAttribute('data-stat');
+    root.querySelectorAll('.lvl-stat-row').forEach(function (row) {
+      row.addEventListener('click', function () {
+        const idx = row.getAttribute('data-idx');
+        root.querySelectorAll('.lvl-stat-row[data-idx="' + idx + '"]').forEach(function (b) {
+          b.classList.remove('selected');
+          const icon = b.querySelector('.lvl-stat-pick-icon');
+          if (icon) icon.textContent = '○';
+        });
+        row.classList.add('selected');
+        const icon = row.querySelector('.lvl-stat-pick-icon');
+        if (icon) icon.textContent = '✓';
+        statSel[idx] = row.getAttribute('data-stat');
         refresh();
       });
     });
