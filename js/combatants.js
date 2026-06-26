@@ -744,9 +744,9 @@
   }
   // Combinaisons d'armes de départ proposées à la création (mappées par nom d'objet)
   const START_COMBOS = [
-    { id: 'dual',   label: 'Épée courte + Épée courte', names: ['épée courte', 'épée courte'] },
-    { id: 'shield', label: 'Épée courte + Bouclier',    names: ['épée courte', 'bouclier'] },
-    { id: 'bow',    label: 'Arc court',                 names: ['arc court'] },
+    { id: 'dual',   label: 'Agressif au contact',  desc: 'Vous infligez de lourds dégâts dans la zone de vos adversaires.', names: ['épée courte', 'épée courte'] },
+    { id: 'shield', label: 'Défensif au contact',  desc: 'Vous encaissez davantage les attaques de vos adversaires.', names: ['épée courte', 'bouclier'] },
+    { id: 'bow',    label: 'Agressif à distance',  desc: 'Vous infligez des dégâts médians sans entrer dans la zone de vos adversaires. Attention, effectuer une Attaque à Distance dans la zone d\'un adversaire déclenche une Attaque d\'Opportunité de sa part !', names: ['arc court'] },
   ];
   function normName(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
   function findItemByName(name) {
@@ -796,7 +796,7 @@
       function statRow(stat, label, step, cur, bonus) {
         const canInc = rem > 0;
         const canDec = bonus > 0;
-        return '<div class="hw-stat-row2">' +
+        return '<div class="hw-stat-row2 hw-stat-row2--' + stat + '">' +
           '<span class="hw-stat-label2">' + label + '</span>' +
           '<div class="hw-stat-ctrl">' +
             '<button type="button" class="hw-stat-pm" data-stat="' + stat + '" data-dir="-1"' + (canDec ? '' : ' disabled') + '>−</button>' +
@@ -872,6 +872,7 @@
           const sel = wiz.equipCombo === c.id;
           return '<button type="button" class="hw-combo' + (sel ? ' selected' : '') + '" data-combo="' + c.id + '">' +
             '<span class="hw-combo-label">' + esc(c.label) + '</span>' +
+            '<span class="hw-combo-desc">' + esc(c.desc) + '</span>' +
             '<div class="hw-combo-strips inv-strip-layout">' + comboStrips(c) + '</div>' +
           '</button>';
         }).join('') + '</div>' + tenueHtml;
@@ -895,18 +896,23 @@
         : [];
       // Talents sélectionnés (hors maîtrise auto)
       const selCount = wiz.talents.filter(function (id) { return !masteryTal || id !== masteryTal.id; }).length;
+      const KIND_SHORT_WIZ = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.', mastery: 'Maîtrise' };
       function talRow(t, isAuto) {
         const kind = wizTalentKind(t);
         const sel = wiz.talents.indexOf(t.id) >= 0;
-        return '<div class="lvl-tal-wrap">' +
-          '<div class="lvl-choice-btn lvl-tal-btn' + (kind ? ' lvl-tal-' + kind : '') + (sel ? ' selected' : '') + (isAuto ? ' lvl-tal-auto' : '') + '" data-tal="' + esc(t.id) + '" data-auto="' + (isAuto ? '1' : '0') + '">' +
-            (isAuto
-              ? '<span class="lvl-tal-auto-badge">Automatique</span>'
-              : '<input type="checkbox" class="lvl-tal-cb"' + (sel ? ' checked' : '') + ' aria-label="Sélectionner ' + esc(t.name) + '">') +
-            '<span class="lvl-tal-name">' + esc(t.name) + '</span>' +
+        return '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + (sel ? ' wiz-tal-selected' : '') + '" data-tal="' + esc(t.id) + '" data-auto="' + (isAuto ? '1' : '0') + '">' +
+          (isAuto
+            ? ''
+            : '<input type="checkbox" class="lvl-tal-cb inv-equip-cb" aria-label="Sélectionner ' + esc(t.name) + '"' + (sel ? ' checked' : '') + '>') +
+          '<div class="inv-strip tal-strip">' +
+            '<span class="inv-strip-name">' + esc(t.name) + '</span>' +
+            '<span class="inv-strip-val">' +
+              (isAuto ? '<span class="lvl-tal-auto-badge">Auto</span>' : '') +
+              (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT_WIZ[kind] || kind) + '</span>' : '') +
+            '</span>' +
           '</div>' +
-          (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(t.description) + '</div>' : '') +
-        '</div>';
+        '</div>' +
+        (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(t.description) + '</div>' : '');
       }
       const choiceRemaining = 1 - selCount;
       body.innerHTML = '<p class="hint">Le Talent de Maîtrise est automatiquement ajouté. Choisis <b>1 talent</b> supplémentaire. ' +
@@ -915,24 +921,21 @@
         (gens.length ? '<div class="hw-tal-section-title">Talents Génériques</div><div class="hw-tal-list">' + gens.map(function (t) { return talRow(t, false); }).join('') + '</div>' : '') +
         (clsTals.length ? '<div class="hw-tal-section-title">Talents de Classe</div><div class="hw-tal-list">' + clsTals.map(function (t) { return talRow(t, false); }).join('') + '</div>' : '') +
         (!gens.length && !clsTals.length && !masteryTal ? '<p class="empty">Aucun talent de niveau 1 disponible pour cette classe.</p>' : '');
-      body.querySelectorAll('.lvl-tal-wrap').forEach(function (wrap) {
-        const btn = wrap.querySelector('.lvl-tal-btn');
-        const desc = wrap.querySelector('.lvl-tal-desc');
-        btn.addEventListener('click', function (e) {
-          if (btn.getAttribute('data-auto') === '1') { if (desc) desc.hidden = !desc.hidden; return; }
-          const id = btn.getAttribute('data-tal');
-          if (e.target.classList.contains('lvl-tal-cb')) {
-            const idx = wiz.talents.indexOf(id);
-            if (idx >= 0) wiz.talents.splice(idx, 1);
-            else {
-              const nonAutoSel = wiz.talents.filter(function (x) { return !masteryTal || x !== masteryTal.id; }).length;
-              if (nonAutoSel >= 1) { e.target.checked = false; return; }
-              wiz.talents.push(id);
-            }
-            renderWizard();
+      body.querySelectorAll('.inv-strip-row[data-tal]').forEach(function (row) {
+        const desc = row.nextElementSibling && row.nextElementSibling.classList.contains('lvl-tal-desc') ? row.nextElementSibling : null;
+        row.addEventListener('click', function (e) {
+          if (row.getAttribute('data-auto') === '1') { if (desc) desc.hidden = !desc.hidden; return; }
+          const id = row.getAttribute('data-tal');
+          const idx = wiz.talents.indexOf(id);
+          if (idx >= 0) {
+            // Deselect if already chosen
+            wiz.talents.splice(idx, 1);
           } else {
-            if (desc) desc.hidden = !desc.hidden;
+            // Radio: remove any previously chosen non-mastery talent first
+            wiz.talents = wiz.talents.filter(function (x) { return masteryTal && x === masteryTal.id; });
+            wiz.talents.push(id);
           }
+          renderWizard();
         });
       });
     } else {

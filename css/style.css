@@ -1826,8 +1826,25 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .hw-class { display: flex; align-items: center; justify-content: space-between; gap: .4rem; padding: .6rem .7rem;
   border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; font-weight: 600; }
 .hw-class:hover { border-color: var(--accent-2); }
-.hw-class.selected { outline: 2px solid var(--accent); background: var(--panel); }
+.hw-class.selected { outline: 3px solid var(--accent); filter: brightness(1.06); }
 .hw-class-pv { font-size: .72rem; color: var(--muted); font-weight: 500; }
+/* Couleurs de classe sur les boutons du wizard */
+.hw-class.klass-apothicaire { background:#dcefd0; border-color:#7bbf6a; color:#2a5a20; }
+.hw-class.klass-artificier  { background:#f3e6c6; border-color:#d9a94a; color:#7a5510; }
+.hw-class.klass-chasseur    { background:#d9ead0; border-color:#74b85e; color:#2e6b1f; }
+.hw-class.klass-destructeur { background:#f2d9d1; border-color:#d36a52; color:#9a3320; }
+.hw-class.klass-deviant     { background:#e6dcef; border-color:#9d7fc4; color:#5a3b8c; }
+.hw-class.klass-gardien     { background:#d7e3f1; border-color:#6f9fd6; color:#2c5a93; }
+.hw-class.klass-lamevent    { background:#d4ebe6; border-color:#5cb6a6; color:#1f6b5e; }
+.hw-class.klass-pyromane    { background:#f6ddc6; border-color:#e08a4a; color:#8a3e10; }
+.hw-class.klass-apothicaire .hw-class-pv { color:#4f8b4f; }
+.hw-class.klass-artificier  .hw-class-pv { color:#9a6c12; }
+.hw-class.klass-chasseur    .hw-class-pv { color:#2e6b1f; }
+.hw-class.klass-destructeur .hw-class-pv { color:#b0432b; }
+.hw-class.klass-deviant     .hw-class-pv { color:#7c52a8; }
+.hw-class.klass-gardien     .hw-class-pv { color:#2c5a93; }
+.hw-class.klass-lamevent    .hw-class-pv { color:#1f6b5e; }
+.hw-class.klass-pyromane    .hw-class-pv { color:#b85c1c; }
 .hw-skill { padding: .55rem; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-2);
   color: var(--text); cursor: pointer; font-weight: 600; }
 .hw-skill:hover { border-color: var(--accent-2); }
@@ -2802,17 +2819,25 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Pastille « mouvement gratuit » (Pas Léger) sur le bouton Mouv. */
 .free-move-dot { color: #5ee0e0; font-weight: 700; }
 
-/* ----- Assistant de création : choix des talents de niveau 1 ----- */
-.hw-tal-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .45rem; align-items: start; }
-.hw-tal-list .lvl-tal-wrap { display: flex; flex-direction: column; gap: .2rem; }
-.hw-tal-list .lvl-tal-btn { width: 100%; flex-direction: row; align-items: center; gap: .4rem; text-align: left; padding: .4rem .55rem; }
-.hw-tal-list .lvl-tal-btn .lvl-tal-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hw-tal-list .lvl-tal-btn .lvl-tal-lvl { flex: 0 0 auto; }
+/* ----- Assistant de création : choix des talents de niveau 1 (strip design) ----- */
+.hw-tal-list { display: flex; flex-direction: column; gap: .3rem; }
+.hw-tal-list .inv-strip-row { cursor: pointer; }
+.hw-tal-list .inv-strip-row:hover .inv-strip { filter: brightness(1.04); }
+.hw-tal-list .wiz-tal-selected .inv-strip { outline: 2px solid var(--action); outline-offset: 1px; }
+.hw-tal-list .lvl-tal-desc { font-size: .78rem; color: var(--muted); background: var(--panel-2);
+  border-left: 3px solid var(--border); border-radius: 0 6px 6px 0; padding: .35rem .6rem; line-height: 1.4; }
 
 /* ----- Assistant de création : caractéristiques (steppers − / +) ----- */
 .hw-stat-list2 { display: flex; flex-direction: column; gap: .45rem; margin-top: .4rem; }
 .hw-stat-row2 { display: flex; align-items: center; justify-content: space-between; gap: .6rem;
   padding: .5rem .7rem; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); }
+/* Couleurs par stat dans le wizard */
+.hw-stat-row2--damage { background:#fde8e8; border-color:#e07070; }
+.hw-stat-row2--damage .hw-stat-label2 { color:#a03030; }
+.hw-stat-row2--endu   { background:#d6f5ec; border-color:#5bbfa0; }
+.hw-stat-row2--endu   .hw-stat-label2 { color:#2a7a60; }
+.hw-stat-row2--vie    { background:#f3e8ff; border-color:#c48fe0; }
+.hw-stat-row2--vie    .hw-stat-label2 { color:#7c3fa0; }
 .hw-stat-label2 { font-weight: 700; font-size: .85rem; }
 .hw-stat-label2 small { color: var(--muted); font-weight: 500; font-size: .7rem; }
 .hw-stat-ctrl { display: flex; align-items: center; gap: .5rem; }
@@ -2839,6 +2864,7 @@ body.mode-player #item-list.roster-list { display: block; }
 .hw-combo.selected { outline: 2px solid var(--action); background: var(--panel); }
 .hw-combo-warn { font-size: .68rem; color: var(--bad, #e07070); font-weight: 500; }
 .hw-combo-dice { font-size: .72rem; color: var(--muted); font-weight: 500; }
+.hw-combo-desc { font-size: .74rem; color: var(--muted); font-weight: 400; line-height: 1.35; display: block; margin-bottom: .15rem; }
 .hw-combo.selected .hw-combo-dice { color: #c8d8c0; }
 /* Vignettes d'objets (dés / DEF) dans les combinaisons de départ */
 .hw-combo-strips { display: flex; flex-direction: column; gap: .3rem; margin-top: .15rem; width: 100%; }
