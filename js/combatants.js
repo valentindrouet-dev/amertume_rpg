@@ -443,8 +443,7 @@
         '<div class="progress-top">' +
           '<div class="level-badge"><span class="lvl-num">' + info.level + '</span><span class="lvl-lbl">Niveau</span></div>' +
           '<div class="progress-info">' +
-            '<div class="pi-line"><span>✦ <b>' + info.xp + '</b> XP' + (player ? '' : ' partagée') + '</span>' +
-              '<span class="points-pill">' + info.points + ' pts de talent</span></div>' +
+            '<div class="pi-line"><span>✦ <b>' + info.xp + '</b> XP' + (player ? '' : ' partagée') + '</span></div>' +
             '<div class="xp-bar"><div class="xp-fill" style="width:' + info.pct + '%"></div></div>' +
             '<div class="pi-line" style="margin-top:.4rem;color:var(--muted)"><span>' + nextTxt + '</span></div>' +
           '</div>' +
