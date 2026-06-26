@@ -1162,11 +1162,13 @@
     fxLayer().appendChild(span);
     span.addEventListener('animationend', function () { span.remove(); }, { once: true });
   }
-  // Gros texte au centre de l'écran (échec, critique, coma d'un aventurier)
-  function centerText(text, cls) {
+  // Gros texte au centre de l'écran (échec, critique, coma d'un aventurier).
+  // idx décale verticalement les annonces simultanées pour éviter la superposition.
+  function centerText(text, cls, idx) {
     const el = document.createElement('div');
     el.className = 'fx-center ' + cls;
     el.textContent = text;
+    if (idx) el.style.top = (40 + idx * 10) + '%';
     fxLayer().appendChild(el);
     el.addEventListener('animationend', function () { el.remove(); }, { once: true });
   }
@@ -1213,7 +1215,7 @@
     if (!fxQueue.length) return;
     const q = fxQueue; fxQueue = [];
     if (reduceMotion()) return; // animations coupées : on vide sans jouer
-    let fxFloatIdx = 0;
+    let fxFloatIdx = 0, fxCenterIdx = 0;
     q.forEach(function (ev) {
       const a = fxAnchor(ev.iid);
       if (!a) return;
@@ -1226,12 +1228,12 @@
         case 'crit':
           cardAnim(a.card, 'fx-crit');
           if (ev.amount > 0) floatText(a.rect, '-' + ev.amount, 'fx-dmg fx-dmg-crit', fxFloatIdx++);
-          centerText('CRITIQUE !', 'fx-center-crit'); // gros texte central
+          centerText('CRITIQUE !', 'fx-center-crit', fxCenterIdx++); // gros texte central
           pvGlide(a.card, ev.fromPct, ev.toPct);
           break;
         case 'miss':
           cardAnim(a.card, 'fx-whiff');
-          if (ev.center) centerText(ev.text || 'ÉCHEC', 'fx-center-fail');
+          if (ev.center) centerText(ev.text || 'ÉCHEC', 'fx-center-fail', fxCenterIdx++);
           else floatText(a.rect, ev.text || 'Raté', 'fx-miss', fxFloatIdx++);
           break;
         case 'heal':
@@ -1250,9 +1252,9 @@
           // Aventurier : il reste affiché (grisé) dans sa zone ; coma annoncé au centre.
           if (ev.side === 'monster') {
             spawnGhostFade(ev.iid);
-            centerText((ev.name || 'Un adversaire') + ' est vaincu !', 'fx-center-foe');
+            centerText((ev.name || 'Un adversaire') + ' est vaincu !', 'fx-center-foe', fxCenterIdx++);
           } else {
-            centerText((ev.name || 'Un aventurier') + ' tombe dans le coma !', 'fx-center-coma');
+            centerText((ev.name || 'Un aventurier') + ' tombe dans le coma !', 'fx-center-coma', fxCenterIdx++);
           }
           break;
         case 'flee':

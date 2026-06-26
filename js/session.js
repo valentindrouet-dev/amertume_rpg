@@ -17,8 +17,8 @@
   let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
 
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
-  const KIND_LABELS = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration', mastery: 'Maîtrise' };
-  function KIND_SHORT(k) { return KIND_LABELS[k] || 'Talent'; }
+  const KIND_LABELS = { action: 'ACT', reaction: 'REAC', passive: 'PASS', upgrade: 'AME', mastery: 'MAIT' };
+  function KIND_SHORT(k) { return KIND_LABELS[k] || 'TAL'; }
 
   // Conseil de difficulté selon le nombre d'aventuriers engagés
   function difficultyAdvice(n) {
@@ -394,8 +394,12 @@
     if (!ses) return h;
     const g = ses.levelGains ? ses.levelGains[h.id] : null;
     const state = ses.heroStates ? (ses.heroStates[h.id] || {}) : {};
+    const maxVie = (h.vie || 0) + (g ? g.vie || 0 : 0);
     return Object.assign({}, h, {
-      vie: Math.max(0, (h.vie || 0) + (g ? g.vie || 0 : 0) + (state.viePenalty || 0)),
+      // VIE courante = VIE max (base + gains) + pénalité de coma (négative)
+      vie: Math.max(0, maxVie + (state.viePenalty || 0)),
+      // VIE maximale jamais atteinte (sans la pénalité de coma)
+      maxVie: maxVie,
       endu: (h.endu || 0) + (g ? g.endu || 0 : 0),
       damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
       // chosenTalents = talents ÉQUIPÉS (ce qui est actif en combat / sur la fiche)

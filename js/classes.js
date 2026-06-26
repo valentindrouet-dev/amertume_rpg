@@ -25,7 +25,7 @@
     { value: 'out',    label: 'Hors combat' },
   ];
   const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration', mastery: 'Maîtrise' };
-  const KIND_SHORT = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.', mastery: 'Maîtrise' };
+  const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', upgrade: 'AME', mastery: 'MAIT' };
   const KIND_ORDER = ['action', 'reaction', 'passive', 'upgrade', 'mastery'];
 
   let classes = [];
@@ -161,12 +161,15 @@
     const right =
       (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT[kind] || kind) + '</span>' : '<span class="tl-kind tl-kind-none">Descriptif</span>') +
       '<span class="tal-lvl">Niv. ' + (t.level || 1) + '</span>';
-    return '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + '">' +
-      '<div class="inv-strip tal-strip" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '">' +
-        '<span class="inv-strip-name">' + esc(t.name || '(sans nom)') + '</span>' +
-        '<span class="inv-strip-val">' + right + '</span>' +
+    return '<div class="tal-row-wrap">' +
+      '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + '">' +
+        '<div class="inv-strip tal-strip" data-desc-toggle="1" title="Voir le descriptif">' +
+          '<span class="inv-strip-name">' + esc(t.name || '(sans nom)') + '</span>' +
+          '<span class="inv-strip-val">' + right + '</span>' +
+        '</div>' +
+        '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
       '</div>' +
-      '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
+      (t.description ? '<div class="tal-strip-desc" hidden>' + esc(t.description) + '</div>' : '') +
     '</div>';
   }
 
@@ -192,10 +195,18 @@
     box.querySelectorAll('.tl-col-add').forEach(function (b) {
       b.addEventListener('click', function () { openTalentModal(null, b.getAttribute('data-ref')); });
     });
-    box.querySelectorAll('[data-edit]').forEach(function (el) {
+    // Le crayon ouvre l'éditeur ; le corps de la languette déroule le descriptif.
+    box.querySelectorAll('.inv-strip-edit[data-edit]').forEach(function (el) {
       el.addEventListener('click', function (ev) {
         ev.stopPropagation();
         openTalentModal(el.getAttribute('data-tid'), el.getAttribute('data-edit'));
+      });
+    });
+    box.querySelectorAll('.tal-strip[data-desc-toggle]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        const wrap = el.closest('.tal-row-wrap');
+        const desc = wrap ? wrap.querySelector('.tal-strip-desc') : null;
+        if (desc) desc.hidden = !desc.hidden;
       });
     });
   }

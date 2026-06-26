@@ -168,6 +168,21 @@
     const m = heroPv(h);
     return (typeof h.pv === 'number') ? Math.max(0, Math.min(m, h.pv)) : m;
   }
+  // Vignette de la caractéristique VIE : VIE actuelle / VIE max (rouge si réduite par un coma)
+  function vieStatHtml(dh) {
+    const cur = dh.vie || 0;
+    const max = (typeof dh.maxVie === 'number') ? dh.maxVie : cur;
+    return '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val' +
+      (cur < max ? ' hs-val--danger' : '') + '">' + cur +
+      '<span class="hs-val-max">/' + max + '</span></span></div>';
+  }
+  // Vignette des Points de Vie : PV actuels / PV max (rouge si entamés)
+  function pvStatHtml(dh) {
+    const cur = heroCurPv(dh), max = heroPv(dh);
+    return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val' +
+      (cur < max ? ' hs-val--danger' : '') + '">' + cur +
+      '<span class="hs-val-max">/' + max + '</span></span></div>';
+  }
   // Repos court : Endu × 🟩 (somme de dés). Repos long : tout au max.
   function heroRestShort() {
     const lines = [];
@@ -519,9 +534,9 @@
         (!opts.hideRapide && h.rapide ? '<span class="tag">Rapide</span>' : '') +
       '</div>' +
       '<div class="hero-stat-row">' +
-        '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val">' + (dh.vie || 0) + '</span></div>' +
+        vieStatHtml(dh) +
         '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
-        (function () { const cp = heroCurPv(dh), mp = heroPv(dh); return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val' + (cp < mp ? ' hs-val--danger' : '') + '">' + cp + '<span style="font-size:.75em;font-weight:600;opacity:.7">/' + mp + '</span></span></div>'; })() +
+        pvStatHtml(dh) +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
       '</div>' +
@@ -577,9 +592,9 @@
           '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="hero-stat-row">' +
-          '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val">' + (dh.vie || 0) + '</span></div>' +
+          vieStatHtml(dh) +
           '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
-          (function () { const cp = heroCurPv(dh), mp = heroPv(dh); return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val' + (cp < mp ? ' hs-val--danger' : '') + '">' + cp + '<span style="font-size:.75em;font-weight:600;opacity:.7">/' + mp + '</span></span></div>'; })() +
+          pvStatHtml(dh) +
           '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
         '</div>' +
@@ -636,9 +651,9 @@
     const dh = displayHero(h);
     const e = normalizeEquip(h.equipment);
     const gear = [e.mainG, e.mainD, e.armorId, e.objectId].map(itemById).filter(Boolean).map(function (it) { return it.name; });
-    const _sheetCpPv = heroCurPv(dh), _sheetMpPv = heroPv(dh);
     return '<div class="hero-stat-row">' +
-        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val' + (_sheetCpPv < _sheetMpPv ? ' hs-val--danger' : '') + '">' + _sheetCpPv + '<span style="font-size:.75em;font-weight:600;opacity:.7">/' + _sheetMpPv + '</span></span></div>' +
+        vieStatHtml(dh) +
+        pvStatHtml(dh) +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(dh) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
       '</div>' +
@@ -899,7 +914,7 @@
         : [];
       // Talents sélectionnés (hors maîtrise auto)
       const selCount = wiz.talents.filter(function (id) { return !masteryTal || id !== masteryTal.id; }).length;
-      const KIND_SHORT_WIZ = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélior.', mastery: 'Maîtrise' };
+      const KIND_SHORT_WIZ = { action: 'ACT', reaction: 'REAC', passive: 'PASS', upgrade: 'AME', mastery: 'MAIT' };
       function talRow(t, isAuto) {
         const kind = wizTalentKind(t);
         const sel = wiz.talents.indexOf(t.id) >= 0;

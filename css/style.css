@@ -1128,6 +1128,7 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 .hero-stat .hs-label { font-size: .64rem; text-transform: uppercase; letter-spacing: .06em; color: #7c6646; font-weight: 700; }
 .hero-stat .hs-val { font-size: 1.15rem; font-weight: 800; color: #2a1d10; font-variant-numeric: tabular-nums; }
 .hs-val--danger { color: #c0351a !important; }
+.hs-val-max { font-size: .75em; font-weight: 600; opacity: .7; }
 
 /* Couleurs par type de stat sur la fiche d'aventurier */
 .hero-stat:nth-child(1) { background: #f3e8ff; border-color: #c48fe0; } /* Vie : violet/rose */
@@ -1897,13 +1898,13 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .fx-float {
   position: fixed; transform: translate(-50%, 0); white-space: nowrap;
   font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,.55);
-  animation: fx-rise 3.4s ease-out forwards;
+  animation: fx-rise 2.4s ease-out forwards;
 }
 .fx-dmg { color: #e0563f; font-size: 1.3rem; }
 .fx-dmg-crit { color: #f2b13a; font-size: 1.7rem; }
 .fx-heal-txt { color: #5fa45f; font-size: 1.3rem; }
 .fx-miss { color: #93a0a6; font-size: 1.05rem; font-weight: 700; }
-.fx-burst { color: #f2b13a; font-size: 1.15rem; letter-spacing: .03em; animation: fx-burst 3.6s ease-out forwards; }
+.fx-burst { color: #f2b13a; font-size: 1.15rem; letter-spacing: .03em; animation: fx-burst 2.5s ease-out forwards; }
 @keyframes fx-rise {
   0%   { opacity: 0; transform: translate(-50%, 6px) scale(.8); }
   10%  { opacity: 1; transform: translate(-50%, -2px) scale(1.12); }
@@ -1975,7 +1976,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%);
   font-weight: 900; text-align: center; white-space: nowrap; pointer-events: none;
   text-shadow: 0 2px 12px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.6);
-  animation: fx-center-anim 3.0s ease-out forwards;
+  animation: fx-center-anim 2.1s ease-out forwards;
 }
 .fx-center-crit { color: #f5bd45; font-size: clamp(2.6rem, 8vw, 4.4rem); letter-spacing: .05em; }
 .fx-center-fail { color: #c4ccd1; font-size: clamp(2rem, 6vw, 3.2rem); letter-spacing: .03em; }
@@ -2190,7 +2191,8 @@ img.ab-atk-name {
   background: #5aab6a; color: #fff; border-color: #468a54; font-size: 1.08rem;
 }
 .ab-talent.ab-talent-kind-mastery, .ab-talent.ab-talent-kind-mastery:disabled {
-  background: #d6af46; color: #3a2c08; border-color: #b89230; font-size: 1.08rem;
+  background: #d6af46; color: #fff; border-color: #b89230; font-size: 1.08rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
 }
 .ab-talent.ab-talent-kind-action, .ab-talent.ab-talent-kind-action:disabled {
   background: #4d8ed1; color: #fff; border-color: #3a72ad; font-size: 1.08rem;
@@ -2723,10 +2725,10 @@ body.mode-player #item-list.roster-list { display: block; }
   font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
   padding: .1rem .4rem; border-radius: 5px; white-space: nowrap;
 }
-.tl-kind-action   { background: rgba(77,142,209,.25);  color: #a8cbf0; }
-.tl-kind-reaction { background: rgba(150,100,200,.25); color: #cdb1e6; }
-.tl-kind-passive  { background: rgba(150,150,150,.25); color: #d2d2d2; }
-.tl-kind-upgrade  { background: rgba(110,180,120,.25); color: #b6e0bd; }
+.tl-kind-action   { background: rgba(77,142,209,.28);  color: #1c4c79; }
+.tl-kind-reaction { background: rgba(150,100,200,.28); color: #553089; }
+.tl-kind-passive  { background: rgba(150,150,150,.30); color: #4a4a4a; }
+.tl-kind-upgrade  { background: rgba(110,180,120,.30); color: #2c6b39; }
 
 /* ====== Bibliothèque des effets ====== */
 .lib-card { padding: .6rem .8rem; }
@@ -2814,7 +2816,7 @@ body.mode-player #item-list.roster-list { display: block; }
 .tl-eff-dice.dice-steppers { display: flex; flex-wrap: wrap; gap: .3rem; }
 
 /* ----- Maîtrise (nouvelle catégorie d'effet, doré) ----- */
-.tl-kind-mastery   { background: rgba(214,175,70,.25);  color: #ecd29a; }
+.tl-kind-mastery   { background: rgba(214,175,70,.32);  color: #7a5c12; }
 .lvl-tal-btn.lvl-tal-mastery { border-color: rgba(214,175,70,.5); background: rgba(214,175,70,.13); color: #ecd29a; }
 .lvl-tal-btn.lvl-tal-mastery.selected { border-color: #d4af37; background: rgba(214,175,70,.34); color: #f7e9c0; }
 .lib-kind-mastery  > .lib-kind-head { background: rgba(214,175,70,.22);  color: #f0dcab; }
@@ -2970,6 +2972,12 @@ body.mode-player #item-list.roster-list { display: block; }
 .tpe-meta { cursor: pointer; }
 .tpe-desc {
   margin: .15rem 0 .1rem .4rem; padding: .35rem .55rem;
+  font-size: .78rem; line-height: 1.35; color: var(--text);
+  background: rgba(255,255,255,.05); border-left: 3px solid var(--border); border-radius: 6px;
+}
+/* Descriptif déroulant d'un talent dans l'onglet Classes (MJ/Admin) */
+.tal-strip-desc {
+  margin: .1rem 0 .35rem .4rem; padding: .35rem .55rem;
   font-size: .78rem; line-height: 1.35; color: var(--text);
   background: rgba(255,255,255,.05); border-left: 3px solid var(--border); border-radius: 6px;
 }
