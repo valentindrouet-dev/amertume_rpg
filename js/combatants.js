@@ -970,19 +970,37 @@
     const nb = $('#hw-next'); if (nb) nb.textContent = isLast ? '✓ Créer l\'aventurier' : 'Suivant →';
     updateWizNav();
   }
+  // Garantit que la Tenue de voyage est dans le slot objectId de h.equipment ET h.baseEquipment.
+  // À appeler à la création et au lancement de session pour les héros qui en sont dépourvus.
+  function ensureStartEquipment(h) {
+    if (!h) return;
+    const eq = h.equipment = normalizeEquip(h.equipment || {});
+    if (!eq.objectId) {
+      const tenue = findItemByName('tenue de voyage');
+      if (tenue) eq.objectId = tenue.id;
+    }
+    // Synchronise baseEquipment si objectId y est également absent
+    if (h.baseEquipment) {
+      const beq = normalizeEquip(h.baseEquipment);
+      if (!beq.objectId) {
+        const tenue = findItemByName('tenue de voyage');
+        if (tenue) { beq.objectId = tenue.id; h.baseEquipment = beq; }
+      }
+    } else {
+      h.baseEquipment = JSON.parse(JSON.stringify(eq));
+    }
+  }
+
   function wizBack() { if (wiz && wiz.step > 0) { wiz.step--; renderWizard(); } }
   function wizNext() {
     if (!wiz || $('#hw-next').disabled) return;
     if (wiz.step < WIZ_STEPS.length - 1) { wiz.step++; renderWizard(); return; }
     const skills = {}; SKILLS.forEach(function (s) { if (wiz.skills[s]) skills[s] = wiz.skills[s]; });
-    // Tenue de voyage : objet de départ automatique (s'il existe dans l'armurerie)
-    const tenueDev = findItemByName('tenue de voyage');
     const eq = {
       mainG: wiz.equipment.mainG || null, mainD: wiz.equipment.mainD || null,
-      armorId: wiz.equipment.armorId || null,
-      objectId: wiz.equipment.objectId || (tenueDev ? tenueDev.id : null), twoH: false,
+      armorId: wiz.equipment.armorId || null, objectId: null, twoH: false,
     };
-    Store.state.heroes.push({
+    const h = {
       id: Store.uid(), name: wiz.name.trim() || 'Aventurier', klass: wiz.klass,
       vie: 3 + (wiz.statBonuses.vie || 0), endu: 0 + (wiz.statBonuses.endu || 0), pvBonus: 0, damage: 0 + (wiz.statBonuses.damage || 0), rapide: false, notes: '',
       attacks: [], skills: mergeSkills(skills),
@@ -990,7 +1008,9 @@
       equipment: eq,
       baseEquipment: JSON.parse(JSON.stringify(eq)),
       adventureId: wiz.advId || null,
-    });
+    };
+    ensureStartEquipment(h);
+    Store.state.heroes.push(h);
     Store.save();
     $('#hero-wizard-modal').hidden = true;
     renderHeroes();
@@ -1693,5 +1713,6 @@
     TYPE_LABEL: TYPE_LABEL,
     MENACE_LABEL: MENACE_LABEL,
     RANGE_LABEL: RANGE_LABEL,
+    ensureStartEquipment: ensureStartEquipment,
   };
 })(window);

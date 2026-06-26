@@ -1151,6 +1151,7 @@
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (!h) { heroOwned[hid] = {}; return; }
       if (h.baseEquipment) h.equipment = JSON.parse(JSON.stringify(h.baseEquipment));
+      Combatants.ensureStartEquipment(h);
       const set = {};
       Combatants.heroGear(h).forEach(function (it) { set[it.id] = (set[it.id] || 0) + 1; });
       heroOwned[hid] = set;
