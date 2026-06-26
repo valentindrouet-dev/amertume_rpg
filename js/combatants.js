@@ -521,7 +521,7 @@
       '<div class="hero-stat-row">' +
         '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val">' + (dh.vie || 0) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
-        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
+        (function () { const cp = heroCurPv(dh), mp = heroPv(dh); return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val' + (cp < mp ? ' hs-val--danger' : '') + '">' + cp + '<span style="font-size:.75em;font-weight:600;opacity:.7">/' + mp + '</span></span></div>'; })() +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
       '</div>' +
@@ -579,7 +579,7 @@
         '<div class="hero-stat-row">' +
           '<div class="hero-stat"><span class="hs-label">Vie</span><span class="hs-val">' + (dh.vie || 0) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
-          '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
+          (function () { const cp = heroCurPv(dh), mp = heroPv(dh); return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val' + (cp < mp ? ' hs-val--danger' : '') + '">' + cp + '<span style="font-size:.75em;font-weight:600;opacity:.7">/' + mp + '</span></span></div>'; })() +
           '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
           '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
         '</div>' +
@@ -636,8 +636,9 @@
     const dh = displayHero(h);
     const e = normalizeEquip(h.equipment);
     const gear = [e.mainG, e.mainD, e.armorId, e.objectId].map(itemById).filter(Boolean).map(function (it) { return it.name; });
+    const _sheetCpPv = heroCurPv(dh), _sheetMpPv = heroPv(dh);
     return '<div class="hero-stat-row">' +
-        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' + heroPv(dh) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val' + (_sheetCpPv < _sheetMpPv ? ' hs-val--danger' : '') + '">' + _sheetCpPv + '<span style="font-size:.75em;font-weight:600;opacity:.7">/' + _sheetMpPv + '</span></span></div>' +
         '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(dh) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
       '</div>' +
@@ -1206,7 +1207,7 @@
           return '<div class="setup-row">' +
             '<span class="setup-name">' + esc(h.name) +
               (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
-            '<span class="stat-pills compact"><span class="stat-pill">❤ ' + heroPv(h) + '</span>' +
+            (function () { const cp = heroCurPv(h), mp = heroPv(h); return '<span class="stat-pills compact"><span class="stat-pill' + (cp < mp ? ' stat-pill--danger' : '') + '">❤ ' + cp + '/' + mp + '</span>'; })() +
               '<span class="stat-pill">⚔ ' + h.damage + '</span></span>' +
             '<button type="button" class="primary small pb-pick" data-id="' + h.id + '">Ajouter</button>' +
           '</div>';

@@ -372,6 +372,10 @@
     combat().log.unshift({ turn: combat().turn, text: text, kind: kind || '' });
     combat().log = combat().log.slice(0, 60);
   }
+  // Appende du texte à la dernière entrée du journal (pour coller défaite/coma à la ligne des dégâts)
+  function appendLastLog(html) {
+    if (combat().log.length) combat().log[0].text += ' ' + html;
+  }
 
   // ---------- Zones ----------
   function zones() { return combat().zones || []; }
@@ -422,7 +426,7 @@
       m.pv = Math.max(0, m.pv - dmg);
       m.dmgTaken += dmg; c.dmgDealt += dmg;
       pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
-      log('<b class="lopp">Charge Dévastatrice !</b> ' + cname(c) + ' inflige ' + amt(dmg, 'dmg') +
+      log('<b class="lopp">' + esc(heroTalentName(c, 'charge_devastatrice')) + ' !</b> ' + cname(c) + ' inflige ' + amt(dmg, 'dmg') +
         ' Dégâts à ' + cname(m) + ' en chargeant.', 'dchoc');
       if (m.pv <= 0 && !m.killedBy) m.killedBy = c.iid;
       checkMonsterTalents(m, dmg);
@@ -667,10 +671,9 @@
       c.status = 'coma';
       c.pv = 0;
       pushFx({ type: 'faint', iid: c.iid, side: c.side, name: c.name });
-      log(c.side === 'monster'
-        ? (cname(c) + ' <span class="lvanq">est vaincu !</span>')
-        : (cname(c) + ' <span class="lcoma">tombe dans le coma…</span>'),
-        c.side === 'monster' ? 'kill' : 'down');
+      appendLastLog(c.side === 'monster'
+        ? cname(c) + ' <span class="lvanq">est vaincu !</span>'
+        : cname(c) + ' <span class="lcoma">tombe dans le coma…</span>');
       if (c.side === 'hero' && combatKey === 'combat') applyHeroComaVieLoss(c);
     }
   }
@@ -730,6 +733,12 @@
     if (!c || !Array.isArray(c.talents)) return 0;
     const t = c.talents.find(function (x) { return x.effect === effect; });
     return t ? (t.val || 0) : 0;
+  }
+  // Nom choisi d'un talent de l'aventurier (effect si absent)
+  function heroTalentName(c, effect) {
+    if (!c || !Array.isArray(c.talents)) return effect;
+    const t = c.talents.find(function (x) { return x.effect === effect; });
+    return t ? (t.name || effect) : effect;
   }
 
   // Retourne le bonus de dégâts (talents de l'attaquant + soutien de zone)
@@ -949,6 +958,7 @@
     resetActivations();
     c.phase = 'heroes';
     log('Tour ' + c.turn + '.', 'turn');
+    centerText('Tour ' + c.turn, 'fx-center-turn');
     startHeroTurn();
   }
 
@@ -1143,12 +1153,12 @@
     if (c) { const z = root.querySelector('#zone-cards-' + c.zone); if (z) return { rect: z.getBoundingClientRect(), card: null }; }
     return { rect: root.getBoundingClientRect(), card: null };
   }
-  function floatText(rect, text, cls) {
+  function floatText(rect, text, cls, idx) {
     const span = document.createElement('span');
     span.className = 'fx-float ' + cls;
     span.textContent = text;
     span.style.left = (rect.left + rect.width / 2) + 'px';
-    span.style.top = (rect.top + Math.min(30, rect.height * 0.3)) + 'px';
+    span.style.top = (rect.top + Math.min(30, rect.height * 0.3) + (idx || 0) * 30) + 'px';
     fxLayer().appendChild(span);
     span.addEventListener('animationend', function () { span.remove(); }, { once: true });
   }
@@ -1203,29 +1213,30 @@
     if (!fxQueue.length) return;
     const q = fxQueue; fxQueue = [];
     if (reduceMotion()) return; // animations coupées : on vide sans jouer
+    let fxFloatIdx = 0;
     q.forEach(function (ev) {
       const a = fxAnchor(ev.iid);
       if (!a) return;
       switch (ev.type) {
         case 'hit':
           cardAnim(a.card, 'fx-hit');
-          floatText(a.rect, '-' + ev.amount, 'fx-dmg');
+          floatText(a.rect, '-' + ev.amount, 'fx-dmg', fxFloatIdx++);
           pvGlide(a.card, ev.fromPct, ev.toPct);
           break;
         case 'crit':
           cardAnim(a.card, 'fx-crit');
-          if (ev.amount > 0) floatText(a.rect, '-' + ev.amount, 'fx-dmg fx-dmg-crit');
+          if (ev.amount > 0) floatText(a.rect, '-' + ev.amount, 'fx-dmg fx-dmg-crit', fxFloatIdx++);
           centerText('CRITIQUE !', 'fx-center-crit'); // gros texte central
           pvGlide(a.card, ev.fromPct, ev.toPct);
           break;
         case 'miss':
           cardAnim(a.card, 'fx-whiff');
           if (ev.center) centerText(ev.text || 'ÉCHEC', 'fx-center-fail');
-          else floatText(a.rect, ev.text || 'Raté', 'fx-miss');
+          else floatText(a.rect, ev.text || 'Raté', 'fx-miss', fxFloatIdx++);
           break;
         case 'heal':
           cardAnim(a.card, 'fx-heal');
-          floatText(a.rect, '+' + ev.amount, 'fx-heal-txt');
+          floatText(a.rect, '+' + ev.amount, 'fx-heal-txt', fxFloatIdx++);
           pvGlide(a.card, ev.fromPct, ev.toPct);
           break;
         case 'state':
@@ -1246,7 +1257,7 @@
           break;
         case 'flee':
           spawnGhostFade(ev.iid);
-          floatText(a.rect, 'En fuite', 'fx-miss');
+          floatText(a.rect, 'En fuite', 'fx-miss', fxFloatIdx++);
           break;
       }
     });
