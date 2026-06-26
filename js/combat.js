@@ -2571,6 +2571,7 @@
     buildCombat(heroObjs, normalizeZoneConfig(sceneCombat));
     sessionGains = null;  // les instances sont figées : on ne garde pas l'overlay
     log('Début du combat — Tour 1.', 'turn');
+    if (needsPretour()) startPretour();
     Store.save();
     render();
   }
