@@ -1295,7 +1295,8 @@
     { id: 'slow',               label: 'Lent (pas d\'attaque s\'il se déplace)', paramKey: 'none', paramLabel: '', defaultVal: 0, noParam: true },
     { id: 'zone_support',       label: '+X dégâts aux adversaires de sa zone',  paramKey: 'bonus',   paramLabel: 'Bonus zone',  defaultVal: 1  },
     { id: 'armor_charges',      label: 'Blindage X (ignore X sources de dégâts)', paramKey: 'charges', paramLabel: 'Charges',   defaultVal: 1  },
-    { id: 'mark_target_dice',   label: 'Proie : +X dés (couleur) contre un aventurier désigné', paramKey: 'count', paramLabel: 'Nb de dés', defaultVal: 1, colorParam: true },
+    { id: 'mark_target_dice',   label: 'Proie : +X dés (couleur) contre un aventurier désigné', paramKey: 'count', paramLabel: 'Nb de dés', defaultVal: 1, colorParam: true, modeParam: true },
+    { id: 'pull_to_zone',       label: 'Happe : déplace un aventurier dans sa zone avant d\'attaquer', paramKey: 'none', paramLabel: '', defaultVal: 0, noParam: true },
   ];
   // Couleurs de dés offrables pour le talent « Proie » (offensives).
   const MARK_DICE_COLORS = [
@@ -1305,6 +1306,14 @@
     { key: 'blue',   label: 'Bleu (Mystique)' },
     { key: 'yellow', label: 'Jaune (Phase)' },
     { key: 'black',  label: 'Noir (Mortel)' },
+  ];
+  // Critères de désignation de la cible pour le talent « Proie ».
+  const MARK_TARGET_MODES = [
+    { key: 'most_pv',   label: 'Le plus de PV' },
+    { key: 'least_pv',  label: 'Le moins de PV' },
+    { key: 'least_def', label: 'La plus faible DEF' },
+    { key: 'most_def',  label: 'La plus forte DEF' },
+    { key: 'random',    label: 'Aléatoire' },
   ];
   function triggerDef(id) {
     return TRIGGER_DEFS.find(function (d) { return d.id === id; }) || TRIGGER_DEFS[0];
@@ -1354,12 +1363,16 @@
         '<select class="tl-color" style="display:none">' +
           MARK_DICE_COLORS.map(function (c) { return '<option value="' + c.key + '">' + esc(c.label) + '</option>'; }).join('') +
         '</select>' +
+        '<select class="tl-mode" style="display:none">' +
+          MARK_TARGET_MODES.map(function (c) { return '<option value="' + c.key + '">' + esc(c.label) + '</option>'; }).join('') +
+        '</select>' +
         '<button type="button" class="icon-btn tl-del" title="Supprimer">✕</button>';
 
       const selEl  = row.querySelector('.tl-trigger');
       const lblEl  = row.querySelector('.tl-param-label');
       const paramIn = row.querySelector('.tl-param');
       const colorEl = row.querySelector('.tl-color');
+      const modeEl  = row.querySelector('.tl-mode');
 
       function syncParam() {
         const def = triggerDef(t.trigger);
@@ -1372,10 +1385,14 @@
         // Sélecteur de couleur de dé : visible uniquement pour le talent PROIE.
         colorEl.style.display = def.colorParam ? '' : 'none';
         if (def.colorParam) colorEl.value = t.markColor || 'white';
+        // Sélecteur de critère de cible : visible uniquement pour le talent PROIE.
+        modeEl.style.display = def.modeParam ? '' : 'none';
+        if (def.modeParam) modeEl.value = t.targetMode || 'most_pv';
       }
       syncParam();
 
       colorEl.addEventListener('change', function () { t.markColor = colorEl.value; });
+      modeEl.addEventListener('change', function () { t.targetMode = modeEl.value; });
 
       selEl.addEventListener('change', function () {
         const e = catalogEntry(selEl.value, null);
@@ -1385,6 +1402,7 @@
         if (def.paramKey !== oldKey) delete t[oldKey];
         if (t[def.paramKey] === undefined) t[def.paramKey] = (e.defaultVal !== undefined) ? e.defaultVal : def.defaultVal;
         if (def.colorParam && !t.markColor) t.markColor = 'white';
+        if (def.modeParam && !t.targetMode) t.targetMode = 'most_pv';
         syncParam();
       });
       paramIn.addEventListener('input', function () {
@@ -1410,7 +1428,11 @@
       let extra = '';
       if (def.colorParam) {
         const dt = D.DICE_TYPES[t.markColor || 'white'];
-        extra = ' ' + (dt ? dt.emoji : '');
+        extra += ' ' + (dt ? dt.emoji : '');
+      }
+      if (def.modeParam) {
+        const md = MARK_TARGET_MODES.find(function (x) { return x.key === (t.targetMode || 'most_pv'); });
+        if (md) extra += ' · ' + esc(md.label);
       }
       return '<span class="talent-badge">' + esc(entry.name) + ' ' + val + extra + '</span>';
     }).join('');

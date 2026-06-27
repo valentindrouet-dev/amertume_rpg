@@ -779,6 +779,18 @@
     });
     return out;
   }
+  // Sélectionne l'aventurier désigné selon le critère choisi.
+  function pickMarkTarget(heroes, mode) {
+    const list = heroes.slice();
+    switch (mode) {
+      case 'least_pv':  return list.sort(function (a, b) { return a.pv - b.pv; })[0];
+      case 'least_def': return list.sort(function (a, b) { return a.def - b.def; })[0];
+      case 'most_def':  return list.sort(function (a, b) { return b.def - a.def; })[0];
+      case 'random':    return list[Math.floor(Math.random() * list.length)];
+      case 'most_pv':
+      default:          return list.sort(function (a, b) { return b.pv - a.pv; })[0];
+    }
+  }
   function designateMarkedHero() {
     const c = combat();
     if (!c) return;
@@ -787,8 +799,9 @@
     if (!talents.length) return;
     const heroes = activeOf('hero');
     if (!heroes.length) return;
-    // Désigne l'aventurier le plus coriace (PV actuels les plus élevés).
-    const target = heroes.slice().sort(function (a, b) { return b.pv - a.pv; })[0];
+    // Critère de désignation (issu du 1er talent PROIE rencontré).
+    const mode = talents[0].targetMode || 'most_pv';
+    const target = pickMarkTarget(heroes, mode);
     const dice = {};
     talents.forEach(function (t) {
       const color = t.markColor || 'white';
@@ -946,6 +959,19 @@
     }
     const heroes = activeOf('hero');
     if (!heroes.length) return;
+    // HAPPE : avant d'attaquer, déplace de force un aventurier d'une autre zone dans la sienne.
+    if (monsterTalent(m, 'pull_to_zone')) {
+      const outsiders = heroes.filter(function (h) { return h.zone !== m.zone; });
+      if (outsiders.length) {
+        const pulled = chooseFrom(m, outsiders);
+        if (pulled) {
+          pulled.zone = m.zone;
+          pushFx({ type: 'move', iid: pulled.iid });
+          log('<b class="lopp">Happe !</b> ' + cname(m) + ' déplace de force ' + cname(pulled) +
+            ' dans sa zone (<span class="lstate">' + esc(zname(m.zone)) + '</span>).', 'state');
+        }
+      }
+    }
     const sameZone = heroes.filter(function (h) { return h.zone === m.zone; });
     const otherZone = heroes.filter(function (h) { return h.zone !== m.zone; });
     const contactIdx = usableAttackIdx(m, 'contact');
