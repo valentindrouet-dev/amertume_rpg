@@ -363,18 +363,26 @@
   // Construit le HTML du contenu textuel d'une scène.
   // 1) Si un ancien champ `text` existe, il est affiché en style narratif.
   // 2) Les blocs typés sont rendus ensuite dans leur propre style.
+  // Met en forme un texte de scène : échappe le HTML puis convertit la syntaxe
+  // **gras** → <strong> et *italique* → <em>, et les retours à la ligne en <br>.
+  function fmtSceneText(raw) {
+    var html = esc(raw || '');
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    return html.replace(/\n/g, '<br>');
+  }
   function sceneContentHtml(scene) {
     var parts = [];
     // Champ hérité : affiché comme narratif si non vide
     if (scene.text && scene.text.trim()) {
       parts.push('<div class="scene-block scene-block-narrative">' +
-        esc(scene.text).replace(/\n/g, '<br>') + '</div>');
+        fmtSceneText(scene.text) + '</div>');
     }
     // Blocs typés
     var blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
     blocks.forEach(function (blk) {
       var cls = 'scene-block scene-block-' + (blk.type || 'narrative');
-      var content = esc(blk.content || '').replace(/\n/g, '<br>');
+      var content = fmtSceneText(blk.content || '');
       parts.push('<div class="' + cls + '">' + content + '</div>');
     });
     return parts.length

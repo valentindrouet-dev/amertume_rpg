@@ -322,7 +322,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .cc-stats { margin-bottom: .4rem; }
 
 .cc-states { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .5rem; }
-.state-badge { font-size: .72rem; padding: .12rem .45rem; border-radius: 14px; cursor: pointer; border: 1px solid; }
+.state-badge { font-size: .72rem; padding: .12rem .45rem; border-radius: 14px; border: 1px solid; }
 .state-badge.neg { color: var(--bad); border-color: var(--bad); background: rgba(200,83,60,.1); }
 .state-badge.pos { color: var(--good); border-color: var(--good); background: rgba(111,174,111,.1); }
 .state-add { font-size: .72rem; color: var(--muted); cursor: pointer; border: 1px dashed var(--border); border-radius: 14px; padding: .12rem .45rem; }
@@ -2439,6 +2439,10 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
   transition: background .25s;
 }
 .start-turn-btn:hover { filter: brightness(1.15); }
+.start-turn-btn.all-acted {
+  background: #c79a1a;
+  animation: enemy-turn-pulse 1.1s ease-in-out infinite;
+}
 
 /* Bouton "Tour des Adversaires" : brun par défaut, rouge vif quand tous ont agi */
 .enemy-turn-btn {
@@ -2510,6 +2514,22 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
   outline-offset: 2px;
   box-shadow: 0 0 0 2px rgba(74,128,208,.35);
 }
+
+/* PRÉ-TOUR : vignette d'un aventurier ayant un talent de pré-tour à jouer (jaune). */
+.combat-card.pretour-ready:not(.selected) {
+  outline: 2px solid #e0b020;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(224,176,32,.4);
+}
+
+/* BLINDAGE actif : halo bleu pulsant par-dessus la barre de PV. */
+.pv-bar.has-blindage { box-shadow: 0 0 0 2px rgba(74,140,230,.55), 0 0 8px rgba(74,140,230,.5); }
+.pv-blindage-halo {
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, rgba(120,180,255,.42), rgba(74,140,230,.18));
+  animation: blindage-pulse 1.4s ease-in-out infinite;
+}
+@keyframes blindage-pulse { 0%,100% { opacity: .45; } 50% { opacity: .85; } }
 
 /* Journal compact : hauteur pour 4 lignes visibles */
 .combat-log.compact { max-height: 6.8rem; min-height: 6.8rem; }

@@ -539,7 +539,7 @@
             '<button type="button" class="icon-btn block-down" title="Descendre"' + (last ? ' disabled' : '') + '>↓</button>' +
             '<button type="button" class="icon-btn block-del" title="Supprimer ce bloc">✕</button>' +
           '</div>' +
-          '<textarea class="block-content" rows="3">' + esc(blk.content || '') + '</textarea>' +
+          '<textarea class="block-content" rows="3" placeholder="Texte du bloc — **gras** et *italique* possibles">' + esc(blk.content || '') + '</textarea>' +
         '</div>';
       }).join('');
     }

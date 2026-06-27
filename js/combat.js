@@ -19,6 +19,7 @@
   let pendingAttack = null;   // { iid, atkIndex } quand on choisit une cible au clic
   let pendingMove = null;     // iid du combattant en cours de déplacement
   let moveAsAction = false;   // le déplacement en cours consomme l'ACTION (talent « Course ») au lieu du mouvement
+  let arrivalTargetIid = null; // adversaire précis visé par les effets d'arrivée (clic sur sa carte)
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
@@ -418,13 +419,21 @@
 
   // CHARGE DÉVASTATRICE (maîtrise) : en arrivant dans une zone, l'aventurier
   // inflige son bonus de dégâts à X adversaires qui s'y trouvent.
+  // Adversaires actifs de la zone de c, l'éventuelle cible cliquée d'abord.
+  function arrivalFoes(c) {
+    const foes = combat().combatants.filter(function (m) {
+      return m.side === 'monster' && m.status === 'active' && m.zone === c.zone;
+    });
+    const pref = arrivalTargetIid ? foes.find(function (m) { return m.iid === arrivalTargetIid; }) : null;
+    if (pref) { return [pref].concat(foes.filter(function (m) { return m.iid !== pref.iid; })); }
+    return foes;
+  }
+
   function chargeOnEnter(c) {
     // ASSAUT HANDICAPANT (amélioration) : inflige l'état choisi à un adversaire de la zone.
     if (heroHasTalent(c, 'charge_etat')) {
       const st = heroTalentChoice(c, 'charge_etat');
-      const foe = combat().combatants.find(function (m) {
-        return m.side === 'monster' && m.status === 'active' && m.zone === c.zone;
-      });
+      const foe = arrivalFoes(c)[0] || null;
       if (st && foe) {
         // AU SOL ne s'applique pas aux boss ni aux socles plus grands (cohérent avec applyStates).
         const blockAuSol = st === 'auSol' && (foe.type === 'boss' || SOCLE_RANK[foe.socle] > SOCLE_RANK[c.socle]);
@@ -441,9 +450,7 @@
     const n = heroTalentVal(c, 'charge_devastatrice');
     const dmg = c.damage || 0;
     if (n <= 0 || dmg <= 0) return;
-    const foes = combat().combatants.filter(function (m) {
-      return m.side === 'monster' && m.status === 'active' && m.zone === c.zone;
-    }).slice(0, n);
+    const foes = arrivalFoes(c).slice(0, n);
     foes.forEach(function (m) {
       const before = m.pv;
       m.pv = Math.max(0, m.pv - dmg);
@@ -460,10 +467,10 @@
   function moveCombatant(iid, zi) {
     const c = byId(iid);
     const asAction = moveAsAction; moveAsAction = false;
-    if (!c || c.status !== 'active') { pendingMove = null; render(); return; }
-    if (asAction) { if (c.used.action) { pendingMove = null; render(); return; } }
-    else if (c.used.move && !c.freeMoveReady) { pendingMove = null; render(); return; }
-    if (c.zone === zi) { pendingMove = null; render(); return; }
+    if (!c || c.status !== 'active') { pendingMove = null; arrivalTargetIid = null; render(); return; }
+    if (asAction) { if (c.used.action) { pendingMove = null; arrivalTargetIid = null; render(); return; } }
+    else if (c.used.move && !c.freeMoveReady) { pendingMove = null; arrivalTargetIid = null; render(); return; }
+    if (c.zone === zi) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     // POISON X : inflige X dégâts avant de se déplacer
     applyPoison(c);
     if (c.status !== 'active') { pendingMove = null; checkOutcome(); Store.save(); render(); return; }
@@ -477,7 +484,7 @@
       // mouvement normal reste alors disponible.
       c.freeMoveReady = false; c.used.move = prevMove;
     }
-    pendingMove = null; checkOutcome(); Store.save(); render();
+    pendingMove = null; arrivalTargetIid = null; checkOutcome(); Store.save(); render();
   }
 
   // Nom lisible d'une attaque (retire le préfixe « Mêlée — » / « Distance — »)
@@ -881,7 +888,15 @@
   // Distance : frappe en priorité un héros d'une autre zone.
   // Activation d'un seul adversaire (choix de cible + attaque/déplacement)
   function actOneMonster(m) {
-    if (m.used.action || m.states.auSol) return; // Au sol : pas d'action
+    if (m.used.action) return;
+    // AU SOL : l'adversaire passe son tour à se relever (consomme son mouvement),
+    // au lieu de rester indéfiniment neutralisé.
+    if (m.states.auSol) {
+      m.states.auSol = false; m.used.move = true;
+      log(cname(m) + ' se relève (retire <span class="lstate">Au sol</span>).', 'state');
+      pushFx({ type: 'state', iid: m.iid });
+      return;
+    }
     const heroes = activeOf('hero');
     if (!heroes.length) return;
     const sameZone = heroes.filter(function (h) { return h.zone === m.zone; });
@@ -1030,6 +1045,9 @@
     activeOf('hero').forEach(function (h) {
       h.freeMoveReady = heroHasTalent(h, 'pas_leger') || !!h.rapide;
     });
+    // Présélectionne un aventurier disposant d'un talent de pré-tour, si possible.
+    const ready = activeOf('hero').find(function (h) { return h.freeMoveReady; });
+    if (ready) selectedIid = ready.iid;
     log('Pré-Tour ' + c.turn + '.', 'turn');
     centerText('Pré-Tour ' + c.turn, 'fx-center-turn');
     pretourMonstersAct();
@@ -1195,6 +1213,8 @@
     brise: { l: 'Brisé', neg: true }, faille: { l: 'Faille', neg: true }, poison: { l: 'Poison', neg: true },
   };
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
+  // Blindage actif : état ponctuel (states.blindage) OU charges restantes (blindageCharges).
+  function hasBlindage(c) { return !!(c && (c.states && c.states.blindage || c.blindageCharges > 0)); }
 
   // POISON X : inflige X dégâts au combattant avant qu'il agisse (Attaque, Talent, Mouvement)
   function applyPoison(c) {
@@ -1475,7 +1495,7 @@
             }).join('') + '</div></div>'
         : '') +
       ((c.comaVieEvents && c.comaVieEvents.length)
-        ? '<div class="cs-group cs-comag"><div class="cs-glabel">💀 Coma — Perte de VIE</div><div class="cs-chips">' +
+        ? '<div class="cs-group cs-comag"><div class="cs-glabel">💀 Coma — Perte de VIE <span class="cs-loot-hint">(Votre maximum de PV est réduit. Votre aventurier meurt si vous tombez à 0 VIE.)</span></div><div class="cs-chips">' +
             c.comaVieEvents.map(function (ev) {
               return '<span class="cs-chip cs-chip-coma">' + esc(ev.name) + (ev.dead
                 ? ' — <strong>VIE à 0 : quitte l\'aventure !</strong>'
@@ -1681,6 +1701,9 @@
     const allHeroesActed = !c.outcome && c.phase === 'heroes' && activeOf('hero').length > 0 &&
       activeOf('hero').every(function (h) { return h.used.action; });
     const isPretour = !c.outcome && c.phase === 'pretour';
+    // Pré-Tour terminé : plus aucun aventurier n'a de talent de pré-tour à jouer →
+    // le bouton « Tour X » clignote (comme « Tour des Adversaires » quand tout est joué).
+    const pretourDone = isPretour && !activeOf('hero').some(function (h) { return h.freeMoveReady; });
     root.innerHTML =
       '<div class="combat-bar">' +
         '<div class="cb-left"><span class="turn-pill">Tour ' + c.turn + '</span>' +
@@ -1688,7 +1711,7 @@
         '<div class="cb-mid">✦ XP : <strong>' + totalXp() + '</strong></div>' +
         '<div class="cb-right">' +
           (isPretour
-            ? '<button id="cb-start-turn" class="small start-turn-btn">Tour ' + c.turn + ' →</button>'
+            ? '<button id="cb-start-turn" class="small start-turn-btn' + (pretourDone ? ' all-acted' : '') + '">Tour ' + c.turn + ' →</button>'
             : '') +
           (!c.outcome && c.phase === 'heroes'
             ? '<button id="cb-enemy-turn" class="small enemy-turn-btn' + (allHeroesActed ? ' all-acted' : '') + '">Tour des Adversaires →</button>'
@@ -1756,7 +1779,7 @@
     const ct = root.querySelector('#cancel-target');
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
     const cm = root.querySelector('#cancel-move');
-    if (cm) cm.addEventListener('click', function () { pendingMove = null; render(); });
+    if (cm) cm.addEventListener('click', function () { pendingMove = null; arrivalTargetIid = null; render(); });
     const ca = root.querySelector('#cancel-analyze');
     if (ca) ca.addEventListener('click', function () { pendingAnalyze = null; render(); });
 
@@ -1766,6 +1789,10 @@
       zEl.addEventListener('click', function (e) {
         if (!pendingMove) return;
         if (e.target.closest('button') || e.target.closest('.atk-row')) return;
+        // Si le clic vise une carte d'adversaire, son propre handler a déjà agi.
+        if (e.target.closest('.combat-card.side-monster')) return;
+        // Clic sur la zone seule : pas de cible précise → premier adversaire.
+        arrivalTargetIid = null;
         moveCombatant(pendingMove, parseInt(zEl.getAttribute('data-zone'), 10));
       });
     });
@@ -1865,8 +1892,9 @@
     const cmb = combat();
     let sel = selectedIid ? byId(selectedIid) : null;
     // Auto-sélection : en phase héros ou Pré-Tour, défaut = 1er aventurier actif.
+    // En Pré-Tour, on privilégie un aventurier ayant encore un talent à jouer.
     if ((!sel || sel.status !== 'active') && (cmb.phase === 'heroes' || cmb.phase === 'pretour') && !cmb.outcome) {
-      const fh = activeOf('hero')[0];
+      const fh = (cmb.phase === 'pretour' && activeOf('hero').find(function (h) { return h.freeMoveReady; })) || activeOf('hero')[0];
       if (fh) { sel = fh; selectedIid = fh.iid; }
     }
     if (!sel) {
@@ -1906,7 +1934,9 @@
           (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
         '</div>' +
         '<div class="ab-pvline cc-pvline">' +
-          '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div><span class="pv-text">' + pvText + '</span></div>' +
+          '<div class="pv-bar' + (hasBlindage(c) ? ' has-blindage' : '') + '"><div class="pv-fill" style="width:' + pct + '%"></div>' +
+            (hasBlindage(c) ? '<div class="pv-blindage-halo" title="Blindage actif"></div>' : '') +
+            '<span class="pv-text">' + pvText + '</span></div>' +
           (known ? '<span class="def-badge">' + defShield((c.states.auSol || c.states.brise) ? 0 : c.def) + '</span>' : '') +
           (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage">🛡✦ ' + c.blindageCharges + '</span>' : '') +
         '</div>' +
@@ -2033,7 +2063,7 @@
     }).map(function (s) {
       const lbl = s === 'poison' ? ('Poison ' + c.states.poison) : stateLabel(s);
       return '<span class="state-badge ' + (STATE_META[s].neg ? 'neg' : 'pos') + '" data-state="' + s + '" data-iid="' + c.iid + '">' +
-        lbl + ' ✕</span>';
+        lbl + '</span>';
     }).join('');
   }
 
@@ -2193,6 +2223,8 @@
     if (dead) cls.push('is-' + c.status);
     if (selectedIid === c.iid) cls.push('selected');
     if (c.side === 'hero' && !dead && !c.used.action) cls.push('has-action');
+    // PRÉ-TOUR : surligne en jaune les aventuriers ayant encore un talent de pré-tour à jouer.
+    if (combat().phase === 'pretour' && c.side === 'hero' && !dead && c.freeMoveReady) cls.push('pretour-ready');
     // Cible valide pendant le ciblage au clic (attaque ou analyse)
     if (pendingAttack && !dead) {
       const attacker = byId(pendingAttack.iid);
@@ -2232,7 +2264,8 @@
             (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
           '</div>' +
           '<div class="cc-pvline">' +
-            '<div class="pv-bar"><div class="pv-fill" style="width:' + pct + '%"></div>' +
+            '<div class="pv-bar' + (hasBlindage(c) ? ' has-blindage' : '') + '"><div class="pv-fill" style="width:' + pct + '%"></div>' +
+              (hasBlindage(c) ? '<div class="pv-blindage-halo" title="Blindage actif"></div>' : '') +
               '<span class="pv-text">' + pvText + '</span></div>' +
             (known ? '<span class="cc-def-icon">' + defShield(c.states.auSol ? 0 : c.def) + '</span>' : '') +
           '</div>' +
@@ -2453,21 +2486,25 @@
           else execHeroAttack(attacker, pendingAttack.atkIndex, c);
           return;
         }
+        // 2bis) Déplacement vers une zone en visant un adversaire précis : ses effets
+        // d'arrivée (dégâts / état) s'appliqueront en priorité à CET adversaire.
+        if (pendingMove && c.side === 'monster' && c.status === 'active') {
+          const mover = byId(pendingMove);
+          if (mover && mover.zone !== c.zone) {
+            arrivalTargetIid = c.iid;
+            moveCombatant(pendingMove, c.zone);
+            return;
+          }
+        }
         // 3) Sinon : sélectionne ce combattant et annule toute action en cours
         selectedIid = c.iid;
-        pendingAttack = null; pendingAnalyze = null; pendingMove = null;
+        pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null;
         render();
       });
     }
 
-    // Retirer un état (clic sur un badge dans la carte)
-    root.querySelectorAll('.state-badge[data-iid="' + c.iid + '"]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        const s = b.getAttribute('data-state');
-        if (s === 'poison') { c.states.poison = 0; } else { c.states[s] = false; }
-        Store.save(); render();
-      });
-    });
+    // Les états ne sont plus retirables manuellement : ils s'effacent via les
+    // mécaniques de jeu (Se relever, fin de tour, etc.).
     // Pendant le Pré-Tour : seul le mouvement gratuit est câblé (ci-dessous dans le bloc heroes).
     const isPretourMove = combat().phase === 'pretour' && c.side === 'hero' && c.status === 'active' && !combat().outcome && c.freeMoveReady;
     if (isPretourMove) {
