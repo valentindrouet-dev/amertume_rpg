@@ -2522,6 +2522,14 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
   box-shadow: 0 0 0 2px rgba(224,176,32,.4);
 }
 
+/* PROIE : aventurier désigné — contour rouge + badge. */
+.combat-card.is-marked:not(.selected) {
+  outline: 2px solid #c0392b;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(192,57,43,.4);
+}
+.tag-marked { background: #c0392b; color: #fff; font-weight: 700; }
+
 /* BLINDAGE actif : barre de PV bleue avec le texte « BLINDAGE » par-dessus. */
 .pv-bar.has-blindage { box-shadow: 0 0 0 1px rgba(74,140,230,.6); }
 .pv-blindage-fill {

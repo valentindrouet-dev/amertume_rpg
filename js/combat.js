@@ -210,6 +210,7 @@
     };
     buildCombat(heroObjs, cfg);
     log('Début du combat — Tour 1.', 'turn');
+    designateMarkedHero(); // PROIE : désigne la cible du Tour 1
     if (needsPretour()) {
       startPretour();
     }
@@ -576,6 +577,12 @@
     const pool = Object.assign(D.emptyPool(), atk.dice);
     // FAILLE : ajoute 1 dé rose au pool de l'attaquant (les doubles avec ce dé sont exclus des dégâts)
     if (attacker.states.faille) pool.pink = (pool.pink || 0) + 1;
+    // PROIE : dés bonus de tous les adversaires contre l'aventurier désigné ce tour.
+    if (attacker.side === 'monster' && combat().markDice && target.iid === combat().markedHeroIid) {
+      Object.keys(combat().markDice).forEach(function (col) {
+        pool[col] = (pool[col] || 0) + combat().markDice[col];
+      });
+    }
     const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
     const talentBonus = getTalentDmgBonus(attacker, target, atk);
     const dmg = baseDmg + talentBonus + (atk.bonusDmg || 0);
@@ -757,6 +764,42 @@
     const tpl = Store.state.monsters.find(function (m) { return m.id === c.templateId; });
     if (!tpl || !Array.isArray(tpl.talents)) return null;
     return tpl.talents.find(function (t) { return t.trigger === trigger; }) || null;
+  }
+
+  // PROIE (mark_target_dice) : au début de chaque tour, désigne un aventurier ;
+  // tous les adversaires ajoutent les dés indiqués contre lui. On agrège les dés
+  // de tous les adversaires actifs porteurs du talent.
+  function markTalents() {
+    const out = [];
+    activeOf('monster').forEach(function (m) {
+      const tpl = Store.state.monsters.find(function (x) { return x.id === m.templateId; });
+      if (tpl && Array.isArray(tpl.talents)) {
+        tpl.talents.forEach(function (t) { if (t.trigger === 'mark_target_dice') out.push(t); });
+      }
+    });
+    return out;
+  }
+  function designateMarkedHero() {
+    const c = combat();
+    if (!c) return;
+    c.markedHeroIid = null; c.markDice = null;
+    const talents = markTalents();
+    if (!talents.length) return;
+    const heroes = activeOf('hero');
+    if (!heroes.length) return;
+    // Désigne l'aventurier le plus coriace (PV actuels les plus élevés).
+    const target = heroes.slice().sort(function (a, b) { return b.pv - a.pv; })[0];
+    const dice = {};
+    talents.forEach(function (t) {
+      const color = t.markColor || 'white';
+      const n = Math.max(1, t.count || 1);
+      dice[color] = (dice[color] || 0) + n;
+    });
+    c.markedHeroIid = target.iid;
+    c.markDice = dice;
+    const badges = (window.Inventory && Inventory.poolBadges) ? Inventory.poolBadges(dice) : '';
+    log('<b class="lopp">Proie !</b> ' + cname(target) + ' est désigné : les adversaires ajoutent ' +
+      badges + ' à leurs attaques contre lui ce tour.', 'state');
   }
 
   // Bonus de dégâts des talents PASSIFS d'un aventurier attaquant
@@ -1074,6 +1117,7 @@
     const c = combat();
     c.turn += 1;
     resetActivations();
+    designateMarkedHero(); // PROIE : désigne la cible du tour (si un adversaire l'a)
     if (needsPretour()) {
       startPretour(); // logue 'Pré-Tour X' ; 'Tour X' sera loggué au clic du bouton
     } else {
@@ -2263,6 +2307,9 @@
       }
     }
     if (pendingAnalyze && !dead && c.side === 'monster' && !c.analyzed) cls.push('targetable');
+    // PROIE : l'aventurier désigné ce tour.
+    const isMarked = !dead && c.side === 'hero' && combat().markedHeroIid === c.iid;
+    if (isMarked) cls.push('is-marked');
 
     const isEnemy = c.side === 'monster';
     const known = !isEnemy || c.analyzed;   // stats ennemies cachées avant Analyse
@@ -2285,6 +2332,7 @@
         '<div class="cc-avatar"' + avatarStyle + ' aria-hidden="true">' + (c.imageUrl ? '' : esc(initial)) + '</div>' +
         '<div class="cc-body">' +
           '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
+            (isMarked ? '<span class="tag tag-marked" title="Proie : les adversaires ajoutent des dés contre lui ce tour">🎯 Proie</span>' : '') +
             (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
           '</div>' +
           '<div class="cc-pvline">' +
@@ -2690,6 +2738,7 @@
     buildCombat(heroObjs, normalizeZoneConfig(sceneCombat));
     sessionGains = null;  // les instances sont figées : on ne garde pas l'overlay
     log('Début du combat — Tour 1.', 'turn');
+    designateMarkedHero(); // PROIE : désigne la cible du Tour 1
     if (needsPretour()) startPretour();
     Store.save();
     render();

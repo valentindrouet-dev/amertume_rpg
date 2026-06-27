@@ -509,6 +509,7 @@
     { id: 'lent',     name: 'LENT',     trigger: 'slow',               defaultVal: 0,  desc: 'Ne peut pas attaquer s\'il effectue un mouvement.' },
     { id: 'soutien',  name: 'SOUTIEN',  trigger: 'zone_support',       defaultVal: 1,  desc: 'Les adversaires dans sa zone infligent +X dégâts.' },
     { id: 'blindage', name: 'BLINDAGE', trigger: 'armor_charges',      defaultVal: 1,  desc: 'Ignore X prochaine(s) source(s) de dégâts avant de perdre Blindage.' },
+    { id: 'proie',    name: 'PROIE',    trigger: 'mark_target_dice',   defaultVal: 1,  desc: 'Désigne un aventurier au début de chaque tour ; tous les adversaires ajoutent X dé(s) de la couleur choisie contre lui.' },
   ];
   function loadMonsterTalents() {
     let arr = null;

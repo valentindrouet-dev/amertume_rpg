@@ -1295,6 +1295,16 @@
     { id: 'slow',               label: 'Lent (pas d\'attaque s\'il se déplace)', paramKey: 'none', paramLabel: '', defaultVal: 0, noParam: true },
     { id: 'zone_support',       label: '+X dégâts aux adversaires de sa zone',  paramKey: 'bonus',   paramLabel: 'Bonus zone',  defaultVal: 1  },
     { id: 'armor_charges',      label: 'Blindage X (ignore X sources de dégâts)', paramKey: 'charges', paramLabel: 'Charges',   defaultVal: 1  },
+    { id: 'mark_target_dice',   label: 'Proie : +X dés (couleur) contre un aventurier désigné', paramKey: 'count', paramLabel: 'Nb de dés', defaultVal: 1, colorParam: true },
+  ];
+  // Couleurs de dés offrables pour le talent « Proie » (offensives).
+  const MARK_DICE_COLORS = [
+    { key: 'white',  label: 'Blanc (Simple)' },
+    { key: 'bone',   label: 'Orange (Léger)' },
+    { key: 'red',    label: 'Rouge (Lourd)' },
+    { key: 'blue',   label: 'Bleu (Mystique)' },
+    { key: 'yellow', label: 'Jaune (Phase)' },
+    { key: 'black',  label: 'Noir (Mortel)' },
   ];
   function triggerDef(id) {
     return TRIGGER_DEFS.find(function (d) { return d.id === id; }) || TRIGGER_DEFS[0];
@@ -1341,11 +1351,15 @@
         '</select>' +
         '<span class="tl-param-label"></span>' +
         '<input type="number" class="tl-param" min="0" style="width:60px">' +
+        '<select class="tl-color" style="display:none">' +
+          MARK_DICE_COLORS.map(function (c) { return '<option value="' + c.key + '">' + esc(c.label) + '</option>'; }).join('') +
+        '</select>' +
         '<button type="button" class="icon-btn tl-del" title="Supprimer">✕</button>';
 
       const selEl  = row.querySelector('.tl-trigger');
       const lblEl  = row.querySelector('.tl-param-label');
       const paramIn = row.querySelector('.tl-param');
+      const colorEl = row.querySelector('.tl-color');
 
       function syncParam() {
         const def = triggerDef(t.trigger);
@@ -1355,8 +1369,13 @@
         paramIn.style.display = hide ? 'none' : '';
         lblEl.textContent = def.paramLabel + ' ';
         paramIn.value = (t[def.paramKey] !== undefined) ? t[def.paramKey] : def.defaultVal;
+        // Sélecteur de couleur de dé : visible uniquement pour le talent PROIE.
+        colorEl.style.display = def.colorParam ? '' : 'none';
+        if (def.colorParam) colorEl.value = t.markColor || 'white';
       }
       syncParam();
+
+      colorEl.addEventListener('change', function () { t.markColor = colorEl.value; });
 
       selEl.addEventListener('change', function () {
         const e = catalogEntry(selEl.value, null);
@@ -1365,6 +1384,7 @@
         const def = triggerDef(t.trigger);
         if (def.paramKey !== oldKey) delete t[oldKey];
         if (t[def.paramKey] === undefined) t[def.paramKey] = (e.defaultVal !== undefined) ? e.defaultVal : def.defaultVal;
+        if (def.colorParam && !t.markColor) t.markColor = 'white';
         syncParam();
       });
       paramIn.addEventListener('input', function () {
@@ -1387,7 +1407,12 @@
       const def = triggerDef(entry.trigger);
       if (def.noParam) return '<span class="talent-badge">' + esc(entry.name) + '</span>';
       const val = (t[def.paramKey] !== undefined) ? t[def.paramKey] : def.defaultVal;
-      return '<span class="talent-badge">' + esc(entry.name) + ' ' + val + '</span>';
+      let extra = '';
+      if (def.colorParam) {
+        const dt = D.DICE_TYPES[t.markColor || 'white'];
+        extra = ' ' + (dt ? dt.emoji : '');
+      }
+      return '<span class="talent-badge">' + esc(entry.name) + ' ' + val + extra + '</span>';
     }).join('');
   }
 
