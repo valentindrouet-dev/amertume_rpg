@@ -978,7 +978,9 @@
       if (combat().outcome) { finish(); return; }
       if (i >= order.length) { finish(); return; }
       const m = order[i++];
-      if (m.status !== 'active' || m.used.action || m.states.auSol) { step(); return; }
+      // On n'écarte plus les adversaires Au Sol : actOneMonster gère leur relevée
+      // (puis une éventuelle attaque dans leur zone) au lieu de les laisser inertes.
+      if (m.status !== 'active' || m.used.action) { step(); return; }
       actOneMonster(m);
       checkOutcome();
       Store.save();
