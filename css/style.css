@@ -2522,14 +2522,14 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
   box-shadow: 0 0 0 2px rgba(224,176,32,.4);
 }
 
-/* BLINDAGE actif : halo bleu pulsant par-dessus la barre de PV. */
-.pv-bar.has-blindage { box-shadow: 0 0 0 2px rgba(74,140,230,.55), 0 0 8px rgba(74,140,230,.5); }
-.pv-blindage-halo {
+/* BLINDAGE actif : barre de PV bleue avec le texte « BLINDAGE » par-dessus. */
+.pv-bar.has-blindage { box-shadow: 0 0 0 1px rgba(74,140,230,.6); }
+.pv-blindage-fill {
   position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(180deg, rgba(120,180,255,.42), rgba(74,140,230,.18));
-  animation: blindage-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, #2f5fb0, #4a8ce6);
 }
-@keyframes blindage-pulse { 0%,100% { opacity: .45; } 50% { opacity: .85; } }
+@keyframes blindage-pulse { 0%,100% { opacity: .8; } 50% { opacity: 1; } }
+.pv-bar.has-blindage .pv-blindage-fill { animation: blindage-pulse 1.6s ease-in-out infinite; }
 
 /* Journal compact : hauteur pour 4 lignes visibles */
 .combat-log.compact { max-height: 6.8rem; min-height: 6.8rem; }

@@ -452,6 +452,8 @@
     if (n <= 0 || dmg <= 0) return;
     const foes = arrivalFoes(c).slice(0, n);
     foes.forEach(function (m) {
+      // BLINDAGE : absorbe les dégâts de charge.
+      if (absorbBlindage(m, 'la charge')) return;
       const before = m.pv;
       m.pv = Math.max(0, m.pv - dmg);
       m.dmgTaken += dmg; c.dmgDealt += dmg;
@@ -521,6 +523,8 @@
         ' (<span class="lstate">' + esc(heroTalentName(hero, 'ignore_opportunite')) + '</span>).', 'dchoc');
       return 0;
     }
+    // BLINDAGE : absorbe l'attaque d'opportunité.
+    if (absorbBlindage(hero, 'l\'attaque d\'opportunité')) return 0;
     const pvBefore = hero.pv;
     hero.pv = Math.max(0, hero.pv - dmg);
     hero.dmgTaken += dmg; monster.dmgDealt += dmg;
@@ -889,13 +893,13 @@
   // Activation d'un seul adversaire (choix de cible + attaque/déplacement)
   function actOneMonster(m) {
     if (m.used.action) return;
-    // AU SOL : l'adversaire passe son tour à se relever (consomme son mouvement),
-    // au lieu de rester indéfiniment neutralisé.
+    // AU SOL : l'adversaire utilise son mouvement pour se relever, puis attaque
+    // normalement — mais sans pouvoir changer de zone (mouvement déjà consommé).
     if (m.states.auSol) {
       m.states.auSol = false; m.used.move = true;
       log(cname(m) + ' se relève (retire <span class="lstate">Au sol</span>).', 'state');
       pushFx({ type: 'state', iid: m.iid });
-      return;
+      // pas de return : il peut encore attaquer une cible déjà présente dans sa zone.
     }
     const heroes = activeOf('hero');
     if (!heroes.length) return;
@@ -1215,11 +1219,27 @@
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
   // Blindage actif : état ponctuel (states.blindage) OU charges restantes (blindageCharges).
   function hasBlindage(c) { return !!(c && (c.states && c.states.blindage || c.blindageCharges > 0)); }
+  // Consomme une source de Blindage pour absorber des dégâts, quelle qu'en soit
+  // l'origine (Feu, charge, poison, attaque d'opportunité…). Retourne true si la
+  // source de dégâts a été annulée.
+  function absorbBlindage(c, label) {
+    if (!hasBlindage(c)) return false;
+    if (c.states && c.states.blindage) { c.states.blindage = false; }
+    else { c.blindageCharges -= 1; }
+    const left = (c.blindageCharges > 0)
+      ? ' (' + c.blindageCharges + ' restant' + (c.blindageCharges > 1 ? 's' : '') + ')'
+      : '';
+    log(cname(c) + ' absorbe ' + label + ' grâce au <span class="lstate">Blindage</span>' + left + '.', 'state');
+    pushFx({ type: 'state', iid: c.iid });
+    return true;
+  }
 
   // POISON X : inflige X dégâts au combattant avant qu'il agisse (Attaque, Talent, Mouvement)
   function applyPoison(c) {
     const dmg = (c.states && c.states.poison) || 0;
     if (!dmg || c.status !== 'active') return;
+    // BLINDAGE : absorbe les dégâts de Poison.
+    if (absorbBlindage(c, 'le Poison')) return;
     const before = c.pv;
     c.pv = Math.max(0, c.pv - dmg);
     c.dmgTaken += dmg;
@@ -1233,12 +1253,14 @@
     if (!combat()) return;
     combat().combatants.forEach(function (c) {
       if (c.status !== 'active' || !c.states.feu) return;
+      // BLINDAGE : absorbe les dégâts de Feu (consomme une source).
+      if (absorbBlindage(c, 'le Feu')) return;
       const v = 1 + Math.floor(Math.random() * 6);
       const before = c.pv;
       c.pv = Math.max(0, c.pv - v);
       c.dmgTaken += v;
       pushFx({ type: 'hit', iid: c.iid, amount: v, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
-      log(cname(c) + ' subit <span class="dnum d-black">' + v + '</span> Dégâts (<span class="lstate">Feu ⬛</span>) en fin de tour.', 'state');
+      log(cname(c) + ' subit <span class="dnum d-black">' + v + '</span> Dégâts (<span class="lstate">Feu</span>) en fin de tour.', 'state');
       if (c.side === 'monster' && c.pv <= 0 && !c.killedBy) c.killedBy = null;
       checkComa(c);
     });
@@ -1935,8 +1957,8 @@
         '</div>' +
         '<div class="ab-pvline cc-pvline">' +
           '<div class="pv-bar' + (hasBlindage(c) ? ' has-blindage' : '') + '"><div class="pv-fill" style="width:' + pct + '%"></div>' +
-            (hasBlindage(c) ? '<div class="pv-blindage-halo" title="Blindage actif"></div>' : '') +
-            '<span class="pv-text">' + pvText + '</span></div>' +
+            (hasBlindage(c) ? '<div class="pv-blindage-fill" title="Blindage actif"></div>' : '') +
+            '<span class="pv-text">' + (hasBlindage(c) && known ? 'BLINDAGE' : pvText) + '</span></div>' +
           (known ? '<span class="def-badge">' + defShield((c.states.auSol || c.states.brise) ? 0 : c.def) + '</span>' : '') +
           (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage">🛡✦ ' + c.blindageCharges + '</span>' : '') +
         '</div>' +
@@ -2265,8 +2287,8 @@
           '</div>' +
           '<div class="cc-pvline">' +
             '<div class="pv-bar' + (hasBlindage(c) ? ' has-blindage' : '') + '"><div class="pv-fill" style="width:' + pct + '%"></div>' +
-              (hasBlindage(c) ? '<div class="pv-blindage-halo" title="Blindage actif"></div>' : '') +
-              '<span class="pv-text">' + pvText + '</span></div>' +
+              (hasBlindage(c) ? '<div class="pv-blindage-fill" title="Blindage actif"></div>' : '') +
+              '<span class="pv-text">' + (hasBlindage(c) && known ? 'BLINDAGE' : pvText) + '</span></div>' +
             (known ? '<span class="cc-def-icon">' + defShield(c.states.auSol ? 0 : c.def) + '</span>' : '') +
           '</div>' +
           (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '') +
