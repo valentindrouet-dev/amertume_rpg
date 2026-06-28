@@ -310,12 +310,19 @@
     // un talent de sa classe : il doit donc être résolu pour le bandeau de combat).
     const all = Store.loadGenericTalents().slice();
     Store.loadClasses().forEach(function (c) { if (Array.isArray(c.talents)) all.push.apply(all, c.talents); });
-    all.forEach(function (t) {
-      if (!(t.usage === 'combat' || t.usage === 'both')) return;
+    // Talents retenus pour ce combattant.
+    const kept = all.filter(function (t) {
+      if (!(t.usage === 'combat' || t.usage === 'both')) return false;
+      if (!Store.talentEffectList(t).length) return false;
+      if (Array.isArray(chosenIds)) return chosenIds.indexOf(t.id) >= 0;
+      return (t.level || 1) <= heroGroupLevel();
+    });
+    // ARBORESCENCE : si une version supérieure (prereq = X) est présente, on masque
+    // la version précédente X — seule la plus évoluée agit en combat.
+    const supersededIds = {};
+    kept.forEach(function (t) { if (t.prereq) supersededIds[t.prereq] = true; });
+    kept.filter(function (t) { return !supersededIds[t.id]; }).forEach(function (t) {
       const list = Store.talentEffectList(t);
-      if (!list.length) return;
-      if (Array.isArray(chosenIds)) { if (chosenIds.indexOf(t.id) < 0) return; }
-      else if ((t.level || 1) > heroGroupLevel()) return;
       // Un talent peut cumuler plusieurs effets : on aplatit en une entrée par effet.
       list.forEach(function (e) {
         const c = cat[e.effect] || {};
@@ -326,6 +333,7 @@
           dice: e.dice || null,
           range: e.range || null,
           choice: e.choice || null,
+          scope: e.scope || 'count', // 'count' | 'zone' | 'all'
         });
       });
     });
@@ -345,13 +353,14 @@
     talents.filter(function (t) { return t.kind === 'action'; }).forEach(function (t) {
       if (!merged[t.effect]) {
         merged[t.effect] = { id: t.id, name: t.name, effect: t.effect, kind: 'action',
-          val: 0, dice: null, range: null, choice: t.choice || null };
+          val: 0, dice: null, range: null, choice: t.choice || null, scope: t.scope || 'count' };
         order.push(t.effect);
       }
       const m = merged[t.effect];
       m.val += (t.val || 0);
       if (!m.dice && t.dice) m.dice = t.dice;
       if (!m.range && t.range) m.range = t.range;
+      if (t.scope && t.scope !== 'count') m.scope = t.scope;
     });
     return order.map(function (eff) {
       const t = merged[eff];
@@ -360,12 +369,16 @@
         dice: baseDice(), range: baseRange(), effects: Store.noStates() };
       switch (t.effect) {
         case 'double_attaque':
+          if (t.scope === 'zone') return Object.assign(common, { targets: 'all', zoneOnly: true });
+          if (t.scope === 'all') return Object.assign(common, { targets: 'all' });
           return Object.assign(common, { multiTarget: Math.max(2, t.val || 2), sameZone: true });
         case 'salve_zone': {
           const dist = t.range === 'distance';
+          const sdice = t.dice ? Object.assign(D.emptyPool(), t.dice) : Object.assign(D.emptyPool(), { white: 2 });
+          if (t.scope === 'zone') return Object.assign(common, { useOwnDamage: true, dice: sdice, targets: 'all', zoneOnly: true, range: dist ? 'distance' : 'contact' });
+          if (t.scope === 'all') return Object.assign(common, { useOwnDamage: true, dice: sdice, targets: 'all', range: dist ? 'distance' : 'contact' });
           return Object.assign(common, {
-            useOwnDamage: true,
-            dice: t.dice ? Object.assign(D.emptyPool(), t.dice) : Object.assign(D.emptyPool(), { white: 2 }),
+            useOwnDamage: true, dice: sdice,
             multiTarget: Math.max(1, t.val || 2), sameZone: true,
             range: dist ? 'distance' : 'contact',
           });

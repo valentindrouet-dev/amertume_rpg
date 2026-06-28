@@ -346,9 +346,9 @@
   // hasVal : l'effet utilise une variable X (valLabel décrit X).
   const TALENT_EFFECTS = [
     // --- Actions (attaques spéciales jouables) ---
-    { effect: 'double_attaque', name: 'Double Attaque', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles',
+    { effect: 'double_attaque', name: 'Double Attaque', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles', hasScope: true,
       desc: 'Frappe X adversaires d\'une même zone avec les dégâts de votre arme.' },
-    { effect: 'salve_zone', name: 'Salve de Zone', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles',
+    { effect: 'salve_zone', name: 'Salve de Zone', kind: 'action', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles', hasScope: true,
       hasDice: true, defaultDice: { white: 2 }, hasRange: true, defaultRange: 'contact',
       desc: 'Inflige vos propres dés de dégâts à X adversaires d\'une même zone (au contact ou à distance).' },
     { effect: 'assaut_mobile', name: 'Assaut Mobile', kind: 'action', hasVal: false,
@@ -418,7 +418,7 @@
     // --- Maîtrises (effets permanents de positionnement / tempo) ---
     { effect: 'pas_leger', name: 'Pas Léger', kind: 'mastery', hasVal: false,
       desc: 'Vous effectuez 1 mouvement gratuit avant le début de chaque tour.' },
-    { effect: 'charge_devastatrice', name: 'Charge Dévastatrice', kind: 'mastery', hasVal: true, defaultVal: 1, valLabel: 'Nb de cibles',
+    { effect: 'charge_devastatrice', name: 'Charge Dévastatrice', kind: 'mastery', hasVal: true, defaultVal: 1, valLabel: 'Nb de cibles', hasScope: true,
       desc: 'Vous infligez votre bonus de dégâts à X adversaires en arrivant dans leur zone.' },
     { effect: 'action_mouvement', name: 'Course', kind: 'action', hasVal: false,
       desc: 'Action : vous effectuez un mouvement.' },
@@ -461,11 +461,11 @@
   function talentEffectList(t) {
     if (t && Array.isArray(t.effects) && t.effects.length) {
       return t.effects.filter(function (e) { return e && e.effect; }).map(function (e) {
-        return { effect: e.effect, val: e.val || 0, dice: e.dice || null, range: e.range || null, choice: e.choice || null };
+        return { effect: e.effect, val: e.val || 0, dice: e.dice || null, range: e.range || null, choice: e.choice || null, scope: e.scope || 'count' };
       });
     }
     if (t && t.effect) {
-      return [{ effect: t.effect, val: t.val || 0, dice: t.dice || null, range: t.range || null, choice: t.choice || null }];
+      return [{ effect: t.effect, val: t.val || 0, dice: t.dice || null, range: t.range || null, choice: t.choice || null, scope: t.scope || 'count' }];
     }
     return [];
   }

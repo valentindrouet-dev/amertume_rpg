@@ -69,8 +69,10 @@
     return t.kind || (t.effect && effectMap()[t.effect] ? effectMap()[t.effect].kind : '');
   }
   // Tri des talents : par Niveau, puis par Type (KIND_ORDER), puis alphabétique.
+  let sortMode = 'level'; // 'level' | 'name'
   function sortTalents(list) {
     return list.slice().sort(function (a, b) {
+      if (sortMode === 'name') return (a.name || '').localeCompare(b.name || '');
       const lvl = (a.level || 1) - (b.level || 1);
       if (lvl) return lvl;
       const ka = KIND_ORDER.indexOf(talentKind(a)); const kb = KIND_ORDER.indexOf(talentKind(b));
@@ -142,12 +144,17 @@
         '<div class="filters">' +
           '<input id="tl-search" type="search" placeholder="Rechercher…" value="' + esc(term) + '" />' +
           '<select id="tl-groupfilter">' + groupOpts + '</select>' +
+          '<select id="tl-sort">' +
+            '<option value="level"' + (sortMode === 'level' ? ' selected' : '') + '>Tri : niveau</option>' +
+            '<option value="name"' + (sortMode === 'name' ? ' selected' : '') + '>Tri : nom</option>' +
+          '</select>' +
         '</div>' +
         '<div id="class-list" class="roster-list inv-strip-layout"></div>' +
       '</div>';
     $('#tl-add').addEventListener('click', function () { openTalentModal(null); });
     $('#tl-search').addEventListener('input', function () { term = this.value.toLowerCase().trim(); renderColumns(); });
     $('#tl-groupfilter').addEventListener('change', function () { groupFilter = this.value; renderColumns(); });
+    $('#tl-sort').addEventListener('change', function () { sortMode = this.value; renderColumns(); });
     renderColumns();
   }
 
@@ -173,12 +180,12 @@
       (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT[kind] || kind) + '</span>' : '<span class="tl-kind tl-kind-none">Descriptif</span>') +
       '<span class="tal-lvl">Niv. ' + (t.level || 1) + '</span>';
     const prereqName = t.prereq ? talentNameById(t.prereq) : '';
-    const prereqChip = prereqName ? '<span class="tal-prereq" title="Nécessite ce talent">↳ ' + esc(prereqName) + '</span>' : '';
+    const prereqChip = prereqName ? '<span class="tal-prereq" title="Nécessite : ' + esc(prereqName) + '">↳ ' + esc(prereqName) + '</span>' : '';
     return '<div class="tal-row-wrap">' +
       '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + '">' +
         '<div class="inv-strip tal-strip" data-desc-toggle="1" title="Voir le descriptif">' +
-          '<span class="inv-strip-name">' + esc(t.name || '(sans nom)') + prereqChip + '</span>' +
-          '<span class="inv-strip-val">' + right + '</span>' +
+          '<span class="inv-strip-name">' + esc(t.name || '(sans nom)') + '</span>' +
+          '<span class="inv-strip-val">' + prereqChip + right + '</span>' +
         '</div>' +
         '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
       '</div>' +
@@ -277,7 +284,14 @@
     const valWrap = row.querySelector('.tl-eff-val-wrap');
     const rangeWrap = row.querySelector('.tl-eff-range-wrap');
     const diceWrap = row.querySelector('.tl-eff-dice-wrap');
-    valWrap.hidden = !(eff && eff.hasVal);
+    // Portée des cibles (Nombre X / Toute la zone / Tout le combat) pour les effets multi-cibles.
+    const scopeWrap = row.querySelector('.tl-eff-scope-wrap');
+    const scopeSel = scopeWrap ? scopeWrap.querySelector('.tl-eff-scope') : null;
+    const hasScope = !!(eff && eff.hasScope);
+    if (scopeWrap) { scopeWrap.hidden = !hasScope; if (hasScope && scopeSel) scopeSel.value = row._scope || 'count'; }
+    const scopeVal = scopeSel ? scopeSel.value : 'count';
+    // X masqué si la portée vise tout (zone / combat).
+    valWrap.hidden = !(eff && eff.hasVal) || (hasScope && scopeVal !== 'count');
     if (eff && eff.hasVal) row.querySelector('.tl-eff-val-label').textContent = eff.valLabel || 'Valeur X';
     rangeWrap.hidden = !(eff && eff.hasRange);
     diceWrap.hidden = !(eff && eff.hasDice);
@@ -325,10 +339,17 @@
           '<div class="tl-eff-dice dice-steppers"></div></div>' +
         '<label class="tl-eff-choice-wrap" hidden><span class="tl-eff-choice-label">Choix</span>' +
           '<select class="tl-eff-choice"></select></label>' +
+        '<label class="tl-eff-scope-wrap" hidden>Cibles ' +
+          '<select class="tl-eff-scope">' +
+            '<option value="count">Nombre X</option>' +
+            '<option value="zone">Toute la zone</option>' +
+            '<option value="all">Tout le combat</option>' +
+          '</select></label>' +
       '</div>';
     list.appendChild(row);
     // Choix mémorisé (compétence, état…) pour réafficher la sélection à l'édition.
     row._choice = e.choice || '';
+    row._scope = e.scope || 'count';
     // Pool de dés propre à la ligne (référence mutée par les steppers)
     row._pool = Object.assign(emptyPool(), e.dice || {});
     if (Inventory && Inventory.buildDiceSteppers) {
@@ -338,6 +359,8 @@
     row.querySelector('.tl-eff-del').addEventListener('click', function () { row.remove(); });
     const choiceSel = row.querySelector('.tl-eff-choice');
     if (choiceSel) choiceSel.addEventListener('change', function () { row._choice = choiceSel.value; });
+    const scopeSel2 = row.querySelector('.tl-eff-scope');
+    if (scopeSel2) scopeSel2.addEventListener('change', function () { row._scope = scopeSel2.value; syncEffectRow(row); });
     syncEffectRow(row);
     return row;
   }
@@ -387,6 +410,10 @@
       if (meta.hasChoice) {
         const cs = row.querySelector('.tl-eff-choice');
         e.choice = (cs && cs.value) || (meta.choices && meta.choices[0]) || '';
+      }
+      if (meta.hasScope) {
+        const ss = row.querySelector('.tl-eff-scope');
+        e.scope = (ss && ss.value) || 'count';
       }
       effects.push(e);
     });

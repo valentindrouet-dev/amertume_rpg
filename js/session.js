@@ -587,6 +587,9 @@
 
   function navigateTo(ses, adv, sceneId) {
     if (!sceneId) return;
+    // Récompenses de la scène courante : attribuées automatiquement en la quittant
+    // (avant le contrôle de montée de niveau, pour que l'XP gagnée compte).
+    grantSceneRewardsFromDOM(ses, adv);
     const found = findScene(adv, sceneId);
     if (!found) return;
     // Montée de niveau en attente : on affiche l'écran « Niveau Supérieur ! »
@@ -898,40 +901,53 @@
     Combat.startInSession(ses.heroIds, { combatZones: zones }, ctx, '#session-combat-root', ses.levelGains);
   }
 
+  // Récompense de scène affichée EN LIGNE : XP (auto au Continue) + objets avec une
+  // liste de sélection d'aventurier à côté de chacun. L'attribution se fait au Continue.
   function renderRewardScene(box, scene, adv, ses) {
     const xp = scene.xpReward || 0;
-    const rewards = (scene.itemRewards || []).filter(function (r) { return r.itemId; }).map(function (r) {
-      const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-      return (it ? it.name : '?') + (r.qty > 1 ? ' ×' + r.qty : '');
-    });
-
+    const lines = (scene.itemRewards || []).filter(function (r) { return r.itemId; });
+    const heroes = engagedHeroes(ses);
     const sec = appendSection(box);
     if (!ses.claimedRewards) ses.claimedRewards = {};
     const claimed = !!ses.claimedRewards[scene.id];
+    if (claimed) {
+      sec.innerHTML = '<div class="ses-reward-block"><p class="hint">Récompense déjà récupérée.</p></div>';
+      return;
+    }
+    const heroOpts = heroes.map(function (h) { return '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>'; }).join('');
+    const rowsHtml = lines.map(function (r) {
+      const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
+      const strip = (it && global.Inventory && Inventory.itemStripHtml) ? Inventory.itemStripHtml(it) :
+        '<span class="inv-strip-name">' + esc(it ? it.name : '?') + '</span>';
+      const realIdx = (scene.itemRewards || []).indexOf(r);
+      return '<div class="rp-line">' +
+        '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
+          '<div class="inv-strip">' + strip + '</div>' +
+          (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '') +
+        '</div>' +
+        (heroes.length ? '<select class="rp-hero" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '') +
+      '</div>';
+    }).join('');
     sec.innerHTML =
       '<div class="ses-reward-block">' +
-        (xp ? '<p>✦ <strong>+' + xp + ' XP</strong> à distribuer</p>' : '') +
-        (rewards.length ? '<p>Objets : <strong>' + esc(rewards.join(', ')) + '</strong></p>' : '') +
-        (claimed
-          ? '<p class="hint">Récompense déjà récupérée.</p>'
-          : '<button class="primary" id="ses-claim-reward">Récupérer la récompense</button>') +
+        '<div class="ses-reward-title">🎁 Récompense' + (xp ? ' — ✦ <strong>+' + xp + ' XP</strong> (au groupe)' : '') + '</div>' +
+        (lines.length ? '<div class="rp-list">' + rowsHtml + '</div>' +
+          '<p class="hint">Choisis le destinataire de chaque objet ; l\'attribution se fait en cliquant sur « Continuer ».</p>' : '') +
       '</div>';
-
-    const claimBtn = sec.querySelector('#ses-claim-reward');
-    if (claimBtn) claimBtn.addEventListener('click', function () {
-      const lines = (scene.itemRewards || []).filter(function (r) { return r.itemId; });
-      const heroes = engagedHeroes(ses);
-      // Plusieurs aventuriers + au moins un objet → fenêtre de répartition.
-      if (lines.length && heroes.length > 1) {
-        showRewardPicker(ses, scene, function (assign) { commitRewards(ses, scene, adv, assign); });
-      } else {
-        commitRewards(ses, scene, adv, null); // 1 seul aventurier (ou aucun objet)
-      }
-    });
   }
 
-  // Applique les récompenses (XP + objets) ; assign = { lineKey: heroId } ou null.
-  function commitRewards(ses, scene, adv, assign) {
+  // Applique les récompenses (XP + objets) de la scène en lisant les listes affichées.
+  // Appelée automatiquement au moment de quitter la scène (Continuer / choix).
+  function grantSceneRewardsFromDOM(ses, adv) {
+    if (!ses || !ses.currentSceneId) return;
+    const found = findScene(adv, ses.currentSceneId);
+    const scene = found ? found.scene : null;
+    if (!scene || !sceneHasReward(scene)) return;
+    if (ses.claimedRewards && ses.claimedRewards[scene.id]) return;
+    const assign = {};
+    document.querySelectorAll('#ses-actions .rp-hero').forEach(function (sel) {
+      assign[parseInt(sel.getAttribute('data-idx'), 10)] = sel.value;
+    });
     const xp = scene.xpReward || 0;
     if (xp > 0) { ses.party.xp = (ses.party.xp || 0) + xp; }
     if (!ses.acquiredItems) ses.acquiredItems = {};
@@ -944,7 +960,7 @@
       const q = r.qty || 1;
       it.qty = (it.qty || 0) + q;
       ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
-      const recipient = (assign && assign[idx]) || fallback;
+      const recipient = (assign[idx]) || fallback;
       if (recipient) {
         if (!ses.heroOwned[recipient]) ses.heroOwned[recipient] = {};
         ses.heroOwned[recipient][r.itemId] = (Number(ses.heroOwned[recipient][r.itemId]) || 0) + q;
@@ -952,48 +968,7 @@
     });
     if (!ses.claimedRewards) ses.claimedRewards = {};
     ses.claimedRewards[scene.id] = true;
-    save();
     Store.save();
-    const hasOther = sceneHasCombat(scene) || (scene.choices && scene.choices.length);
-    if (!hasOther && scene.nextSceneId) navigateTo(ses, adv, scene.nextSceneId);
-    else { renderSceneActions(scene, adv, ses); if (global.Combatants) { try { Combatants.renderProgress(); } catch (e) {} } }
-  }
-
-  // Fenêtre de répartition : pour chaque objet reçu, choisir l'aventurier destinataire.
-  function showRewardPicker(ses, scene, onConfirm) {
-    const heroes = engagedHeroes(ses);
-    const lines = (scene.itemRewards || []).filter(function (r) { return r.itemId; });
-    const overlay = document.createElement('div');
-    overlay.className = 'modal reward-picker';
-    const heroOpts = heroes.map(function (h) { return '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>'; }).join('');
-    const rowsHtml = lines.map(function (r, idx) {
-      const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-      const strip = (it && global.Inventory && Inventory.itemStripHtml) ? Inventory.itemStripHtml(it) :
-        '<span class="inv-strip-name">' + esc(it ? it.name : '?') + '</span>';
-      const realIdx = (scene.itemRewards || []).indexOf(r);
-      return '<div class="rp-line">' +
-        '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
-          '<div class="inv-strip">' + strip + '</div>' +
-          (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '') +
-        '</div>' +
-        '<select class="rp-hero" data-idx="' + realIdx + '">' + heroOpts + '</select>' +
-      '</div>';
-    }).join('');
-    overlay.innerHTML =
-      '<div class="modal-box">' +
-        '<div class="modal-head"><h2>À qui donner ces objets ?</h2></div>' +
-        '<div class="rp-list">' + rowsHtml + '</div>' +
-        '<div class="modal-actions"><button type="button" class="primary rp-confirm">Valider</button></div>' +
-      '</div>';
-    document.body.appendChild(overlay);
-    overlay.querySelector('.rp-confirm').addEventListener('click', function () {
-      const assign = {};
-      overlay.querySelectorAll('.rp-hero').forEach(function (sel) {
-        assign[parseInt(sel.getAttribute('data-idx'), 10)] = sel.value;
-      });
-      document.body.removeChild(overlay);
-      onConfirm(assign);
-    });
   }
 
   // Écouter la fin d'un combat déclenché par une session
@@ -1418,12 +1393,29 @@
   // Talents débloqués d'un aventurier, triés Action→Maîtrise→Réaction→Passif→Amélioration, puis niveau, puis nom
   function sortedUnlocked(g, byId, effMap) {
     const ids = Array.isArray(g.talents) ? g.talents.slice() : [];
+    const idset = {}; ids.forEach(function (id) { idset[id] = true; });
+    // Une version est « dépassée » si une version supérieure (prereq = elle) est aussi débloquée.
+    const superseded = {};
+    ids.forEach(function (id) {
+      const t = byId[id];
+      if (t && t.prereq && idset[t.prereq]) superseded[t.prereq] = true;
+    });
+    // Racine et profondeur d'une chaîne de versions (pour regrouper Hameçonnage / Hameçonnage 2…).
+    function chain(t) {
+      let cur = t, depth = 0, guard = 0;
+      while (cur && cur.prereq && byId[cur.prereq] && guard++ < 20) { cur = byId[cur.prereq]; depth++; }
+      return { root: (cur && (cur.name || cur.id)) || (t.name || ''), depth: depth };
+    }
     return ids.map(function (id) {
       const t = byId[id] || { id: id, name: '(talent supprimé)', level: 1 };
-      return { id: id, t: t, kind: talKindOf(t, effMap) };
+      const ch = chain(t);
+      return { id: id, t: t, kind: talKindOf(t, effMap), superseded: !!superseded[id], root: ch.root, depth: ch.depth };
     }).sort(function (a, b) {
       const r = talRank(a.kind) - talRank(b.kind);
       if (r) return r;
+      const rr = a.root.localeCompare(b.root); // même chaîne regroupée
+      if (rr) return rr;
+      if (a.depth !== b.depth) return a.depth - b.depth; // version précédente avant supérieure
       const l = (a.t.level || 1) - (b.t.level || 1);
       if (l) return l;
       return (a.t.name || '').localeCompare(b.t.name || '');
@@ -1466,10 +1458,14 @@
         ? list.map(function (e) {
             const checked = equipped.indexOf(e.id) >= 0;
             const desc = e.t.description || 'Aucune description.';
-            return '<div class="tpe-wrap">' +
+            // Version dépassée : grisée + flèche indiquant qu'une version supérieure existe.
+            const sup = e.superseded;
+            const upgradeMark = e.depth > 0 ? '<span class="tpe-upgrade-arrow" title="Évolution de la version précédente">↑</span> ' : '';
+            return '<div class="tpe-wrap' + (sup ? ' tpe-superseded' : '') + '">' +
               '<div class="tpe-row tpe-kind-' + (e.kind || 'none') + (checked ? ' selected' : '') + '">' +
                 '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + '>' +
-                '<span class="tpe-name" data-info="' + esc(e.id) + '" title="Voir le descriptif">' + esc(e.t.name || '(sans nom)') + '</span>' +
+                '<span class="tpe-name" data-info="' + esc(e.id) + '" title="Voir le descriptif">' + upgradeMark + esc(e.t.name || '(sans nom)') +
+                  (sup ? '<span class="tpe-sup-tag" title="Une version supérieure est débloquée">↓ remplacé</span>' : '') + '</span>' +
                 '<span class="tpe-meta" data-info="' + esc(e.id) + '">' +
                   (e.kind ? '<span class="tl-kind tl-kind-' + e.kind + '">' + esc(KIND_SHORT(e.kind)) + '</span>' : '') +
                   '<span class="tpe-lvl">Niv. ' + (e.t.level || 1) + '</span>' +

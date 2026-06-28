@@ -461,10 +461,21 @@
         }
       }
     }
+    if (!heroHasTalent(c, 'charge_devastatrice')) return;
+    const scope = heroTalentScope(c, 'charge_devastatrice');
     const n = heroTalentVal(c, 'charge_devastatrice');
     const dmg = c.damage || 0;
-    if (n <= 0 || dmg <= 0) return;
-    const foes = arrivalFoes(c).slice(0, n);
+    if (dmg <= 0) return;
+    // Cibles selon la portée : Nombre X (zone), Toute la zone, Tout le combat.
+    let foes;
+    if (scope === 'all') {
+      foes = combat().combatants.filter(function (m) { return m.side === 'monster' && m.status === 'active'; });
+    } else if (scope === 'zone') {
+      foes = arrivalFoes(c);
+    } else {
+      if (n <= 0) return;
+      foes = arrivalFoes(c).slice(0, n);
+    }
     foes.forEach(function (m) {
       // BLINDAGE : absorbe les dégâts de charge.
       if (absorbBlindage(m, 'la charge')) return;
@@ -901,6 +912,12 @@
     if (!c || !Array.isArray(c.talents)) return null;
     const t = c.talents.find(function (x) { return x.effect === effect; });
     return t ? (t.choice || null) : null;
+  }
+  // Portée des cibles d'un talent : 'count' | 'zone' | 'all'
+  function heroTalentScope(c, effect) {
+    if (!c || !Array.isArray(c.talents)) return 'count';
+    const t = c.talents.find(function (x) { return x.effect === effect; });
+    return t ? (t.scope || 'count') : 'count';
   }
 
   // Retourne le bonus de dégâts (talents de l'attaquant + soutien de zone)

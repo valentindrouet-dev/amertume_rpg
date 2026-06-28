@@ -2844,12 +2844,12 @@ body.mode-player #item-list.roster-list { display: block; }
 
 /* Fenêtre de répartition des récompenses (design Objets de l'inventaire) */
 .reward-picker { display: flex; align-items: center; justify-content: center; }
-.reward-picker .rp-list { display: flex; flex-direction: column; gap: .6rem; margin: .6rem 0; padding: 0 1.1rem; }
-.reward-picker .modal-actions { padding: 0 1.1rem 1rem; }
-.reward-picker .rp-line { display: flex; align-items: center; gap: .6rem; }
-.reward-picker .rp-line .inv-strip-row { flex: 1; align-items: center; }
-.reward-picker .rp-qty { font-weight: 700; color: var(--accent-2); }
-.reward-picker .rp-hero { min-width: 9rem; }
+.rp-list { display: flex; flex-direction: column; gap: .6rem; margin: .6rem 0; }
+.rp-line { display: flex; align-items: center; gap: .6rem; }
+.rp-line .inv-strip-row { flex: 1; align-items: center; }
+.rp-qty { font-weight: 700; color: var(--accent-2); }
+.rp-hero { min-width: 9rem; }
+.ses-reward-title { font-weight: 700; margin-bottom: .3rem; }
 .tal-strip { cursor: pointer; }
 .tal-strip .inv-strip-val { gap: .35rem; }
 /* Couleur de languette par type d'effet */
@@ -3029,6 +3029,12 @@ body.mode-player #item-list.roster-list { display: block; }
 }
 .tpe-meta { flex: 0 0 auto; display: flex; align-items: center; gap: .3rem; }
 .tpe-lvl { font-size: .68rem; color: #6a563a; white-space: nowrap; }
+/* Arborescence des versions de talents (Hameçonnage → Hameçonnage 2…) */
+.tpe-superseded { opacity: .5; }
+.tpe-superseded .tpe-row { filter: grayscale(.5); }
+.tpe-upgrade-arrow { color: #2c6b39; font-weight: 800; }
+.tpe-sup-tag { font-size: .62rem; color: #9a6b2a; background: rgba(154,107,42,.15); border: 1px solid rgba(154,107,42,.4);
+  border-radius: 8px; padding: 0 .35rem; margin-left: .4rem; white-space: nowrap; }
 .tpe-row.selected { outline: 2px solid var(--action); outline-offset: 1px; }
 .tpe-kind-action   { border-left-color: #4d8ed1; }
 .tpe-kind-reaction { border-left-color: #9664c8; }
