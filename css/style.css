@@ -2737,6 +2737,7 @@ body.mode-player #item-list.roster-list { display: block; }
 .lvl-stat-row { cursor: pointer; transition: box-shadow .1s; }
 .lvl-stat-row:hover { box-shadow: 0 0 0 2px var(--accent); }
 .lvl-stat-row.selected { box-shadow: 0 0 0 2.5px #d4af5a; }
+.lvl-stat-cur { font-size: .72rem; font-weight: 700; opacity: .8; margin-left: .25rem; padding: .05rem .35rem; border-radius: 8px; background: rgba(0,0,0,.12); }
 .lvl-stat-pick-icon { font-size: 1.1rem; font-weight: 700; min-width: 1.4rem; text-align: center; }
 .lvl-stat-row.selected .lvl-stat-pick-icon { color: #2a7a40; }
 .lvl-stat-btn2 { display: flex; flex-direction: column; align-items: center; gap: .05rem;

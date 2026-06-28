@@ -487,7 +487,15 @@
       // mouvement normal reste alors disponible.
       c.freeMoveReady = false; c.used.move = prevMove;
     }
-    pendingMove = null; arrivalTargetIid = null; checkOutcome(); Store.save(); render();
+    pendingMove = null; arrivalTargetIid = null; checkOutcome();
+    // PRÉ-TOUR : dès que plus aucun aventurier n'a de talent à jouer, on démarre
+    // automatiquement le vrai tour (le joueur peut aussi passer via « Tour X »).
+    if (!combat().outcome && combat().phase === 'pretour' &&
+        !activeOf('hero').some(function (h) { return h.freeMoveReady; })) {
+      startTurnFromPretour();
+      return;
+    }
+    Store.save(); render();
   }
 
   // Nom lisible d'une attaque (retire le préfixe « Mêlée — » / « Distance — »)
@@ -1121,11 +1129,22 @@
       h.freeMoveReady = heroHasTalent(h, 'pas_leger') || !!h.rapide;
     });
     // Présélectionne un aventurier disposant d'un talent de pré-tour, si possible.
-    const ready = activeOf('hero').find(function (h) { return h.freeMoveReady; });
-    if (ready) selectedIid = ready.iid;
-    log('Pré-Tour ' + c.turn + '.', 'turn');
+    const readyHeroes = activeOf('hero').filter(function (h) { return h.freeMoveReady; });
+    if (readyHeroes.length) selectedIid = readyHeroes[0].iid;
+    if (readyHeroes.length) {
+      const names = readyHeroes.map(function (h) { return cname(h); }).join(', ');
+      log('Pré-Tour ' + c.turn + ' : ' + names + ' ' + (readyHeroes.length > 1 ? 'ont' : 'a') +
+        ' un talent à utiliser (appuyez sur Tour ' + c.turn + ' pour passer).', 'turn');
+    } else {
+      log('Pré-Tour ' + c.turn + '.', 'turn');
+    }
     centerText('Pré-Tour ' + c.turn, 'fx-center-turn');
     pretourMonstersAct();
+    // Si aucun aventurier n'a finalement de talent à jouer (ex. seuls des
+    // adversaires rapides agissaient), on enchaîne directement le vrai tour.
+    if (!combat().outcome && !activeOf('hero').some(function (h) { return h.freeMoveReady; })) {
+      startTurnFromPretour();
+    }
   }
 
   // Démarre le vrai tour des héros après le Pré-Tour (ne réattribue pas freeMoveReady).

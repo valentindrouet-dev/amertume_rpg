@@ -651,19 +651,23 @@
       const g = ses.levelGains ? (ses.levelGains[h.id] || {}) : {};
       const curEndu = (h.endu || 0) + (g.endu || 0);
       const curVie  = (h.vie  || 0) + (g.vie  || 0) + ((ses.heroStates && ses.heroStates[h.id] && ses.heroStates[h.id].viePenalty) || 0);
+      const curDmg  = (h.damage || 0) + (g.damage || 0);
       const pvFromEndu2 = 2 * curVie;
 
       // Lignes de choix de carac dans le même style que la création d'aventurier.
-      function statRow(stat, label, hint) {
+      // cur = valeur actuelle rappelée pour aider au choix.
+      function statRow(stat, label, cur, hint) {
         return '<div class="lvl-stat-row hw-stat-row2 hw-stat-row2--' + stat + '" data-idx="' + idx + '" data-stat="' + stat + '">' +
-          '<span class="hw-stat-label2">' + label + ' <small>(' + hint + ')</small></span>' +
+          '<span class="hw-stat-label2">' + label +
+            ' <span class="lvl-stat-cur">actuel : ' + cur + '</span>' +
+            ' <small>(' + hint + ')</small></span>' +
           '<span class="lvl-stat-pick-icon">○</span>' +
         '</div>';
       }
       const statHtml =
-        statRow('damage', 'DÉGÂTS', '+1') +
-        statRow('endu', 'ENDURANCE', '+2 · +' + pvFromEndu2 + ' PV') +
-        statRow('vie', 'VIE', '+1 · +' + curEndu + ' PV');
+        statRow('damage', 'DÉGÂTS', curDmg, '+1') +
+        statRow('endu', 'ENDURANCE', curEndu, '+2 · +' + pvFromEndu2 + ' PV') +
+        statRow('vie', 'VIE', curVie, '+1 · +' + curEndu + ' PV');
 
       function talentRows(list) {
         return list.map(function (t) {
