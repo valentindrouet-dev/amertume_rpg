@@ -37,6 +37,15 @@
         effects: '', notes: 'Officiel v4.s2', official: true,
       };
     }
+    // O(nom, effet, dés, bénéfique, prix) — Objet consommable.
+    function O(name, effect, diceN, benefic, price, effText) {
+      return {
+        id: uid(), name: name, category: 'object', qty: 1, hands: 1, ranged: false,
+        usesAmmo: false, consumable: true, dice: AmertumeDice.emptyPool(),
+        objEffect: effect, objDice: diceN, objBenefic: benefic,
+        traits: [], price: price, effects: effText, notes: 'Officiel v4.s2', official: true,
+      };
+    }
     return [
       // Mêlée
       W('Dague', { white: 1 }, 1, false, ['jetable'], 3, 3),
@@ -60,16 +69,15 @@
       A('Armure de mailles', 2, 'body', 60),
       A('Armure de plates', 3, 'body', 200),
       A('Bouclier', 1, 'shield', 80),
+      // Objets consommables
+      O('Petite Potion de Soin', 'heal', 2, true, 15, 'Soigne un aventurier de 2d6 PV.'),
+      O('Potion de Soin', 'heal', 4, true, 35, 'Soigne un aventurier de 4d6 PV.'),
+      O('Grande Potion de Soin', 'heal', 6, true, 70, 'Soigne un aventurier de 6d6 PV.'),
     ];
   }
 
   function defaultState() {
     const items = buildOfficialEquipment();
-    items.push({
-      id: uid(), name: 'Potion de soin', category: 'object', qty: 2,
-      hands: 1, ranged: false, usesAmmo: false, consumable: true,
-      dice: AmertumeDice.emptyPool(), effects: '', notes: 'Rend des PV',
-    });
     const epee = items.find(function (i) { return i.name === 'Épée'; });
     const cuir = items.find(function (i) { return i.name === 'Armure de cuir'; });
 

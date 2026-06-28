@@ -468,6 +468,10 @@
     $('#f-armor-def').value = isEdit && typeof item.def === 'number' ? item.def : 1;
     $('#f-armor-slot').value = isEdit ? (item.slot || 'body') : 'body';
     $('#f-armor-price').value = isEdit ? (item.price || 0) : 0;
+    $('#f-obj-effect').value = isEdit ? (item.objEffect || 'none') : 'none';
+    $('#f-obj-benefic').value = isEdit ? (item.objBenefic === false ? '0' : '1') : '1';
+    $('#f-obj-dice').value = isEdit && typeof item.objDice === 'number' ? item.objDice : 2;
+    $('#f-obj-price').value = isEdit ? (item.price || 0) : 0;
     weaponDicePool = isEdit ? Object.assign(D.emptyPool(), item.dice) : D.emptyPool();
     buildDiceSteppers($('#weapon-dice'), weaponDicePool);
     $('#btn-delete-item').hidden = !isEdit;
@@ -482,6 +486,8 @@
     const cat = $('#f-category').value;
     $('#weapon-fields').style.display = cat === 'weapon' ? '' : 'none';
     $('#armor-fields').style.display = cat === 'armor' ? '' : 'none';
+    const objFields = $('#object-fields');
+    if (objFields) objFields.style.display = (cat === 'object' || cat === 'misc') ? '' : 'none';
   }
 
   function saveFromForm(e) {
@@ -490,6 +496,7 @@
     const existing = Store.state.items.find(function (i) { return i.id === id; });
     const cat = $('#f-category').value;
     const isArmor = cat === 'armor';
+    const isObject = cat === 'object' || cat === 'misc';
     const traits = [];
     if ($('#f-trait-jetable').checked) traits.push('jetable');
     if ($('#f-trait-vicieuse').checked) traits.push('vicieuse');
@@ -504,13 +511,22 @@
       consumable: $('#f-consumable').checked,
       dice: Object.assign(D.emptyPool(), weaponDicePool),
       traits: traits,
-      price: parseInt(isArmor ? $('#f-armor-price').value : $('#f-price').value, 10) || 0,
+      price: parseInt(isArmor ? $('#f-armor-price').value : (isObject ? $('#f-obj-price').value : $('#f-price').value), 10) || 0,
       effects: $('#f-effects').value.trim(),
       notes: $('#f-notes').value.trim(),
     };
     if (isArmor) {
       data.def = parseInt($('#f-armor-def').value, 10) || 0;
       data.slot = $('#f-armor-slot').value;
+    }
+    if (isObject) {
+      data.objEffect = $('#f-obj-effect').value;
+      data.objBenefic = $('#f-obj-benefic').value === '1';
+      data.objDice = Math.max(0, parseInt($('#f-obj-dice').value, 10) || 0);
+      // Description lisible auto si l'effet est un soin et le champ Effets est vide.
+      if (!data.effects && data.objEffect === 'heal' && data.objDice > 0) {
+        data.effects = 'Soigne ' + (data.objBenefic ? 'un aventurier' : 'une cible') + ' de ' + data.objDice + 'd6 PV.';
+      }
     }
     if (existing) Object.assign(existing, data);
     else Store.state.items.push(data);

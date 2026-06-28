@@ -919,6 +919,8 @@
       if (xp > 0) { ses.party.xp = (ses.party.xp || 0) + xp; }
       // Ajouter les objets à l'inventaire, en mémorisant ce qui a été acquis durant l'aventure
       if (!ses.acquiredItems) ses.acquiredItems = {};
+      if (!ses.heroOwned) ses.heroOwned = {};
+      const recipient = (ses.heroIds && ses.heroIds[0]) || null; // récompense attribuée au 1er aventurier
       (scene.itemRewards || []).forEach(function (r) {
         if (!r.itemId) return;
         const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
@@ -926,6 +928,11 @@
           const q = r.qty || 1;
           it.qty = (it.qty || 0) + q;
           ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
+          // Attribue l'objet à l'inventaire d'un aventurier pour qu'il soit équipable.
+          if (recipient) {
+            if (!ses.heroOwned[recipient]) ses.heroOwned[recipient] = {};
+            ses.heroOwned[recipient][r.itemId] = (Number(ses.heroOwned[recipient][r.itemId]) || 0) + q;
+          }
         }
       });
       ses.claimedRewards[scene.id] = true;
@@ -1516,7 +1523,25 @@
     effectiveHero: activeEffectiveHero,
     ownedForHero: ownedForHero,
     engagedHeroIds: engagedHeroIds,
+    consumeObject: consumeObject,
   };
+  // Consomme (retire) 1 exemplaire d'un objet de l'inventaire d'un aventurier de la
+  // partie active. Si l'aventurier n'en possède plus, l'objet est déséquipé.
+  function consumeObject(heroId, itemId) {
+    load();
+    const ses = activeSession || sessions.find(function (s) { return s.status === 'active'; });
+    if (!ses) return; // hors session (combat de test) : rien à retirer
+    if (!ses.heroOwned) ses.heroOwned = {};
+    const owned = ses.heroOwned[heroId] || (ses.heroOwned[heroId] = {});
+    const left = (Number(owned[itemId]) || 0) - 1;
+    if (left > 0) owned[itemId] = left; else delete owned[itemId];
+    // Déséquipe l'objet si l'aventurier n'en a plus.
+    if (left <= 0) {
+      const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
+      if (h && h.equipment && h.equipment.objectId === itemId) { h.equipment.objectId = null; Store.save(); }
+    }
+    save();
+  }
   // Ids des aventuriers engagés dans la partie active (null si aucune partie lancée)
   function engagedHeroIds() {
     return (activeSession && Array.isArray(activeSession.heroIds)) ? activeSession.heroIds.slice() : null;

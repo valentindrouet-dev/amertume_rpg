@@ -20,6 +20,7 @@
   let pendingMove = null;     // iid du combattant en cours de déplacement
   let moveAsAction = false;   // le déplacement en cours consomme l'ACTION (talent « Course ») au lieu du mouvement
   let arrivalTargetIid = null; // adversaire précis visé par les effets d'arrivée (clic sur sa carte)
+  let pendingObject = null;   // iid de l'aventurier consommant son objet (choisit une cible)
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
@@ -97,6 +98,12 @@
     const attacks = Combatants.heroCombatAttacks(hero);
     const talents = Combatants.resolveHeroTalents(Array.isArray(hero.chosenTalents) ? hero.chosenTalents : null);
     const hasTalent = function (e) { return talents.some(function (t) { return t.effect === e; }); };
+    // Objet consommable équipé : on en garde une copie légère pour le combat.
+    const eq = Combatants.normalizeEquip(h.equipment || {});
+    const objTpl = eq.objectId ? Store.state.items.find(function (it) { return it.id === eq.objectId; }) : null;
+    const objectItem = (objTpl && (objTpl.category === 'object' || objTpl.category === 'misc'))
+      ? { id: objTpl.id, name: objTpl.name, objEffect: objTpl.objEffect || 'none', objDice: objTpl.objDice || 0, objBenefic: objTpl.objBenefic !== false }
+      : null;
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
       side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: hero.endu || 1, imageUrl: h.imageUrl || null,
@@ -108,6 +115,7 @@
       reactUsed: {},                    // réactions déjà déclenchées dans le tour courant
       freeMoveReady: hasTalent('pas_leger'), // PAS LÉGER : mouvement gratuit dispo dès le 1er tour
       freeMoves: 0,                     // REBOND : compteur de mouvements gratuits supplémentaires
+      objectItem: objectItem,           // objet consommable équipé (null si aucun)
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 },
       used: { action: false, move: false, object: false },
       zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
@@ -1900,6 +1908,8 @@
     if (cm) cm.addEventListener('click', function () { pendingMove = null; arrivalTargetIid = null; render(); });
     const ca = root.querySelector('#cancel-analyze');
     if (ca) ca.addEventListener('click', function () { pendingAnalyze = null; render(); });
+    const co = root.querySelector('#cancel-object');
+    if (co) co.addEventListener('click', function () { pendingObject = null; render(); });
 
     // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement
     // (uniquement après avoir cliqué le bouton Mouv.).
@@ -1921,6 +1931,13 @@
 
   // Contenu de la bannière de ciblage / déplacement (toujours présente : pas de saut d'UI)
   function bannerHtml() {
+    if (pendingObject) {
+      const ou = byId(pendingObject);
+      const benefic = ou && ou.objectItem && ou.objectItem.objBenefic;
+      return '🧪 <b>' + esc(ou ? ou.name : '') + '</b> — ' + esc(ou && ou.objectItem ? ou.objectItem.name : 'Objet') +
+        ' : <b>clique ' + (benefic ? 'l\'aventurier' : 'l\'adversaire') + ' à cibler</b>. ' +
+        '<button id="cancel-object" class="ghost xs">Annuler</button>';
+    }
     if (pendingAnalyze) {
       const an = byId(pendingAnalyze);
       return '🔍 <b>' + esc(an ? an.name : '') + '</b> analyse — <b>clique l\'adversaire à examiner</b>. ' +
@@ -2313,8 +2330,9 @@
           ' title="' + (hasFreeMove ? 'Mouvement gratuit disponible' : 'Changer de zone') + '">Mouv.</button>';
     return '<div class="ab-tools">' +
       moveBtn +
-      '<button class="ab-tool obj-chip do-object" type="button" data-iid="' + c.iid + '"' +
-          ((!canAct || usedO || isAuSol) ? ' disabled' : '') + ' title="Utiliser l\'objet équipé">Objet</button>' +
+      '<button class="ab-tool obj-chip do-object' + (pendingObject === c.iid ? ' selected' : '') + '" type="button" data-iid="' + c.iid + '"' +
+          ((!canAct || usedO || isAuSol || !c.objectItem) ? ' disabled' : '') +
+          ' title="' + (c.objectItem ? 'Consommer : ' + esc(c.objectItem.name) : 'Aucun objet équipé') + '">Objet</button>' +
       '<button class="ab-tool ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
           ' data-iid="' + c.iid + '"' + ((!canAct || usedMv || isAuSol) ? ' disabled' : '') +
           ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">Analyse</button>' +
@@ -2358,6 +2376,14 @@
       }
     }
     if (pendingAnalyze && !dead && c.side === 'monster' && !c.analyzed) cls.push('targetable');
+    // OBJET : cible valide selon que l'objet est bénéfique (aventuriers) ou négatif (adversaires).
+    if (pendingObject && !dead) {
+      const ouser = byId(pendingObject);
+      if (ouser && ouser.objectItem) {
+        const wantSide = ouser.objectItem.objBenefic ? 'hero' : 'monster';
+        if (c.side === wantSide) cls.push('targetable');
+      }
+    }
     // PROIE : l'aventurier désigné ce tour.
     const isMarked = !dead && c.side === 'hero' && combat().markedHeroIid === c.iid;
     if (isMarked) cls.push('is-marked');
@@ -2490,6 +2516,38 @@
     checkOutcome(); Store.save(); render();
   }
 
+  // Retire l'objet consommé de l'inventaire de la session (et de l'instance).
+  function consumeObject(user) {
+    const obj = user.objectItem;
+    user.objectItem = null;
+    if (obj && global.Session && Session.consumeObject) {
+      try { Session.consumeObject(user.templateId, obj.id); } catch (e) { console.error('[combat] consumeObject', e); }
+    }
+  }
+
+  // Applique l'effet d'un objet consommable de `user` sur `target`, puis le consomme.
+  function applyObjectEffect(user, target) {
+    const obj = user.objectItem;
+    if (!obj || !target || target.status !== 'active') { pendingObject = null; render(); return; }
+    if (obj.objEffect === 'heal') {
+      const n = Math.max(1, obj.objDice || 1);
+      const rolls = []; let heal = 0;
+      for (let i = 0; i < n; i++) { const v = 1 + Math.floor(Math.random() * 6); rolls.push(dnum(v, 'green')); heal += v; }
+      const before = target.pv;
+      target.pv = Math.min(target.maxPv, target.pv + heal);
+      const gained = target.pv - before;
+      pushFx({ type: 'heal', iid: target.iid, amount: gained, fromPct: pct(before, target.maxPv), toPct: pct(target.pv, target.maxPv) });
+      log(cname(user) + ' utilise <span class="lwpn">' + esc(obj.name) + '</span> sur ' + cname(target) +
+        ' : ' + amt(gained, 'heal') + ' PV récupérés <span class="ldice">(' + rolls.join('<span class="dplus">+</span>') + ')</span>.', 'heal');
+    } else {
+      log(cname(user) + ' utilise <span class="lwpn">' + esc(obj.name) + '</span> (aucun effet).', 'move');
+    }
+    consumeObject(user);
+    user.used.object = true;
+    pendingObject = null;
+    checkOutcome(); Store.save(); render();
+  }
+
   // Résout les dégâts moyens garantis (sans dé, sans risque d'échec)
   function resolveAverageAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
@@ -2554,6 +2612,12 @@
       card.addEventListener('click', function (e) {
         if (e.target.closest('button')) return;
         const targetable = card.classList.contains('targetable');
+        // 0) Ciblage d'un objet consommable
+        if (targetable && pendingObject) {
+          const ouser = byId(pendingObject);
+          if (ouser) applyObjectEffect(ouser, c);
+          return;
+        }
         // 1) Ciblage d'une analyse
         if (targetable && pendingAnalyze && c.side === 'monster') {
           const hero = byId(pendingAnalyze);
@@ -2621,7 +2685,7 @@
         }
         // 3) Sinon : sélectionne ce combattant et annule toute action en cours
         selectedIid = c.iid;
-        pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null;
+        pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null; pendingObject = null;
         render();
       });
     }
@@ -2702,7 +2766,12 @@
       });
       const obj = root.querySelector('.do-object[data-iid="' + c.iid + '"]');
       if (obj) obj.addEventListener('click', function () {
-        c.used.object = true; log(cname(c) + ' utilise un objet.', 'move'); Store.save(); render();
+        if (!c.objectItem) return;
+        if (pendingObject === c.iid) { pendingObject = null; render(); return; } // re-clic = annuler
+        if (!confirm('Vous allez consommer votre ' + c.objectItem.name + '. Êtes-vous sûr ?\n(Il disparaîtra de votre inventaire.)')) return;
+        pendingObject = c.iid;
+        pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null;
+        render();
       });
       // AU SOL : Se relever (consomme le mouvement, retire l'état)
       const standup = root.querySelector('.do-standup[data-iid="' + c.iid + '"]');

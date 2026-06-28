@@ -2120,7 +2120,7 @@ img.ab-atk-name {
 .ab-tool:hover:not(:disabled) { filter: brightness(1.06); }
 .ab-tool:disabled { opacity: .5; cursor: not-allowed; }
 .ab-tool.move-chip { background: rgba(140,94,42,.75); } .ab-tool.move-chip.selected { background: rgba(111,74,31,.9); }
-.ab-tool.obj-chip { background: rgba(95,164,95,.75); }
+.ab-tool.obj-chip { background: rgba(95,164,95,.75); } .ab-tool.obj-chip.selected { background: rgba(70,130,70,.95); }
 .ab-tool.ana-chip { background: rgba(124,92,164,.75); } .ab-tool.ana-chip.selected { background: rgba(99,74,133,.9); }
 .ab-tool.standup-chip { background: rgba(200,120,30,.85); font-weight: 600; }
 .ab-tool.standup-chip:hover:not(:disabled) { background: rgba(220,140,50,.95); }
