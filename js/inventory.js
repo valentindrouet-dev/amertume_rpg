@@ -193,9 +193,11 @@
     return e.objectId === item.id ? 1 : 0;
   }
 
-  // Un combat de session est-il en cours ? (interdit la modification d'équipement)
+  // Le module de combat est-il réellement actif ? (interdit la modification d'équipement)
+  // On s'appuie sur Session pour ne bloquer QUE pendant un combat en cours — jamais
+  // sur la page de disposition (avant « Lancer le combat ») ni après la victoire.
   function combatActive() {
-    return !!(Store.state && Store.state.combat && Store.state.sessionCombat);
+    return !!(window.Session && Session.combatModuleActive && Session.combatModuleActive());
   }
   function snapshotEquip(h) {
     const e = normEq(h);

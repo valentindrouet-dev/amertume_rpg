@@ -1581,7 +1581,17 @@
     ownedForHero: ownedForHero,
     engagedHeroIds: engagedHeroIds,
     consumeObject: consumeObject,
+    combatModuleActive: combatModuleActive,
   };
+  // Le MODULE de combat de la partie active est-il réellement en cours ? (combat
+  // démarré et non terminé). Faux sur les pages d'aventure de type Combat — qui
+  // n'affichent que la disposition — tant que « Lancer le combat » n'a pas été cliqué.
+  function combatModuleActive() {
+    if (!activeSession) return false;
+    const c = Store.state.combat;
+    const sc = Store.state.sessionCombat;
+    return !!(c && !c.finished && !c.outcome && sc && sc.sessionId === activeSession.id);
+  }
   // Consomme (retire) 1 exemplaire d'un objet de l'inventaire d'un aventurier de la
   // partie active. Si l'aventurier n'en possède plus, l'objet est déséquipé.
   // Ajoute `q` exemplaires d'un objet à l'inventaire d'un aventurier, en plafonnant
