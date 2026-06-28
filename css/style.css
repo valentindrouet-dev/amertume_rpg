@@ -1355,6 +1355,8 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   background: #e76f39; color: #fff; font-size: .66rem; font-weight: 800;
   padding: .12rem .45rem; border-radius: 6px; letter-spacing: .03em;
 }
+/* Ciblage d'un objet : on « choisit » une cible (pas « frapper »). */
+.combat-card.targetable.tgt-choisir::before { content: '✋ Choisir'; background: #5fa45f; }
 
 /* ---- Inventaire : couleurs par catégorie + petits blocs carrés ---- */
 #item-list.roster-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .55rem; }
@@ -1987,6 +1989,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .fx-center-coma { color: #e0563f; font-size: clamp(1.6rem, 4.5vw, 2.7rem); }
 .fx-center-foe  { color: #e8b04a; font-size: clamp(1.8rem, 5vw, 3rem); letter-spacing: .02em; }
 .fx-center-turn { color: rgba(200,180,140,.85); font-size: clamp(1.4rem, 4vw, 2.2rem); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.fx-center-react { color: #b07cf0; font-size: clamp(2.2rem, 7vw, 3.8rem); letter-spacing: .04em; text-shadow: 0 2px 10px rgba(124,58,201,.6); }
 @keyframes fx-center-anim {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
   12%  { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
@@ -2764,6 +2767,12 @@ body.mode-player #item-list.roster-list { display: block; }
 }
 .ab-atk.ab-atk-react:hover:not(:disabled) { filter: brightness(1.08); }
 .ab-atk.ab-atk-react.ab-react-off { background: rgba(150,100,200,.28); opacity: .6; cursor: not-allowed; }
+/* Réaction en attente : clignotement fort en violet pour attirer l'œil. */
+.ab-atk.ab-atk-react.ab-react-blink { animation: react-blink .6s ease-in-out infinite; }
+@keyframes react-blink {
+  0%,100% { background: rgba(150,100,200,.85); box-shadow: 0 0 0 2px rgba(176,124,240,.5); }
+  50%     { background: #7c3ac9; box-shadow: 0 0 14px 4px rgba(176,124,240,.95); }
+}
 .lreact { color: #c79bec; font-weight: 700; }
 
 /* ====== Éditeur de talents : effet + variable + type ====== */

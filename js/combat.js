@@ -21,6 +21,8 @@
   let moveAsAction = false;   // le déplacement en cours consomme l'ACTION (talent « Course ») au lieu du mouvement
   let arrivalTargetIid = null; // adversaire précis visé par les effets d'arrivée (clic sur sa carte)
   let pendingObject = null;   // iid de l'aventurier consommant son objet (choisit une cible)
+  let pendingReaction = null; // iid de l'aventurier dont une Réaction interrompt le tour des adversaires
+  let aiResume = null;        // reprise de la séquence adverse en pause (Réaction)
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
@@ -436,7 +438,9 @@
     });
     const pref = arrivalTargetIid ? foes.find(function (m) { return m.iid === arrivalTargetIid; }) : null;
     if (pref) { return [pref].concat(foes.filter(function (m) { return m.iid !== pref.iid; })); }
-    return foes;
+    // Auto-ciblage : on évite de gâcher l'effet sur une cible avec Blindage actif
+    // (sinon il serait absorbé). Les cibles sans Blindage passent en premier.
+    return foes.slice().sort(function (a, b) { return (hasBlindage(a) ? 1 : 0) - (hasBlindage(b) ? 1 : 0); });
   }
 
   function chargeOnEnter(c) {
@@ -711,6 +715,23 @@
       });
     }
     checkComa(target);
+    // RIPOSTE (adversaire) : un adversaire attaqué par un aventurier riposte
+    // systématiquement (1 fois par tour), s'il est encore en vie.
+    maybeMonsterCounter(target, attacker);
+  }
+
+  // Un adversaire doté de RIPOSTE contre-attaque l'aventurier qui l'a frappé.
+  function maybeMonsterCounter(target, attacker) {
+    if (!target || !attacker) return;
+    if (target.side !== 'monster' || attacker.side !== 'hero') return;
+    if (target.status !== 'active' || attacker.status !== 'active') return;
+    if (target.counterUsed) return;
+    if (!monsterTalent(target, 'counter_attack')) return;
+    const wi = firstWeaponIdx(target);
+    if (wi < 0) return;
+    target.counterUsed = true;
+    log(cname(target) + ' <span class="lreact">riposte</span> !', 'state');
+    resolveAttack(target, attacker, target.attacks[wi]);
   }
 
   function hasEffect(atk) {
@@ -940,6 +961,7 @@
     combat().combatants.forEach(function (c) {
       c.used = { action: false, move: false, object: false };
       c.freeMoves = 0; c.rebondUsed = false; // REBOND : compteurs remis à zéro chaque tour
+      c.counterUsed = false; // RIPOSTE (adversaire) : 1 fois par tour
       // Les usages d'attaque sont « par tour » : on les réarme à chaque tour
       c.attackUses = initUses(c.attacks);
     });
@@ -1076,9 +1098,35 @@
       Store.save();
       render(); // joue les animations de cette activation
       if (combat().outcome) { finish(); return; }
+      // RÉACTION : si un aventurier peut riposter suite à cette attaque, on met la
+      // séquence en pause et on attend son choix (déclencher / Reprendre le Tour).
+      const reactor = pendingHeroReactor();
+      if (reactor) {
+        pendingReaction = reactor.iid;
+        selectedIid = reactor.iid;
+        centerText('RÉACTION !', 'fx-center-react');
+        aiResume = step; // reprise depuis l'adversaire suivant
+        Store.save(); render();
+        return;
+      }
       aiTimer = setTimeout(step, AI_STEP_MS);
     }
     step();
+  }
+
+  // Aventurier actif disposant d'une Réaction prête (Riposte non encore utilisée ce tour).
+  function pendingHeroReactor() {
+    return activeOf('hero').find(function (h) {
+      return heroHasTalent(h, 'contre_attaque') && h.tookDamage && byId(h.lastAttacker) &&
+        !(h.reactUsed && h.reactUsed.contre_attaque);
+    }) || null;
+  }
+  // Reprend la séquence adverse mise en pause par une Réaction.
+  function resumeMonsterTurn() {
+    pendingReaction = null;
+    const resume = aiResume; aiResume = null;
+    if (resume) { aiTimer = setTimeout(resume, 200); }
+    else { Store.save(); render(); }
   }
 
 
@@ -1842,6 +1890,9 @@
           (!c.outcome && c.phase === 'heroes'
             ? '<button id="cb-enemy-turn" class="small enemy-turn-btn' + (allHeroesActed ? ' all-acted' : '') + '">Tour des Adversaires →</button>'
             : '') +
+          (pendingReaction
+            ? '<button id="cb-resume" class="small enemy-turn-btn all-acted">Reprendre le Tour →</button>'
+            : '') +
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
@@ -1902,6 +1953,13 @@
     if (cst) cst.addEventListener('click', startTurnFromPretour);
     const cet = root.querySelector('#cb-enemy-turn');
     if (cet) cet.addEventListener('click', enemyTurnAndAdvance);
+    const cre = root.querySelector('#cb-resume');
+    if (cre) cre.addEventListener('click', function () {
+      // Décline la réaction : on efface le déclencheur puis on reprend la séquence.
+      const rh = byId(pendingReaction);
+      if (rh) { rh.tookDamage = false; rh.lastAttacker = null; }
+      resumeMonsterTurn();
+    });
     const ct = root.querySelector('#cancel-target');
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
     const cm = root.querySelector('#cancel-move');
@@ -2014,7 +2072,8 @@
       const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
       if (ai >= 0) return abAttackBtn(c, atks[ai], ai, canAct);
       const r = reactions.find(function (x) { return x.t.id === t.id; });
-      if (r) return reactionBtn(c, r.t, r.ready && canAct);
+      // Réaction cliquable en phase héros OU pendant une interruption de Réaction.
+      if (r) return reactionBtn(c, r.t, r.ready && (canAct || pendingReaction === c.iid));
       return '<button class="ab-talent ab-talent-named ab-talent-kind-' + t.kind + '" type="button" disabled ' +
         'title="' + esc(t.name) + '">' + esc(t.name) + '</button>';
     });
@@ -2026,6 +2085,8 @@
     if (!box) return;
     const cmb = combat();
     let sel = selectedIid ? byId(selectedIid) : null;
+    // RÉACTION en cours : on force la fiche de l'aventurier qui doit réagir.
+    if (pendingReaction) { const rh = byId(pendingReaction); if (rh) { sel = rh; selectedIid = rh.iid; } }
     // Auto-sélection : en phase héros ou Pré-Tour, défaut = 1er aventurier actif.
     // En Pré-Tour, on privilégie un aventurier ayant encore un talent à jouer.
     if ((!sel || sel.status !== 'active') && (cmb.phase === 'heroes' || cmb.phase === 'pretour') && !cmb.outcome) {
@@ -2243,7 +2304,8 @@
     reanimation: 'Disponible si un allié est au coma dans une zone où un adversaire est mort.',
   };
   function reactionBtn(c, t, ready) {
-    return '<button class="ab-atk ab-atk-react' + (ready ? '' : ' ab-react-off') + '" type="button"' +
+    const blink = ready && pendingReaction === c.iid ? ' ab-react-blink' : '';
+    return '<button class="ab-atk ab-atk-react' + (ready ? '' : ' ab-react-off') + blink + '" type="button"' +
       ' data-iid="' + c.iid + '" data-react="' + esc(t.effect) + '"' + (ready ? '' : ' disabled') +
       ' title="' + esc(t.name + ' — ' + (REACT_HINT[t.effect] || '')) + '">' +
       '<span class="ab-atk-talname">' + esc(t.name) + '</span>' +
@@ -2277,6 +2339,9 @@
       c.reactUsed.reanimation = true;
     }
     checkOutcome(); Store.save(); render();
+    // Si cette réaction interrompait le tour des adversaires, on le reprend
+    // (la séquence reprise détectera elle-même une éventuelle fin de combat).
+    if (pendingReaction === c.iid) resumeMonsterTurn();
   }
 
   function abAttackBtn(c, a, i, canAct) {
@@ -2381,7 +2446,7 @@
       const ouser = byId(pendingObject);
       if (ouser && ouser.objectItem) {
         const wantSide = ouser.objectItem.objBenefic ? 'hero' : 'monster';
-        if (c.side === wantSide) cls.push('targetable');
+        if (c.side === wantSide) cls.push('targetable', 'tgt-choisir');
       }
     }
     // PROIE : l'aventurier désigné ce tour.
@@ -2700,6 +2765,16 @@
         if (c.used.move) return;
         pendingMove = (pendingMove === c.iid) ? null : c.iid;
         pendingAttack = null; pendingAnalyze = null; render();
+      });
+    }
+    // RÉACTION en pause : le bouton de réaction de l'aventurier concerné est cliquable
+    // même pendant le tour des adversaires.
+    if (pendingReaction === c.iid && c.status === 'active' && !combat().outcome) {
+      root.querySelectorAll('.ab-atk-react[data-iid="' + c.iid + '"]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (b.disabled) return;
+          execHeroReaction(c, b.getAttribute('data-react'));
+        });
       });
     }
     if (combat().phase === 'heroes' && c.side === 'hero' && c.status === 'active' && !combat().outcome) {

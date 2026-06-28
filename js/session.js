@@ -1578,7 +1578,8 @@
   // Consomme (retire) 1 exemplaire d'un objet de l'inventaire d'un aventurier de la
   // partie active. Si l'aventurier n'en possède plus, l'objet est déséquipé.
   function consumeObject(heroId, itemId) {
-    load();
+    // NE PAS recharger (load() remplacerait `sessions` et détacherait activeSession,
+    // faisant perdre la mutation au save()). On mute la session vivante.
     const ses = activeSession || sessions.find(function (s) { return s.status === 'active'; });
     if (!ses) return; // hors session (combat de test) : rien à retirer
     if (!ses.heroOwned) ses.heroOwned = {};

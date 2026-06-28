@@ -521,6 +521,7 @@
     { id: 'blindage', name: 'BLINDAGE', trigger: 'armor_charges',      defaultVal: 1,  desc: 'Ignore X prochaine(s) source(s) de dégâts avant de perdre Blindage.' },
     { id: 'proie',    name: 'PROIE',    trigger: 'mark_target_dice',   defaultVal: 1,  desc: 'Désigne un aventurier au début de chaque tour (selon le critère choisi) ; tous les adversaires ajoutent X dé(s) de la couleur choisie contre lui.' },
     { id: 'happe',    name: 'HAPPE',    trigger: 'pull_to_zone',       defaultVal: 0,  desc: 'Avant d\'attaquer, déplace de force un aventurier d\'une autre zone dans sa zone.' },
+    { id: 'riposte',  name: 'RIPOSTE',  trigger: 'counter_attack',     defaultVal: 0,  desc: 'Riposte d\'une attaque contre tout aventurier qui l\'attaque (1 fois par tour).' },
   ];
   function loadMonsterTalents() {
     let arr = null;
