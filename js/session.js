@@ -659,7 +659,7 @@
       function statRow(stat, label, cur, hint) {
         return '<div class="lvl-stat-row hw-stat-row2 hw-stat-row2--' + stat + '" data-idx="' + idx + '" data-stat="' + stat + '">' +
           '<span class="hw-stat-label2">' + label +
-            ' <span class="lvl-stat-cur">actuel : ' + cur + '</span>' +
+            ' <span class="lvl-stat-cur">' + cur + '</span>' +
             ' <small>(' + hint + ')</small></span>' +
           '<span class="lvl-stat-pick-icon">○</span>' +
         '</div>';
