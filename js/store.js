@@ -345,6 +345,8 @@
       desc: 'Inflige vos propres dés de dégâts à X adversaires d\'une même zone (au contact ou à distance).' },
     { effect: 'assaut_mobile', name: 'Assaut Mobile', kind: 'action', hasVal: false,
       desc: 'Vous effectuez 1 mouvement et 1 attaque (une seule action ; le mouvement est gratuit).' },
+    { effect: 'rebond', name: 'Rebond', kind: 'action', hasVal: false,
+      desc: 'Vous gagnez 2 mouvements gratuits ce tour (à utiliser comme vous voulez), puis vous pouvez attaquer.' },
     { effect: 'soin_fixe', name: 'Premiers Soins', kind: 'action', hasVal: true, defaultVal: 3, valLabel: 'PV rendus',
       desc: 'Action : vous récupérez X PV.' },
     { effect: 'soin_endu', name: 'Second Souffle', kind: 'action', hasVal: true, defaultVal: 1, valLabel: 'PV bonus',

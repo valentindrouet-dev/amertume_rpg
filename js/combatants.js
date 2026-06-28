@@ -375,6 +375,9 @@
         case 'action_mouvement':
           // Action pure de déplacement : pas d'attaque, juste un mouvement.
           return Object.assign(common, { moveAction: true, targets: 'self', useOwnDamage: false });
+        case 'rebond':
+          // Octroie 2 mouvements gratuits ; n'utilise pas l'action (l'attaque suivra).
+          return Object.assign(common, { rebondAction: true, freeAction: true, targets: 'self', useOwnDamage: false });
         case 'soin_fixe':
         case 'soin_endu':
         case 'soin_des':

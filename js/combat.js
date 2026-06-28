@@ -107,6 +107,7 @@
       talents: talents,                 // talents résolus (kind/effect/val) pour le moteur
       reactUsed: {},                    // réactions déjà déclenchées dans le tour courant
       freeMoveReady: hasTalent('pas_leger'), // PAS LÉGER : mouvement gratuit dispo dès le 1er tour
+      freeMoves: 0,                     // REBOND : compteur de mouvements gratuits supplémentaires
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 },
       used: { action: false, move: false, object: false },
       zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
@@ -472,7 +473,7 @@
     const asAction = moveAsAction; moveAsAction = false;
     if (!c || c.status !== 'active') { pendingMove = null; arrivalTargetIid = null; render(); return; }
     if (asAction) { if (c.used.action) { pendingMove = null; arrivalTargetIid = null; render(); return; } }
-    else if (c.used.move && !c.freeMoveReady) { pendingMove = null; arrivalTargetIid = null; render(); return; }
+    else if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0)) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     // POISON X : inflige X dégâts avant de se déplacer
     applyPoison(c);
@@ -482,6 +483,9 @@
     if (asAction) {
       // COURSE (action) : le déplacement coûte l'action, pas le mouvement.
       c.used.action = true; c.used.move = prevMove;
+    } else if (c.freeMoves > 0) {
+      // REBOND : consomme d'abord un mouvement gratuit ; le mouvement normal reste dispo.
+      c.freeMoves -= 1; c.used.move = prevMove;
     } else if (c.freeMoveReady) {
       // PAS LÉGER : ce déplacement consomme d'abord le mouvement gratuit ; le
       // mouvement normal reste alors disponible.
@@ -927,6 +931,7 @@
   function resetActivations() {
     combat().combatants.forEach(function (c) {
       c.used = { action: false, move: false, object: false };
+      c.freeMoves = 0; c.rebondUsed = false; // REBOND : compteurs remis à zéro chaque tour
       // Les usages d'attaque sont « par tour » : on les réarme à chaque tour
       c.attackUses = initUses(c.attacks);
     });
@@ -2295,16 +2300,17 @@
     const usedMv = c.used.move;
     const multi = zoneCount() > 1;
     const isAuSol = !!(c.states && c.states.auSol);
+    // Un mouvement gratuit est disponible si Pas Léger (freeMoveReady) ou Rebond (freeMoves > 0).
+    const hasFreeMove = c.freeMoveReady || c.freeMoves > 0;
     // Pendant le Pré-Tour, seul le mouvement gratuit est disponible.
-    const canMove = canAct || (canPretour && c.freeMoveReady && !usedMv);
+    const canMove = canAct || (canPretour && hasFreeMove && !usedMv);
     // AU SOL : le bouton mouvement est remplacé par « Se relever » (consomme le mouvement)
     const moveBtn = isAuSol
       ? '<button class="ab-tool standup-chip do-standup" type="button" data-iid="' + c.iid + '"' +
           ((!canAct || usedMv) ? ' disabled' : '') + ' title="Utilise votre mouvement pour vous relever (retire AU SOL)">Se relever</button>'
       : '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
-          ' data-iid="' + c.iid + '"' + ((!canMove || !multi || (usedMv && !c.freeMoveReady)) ? ' disabled' : '') +
-          ' title="' + (c.freeMoveReady ? 'Mouvement gratuit (Pas Léger) disponible' : 'Changer de zone') + '">Mouv.' +
-          (c.freeMoveReady ? ' <span class="free-move-dot" title="Mouvement gratuit">✦</span>' : '') + '</button>';
+          ' data-iid="' + c.iid + '"' + ((!canMove || !multi || (usedMv && !hasFreeMove)) ? ' disabled' : '') +
+          ' title="' + (hasFreeMove ? 'Mouvement gratuit disponible' : 'Changer de zone') + '">Mouv.</button>';
     return '<div class="ab-tools">' +
       moveBtn +
       '<button class="ab-tool obj-chip do-object" type="button" data-iid="' + c.iid + '"' +
@@ -2656,6 +2662,14 @@
             pendingMove = (pendingMove === c.iid) ? null : c.iid;
             pendingAttack = null; pendingAnalyze = null; render(); return;
           }
+          // REBOND : octroie 2 mouvements gratuits ce tour, puis on attaque normalement.
+          if (atk.rebondAction) {
+            if (c.rebondUsed) return; // déjà activé ce tour
+            c.rebondUsed = true; c.freeMoves = 2;
+            log(cname(c) + ' utilise <span class="lstate">' + esc(atk.name) + '</span> : 2 mouvements gratuits.', 'state');
+            pendingAttack = null; pendingAnalyze = null; pendingMove = null;
+            Store.save(); render(); return;
+          }
           if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average) {
             pendingAttack = null; render(); return; // re-clic = annuler
           }
@@ -2702,7 +2716,7 @@
       // Mouvement : arme le déplacement, puis on clique la zone de destination
       const mv = root.querySelector('.do-move[data-iid="' + c.iid + '"]');
       if (mv) mv.addEventListener('click', function () {
-        if (c.used.move && !c.freeMoveReady) return;
+        if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0)) return;
         pendingMove = (pendingMove === c.iid) ? null : c.iid;
         pendingAttack = null; pendingAnalyze = null; render();
       });

@@ -2874,8 +2874,6 @@ body.mode-player #item-list.roster-list { display: block; }
 .tl-badge.tl-kind-mastery  { background: rgba(214,175,70,.16);  color: #f0dcab; border-color: rgba(214,175,70,.4); }
 .tal-row.tal-kind-mastery  .inv-strip { border-left-color: #d4af37; }
 .tl-eff-row:has(.tl-eff-kind .tl-kind-mastery) { border-left-color: #d4af37; }
-/* Pastille « mouvement gratuit » (Pas Léger) sur le bouton Mouv. */
-.free-move-dot { color: #5ee0e0; font-weight: 700; }
 
 /* ----- Assistant de création : choix des talents de niveau 1 (strip design) ----- */
 .hw-tal-list { display: flex; flex-direction: column; gap: .3rem; }
