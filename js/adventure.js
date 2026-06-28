@@ -740,21 +740,50 @@
     };
   }
 
+  // Type d'un objet (pour le filtre des récompenses) : arme / arme à distance / armure / objet.
+  const REWARD_TYPES = [
+    { key: 'weapon', label: 'Arme' },
+    { key: 'ranged', label: 'Arme à distance' },
+    { key: 'armor',  label: 'Armure' },
+    { key: 'object', label: 'Objet' },
+  ];
+  function itemRewardType(it) {
+    if (!it) return 'weapon';
+    if (it.category === 'weapon') return it.ranged ? 'ranged' : 'weapon';
+    if (it.category === 'armor') return 'armor';
+    return 'object';
+  }
+  function itemsOfType(items, type) {
+    return items.filter(function (it) { return itemRewardType(it) === type; });
+  }
+
   function renderItemRewards(scene, items) {
     const box = document.getElementById('sm-item-rewards');
-    const weapons = items.filter(function (i) { return i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc'; });
     box.innerHTML = (scene.itemRewards || []).map(function (ref, i) {
-      const opts = weapons.map(function (it) {
+      const cur = ref.itemId ? items.find(function (x) { return x.id === ref.itemId; }) : null;
+      const type = ref.type || (cur ? itemRewardType(cur) : 'weapon');
+      const typeOpts = REWARD_TYPES.map(function (t) {
+        return '<option value="' + t.key + '"' + (t.key === type ? ' selected' : '') + '>' + esc(t.label) + '</option>';
+      }).join('');
+      const itemOpts = itemsOfType(items, type).map(function (it) {
         return '<option value="' + it.id + '"' + (it.id === ref.itemId ? ' selected' : '') + '>' + esc(it.name) + '</option>';
       }).join('');
       return '<div class="adv-ref-row">' +
-        '<select class="ir-item"><option value="">(choisir)</option>' + opts + '</select>' +
+        '<select class="ir-type">' + typeOpts + '</select>' +
+        '<select class="ir-item"><option value="">(choisir)</option>' + itemOpts + '</select>' +
         '<input type="number" class="ir-qty" value="' + (ref.qty || 1) + '" min="1" style="width:55px" />' +
         '<button type="button" class="icon-btn ir-del">✕</button>' +
       '</div>';
     }).join('') +
     '<button type="button" class="ghost small" id="sm-add-ir">+ Objet</button>';
 
+    box.querySelectorAll('.ir-type').forEach(function (sel, i) {
+      sel.onchange = function () {
+        scene.itemRewards[i].type = this.value;
+        scene.itemRewards[i].itemId = ''; // change de type → réinitialise l'objet choisi
+        renderItemRewards(scene, Store.state.items);
+      };
+    });
     box.querySelectorAll('.ir-item').forEach(function (sel, i) {
       sel.onchange = function () { scene.itemRewards[i].itemId = this.value; };
     });
@@ -766,7 +795,7 @@
     });
     const addBtn = document.getElementById('sm-add-ir');
     if (addBtn) addBtn.onclick = function () {
-      scene.itemRewards.push({ itemId: '', qty: 1 });
+      scene.itemRewards.push({ itemId: '', qty: 1, type: 'weapon' });
       renderItemRewards(scene, Store.state.items);
     };
   }

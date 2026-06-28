@@ -2830,6 +2830,17 @@ body.mode-player #item-list.roster-list { display: block; }
 .tal-col-hdr.klass-adversaire { color: #e0896b; border-bottom-color: rgba(200,90,60,.5); }
 .tal-col-body { display: flex; flex-direction: column; gap: .35rem; }
 .tal-lvl { font-size: .68rem; color: #6a563a; white-space: nowrap; }
+.tal-prereq { font-size: .66rem; color: #7a5c12; background: rgba(212,175,90,.18); border: 1px solid rgba(212,175,90,.5);
+  border-radius: 8px; padding: 0 .35rem; margin-left: .4rem; white-space: nowrap; }
+
+/* Fenêtre de répartition des récompenses (design Objets de l'inventaire) */
+.reward-picker { display: flex; align-items: center; justify-content: center; }
+.reward-picker .rp-list { display: flex; flex-direction: column; gap: .6rem; margin: .6rem 0; padding: 0 1.1rem; }
+.reward-picker .modal-actions { padding: 0 1.1rem 1rem; }
+.reward-picker .rp-line { display: flex; align-items: center; gap: .6rem; }
+.reward-picker .rp-line .inv-strip-row { flex: 1; align-items: center; }
+.reward-picker .rp-qty { font-weight: 700; color: var(--accent-2); }
+.reward-picker .rp-hero { min-width: 9rem; }
 .tal-strip { cursor: pointer; }
 .tal-strip .inv-strip-val { gap: .35rem; }
 /* Couleur de languette par type d'effet */

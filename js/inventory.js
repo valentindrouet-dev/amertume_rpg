@@ -472,6 +472,7 @@
     $('#f-obj-benefic').value = isEdit ? (item.objBenefic === false ? '0' : '1') : '1';
     $('#f-obj-dice').value = isEdit && typeof item.objDice === 'number' ? item.objDice : 2;
     $('#f-obj-price').value = isEdit ? (item.price || 0) : 0;
+    $('#f-obj-summary').value = isEdit ? (item.effects || '') : '';
     weaponDicePool = isEdit ? Object.assign(D.emptyPool(), item.dice) : D.emptyPool();
     buildDiceSteppers($('#weapon-dice'), weaponDicePool);
     $('#btn-delete-item').hidden = !isEdit;
@@ -523,8 +524,10 @@
       data.objEffect = $('#f-obj-effect').value;
       data.objBenefic = $('#f-obj-benefic').value === '1';
       data.objDice = Math.max(0, parseInt($('#f-obj-dice').value, 10) || 0);
-      // Description lisible auto si l'effet est un soin et le champ Effets est vide.
-      if (!data.effects && data.objEffect === 'heal' && data.objDice > 0) {
+      // Résumé d'effet rédigé par le MJ (prioritaire) ; sinon auto si soin.
+      const summary = ($('#f-obj-summary').value || '').trim();
+      if (summary) data.effects = summary;
+      else if (data.objEffect === 'heal' && data.objDice > 0) {
         data.effects = 'Soigne ' + (data.objBenefic ? 'un aventurier' : 'une cible') + ' de ' + data.objDice + 'd6 PV.';
       }
     }

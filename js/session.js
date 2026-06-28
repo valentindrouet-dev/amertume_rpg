@@ -624,7 +624,10 @@
         cls = c.talents.filter(function (t) { return t.id && (t.level || 1) <= newLevel; });
       }
     } catch (e) {}
-    return gens.concat(cls).filter(function (t) { return taken.indexOf(t.id) < 0; });
+    // Arborescence : un talent prérequis doit être déjà acquis pour débloquer celui-ci.
+    return gens.concat(cls).filter(function (t) {
+      return taken.indexOf(t.id) < 0 && (!t.prereq || taken.indexOf(t.prereq) >= 0);
+    });
   }
 
   function renderLevelUp(root, ses, adv, newLevel) {
@@ -635,16 +638,17 @@
     function heroBlock(h, idx) {
       // Sépare les talents génériques et de classe pour l'affichage en deux sections.
       const taken = heroGains(ses, h.id).talents;
-      const genTalents = Store.loadGenericTalents().filter(function (t) {
-        return (t.level || 1) <= newLevel && taken.indexOf(t.id) < 0;
-      });
+      // Arborescence : prérequis doit être acquis ; talent non encore pris.
+      const okTalent = function (t) {
+        return t.id && (t.level || 1) <= newLevel && taken.indexOf(t.id) < 0 &&
+          (!t.prereq || taken.indexOf(t.prereq) >= 0);
+      };
+      const genTalents = Store.loadGenericTalents().filter(okTalent);
       var clsTalents = [];
       try {
         var cls = Store.loadClasses().find(function (x) { return x.name === h.klass; });
         if (cls && Array.isArray(cls.talents)) {
-          clsTalents = cls.talents.filter(function (t) {
-            return t.id && (t.level || 1) <= newLevel && taken.indexOf(t.id) < 0;
-          });
+          clsTalents = cls.talents.filter(okTalent);
         }
       } catch (e) {}
 
@@ -915,34 +919,80 @@
 
     const claimBtn = sec.querySelector('#ses-claim-reward');
     if (claimBtn) claimBtn.addEventListener('click', function () {
-      // XP attribuée uniquement à la session (jamais à l'XP du mode Admin)
-      if (xp > 0) { ses.party.xp = (ses.party.xp || 0) + xp; }
-      // Ajouter les objets à l'inventaire, en mémorisant ce qui a été acquis durant l'aventure
-      if (!ses.acquiredItems) ses.acquiredItems = {};
-      if (!ses.heroOwned) ses.heroOwned = {};
-      const recipient = (ses.heroIds && ses.heroIds[0]) || null; // récompense attribuée au 1er aventurier
-      (scene.itemRewards || []).forEach(function (r) {
-        if (!r.itemId) return;
-        const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-        if (it) {
-          const q = r.qty || 1;
-          it.qty = (it.qty || 0) + q;
-          ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
-          // Attribue l'objet à l'inventaire d'un aventurier pour qu'il soit équipable.
-          if (recipient) {
-            if (!ses.heroOwned[recipient]) ses.heroOwned[recipient] = {};
-            ses.heroOwned[recipient][r.itemId] = (Number(ses.heroOwned[recipient][r.itemId]) || 0) + q;
-          }
-        }
+      const lines = (scene.itemRewards || []).filter(function (r) { return r.itemId; });
+      const heroes = engagedHeroes(ses);
+      // Plusieurs aventuriers + au moins un objet → fenêtre de répartition.
+      if (lines.length && heroes.length > 1) {
+        showRewardPicker(ses, scene, function (assign) { commitRewards(ses, scene, adv, assign); });
+      } else {
+        commitRewards(ses, scene, adv, null); // 1 seul aventurier (ou aucun objet)
+      }
+    });
+  }
+
+  // Applique les récompenses (XP + objets) ; assign = { lineKey: heroId } ou null.
+  function commitRewards(ses, scene, adv, assign) {
+    const xp = scene.xpReward || 0;
+    if (xp > 0) { ses.party.xp = (ses.party.xp || 0) + xp; }
+    if (!ses.acquiredItems) ses.acquiredItems = {};
+    if (!ses.heroOwned) ses.heroOwned = {};
+    const fallback = (ses.heroIds && ses.heroIds[0]) || null;
+    (scene.itemRewards || []).forEach(function (r, idx) {
+      if (!r.itemId) return;
+      const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
+      if (!it) return;
+      const q = r.qty || 1;
+      it.qty = (it.qty || 0) + q;
+      ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
+      const recipient = (assign && assign[idx]) || fallback;
+      if (recipient) {
+        if (!ses.heroOwned[recipient]) ses.heroOwned[recipient] = {};
+        ses.heroOwned[recipient][r.itemId] = (Number(ses.heroOwned[recipient][r.itemId]) || 0) + q;
+      }
+    });
+    if (!ses.claimedRewards) ses.claimedRewards = {};
+    ses.claimedRewards[scene.id] = true;
+    save();
+    Store.save();
+    const hasOther = sceneHasCombat(scene) || (scene.choices && scene.choices.length);
+    if (!hasOther && scene.nextSceneId) navigateTo(ses, adv, scene.nextSceneId);
+    else { renderSceneActions(scene, adv, ses); if (global.Combatants) { try { Combatants.renderProgress(); } catch (e) {} } }
+  }
+
+  // Fenêtre de répartition : pour chaque objet reçu, choisir l'aventurier destinataire.
+  function showRewardPicker(ses, scene, onConfirm) {
+    const heroes = engagedHeroes(ses);
+    const lines = (scene.itemRewards || []).filter(function (r) { return r.itemId; });
+    const overlay = document.createElement('div');
+    overlay.className = 'modal reward-picker';
+    const heroOpts = heroes.map(function (h) { return '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>'; }).join('');
+    const rowsHtml = lines.map(function (r, idx) {
+      const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
+      const strip = (it && global.Inventory && Inventory.itemStripHtml) ? Inventory.itemStripHtml(it) :
+        '<span class="inv-strip-name">' + esc(it ? it.name : '?') + '</span>';
+      const realIdx = (scene.itemRewards || []).indexOf(r);
+      return '<div class="rp-line">' +
+        '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
+          '<div class="inv-strip">' + strip + '</div>' +
+          (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '') +
+        '</div>' +
+        '<select class="rp-hero" data-idx="' + realIdx + '">' + heroOpts + '</select>' +
+      '</div>';
+    }).join('');
+    overlay.innerHTML =
+      '<div class="modal-box">' +
+        '<div class="modal-head"><h2>À qui donner ces objets ?</h2></div>' +
+        '<div class="rp-list">' + rowsHtml + '</div>' +
+        '<div class="modal-actions"><button type="button" class="primary rp-confirm">Valider</button></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('.rp-confirm').addEventListener('click', function () {
+      const assign = {};
+      overlay.querySelectorAll('.rp-hero').forEach(function (sel) {
+        assign[parseInt(sel.getAttribute('data-idx'), 10)] = sel.value;
       });
-      ses.claimedRewards[scene.id] = true;
-      save();
-      Store.save();
-      // S'enchaîne vers la suite seulement si la scène n'a ni combat ni choix
-      // (sinon on laisse le joueur poursuivre ces autres fonctions de la scène).
-      const hasOther = sceneHasCombat(scene) || (scene.choices && scene.choices.length);
-      if (!hasOther && scene.nextSceneId) navigateTo(ses, adv, scene.nextSceneId);
-      else { renderSceneActions(scene, adv, ses); if (global.Combatants) { try { Combatants.renderProgress(); } catch (e) {} } }
+      document.body.removeChild(overlay);
+      onConfirm(assign);
     });
   }
 

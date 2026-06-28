@@ -158,15 +158,26 @@
   }
 
   // Languette d'un talent (design Armurerie), colorée par type d'effet
+  // Nom d'un talent (tous groupes) à partir de son id.
+  function talentNameById(id) {
+    if (!id) return '';
+    let found = '';
+    groups().forEach(function (g) {
+      (g.list || []).forEach(function (t) { if (t.id === id) found = t.name || ''; });
+    });
+    return found;
+  }
   function talentStrip(t, ref) {
     const kind = t.kind || (t.effect && effectMap()[t.effect] ? effectMap()[t.effect].kind : '');
     const right =
       (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT[kind] || kind) + '</span>' : '<span class="tl-kind tl-kind-none">Descriptif</span>') +
       '<span class="tal-lvl">Niv. ' + (t.level || 1) + '</span>';
+    const prereqName = t.prereq ? talentNameById(t.prereq) : '';
+    const prereqChip = prereqName ? '<span class="tal-prereq" title="Nécessite ce talent">↳ ' + esc(prereqName) + '</span>' : '';
     return '<div class="tal-row-wrap">' +
       '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + '">' +
         '<div class="inv-strip tal-strip" data-desc-toggle="1" title="Voir le descriptif">' +
-          '<span class="inv-strip-name">' + esc(t.name || '(sans nom)') + '</span>' +
+          '<span class="inv-strip-name">' + esc(t.name || '(sans nom)') + prereqChip + '</span>' +
           '<span class="inv-strip-val">' + right + '</span>' +
         '</div>' +
         '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
@@ -235,6 +246,22 @@
       return '<option value="' + esc(g.ref) + '"' + (g.ref === cur ? ' selected' : '') + '>' +
         esc(g.name.replace('★ ', '')) + '</option>';
     }).join('');
+  }
+
+  // Options de prérequis : tous les talents (génériques + classes), sauf celui édité.
+  // Regroupés par groupe pour s'y retrouver. `cur` = id prérequis sélectionné.
+  function prereqOptions(selfId, cur) {
+    let html = '<option value="">— Aucun —</option>';
+    groups().forEach(function (g) {
+      const list = (g.list || []).filter(function (t) { return t.id && t.id !== selfId; });
+      if (!list.length) return;
+      html += '<optgroup label="' + esc(g.name.replace('★ ', '')) + '">' +
+        list.map(function (t) {
+          return '<option value="' + esc(t.id) + '"' + (t.id === cur ? ' selected' : '') + '>' + esc(t.name || '(sans nom)') + '</option>';
+        }).join('') +
+      '</optgroup>';
+    });
+    return html;
   }
 
   function findTalent(ref, id) {
@@ -328,6 +355,8 @@
     $('#tl-f-group').innerHTML = groupOptions(ref || 'generic');
     $('#tl-f-level').value = t.level || 1;
     $('#tl-f-usage').value = t.usage || 'both';
+    const prereqSel = $('#tl-f-prereq');
+    if (prereqSel) prereqSel.innerHTML = prereqOptions(t.id, t.prereq || '');
     $('#tl-f-desc').value = t.description || '';
     $('#tl-f-delete').hidden = !existing;
     // Reconstruit les lignes d'effet à partir du talent (multi-effets ou ancien mono-effet)
@@ -373,6 +402,7 @@
       effect: first ? first.effect : '',
       kind: firstMeta ? firstMeta.kind : '',
       val: (first && typeof first.val === 'number') ? first.val : 0,
+      prereq: (($('#tl-f-prereq') && $('#tl-f-prereq').value) || '') || null,
       description: ($('#tl-f-desc').value || '').trim(),
     };
     // Retire l'ancienne occurrence (changement de groupe possible)
