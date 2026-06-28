@@ -499,7 +499,14 @@
 
   function renderNextButton(box, scene, adv, ses) {
     const sec = appendSection(box);
-    sec.innerHTML = '<button class="primary" id="ses-next">Continuer →</button>';
+    // Si la scène accorde des récompenses non encore prises, le bouton l'indique.
+    const claimed = ses.claimedRewards && ses.claimedRewards[scene.id];
+    const nbRewards = (scene.xpReward ? 1 : 0) + (scene.itemRewards || []).filter(function (r) { return r.itemId; }).length;
+    let label = 'Continuer →';
+    if (sceneHasReward(scene) && !claimed && nbRewards > 0) {
+      label = (nbRewards > 1 ? 'Prendre les Récompenses' : 'Prendre la Récompense') + ' et Continuer →';
+    }
+    sec.innerHTML = '<button class="primary" id="ses-next">' + label + '</button>';
     sec.querySelector('#ses-next').addEventListener('click', function () {
       navigateTo(ses, adv, scene.nextSceneId);
     });
@@ -1458,12 +1465,11 @@
             const desc = e.t.description || 'Aucune description.';
             // Version dépassée : grisée + flèche indiquant qu'une version supérieure existe.
             const sup = e.superseded;
-            const upgradeMark = e.depth > 0 ? '<span class="tpe-upgrade-arrow" title="Évolution de la version précédente">↑</span> ' : '';
+            const upgradeMark = e.depth > 0 ? '<span class="tpe-upgrade-arrow" title="Évolution de la version précédente">↳</span> ' : '';
             return '<div class="tpe-wrap' + (sup ? ' tpe-superseded' : '') + '">' +
               '<div class="tpe-row tpe-kind-' + (e.kind || 'none') + (checked ? ' selected' : '') + '">' +
                 '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + '>' +
-                '<span class="tpe-name" data-info="' + esc(e.id) + '" title="Voir le descriptif">' + upgradeMark + esc(e.t.name || '(sans nom)') +
-                  (sup ? '<span class="tpe-sup-tag" title="Une version supérieure est débloquée">↓ remplacé</span>' : '') + '</span>' +
+                '<span class="tpe-name" data-info="' + esc(e.id) + '" title="' + (sup ? 'Une version supérieure est débloquée' : 'Voir le descriptif') + '">' + upgradeMark + esc(e.t.name || '(sans nom)') + '</span>' +
                 '<span class="tpe-meta" data-info="' + esc(e.id) + '">' +
                   (e.kind ? '<span class="tl-kind tl-kind-' + e.kind + '">' + esc(KIND_SHORT(e.kind)) + '</span>' : '') +
                   '<span class="tpe-lvl">Niv. ' + (e.t.level || 1) + '</span>' +
