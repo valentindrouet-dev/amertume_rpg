@@ -145,24 +145,18 @@
   // Priorité de retrait : Armes avant Armures (boucliers) ; parmi les armes, celle
   // la plus basse dans la liste d'inventaire (mêlée puis distance).
   function ensureHandsFree(h, item, advId) {
-    const e = normEq(h);
     const need = Number(item.hands) === 2 ? 2 : 1;
-    if (2 - handsUsed(e) >= need) return;
-    const owned = (window.Session && Session.ownedForHero) ? Session.ownedForHero(advId, h.id) : {};
-    const mine = Store.state.items.filter(function (i) { return owned[i.id]; });
-    const weaponOrder = mine.filter(function (i) { return i.category === 'weapon' && !i.ranged; })
-      .concat(mine.filter(function (i) { return i.category === 'weapon' && i.ranged; }))
-      .map(function (i) { return i.id; });
-    const held = [];
-    if (e.mainD) held.push(byId(e.mainD));
-    if (e.mainG && e.mainG !== e.mainD) held.push(byId(e.mainG));
-    const candidates = held.filter(Boolean).filter(function (i) { return i.id !== item.id; }).sort(function (a, b) {
-      const aw = a.category === 'weapon' ? 0 : 1, bw = b.category === 'weapon' ? 0 : 1;
-      if (aw !== bw) return aw - bw;            // Armes d'abord
-      return weaponOrder.indexOf(b.id) - weaponOrder.indexOf(a.id); // plus bas de la liste d'abord
-    });
-    for (let k = 0; k < candidates.length && (2 - handsUsed(e)) < need; k++) {
-      unequipItem(h, candidates[k]);
+    // On libère slot par slot : main gauche d'abord (2e arme tenue), puis main droite.
+    // Important : on retire UN SEUL exemplaire à la fois — deux armes identiques ne
+    // doivent pas être déséquipées d'un coup (seule la 2ᵉ part).
+    let guard = 0;
+    while (2 - handsUsed(normEq(h)) < need && guard++ < 4) {
+      const e = normEq(h);
+      const slotId = e.mainG || e.mainD;
+      if (!slotId) break;
+      const held = byId(slotId);
+      if (!held || held.id === item.id) break;
+      unequipOneCopy(h, held);
     }
   }
 
@@ -199,6 +193,29 @@
     return e.objectId === item.id ? 1 : 0;
   }
 
+  // Un combat de session est-il en cours ? (interdit la modification d'équipement)
+  function combatActive() {
+    return !!(Store.state && Store.state.combat && Store.state.sessionCombat);
+  }
+  function snapshotEquip(h) {
+    const e = normEq(h);
+    return [e.mainD || '', e.mainG || '', e.armorId || '', e.objectId || '', e.twoH ? '1' : '0'].join('|');
+  }
+  // Vrai si la seule différence d'équipement concerne l'objet basculé (aucun autre déséquipé).
+  function onlyItemChanged(before, after, itemId) {
+    const b = before.split('|'), a = after.split('|');
+    for (let i = 0; i < 4; i++) {
+      if (b[i] === a[i]) continue;
+      if (b[i] !== '' && b[i] !== itemId) return false; // un autre objet a quitté un slot
+      if (a[i] !== '' && a[i] !== itemId) return false; // un autre objet a pris un slot
+    }
+    return true;
+  }
+  function updateHeroHeader(h) {
+    const sep = document.querySelector('#item-list .inv-hero-sep[data-hero="' + h.id + '"] .inv-hands');
+    if (sep) sep.textContent = '✋ ' + handsUsed(normEq(h)) + '/2 · 🛡 DEF ' + Combatants.heroDef(h);
+  }
+
   function renderPlayer(advId) {
     const list = $('#item-list');
     if (!list) return;
@@ -230,7 +247,8 @@
     // Les `filled` premières copies sont cochées (autant que de slots occupés) :
     // ainsi deux armes identiques peuvent être équipées indépendamment.
     const stripRows = function (h, e, owned, i) {
-      const qty = i.category === 'armor' ? 1 : (Number(owned[i.id]) || 1);
+      let qty = i.category === 'armor' ? 1 : (Number(owned[i.id]) || 1);
+      if (i.category === 'weapon') qty = Math.min(2, qty); // jamais plus de 2 armes identiques
       const filled = equippedCount(e, i);
       let out = '';
       for (let k = 0; k < qty; k++) out += singleStrip(h, i, k < filled);
@@ -255,7 +273,7 @@
     heroes.forEach(function (h) {
       const e = normEq(h);
       const hands = handsUsed(e);
-      html += '<div class="inv-hero-sep">' + escapeHtml(h.name) +
+      html += '<div class="inv-hero-sep" data-hero="' + h.id + '">' + escapeHtml(h.name) +
         (h.klass ? ' <span class="hint">' + escapeHtml(h.klass) + '</span>' : '') +
         ' <span class="inv-hands">✋ ' + hands + '/2 · 🛡 DEF ' + Combatants.heroDef(h) + '</span></div>';
       const owned = ownedOf(h.id);
@@ -276,16 +294,32 @@
 
     list.querySelectorAll('.inv-equip-cb').forEach(function (cb) {
       cb.addEventListener('change', function () {
+        // Pas de modification d'équipement pendant un combat.
+        if (combatActive()) {
+          alert('Vous ne pouvez pas modifier votre équipement pendant un combat.');
+          cb.checked = !cb.checked;
+          return;
+        }
         const h = Store.state.heroes.find(function (x) { return x.id === cb.getAttribute('data-hero'); });
         const item = byId(cb.getAttribute('data-item'));
         if (!h || !item) return;
+        const before = snapshotEquip(h);
         if (cb.checked) {
           if (isHandItem(item)) ensureHandsFree(h, item, advId);
           if (!equipItem(h, item)) { cb.checked = false; return; }
         } else unequipOneCopy(h, item);
         Store.save();
         document.dispatchEvent(new CustomEvent('equipment-changed'));
-        renderPlayer(advId);
+        const after = snapshotEquip(h);
+        // Mise à jour incrémentale (évite que la coche « saute » sur la 1ʳᵉ copie)
+        // tant qu'aucun AUTRE objet n'a été déséquipé automatiquement.
+        if (onlyItemChanged(before, after, item.id)) {
+          const row = cb.closest('.inv-strip-row');
+          if (row) row.classList.toggle('equipped', cb.checked);
+          updateHeroHeader(h);
+        } else {
+          renderPlayer(advId);
+        }
       });
     });
     // Clic sur le corps de la languette : ouvre la mini-fenêtre (sans (dé)cocher)

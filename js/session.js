@@ -961,14 +961,15 @@
       it.qty = (it.qty || 0) + q;
       ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
       const recipient = (assign[idx]) || fallback;
-      if (recipient) {
-        if (!ses.heroOwned[recipient]) ses.heroOwned[recipient] = {};
-        ses.heroOwned[recipient][r.itemId] = (Number(ses.heroOwned[recipient][r.itemId]) || 0) + q;
-      }
+      if (recipient) addToHeroOwned(ses, recipient, r.itemId, q); // armes plafonnées à 2
     });
     if (!ses.claimedRewards) ses.claimedRewards = {};
     ses.claimedRewards[scene.id] = true;
     Store.save();
+    // Signale l'arrivée de nouveaux objets (fait clignoter l'onglet Inventaire).
+    if ((scene.itemRewards || []).some(function (r) { return r.itemId; })) {
+      document.dispatchEvent(new CustomEvent('inventory-new-item'));
+    }
   }
 
   // Écouter la fin d'un combat déclenché par une session
@@ -1008,12 +1009,9 @@
       detail.loot.forEach(function (L) {
         ses.acquiredItems[L.itemId] = (ses.acquiredItems[L.itemId] || 0) + L.qty;
         const hid = (L.toHeroId && ses.heroIds.indexOf(L.toHeroId) >= 0) ? L.toHeroId : ses.heroIds[0];
-        if (hid) {
-          if (!ses.heroOwned[hid]) ses.heroOwned[hid] = {};
-          const cur = Number(ses.heroOwned[hid][L.itemId]) || 0; // un doublon augmente la quantité
-          ses.heroOwned[hid][L.itemId] = cur + (L.qty || 1);
-        }
+        if (hid) addToHeroOwned(ses, hid, L.itemId, L.qty || 1); // armes plafonnées à 2
       });
+      document.dispatchEvent(new CustomEvent('inventory-new-item'));
     }
     save();
 
@@ -1573,6 +1571,18 @@
   };
   // Consomme (retire) 1 exemplaire d'un objet de l'inventaire d'un aventurier de la
   // partie active. Si l'aventurier n'en possède plus, l'objet est déséquipé.
+  // Ajoute `q` exemplaires d'un objet à l'inventaire d'un aventurier, en plafonnant
+  // les ARMES à 2 exemplaires (un 3e n'est ni affiché ni accordé). Retourne le nb réellement ajouté.
+  function addToHeroOwned(ses, hid, itemId, q) {
+    if (!ses.heroOwned) ses.heroOwned = {};
+    if (!ses.heroOwned[hid]) ses.heroOwned[hid] = {};
+    const it = Store.state.items.find(function (x) { return x.id === itemId; });
+    const cur = Number(ses.heroOwned[hid][itemId]) || 0;
+    let target = cur + q;
+    if (it && it.category === 'weapon') target = Math.min(2, target); // max 2 armes identiques
+    ses.heroOwned[hid][itemId] = target;
+    return target - cur;
+  }
   function consumeObject(heroId, itemId) {
     // NE PAS recharger (load() remplacerait `sessions` et détacherait activeSession,
     // faisant perdre la mutation au save()). On mute la session vivante.

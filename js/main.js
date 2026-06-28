@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.2.41';
+  const APP_VERSION = 'v2.2.42';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
@@ -40,6 +40,10 @@
 
   // Active un onglet (visible) et son panneau, puis déclenche son rendu
   function selectTab(target) {
+    // L'onglet Inventaire (Aventure) cesse de clignoter dès qu'on l'ouvre.
+    if (target === 'armory') {
+      document.querySelectorAll('.tab[data-tab="armory"]').forEach(function (b) { b.classList.remove('tab-blink'); });
+    }
     document.querySelectorAll('.tab').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-tab') === target && !b.hidden);
     });
@@ -52,6 +56,13 @@
   function setupTabs() {
     document.querySelectorAll('.tab').forEach(function (btn) {
       btn.addEventListener('click', function () { selectTab(btn.getAttribute('data-tab')); });
+    });
+    // Nouvel objet ajouté à l'inventaire : l'onglet Inventaire (Aventure) clignote
+    // tant que le joueur ne l'a pas ouvert.
+    document.addEventListener('inventory-new-item', function () {
+      document.querySelectorAll('.tab[data-tab="armory"]').forEach(function (b) {
+        if (!b.classList.contains('active')) b.classList.add('tab-blink');
+      });
     });
   }
 

@@ -67,6 +67,12 @@ h3 { font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-s
 }
 .tab:hover { color: var(--text); }
 .tab.active { background: var(--panel); color: var(--text); border-color: var(--border); }
+/* Onglet Inventaire : clignote à l'arrivée d'un nouvel objet, jusqu'à ouverture. */
+.tab.tab-blink { animation: tab-blink-anim 1s ease-in-out infinite; color: var(--accent-2); }
+@keyframes tab-blink-anim {
+  0%,100% { background: transparent; box-shadow: none; }
+  50% { background: rgba(226,151,74,.35); box-shadow: 0 0 8px rgba(226,151,74,.6); color: #fff; }
+}
 
 .topbar-actions { margin-left: auto; display: flex; gap: .4rem; }
 
@@ -1233,17 +1239,21 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 
 /* ---- Choix colorés par type ---- */
 .ses-choice-btn {
-  text-align: left; padding: .65rem .85rem; font-size: .95rem; width: 100%; cursor: pointer;
-  border-radius: 9px; border: 1px solid var(--border); border-left-width: 4px;
-  background: var(--panel-2); color: var(--text);
+  text-align: left; padding: .65rem .95rem; font-size: 1rem; width: 100%; cursor: pointer;
+  border-radius: 9px; border: 1px solid rgba(0,0,0,.25); border-left-width: 5px;
+  background: #6b6357; color: #fff;
+  font-family: "Georgia", serif; font-weight: 700; letter-spacing: .01em;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
 }
-.ses-choice-btn:hover { filter: brightness(1.08); }
-.choice-type-neutre     { border-left-color: #9b968a; }
-.choice-type-violence   { border-left-color: #d65c40; background: rgba(214,92,64,.12); }
-.choice-type-calme      { border-left-color: #4a8dd6; background: rgba(74,141,214,.12); }
-.choice-type-ruse       { border-left-color: #9d72c4; background: rgba(157,114,196,.12); }
-.choice-type-enquete    { border-left-color: #c49a20; background: rgba(196,154,32,.12); }
-.choice-type-discussion { border-left-color: #3fae9f; background: rgba(63,174,159,.12); }
+.ses-choice-btn:hover { filter: brightness(1.1); }
+/* Boutons de choix : couleurs PLEINES (opaques) par type, texte blanc en gras. */
+.ses-choice-btn.choice-type-neutre     { background: #6b6357; border-left-color: #4a463d; }
+.ses-choice-btn.choice-type-violence   { background: #c0492f; border-left-color: #8f3320; }
+.ses-choice-btn.choice-type-calme      { background: #3a78c0; border-left-color: #295a93; }
+.ses-choice-btn.choice-type-ruse       { background: #8456b0; border-left-color: #623e85; }
+.ses-choice-btn.choice-type-enquete    { background: #b08a16; border-left-color: #856810; }
+.ses-choice-btn.choice-type-discussion { background: #2f9385; border-left-color: #226e63; }
+.ses-choice-btn .choice-skill { font-weight: 700; opacity: .92; }
 /* Sélecteur de type de choix (éditeur) */
 select.ch-type { width: auto; font-weight: 600; }
 select.choice-type-violence { color: #d65c40; } select.choice-type-calme { color: #4a8dd6; }
@@ -2844,12 +2854,16 @@ body.mode-player #item-list.roster-list { display: block; }
 
 /* Fenêtre de répartition des récompenses (design Objets de l'inventaire) */
 .reward-picker { display: flex; align-items: center; justify-content: center; }
-.rp-list { display: flex; flex-direction: column; gap: .6rem; margin: .6rem 0; }
-.rp-line { display: flex; align-items: center; gap: .6rem; }
-.rp-line .inv-strip-row { flex: 1; align-items: center; }
-.rp-qty { font-weight: 700; color: var(--accent-2); }
-.rp-hero { min-width: 9rem; }
+.rp-list { display: flex; flex-direction: column; gap: .45rem; margin: .6rem 0; }
+.rp-line { display: flex; align-items: center; gap: .5rem; }
+/* Languettes à la même taille que l'onglet Inventaire (compactes, non étirées). */
+.rp-line .inv-strip-row { flex: 0 0 17rem; max-width: 17rem; align-items: center; }
+.rp-line .inv-strip { padding: .28rem .5rem; }
+.rp-line .inv-strip-name { font-size: .8rem; }
+.rp-qty { font-weight: 700; color: var(--accent-2); font-size: .8rem; }
+.rp-hero { flex: 0 0 11rem; max-width: 11rem; font-size: .85rem; padding: .25rem .4rem; }
 .ses-reward-title { font-weight: 700; margin-bottom: .3rem; }
+@media (max-width: 560px) { .rp-line { flex-wrap: wrap; } .rp-line .inv-strip-row, .rp-hero { flex-basis: 100%; max-width: 100%; } }
 .tal-strip { cursor: pointer; }
 .tal-strip .inv-strip-val { gap: .35rem; }
 /* Couleur de languette par type d'effet */

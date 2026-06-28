@@ -591,6 +591,8 @@
           '<input type="text" class="ch-label" value="' + esc(ch.label) + '" placeholder="Texte du choix" />' +
           '<select class="ch-type choice-type-' + (ch.choiceType || 'neutre') + '">' + typeOpts + '</select>' +
           '<label class="ch-istest-lbl"><input type="checkbox" class="ch-istest"' + (ch.skillTest ? ' checked' : '') + '> Test de compétence</label>' +
+          '<button type="button" class="icon-btn ch-up" title="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+          '<button type="button" class="icon-btn ch-down" title="Descendre"' + (i === (scene.choices.length - 1) ? ' disabled' : '') + '>↓</button>' +
           '<button type="button" class="icon-btn ch-del" title="Supprimer ce choix">✕</button>' +
         '</div>' +
         (ch.skillTest
@@ -659,6 +661,18 @@
     });
     box.querySelectorAll('.ch-del').forEach(function (b) {
       b.onclick = function () { scene.choices.splice(ciOf(this), 1); renderChoicesEditor(scene, adv); };
+    });
+    box.querySelectorAll('.ch-up').forEach(function (b) {
+      b.onclick = function () {
+        const i = ciOf(this);
+        if (i > 0) { const c = scene.choices.splice(i, 1)[0]; scene.choices.splice(i - 1, 0, c); renderChoicesEditor(scene, adv); }
+      };
+    });
+    box.querySelectorAll('.ch-down').forEach(function (b) {
+      b.onclick = function () {
+        const i = ciOf(this);
+        if (i < scene.choices.length - 1) { const c = scene.choices.splice(i, 1)[0]; scene.choices.splice(i + 1, 0, c); renderChoicesEditor(scene, adv); }
+      };
     });
     const addBtn = document.getElementById('sm-add-choice');
     if (addBtn) addBtn.onclick = function () {
