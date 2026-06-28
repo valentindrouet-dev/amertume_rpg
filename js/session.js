@@ -1458,17 +1458,24 @@
     const sections = heroes.map(function (h) {
       const g = heroGains(ses, h.id); changed = true; // seed éventuel
       const list = sortedUnlocked(g, byId, effMap);
+      // Une version supérieure rend la/les précédente(s) automatiquement déséquipée(s).
+      const supIds = list.filter(function (e) { return e.superseded; }).map(function (e) { return e.id; });
+      if (supIds.length && Array.isArray(g.equipped)) {
+        const before = g.equipped.length;
+        g.equipped = g.equipped.filter(function (id) { return supIds.indexOf(id) < 0; });
+        if (g.equipped.length !== before) changed = true;
+      }
       const equipped = equippedTalents(g);
       const body = list.length
         ? list.map(function (e) {
-            const checked = equipped.indexOf(e.id) >= 0;
-            const desc = e.t.description || 'Aucune description.';
-            // Version dépassée : grisée + flèche indiquant qu'une version supérieure existe.
             const sup = e.superseded;
+            const checked = !sup && equipped.indexOf(e.id) >= 0;
+            const desc = e.t.description || 'Aucune description.';
+            // Version dépassée : grisée, décochée et non cochable + flèche d'arborescence.
             const upgradeMark = e.depth > 0 ? '<span class="tpe-upgrade-arrow" title="Évolution de la version précédente">↳</span> ' : '';
             return '<div class="tpe-wrap' + (sup ? ' tpe-superseded' : '') + '">' +
               '<div class="tpe-row tpe-kind-' + (e.kind || 'none') + (checked ? ' selected' : '') + '">' +
-                '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + '>' +
+                '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + (sup ? ' disabled' : '') + '>' +
                 '<span class="tpe-name" data-info="' + esc(e.id) + '" title="' + (sup ? 'Une version supérieure est débloquée' : 'Voir le descriptif') + '">' + upgradeMark + esc(e.t.name || '(sans nom)') + '</span>' +
                 '<span class="tpe-meta" data-info="' + esc(e.id) + '">' +
                   (e.kind ? '<span class="tl-kind tl-kind-' + e.kind + '">' + esc(KIND_SHORT(e.kind)) + '</span>' : '') +

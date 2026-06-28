@@ -1257,6 +1257,9 @@
   function startHeroTurn(afterPretour) {
     activeOf('hero').forEach(function (h) {
       h.reactUsed = {};
+      // Efface les marqueurs de réaction du tour précédent (un coup subi au tour des
+      // adversaires ne doit pas rendre la Riposte « prête » au tour des héros).
+      h.tookDamage = false; h.lastAttacker = null;
       // PAS LÉGER (maîtrise) : 1 mouvement gratuit disponible ce tour (sauf si Pré-Tour déjà joué).
       if (!afterPretour) h.freeMoveReady = heroHasTalent(h, 'pas_leger');
       const regen = heroTalentVal(h, 'regeneration');
@@ -2089,8 +2092,14 @@
       const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
       if (ai >= 0) return abAttackBtn(c, atks[ai], ai, canAct);
       const r = reactions.find(function (x) { return x.t.id === t.id; });
-      // Réaction cliquable en phase héros OU pendant une interruption de Réaction.
-      if (r) return reactionBtn(c, r.t, r.ready && (canAct || pendingReaction === c.iid));
+      if (r) {
+        // Contre-Attaque (Riposte) : réaction déclenchée — utilisable UNIQUEMENT
+        // pendant l'interruption qu'elle provoque (jamais comme action libre au tour).
+        // Les autres réactions (Réanimation) restent jouables au tour du héros.
+        const isInterrupt = r.t.effect === 'contre_attaque';
+        const enabled = r.ready && (isInterrupt ? (pendingReaction === c.iid) : canAct);
+        return reactionBtn(c, r.t, enabled);
+      }
       return '<button class="ab-talent ab-talent-named ab-talent-kind-' + t.kind + '" type="button" disabled ' +
         'title="' + esc(t.name) + '">' + esc(t.name) + '</button>';
     });
