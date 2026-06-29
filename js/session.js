@@ -740,8 +740,9 @@
           '<div class="lvl-skill-grid">' +
             LVL_SKILLS.map(function (s) {
               const base = (cur[s] || 0) + (gSk[s] || 0);
-              return '<button type="button" class="lvl-skill-chip skill-' + slug(s) + '" data-idx="' + idx + '" data-skill="' + esc(s) + '">' +
-                esc(s) + ' <b>+' + base + '</b></button>';
+              return '<button type="button" class="lvl-skill-chip skill-' + slug(s) + '" data-idx="' + idx + '" data-skill="' + esc(s) + '" data-base="' + base + '">' +
+                '<span class="lsk-name">' + esc(s) + '</span>' +
+                '<span class="lsk-val">+' + base + '</span></button>';
             }).join('') +
           '</div>';
       }
@@ -804,6 +805,10 @@
         const pos = arr.indexOf(sk);
         if (pos >= 0) { arr.splice(pos, 1); chip.classList.remove('selected'); }
         else if (arr.length < 2) { arr.push(sk); chip.classList.add('selected'); }
+        // Le bonus +X passe à +X+1 en vert quand la compétence est sélectionnée.
+        const valEl = chip.querySelector('.lsk-val');
+        const base = parseInt(chip.getAttribute('data-base'), 10) || 0;
+        if (valEl) valEl.textContent = '+' + (chip.classList.contains('selected') ? base + 1 : base);
         refresh();
       });
     });

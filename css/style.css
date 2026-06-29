@@ -2867,22 +2867,27 @@ body.mode-player #item-list.roster-list { display: block; }
   color: var(--muted); font-weight: 700; margin: .25rem 0 .1rem; }
 .lvl-sec-title small { text-transform: none; letter-spacing: 0; font-weight: 600; }
 /* Compétences (niveaux impairs) : puces colorées, max 2 sélectionnées */
-/* Choix de compétence bonus : 2 colonnes, cartouches pleins de taille égale. */
+/* Choix de compétence bonus : 2 colonnes, cartouches de taille égale,
+   nom à gauche / bonus à droite, couleurs adoucies. */
 .lvl-skill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; margin-bottom: .3rem; }
-.lvl-skill-chip { display: flex; align-items: center; justify-content: center; gap: .3rem;
-  font-size: .74rem; font-weight: 700; padding: .3rem .4rem; border-radius: 8px; text-align: center;
+.lvl-skill-chip { display: flex; align-items: center; justify-content: space-between; gap: .4rem;
+  font-size: .74rem; font-weight: 700; padding: .3rem .5rem; border-radius: 8px;
   border: 1px solid transparent; color: #fff; cursor: pointer; transition: filter .1s, box-shadow .1s; }
-.lvl-skill-chip:hover { filter: brightness(1.08); }
+.lvl-skill-chip:hover { filter: brightness(1.06); }
 .lvl-skill-chip.selected { box-shadow: 0 0 0 2.5px #d4af5a; }
-.lvl-skill-chip b { font-weight: 800; }
-.lvl-skill-chip.skill-agilite    { background: #5fa45f; }
-.lvl-skill-chip.skill-force      { background: #c14e35; }
-.lvl-skill-chip.skill-mysticisme { background: #9d72c4; }
-.lvl-skill-chip.skill-perception { background: #cdb22f; color: #2f2806; }
-.lvl-skill-chip.skill-robustesse { background: #b07a2e; }
-.lvl-skill-chip.skill-ruse       { background: #6e6e6e; }
-.lvl-skill-chip.skill-savoir     { background: #3f7bc0; }
-.lvl-skill-chip.skill-technique  { background: #2f9e8f; }
+.lvl-skill-chip .lsk-name { text-align: left; }
+.lvl-skill-chip .lsk-val { font-weight: 800; flex-shrink: 0; transition: color .12s; }
+/* Bonus augmenté : passe en vert quand la compétence est choisie. */
+.lvl-skill-chip.selected .lsk-val { color: #b6f3c2; text-shadow: 0 1px 2px rgba(0,40,10,.5); }
+.lvl-skill-chip.skill-agilite    { background: #6a9c6a; }
+.lvl-skill-chip.skill-force      { background: #b56450; }
+.lvl-skill-chip.skill-mysticisme { background: #9a82b8; }
+.lvl-skill-chip.skill-perception { background: #c0ad55; color: #2f2806; }
+.lvl-skill-chip.skill-perception.selected .lsk-val { color: #1f6b34; text-shadow: none; }
+.lvl-skill-chip.skill-robustesse { background: #ac8550; }
+.lvl-skill-chip.skill-ruse       { background: #808080; }
+.lvl-skill-chip.skill-savoir     { background: #5a86bd; }
+.lvl-skill-chip.skill-technique  { background: #4f9d92; }
 /* Choix de caractéristique : lignes cliquables dans le style création d'aventurier */
 .lvl-stat-choice { display: flex; flex-direction: column; gap: .35rem; }
 .lvl-stat-row { cursor: pointer; transition: box-shadow .1s; }
