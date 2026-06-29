@@ -1805,9 +1805,9 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 /* Butin de fin de combat : vignettes d'équipement (même design que l'inventaire) */
 .cs-loot-strips { display: flex; flex-direction: column; gap: .35rem; margin-top: .3rem; max-width: 26rem; }
 .cs-loot-strips .inv-strip-row { align-items: center; }
-/* Le nom du destinataire n'est plus tronqué : il occupe la place nécessaire et
-   passe à la ligne si besoin. */
-.cs-loot-dest { flex: 0 1 auto; max-width: 9rem; text-align: right; align-self: center;
+/* Largeur fixe du nom du destinataire → toutes les languettes (.inv-strip) ont
+   la même taille ; le nom passe à la ligne au lieu d'être tronqué. */
+.cs-loot-dest { flex: 0 0 6rem; width: 6rem; text-align: right; align-self: center;
   font-size: .75rem; font-weight: 600; color: #7a6a55; white-space: normal;
   overflow-wrap: anywhere; line-height: 1.15; padding-left: .2rem; }
 
