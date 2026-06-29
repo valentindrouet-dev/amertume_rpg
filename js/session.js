@@ -488,7 +488,7 @@
             : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
           return '<div class="ses-choice">' +
             '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '">' +
-              esc(ch.label) + ' <span class="choice-skill">(' + esc(ch.skill || '') + ')</span></button>' +
+              esc(ch.label) + ' <span class="ssk-skill">' + esc(ch.skill || '') + '</span></button>' +
             helper +
             (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
           '</div>';
