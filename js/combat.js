@@ -161,12 +161,11 @@
     }
     let hsi = zones.findIndex(function (z) { return z.heroStart; });
     if (hsi < 0) hsi = 0;
-    const barriers = (src && Array.isArray(src.barriers)) ? src.barriers : [];
     return {
       zones: zones.slice(0, 4).map(function (z) {
         return { name: z.name || '', monsterRefs: (z.monsterRefs || []).filter(function (r) { return r.monsterId; }) };
       }),
-      barriers: barriers.map(function (b) { return { type: (b && b.type) || 'none', difficulty: (b && b.difficulty) || 'moyen' }; }),
+      barriers: normalizeBarriers(src && src.barriers),
       heroStartZone: hsi,
     };
   }
@@ -207,7 +206,7 @@
     });
     pendingAttack = null; pendingMove = null; stateMenuFor = null;
     setCombat({ turn: 1, phase: 'heroes', bonusXp: 0, analyzeXp: 0, noDmgXp: 0, zones: zones,
-      barriers: (cfg.barriers || []).map(function (b) { return { type: b.type || 'none', difficulty: b.difficulty || 'moyen' }; }),
+      barriers: normalizeBarriers(cfg.barriers),
       combatants: combatants, log: [], outcome: null });
   }
 
@@ -403,27 +402,108 @@
   function zoneCount() { return Math.max(1, zones().length); }
   function zname(zi) { const z = zones()[zi]; return (z && z.name) ? z.name : ('Zone ' + (zi + 1)); }
 
-  // ----- Barrières entre zones (barriers[i] sépare la zone i et i+1) -----
-  function barriersOnPath(a, b) {
-    const bars = (combat() && combat().barriers) || [];
-    const lo = Math.min(a, b), hi = Math.max(a, b);
-    const out = [];
-    for (let i = lo; i < hi; i++) { const bar = bars[i]; if (bar && bar.type && bar.type !== 'none') out.push(bar); }
+  // ----- Barrières entre zones (modèle par paire, clé « min-max ») -----
+  // OBSTRUANTE a été renommée MUR. On migre l'ancien type au vol.
+  function migrateBarrierType(t) { return t === 'obstruante' ? 'mur' : t; }
+  function barrierKey(a, b) { const lo = Math.min(a, b), hi = Math.max(a, b); return lo + '-' + hi; }
+  // Normalise les barrières d'une scène : accepte l'ancien tableau linéaire
+  // (barriers[i] sépare la zone i et i+1) ou le nouvel objet { "min-max": {…} }.
+  function normalizeBarriers(raw) {
+    const out = {};
+    if (Array.isArray(raw)) {
+      raw.forEach(function (b, i) {
+        if (b && b.type && b.type !== 'none') out[i + '-' + (i + 1)] = { type: migrateBarrierType(b.type), difficulty: b.difficulty || 'moyen' };
+      });
+    } else if (raw && typeof raw === 'object') {
+      Object.keys(raw).forEach(function (k) {
+        const b = raw[k];
+        if (b && b.type && b.type !== 'none') out[k] = { type: migrateBarrierType(b.type), difficulty: b.difficulty || 'moyen' };
+      });
+    }
     return out;
   }
-  // Blocage de déplacement entre deux zones : 'block' (infranchissable/obstruante),
+  function barrierBetween(a, b) {
+    if (a === b) return null;
+    const bars = (combat() && combat().barriers) || {};
+    const bar = bars[barrierKey(a, b)];
+    return (bar && bar.type && bar.type !== 'none') ? bar : null;
+  }
+  // Blocage de déplacement entre deux zones : 'block' (infranchissable/mur),
   // 'difficile' (test d'Agilité requis), ou null.
   function moveBarrier(a, b) {
-    let res = null, diff = 'moyen';
-    barriersOnPath(a, b).forEach(function (bar) {
-      if (bar.type === 'obstruante' || bar.type === 'infranchissable') res = 'block';
-      else if (bar.type === 'difficile' && res !== 'block') { res = 'difficile'; diff = bar.difficulty || 'moyen'; }
-    });
-    return { type: res, diff: diff };
+    const bar = barrierBetween(a, b);
+    if (!bar) return { type: null, diff: 'moyen' };
+    if (bar.type === 'mur' || bar.type === 'infranchissable') return { type: 'block', diff: 'moyen' };
+    if (bar.type === 'difficile') return { type: 'difficile', diff: bar.difficulty || 'moyen' };
+    return { type: null, diff: 'moyen' };
   }
-  // Le tir est bloqué uniquement par une barrière Obstruante.
+  // Le tir est bloqué uniquement par un MUR.
   function shootBlocked(a, b) {
-    return barriersOnPath(a, b).some(function (bar) { return bar.type === 'obstruante'; });
+    const bar = barrierBetween(a, b);
+    return !!(bar && bar.type === 'mur');
+  }
+
+  // ----- Disposition des zones (carré 2x2) et séparateurs de barrière -----
+  // Position [ligne, colonne] de chaque zone dans une grille 3x3 (les pistes
+  // « auto » 2 et 2 servent de gouttières où l'on place les séparateurs).
+  const ZONE_POS = { 1: [[1, 1]], 2: [[1, 1], [1, 3]], 3: [[1, 1], [1, 3], [3, 1]], 4: [[1, 1], [1, 3], [3, 1], [3, 3]] };
+  // Séparateurs sur les arêtes partagées entre zones adjacentes.
+  const EDGE_SEPS = [
+    { pair: [0, 1], row: 1, col: 2, dir: 'v' },
+    { pair: [2, 3], row: 3, col: 2, dir: 'v' },
+    { pair: [0, 2], row: 2, col: 1, dir: 'h' },
+    { pair: [1, 3], row: 2, col: 3, dir: 'h' },
+  ];
+  const BARRIER_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile' };
+  function zonesGridStyle(n) {
+    if (n <= 1) return 'grid-template-columns:1fr;';
+    if (n === 2) return 'grid-template-columns:1fr auto 1fr;';
+    return 'grid-template-columns:1fr auto 1fr;grid-template-rows:1fr auto 1fr;';
+  }
+  // Barrières « diagonales » (sans arête partagée, ex. 1-4) : affichées en étiquette
+  // sur la zone basse de la paire.
+  function diagBarrierTags(zi, n, bars) {
+    let out = '';
+    for (let zj = 0; zj < n; zj++) {
+      if (zj === zi) continue;
+      const lo = Math.min(zi, zj), hi = Math.max(zi, zj);
+      const key = lo + '-' + hi;
+      if (EDGE_SEPS.some(function (e) { return e.pair[0] === lo && e.pair[1] === hi; })) continue;
+      if (zi !== lo) continue; // une seule fois, sur la zone basse
+      const bar = bars[key];
+      if (!bar || !bar.type || bar.type === 'none') continue;
+      out += '<div class="zone-barrier-tag barrier-' + bar.type + '">' + (BARRIER_LABEL[bar.type] || '') +
+        ' ↔ ' + esc(zname(hi)) + '</div>';
+    }
+    return out;
+  }
+  function zonesGridCells() {
+    const c = combat();
+    const n = zoneCount();
+    const bars = c.barriers || {};
+    const pos = ZONE_POS[n] || ZONE_POS[1];
+    const mover = pendingMove ? byId(pendingMove) : null;
+    let html = '';
+    zones().forEach(function (z, zi) {
+      const p = pos[zi] || [1, 1];
+      const blocked = mover && mover.zone !== zi && moveBarrier(mover.zone, zi).type === 'block';
+      const movable = pendingMove && !blocked && (!mover || mover.zone !== zi);
+      html += '<div class="combat-zone' + (movable ? ' movable' : '') + '" data-zone="' + zi + '"' +
+        ' style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';">' +
+        diagBarrierTags(zi, n, bars) +
+        '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
+        '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
+      '</div>';
+    });
+    EDGE_SEPS.forEach(function (e) {
+      if (e.pair[0] >= n || e.pair[1] >= n) return;
+      const bar = bars[e.pair[0] + '-' + e.pair[1]];
+      if (!bar || !bar.type || bar.type === 'none') return;
+      html += '<div class="zone-sep zone-sep-' + e.dir + ' barrier-' + bar.type + '"' +
+        ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';"' +
+        ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '"></div>';
+    });
+    return html;
   }
   // Test d'Agilité pour franchir une barrière Difficile (1d6 + Agilité, 4+ = réussite, 6 explosif).
   const BARRIER_NEED = { facile: 1, moyen: 2, difficile: 3 };
@@ -440,8 +520,28 @@
     return { passed: succ >= need, succ: succ, need: need };
   }
 
+  // Tente de franchir l'éventuelle barrière entre la zone de c et la zone zi.
+  // Retourne 'ok' (aucune barrière ou test réussi), 'block' (infranchissable/mur),
+  // ou 'fail' (barrière Difficile, test d'Agilité raté → le mouvement est perdu).
+  // Journalise le résultat d'un test Difficile.
+  function crossCheck(c, zi) {
+    const mb = moveBarrier(c.zone, zi);
+    if (mb.type === 'block') return 'block';
+    if (mb.type === 'difficile') {
+      const t = acrobaticsTest(c, mb.diff);
+      if (!t.passed) {
+        log(cname(c) + ' tente de franchir une <span class="lstate">barrière difficile</span> (Agilité ' +
+          t.succ + '/' + t.need + ') — <span class="lfail">échec</span> : ne franchit pas.', 'state');
+        return 'fail';
+      }
+      log(cname(c) + ' franchit une <span class="lstate">barrière difficile</span> (Agilité ' +
+        t.succ + '/' + t.need + ') — <span class="lcrit">réussite</span> !', 'state');
+    }
+    return 'ok';
+  }
+
   // Une attaque atteint sa cible : contact = même zone ; distance = n'importe quelle
-  // zone, sauf si une barrière Obstruante coupe la ligne de tir.
+  // zone, sauf si un MUR coupe la ligne de tir.
   function canReach(attacker, target, atk) {
     if (atk && atk.range === 'contact') return attacker.zone === target.zone;
     return !shootBlocked(attacker.zone, target.zone);
@@ -542,21 +642,14 @@
     else if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0)) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     // BARRIÈRES : bloque ou exige un test d'Agilité (Difficile) pour franchir.
-    const mb = moveBarrier(c.zone, zi);
-    if (mb.type === 'block') {
+    const cross = crossCheck(c, zi);
+    if (cross === 'block') {
       alert('Une barrière infranchissable sépare ces zones — déplacement impossible.');
       pendingMove = null; arrivalTargetIid = null; render(); return;
     }
-    if (mb.type === 'difficile') {
-      const t = acrobaticsTest(c, mb.diff);
-      if (!t.passed) {
-        log(cname(c) + ' tente de franchir une <span class="lstate">barrière difficile</span> (Agilité ' +
-          t.succ + '/' + t.need + ') — <span class="lfail">échec</span> : ne franchit pas.', 'state');
-        c.used.move = true; // l'essai consomme le mouvement
-        pendingMove = null; arrivalTargetIid = null; checkOutcome(); Store.save(); render(); return;
-      }
-      log(cname(c) + ' franchit une <span class="lstate">barrière difficile</span> (Agilité ' +
-        t.succ + '/' + t.need + ') — <span class="lcrit">réussite</span> !', 'state');
+    if (cross === 'fail') {
+      c.used.move = true; // l'essai consomme le mouvement
+      pendingMove = null; arrivalTargetIid = null; checkOutcome(); Store.save(); render(); return;
     }
     // POISON X : inflige X dégâts avant de se déplacer
     applyPoison(c);
@@ -1986,18 +2079,8 @@
       // Journal compact : hauteur fixe 4 lignes minimum, scrollable au-delà.
       '<div id="combat-log" class="combat-log compact"></div>' +
       '<div id="combat-actionbar" class="combat-actionbar"></div>' +
-      '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
-        zones().map(function (z, zi) {
-          // Barrière avant cette zone (barriers[zi-1]) : liseré coloré + libellé.
-          const bar = (zi > 0 && c.barriers && c.barriers[zi - 1]) ? c.barriers[zi - 1] : null;
-          const bType = bar && bar.type && bar.type !== 'none' ? bar.type : '';
-          const bLabel = { infranchissable: '⛔ Infranchissable', obstruante: '🧱 Obstruante', difficile: '⛰ Difficile' };
-          return '<div class="combat-zone' + (pendingMove ? ' movable' : '') + (bType ? ' barrier-left barrier-' + bType : '') + '" data-zone="' + zi + '">' +
-            (bType ? '<div class="zone-barrier-tag barrier-' + bType + '">' + (bLabel[bType] || '') + '</div>' : '') +
-            '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
-            '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
-          '</div>';
-        }).join('') +
+      '<div class="combat-zones-grid zc-' + zoneCount() + '" style="' + zonesGridStyle(zoneCount()) + '">' +
+        zonesGridCells() +
       '</div>' +
       '<div id="combat-cemetery" class="combat-cemetery"></div>' +
       '<div class="phase-controls" id="phase-controls"></div>';
@@ -2529,13 +2612,18 @@
     if (pendingAttack && !dead) {
       const attacker = byId(pendingAttack.iid);
       if (attacker && attacker.side !== c.side) {
+        const patk = attacker.attacks[pendingAttack.atkIndex];
+        // BARRIÈRES : une cible derrière un mur/infranchissable n'est pas sélectionnable.
+        const reachOk = (patk && patk.range === 'contact')
+          ? (c.zone === attacker.zone || moveBarrier(attacker.zone, c.zone).type !== 'block')
+          : !shootBlocked(attacker.zone, c.zone);
         if (pendingAttack.multi) {
           // Cibles multiples d'une même zone : après la 1re cible, on verrouille la zone.
           const okZone = (pendingAttack.zone == null) || c.zone === pendingAttack.zone;
           const notPicked = (pendingAttack.picked || []).indexOf(c.iid) === -1;
-          if (okZone && notPicked) cls.push('targetable');
+          if (okZone && notPicked && reachOk) cls.push('targetable');
           if ((pendingAttack.picked || []).indexOf(c.iid) !== -1) cls.push('multi-picked');
-        } else cls.push('targetable');
+        } else if (reachOk) cls.push('targetable');
       }
     }
     if (pendingAnalyze && !dead && c.side === 'monster' && !c.analyzed) cls.push('targetable');
@@ -2620,6 +2708,9 @@
     // Attaque de contact : l'aventurier rejoint la zone ciblée (s'il le peut)
     if (atk.range === 'contact' && attacker.zone !== zoneIdx) {
       if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cette zone.'); return; }
+      const cross = crossCheck(attacker, zoneIdx);
+      if (cross === 'block') { alert('Une barrière infranchissable sépare ces zones — attaque impossible.'); return; }
+      if (cross === 'fail') { attacker.used.move = true; return; }
       doMove(attacker, zoneIdx, true);
       if (attacker.status !== 'active') return;
       movePrefix = { iid: attacker.iid, zone: zname(zoneIdx) };
@@ -2826,6 +2917,14 @@
           // et peut s'enchaîner même si le mouvement a déjà été utilisé ce tour.
           if (atk && atk.range === 'contact' && attacker.zone !== c.zone) {
             if (!atk.freeMove && attacker.used.move) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
+            // BARRIÈRES : mur/infranchissable bloque ; Difficile exige un test d'Agilité.
+            const cross = crossCheck(attacker, c.zone);
+            if (cross === 'block') { alert('Une barrière infranchissable sépare ces zones — attaque au contact impossible.'); return; }
+            if (cross === 'fail') {
+              // Test raté : le mouvement est perdu, l'attaque (action) est conservée.
+              if (!atk.freeMove) attacker.used.move = true;
+              pendingAttack = null; checkOutcome(); Store.save(); render(); return;
+            }
             const prevMove = attacker.used.move;
             doMove(attacker, c.zone, true);
             if (atk.freeMove) attacker.used.move = prevMove;

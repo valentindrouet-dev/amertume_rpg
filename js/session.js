@@ -881,7 +881,23 @@
 
   function renderCombatScene(box, scene, adv, ses) {
     const zones = sceneZones(scene);
-    const barriers = scene.barriers || [];
+    // Barrières au nouveau format objet « min-max » (avec migration de l'ancien
+    // tableau linéaire / du type « obstruante »).
+    const barriers = (function () {
+      const raw = scene.barriers;
+      const out = {};
+      if (Array.isArray(raw)) {
+        raw.forEach(function (b, i) {
+          if (b && b.type && b.type !== 'none') out[i + '-' + (i + 1)] = { type: b.type === 'obstruante' ? 'mur' : b.type };
+        });
+      } else if (raw && typeof raw === 'object') {
+        Object.keys(raw).forEach(function (k) {
+          const b = raw[k];
+          if (b && b.type && b.type !== 'none') out[k] = { type: b.type === 'obstruante' ? 'mur' : b.type };
+        });
+      }
+      return out;
+    })();
     const partyHeroes = engagedHeroes(ses);
     // Vignette compacte d'un combattant (façon module de combat).
     function previewChip(name, cls) {
@@ -889,8 +905,28 @@
       return '<div class="pv-chip ' + cls + '"><span class="pv-chip-av">' + esc(initial) + '</span>' +
         '<span class="pv-chip-name">' + esc(name) + '</span></div>';
     }
-    const B_LABEL = { infranchissable: '⛔ Infranchissable', obstruante: '🧱 Obstruante', difficile: '⛰ Difficile' };
-    const zonesHtml = zones.map(function (z, zi) {
+    const B_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile' };
+    const Z_POS = { 1: [[1, 1]], 2: [[1, 1], [1, 3]], 3: [[1, 1], [1, 3], [3, 1]], 4: [[1, 1], [1, 3], [3, 1], [3, 3]] };
+    const Z_SEPS = [
+      { pair: [0, 1], row: 1, col: 2, dir: 'v' }, { pair: [2, 3], row: 3, col: 2, dir: 'v' },
+      { pair: [0, 2], row: 2, col: 1, dir: 'h' }, { pair: [1, 3], row: 2, col: 3, dir: 'h' },
+    ];
+    const nZones = Math.max(1, zones.length);
+    const zPos = Z_POS[nZones] || Z_POS[1];
+    function diagTags(zi) {
+      let out = '';
+      for (let zj = 0; zj < nZones; zj++) {
+        if (zj === zi) continue;
+        const lo = Math.min(zi, zj), hi = Math.max(zi, zj);
+        if (Z_SEPS.some(function (e) { return e.pair[0] === lo && e.pair[1] === hi; })) continue;
+        if (zi !== lo) continue;
+        const bar = barriers[lo + '-' + hi];
+        if (!bar) continue;
+        out += '<div class="zone-barrier-tag barrier-' + bar.type + '">' + (B_LABEL[bar.type] || '') + ' ↔ Z' + (hi + 1) + '</div>';
+      }
+      return out;
+    }
+    let zonesHtml = zones.map(function (z, zi) {
       const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
         const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
         const t = m ? (m.type === 'standard' ? 'sbire' : m.type) : 'sbire';
@@ -903,16 +939,25 @@
         ? (partyHeroes.length ? partyHeroes.map(function (h) { return previewChip(h.name, 'pv-hero' + (h.klass ? ' klass-' + slug(h.klass) : '')); }).join('') : '<span class="pz-empty">🛡 Aventuriers</span>')
         : '';
       const body = (heroesHtml + mons) || '<span class="pz-empty">—</span>';
-      // Barrière AVANT cette zone (barriers[zi-1]) : liseré + étiquette (comme le module).
-      const bar = (zi > 0 && barriers[zi - 1]) ? barriers[zi - 1] : null;
-      const bType = bar && bar.type && bar.type !== 'none' ? bar.type : '';
-      return '<div class="preview-zone' + (z.heroStart ? ' hero-start' : '') + (bType ? ' barrier-left barrier-' + bType : '') + '">' +
-        (bType ? '<div class="zone-barrier-tag barrier-' + bType + '">' + (B_LABEL[bType] || '') + '</div>' : '') +
+      const p = zPos[zi] || [1, 1];
+      return '<div class="preview-zone' + (z.heroStart ? ' hero-start' : '') + '"' +
+        ' style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';">' +
+        diagTags(zi) +
         '<div class="pz-name">' + esc(z.name || 'Zone') + '</div>' +
         '<div class="pz-chips">' + body + '</div>' +
       '</div>';
     }).join('');
-    const preview = '<div class="combat-preview zc-' + Math.max(1, zones.length) + '">' + zonesHtml + '</div>';
+    Z_SEPS.forEach(function (e) {
+      if (e.pair[0] >= nZones || e.pair[1] >= nZones) return;
+      const bar = barriers[e.pair[0] + '-' + e.pair[1]];
+      if (!bar) return;
+      zonesHtml += '<div class="zone-sep zone-sep-' + e.dir + ' barrier-' + bar.type + '"' +
+        ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';" title="' + (B_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '"></div>';
+    });
+    const gridStyle = nZones <= 1 ? 'grid-template-columns:1fr;'
+      : (nZones === 2 ? 'grid-template-columns:1fr auto 1fr;'
+        : 'grid-template-columns:1fr auto 1fr;grid-template-rows:1fr auto 1fr;');
+    const preview = '<div class="combat-preview zc-' + nZones + '" style="' + gridStyle + '">' + zonesHtml + '</div>';
 
     const sec = appendSection(box);
     sec.innerHTML =

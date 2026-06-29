@@ -1598,8 +1598,18 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .zone-barrier-tag { position: absolute; top: -9px; left: 8px; font-size: .6rem; font-weight: 800; color: #fff;
   border-radius: 6px; padding: .05rem .4rem; }
 .zone-barrier-tag.barrier-infranchissable { background: #e08a2a; }
-.zone-barrier-tag.barrier-obstruante { background: #c0392b; }
+.zone-barrier-tag.barrier-obstruante,
+.zone-barrier-tag.barrier-mur { background: #c0392b; }
 .zone-barrier-tag.barrier-difficile { background: #8a8276; }
+.combat-zone.barrier-left.barrier-mur, .preview-zone.barrier-left.barrier-mur { border-left: 4px solid #c0392b; }
+
+/* Séparateurs-blocs matérialisant une barrière entre deux zones du module. */
+.zone-sep { align-self: stretch; justify-self: stretch; border-radius: 5px; min-width: 12px; min-height: 12px; }
+.zone-sep-v { width: 14px; }
+.zone-sep-h { height: 14px; }
+.zone-sep.barrier-infranchissable { background: repeating-linear-gradient(45deg, #e08a2a, #e08a2a 6px, #c77a1f 6px, #c77a1f 12px); }
+.zone-sep.barrier-mur { background: #c0392b; box-shadow: inset 0 0 0 2px #9c2b20; }
+.zone-sep.barrier-difficile { background: repeating-linear-gradient(45deg, #8a8276, #8a8276 6px, #756e64 6px, #756e64 12px); }
 
 /* ===================================================================
    v2.12 — Combat : PV+DEF, mouvement/objet, cimetière, résumé
