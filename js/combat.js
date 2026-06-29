@@ -455,6 +455,7 @@
     { pair: [1, 3], row: 2, col: 3, dir: 'h' },
   ];
   const BARRIER_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile' };
+  const BARRIER_NAME = { infranchissable: 'INFRANCHISSABLE', mur: 'MUR', difficile: 'DIFFICILE' };
   function zonesGridStyle(n) {
     if (n <= 1) return 'grid-template-columns:1fr;';
     if (n === 2) return 'grid-template-columns:1fr auto 1fr;';
@@ -486,7 +487,8 @@
       if (!bar || !bar.type || bar.type === 'none') return;
       html += '<div class="zone-sep zone-sep-' + e.dir + ' barrier-' + bar.type + '"' +
         ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';"' +
-        ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '"></div>';
+        ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
+        '<span class="zone-sep-lbl">' + (BARRIER_NAME[bar.type] || '') + '</span></div>';
     });
     // Séparateurs diagonaux (croix centrale) pour les paires 1-4 et 2-3.
     let diagHtml = '';
@@ -495,16 +497,33 @@
       const bar = bars[d.pair[0] + '-' + d.pair[1]];
       if (!bar || !bar.type || bar.type === 'none') return;
       diagHtml += '<div class="zone-sep-diag ' + d.dir + ' barrier-' + bar.type + '"' +
-        ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '"></div>';
+        ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
+        '<span class="zone-sep-lbl">' + (BARRIER_NAME[bar.type] || '') + '</span></div>';
     });
     if (diagHtml) html += '<div class="zone-sep-diag-wrap" style="grid-row:2;grid-column:2;">' + diagHtml + '</div>';
     return html;
   }
+  // Agilité d'un combattant : aventurier → compétence ; adversaire → selon son type
+  // (sbire 1, alpha/solitaire 2, boss 3).
+  function agilityOf(c) {
+    if (c.side === 'monster') {
+      if (c.type === 'boss') return 3;
+      if (c.type === 'alpha' || c.type === 'solitaire') return 2;
+      return 1;
+    }
+    const tpl = Store.state.heroes.find(function (h) { return h.id === c.templateId; });
+    return (tpl && tpl.skills && tpl.skills['Agilité']) || 0;
+  }
+  // Franchit les terrains difficiles sans test : talent Pieds Sûrs (aventurier) /
+  // AGILE (adversaire).
+  function canSkipDifficult(c) {
+    if (c.side === 'monster') return !!monsterTalent(c, 'cross_difficult_free');
+    return heroHasTalent(c, 'franchissement_libre');
+  }
   // Test d'Agilité pour franchir une barrière Difficile (1d6 + Agilité, 4+ = réussite, 6 explosif).
   const BARRIER_NEED = { facile: 1, moyen: 2, difficile: 3 };
   function acrobaticsTest(c, difficulty) {
-    const tpl = Store.state.heroes.find(function (h) { return h.id === c.templateId; });
-    const agi = (tpl && tpl.skills && tpl.skills['Agilité']) || 0;
+    const agi = agilityOf(c);
     const need = BARRIER_NEED[difficulty] || 2;
     let toRoll = 1 + agi, succ = 0, guard = 0;
     while (toRoll > 0 && guard++ < 40) {
@@ -523,10 +542,17 @@
     const mb = moveBarrier(c.zone, zi);
     if (mb.type === 'block') return 'block';
     if (mb.type === 'difficile') {
+      // Pieds Sûrs (aventurier) / AGILE (adversaire) : franchissement sans test.
+      if (canSkipDifficult(c)) {
+        log(cname(c) + ' franchit une <span class="lstate">barrière difficile</span> sans test (' +
+          (c.side === 'monster' ? 'AGILE' : 'Pieds Sûrs') + ').', 'state');
+        return 'ok';
+      }
       const t = acrobaticsTest(c, mb.diff);
       if (!t.passed) {
         log(cname(c) + ' tente de franchir une <span class="lstate">barrière difficile</span> (Agilité ' +
           t.succ + '/' + t.need + ') — <span class="lfail">échec</span> : ne franchit pas.', 'state');
+        pushFx({ type: 'crossfail', iid: c.iid });
         return 'fail';
       }
       log(cname(c) + ' franchit une <span class="lstate">barrière difficile</span> (Agilité ' +
@@ -1200,9 +1226,16 @@
     } else if (contactIdx >= 0) {
       const target = chooseFrom(m, reachable.length ? reachable : heroes);
       let moved = false;
-      if (target && !m.used.move && target.zone !== m.zone && moveBarrier(m.zone, target.zone).type !== 'block') {
-        m.zone = target.zone; m.used.move = true; moved = true;
-        pushFx({ type: 'move', iid: m.iid });
+      if (target && !m.used.move && target.zone !== m.zone) {
+        // BARRIÈRES : infranchissable/mur bloque ; Difficile exige un test d'Agilité
+        // (échec → mouvement perdu, pas d'attaque ce tour).
+        const cross = crossCheck(m, target.zone);
+        if (cross === 'ok') {
+          m.zone = target.zone; m.used.move = true; moved = true;
+          pushFx({ type: 'move', iid: m.iid });
+        } else {
+          m.used.move = true; // tentative ratée ou zone bloquée : le mouvement est consommé
+        }
       } else if (target && target.zone === m.zone) {
         // déjà dans la zone : pas de déplacement nécessaire
       }
@@ -1728,6 +1761,9 @@
         case 'flee':
           spawnGhostFade(ev.iid);
           floatText(a.rect, 'En fuite', 'fx-miss', fxFloatIdx++);
+          break;
+        case 'crossfail':
+          centerText('Échec de franchissement !', 'fx-center-fail', fxCenterIdx++);
           break;
       }
     });

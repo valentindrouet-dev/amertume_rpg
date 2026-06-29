@@ -409,6 +409,8 @@
       desc: 'Vos attaques ignorent Blindage.' },
     { effect: 'bourreau_rapides', name: 'Bourreau des Rapides', kind: 'upgrade', hasVal: false,
       desc: 'Vous doublez les dégâts infligés à un adversaire rapide.' },
+    { effect: 'franchissement_libre', name: 'Pieds Sûrs', kind: 'upgrade', hasVal: false,
+      desc: 'Vous franchissez les terrains difficiles sans test d\'Agilité.' },
     { effect: 'boost_competence', name: 'Expertise', kind: 'upgrade', hasVal: true, defaultVal: 1, valLabel: 'Réussites bonus',
       hasChoice: true, choiceLabel: 'Compétence', choices: ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'],
       desc: 'Vous ajoutez +X réussites à tous vos tests de la compétence choisie.' },
@@ -442,7 +444,7 @@
     tueur_affaibli: 3, meute: 2, frappe_lourde: 3, maitre_distance: 2, cuirasse: 3,
     regeneration: 4, arme_enflammee: 4, arme_affaiblissante: 5, esquive_innee: 3,
     garde_imprenable: 5, contre_attaque: 4, reanimation: 5,
-    devance_rapides: 3, perce_blindage: 3, bourreau_rapides: 4,
+    devance_rapides: 3, perce_blindage: 3, bourreau_rapides: 4, franchissement_libre: 2,
     pas_leger: 2, charge_devastatrice: 4,
   };
   // Talents génériques par défaut : un talent prêt à l'emploi par effet câblé.
@@ -522,6 +524,7 @@
     { id: 'proie',    name: 'PROIE',    trigger: 'mark_target_dice',   defaultVal: 1,  desc: 'Désigne un aventurier au début de chaque tour (selon le critère choisi) ; tous les adversaires ajoutent X dé(s) de la couleur choisie contre lui.' },
     { id: 'happe',    name: 'HAPPE',    trigger: 'pull_to_zone',       defaultVal: 0,  desc: 'Avant d\'attaquer, déplace de force un aventurier d\'une autre zone dans sa zone.' },
     { id: 'riposte',  name: 'RIPOSTE',  trigger: 'counter_attack',     defaultVal: 0,  desc: 'Riposte d\'une attaque contre tout aventurier qui l\'attaque (1 fois par tour).' },
+    { id: 'agile',    name: 'AGILE',    trigger: 'cross_difficult_free', defaultVal: 0, desc: 'Franchit les terrains difficiles sans test d\'Agilité.' },
   ];
   function loadMonsterTalents() {
     let arr = null;

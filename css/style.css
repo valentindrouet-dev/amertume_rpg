@@ -1604,9 +1604,16 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .combat-zone.barrier-left.barrier-mur, .preview-zone.barrier-left.barrier-mur { border-left: 4px solid #c0392b; }
 
 /* Séparateurs-blocs matérialisant une barrière entre deux zones du module. */
-.zone-sep { align-self: stretch; justify-self: stretch; border-radius: 5px; min-width: 12px; min-height: 12px; }
+.zone-sep { align-self: stretch; justify-self: stretch; border-radius: 5px; min-width: 14px; min-height: 14px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .zone-sep-v { width: 14px; }
 .zone-sep-h { height: 14px; }
+/* Nom de la barrière : police fixe assez petite pour ne pas élargir les blocs. */
+.zone-sep-lbl { font-size: .5rem; font-weight: 800; letter-spacing: .03em; color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,.35); white-space: nowrap; pointer-events: none; line-height: 1; }
+/* Barrières verticales : texte écrit verticalement. */
+.zone-sep-v .zone-sep-lbl { writing-mode: vertical-rl; text-orientation: mixed; }
+.zone-sep-diag { display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .zone-sep.barrier-infranchissable { background: repeating-linear-gradient(45deg, #e08a2a, #e08a2a 6px, #c77a1f 6px, #c77a1f 12px); }
 .zone-sep.barrier-mur { background: #c0392b; box-shadow: inset 0 0 0 2px #9c2b20; }
 .zone-sep.barrier-difficile { background: repeating-linear-gradient(45deg, #8a8276, #8a8276 6px, #756e64 6px, #756e64 12px); }
