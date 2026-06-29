@@ -912,7 +912,7 @@
       { pair: [0, 1], row: 1, col: 2, dir: 'v' }, { pair: [2, 3], row: 3, col: 2, dir: 'v' },
       { pair: [0, 2], row: 2, col: 1, dir: 'h' }, { pair: [1, 3], row: 2, col: 3, dir: 'h' },
     ];
-    const Z_DIAG = [ { pair: [0, 3], dir: 'down-right' }, { pair: [1, 2], dir: 'down-left' } ];
+    const Z_DIAG = [ { pair: [0, 3], dir: 'down-left' }, { pair: [1, 2], dir: 'down-right' } ];
     const nZones = Math.max(1, zones.length);
     const zPos = Z_POS[nZones] || Z_POS[1];
     let zonesHtml = zones.map(function (z, zi) {

@@ -463,7 +463,7 @@
   }
   // Paires « diagonales » (sans arête orthogonale) : 1-4 et 2-3 d'un carré 2x2.
   // Elles se croisent au centre de la grille (gouttière centrale).
-  const DIAG_SEPS = [ { pair: [0, 3], dir: 'down-right' }, { pair: [1, 2], dir: 'down-left' } ];
+  const DIAG_SEPS = [ { pair: [0, 3], dir: 'down-left' }, { pair: [1, 2], dir: 'down-right' } ];
   function zonesGridCells() {
     const c = combat();
     const n = zoneCount();
