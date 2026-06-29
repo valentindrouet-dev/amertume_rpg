@@ -460,23 +460,9 @@
     if (n === 2) return 'grid-template-columns:1fr auto 1fr;';
     return 'grid-template-columns:1fr auto 1fr;grid-template-rows:1fr auto 1fr;';
   }
-  // Barrières « diagonales » (sans arête partagée, ex. 1-4) : affichées en étiquette
-  // sur la zone basse de la paire.
-  function diagBarrierTags(zi, n, bars) {
-    let out = '';
-    for (let zj = 0; zj < n; zj++) {
-      if (zj === zi) continue;
-      const lo = Math.min(zi, zj), hi = Math.max(zi, zj);
-      const key = lo + '-' + hi;
-      if (EDGE_SEPS.some(function (e) { return e.pair[0] === lo && e.pair[1] === hi; })) continue;
-      if (zi !== lo) continue; // une seule fois, sur la zone basse
-      const bar = bars[key];
-      if (!bar || !bar.type || bar.type === 'none') continue;
-      out += '<div class="zone-barrier-tag barrier-' + bar.type + '">' + (BARRIER_LABEL[bar.type] || '') +
-        ' ↔ ' + esc(zname(hi)) + '</div>';
-    }
-    return out;
-  }
+  // Paires « diagonales » (sans arête orthogonale) : 1-4 et 2-3 d'un carré 2x2.
+  // Elles se croisent au centre de la grille (gouttière centrale).
+  const DIAG_SEPS = [ { pair: [0, 3], dir: 'down-right' }, { pair: [1, 2], dir: 'down-left' } ];
   function zonesGridCells() {
     const c = combat();
     const n = zoneCount();
@@ -490,7 +476,6 @@
       const movable = pendingMove && !blocked && (!mover || mover.zone !== zi);
       html += '<div class="combat-zone' + (movable ? ' movable' : '') + '" data-zone="' + zi + '"' +
         ' style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';">' +
-        diagBarrierTags(zi, n, bars) +
         '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
         '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
       '</div>';
@@ -503,6 +488,16 @@
         ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';"' +
         ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '"></div>';
     });
+    // Séparateurs diagonaux (croix centrale) pour les paires 1-4 et 2-3.
+    let diagHtml = '';
+    DIAG_SEPS.forEach(function (d) {
+      if (d.pair[0] >= n || d.pair[1] >= n) return;
+      const bar = bars[d.pair[0] + '-' + d.pair[1]];
+      if (!bar || !bar.type || bar.type === 'none') return;
+      diagHtml += '<div class="zone-sep-diag ' + d.dir + ' barrier-' + bar.type + '"' +
+        ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '"></div>';
+    });
+    if (diagHtml) html += '<div class="zone-sep-diag-wrap" style="grid-row:2;grid-column:2;">' + diagHtml + '</div>';
     return html;
   }
   // Test d'Agilité pour franchir une barrière Difficile (1d6 + Agilité, 4+ = réussite, 6 explosif).

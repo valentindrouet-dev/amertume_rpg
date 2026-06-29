@@ -911,21 +911,9 @@
       { pair: [0, 1], row: 1, col: 2, dir: 'v' }, { pair: [2, 3], row: 3, col: 2, dir: 'v' },
       { pair: [0, 2], row: 2, col: 1, dir: 'h' }, { pair: [1, 3], row: 2, col: 3, dir: 'h' },
     ];
+    const Z_DIAG = [ { pair: [0, 3], dir: 'down-right' }, { pair: [1, 2], dir: 'down-left' } ];
     const nZones = Math.max(1, zones.length);
     const zPos = Z_POS[nZones] || Z_POS[1];
-    function diagTags(zi) {
-      let out = '';
-      for (let zj = 0; zj < nZones; zj++) {
-        if (zj === zi) continue;
-        const lo = Math.min(zi, zj), hi = Math.max(zi, zj);
-        if (Z_SEPS.some(function (e) { return e.pair[0] === lo && e.pair[1] === hi; })) continue;
-        if (zi !== lo) continue;
-        const bar = barriers[lo + '-' + hi];
-        if (!bar) continue;
-        out += '<div class="zone-barrier-tag barrier-' + bar.type + '">' + (B_LABEL[bar.type] || '') + ' ↔ Z' + (hi + 1) + '</div>';
-      }
-      return out;
-    }
     let zonesHtml = zones.map(function (z, zi) {
       const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
         const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
@@ -942,7 +930,6 @@
       const p = zPos[zi] || [1, 1];
       return '<div class="preview-zone' + (z.heroStart ? ' hero-start' : '') + '"' +
         ' style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';">' +
-        diagTags(zi) +
         '<div class="pz-name">' + esc(z.name || 'Zone') + '</div>' +
         '<div class="pz-chips">' + body + '</div>' +
       '</div>';
@@ -954,6 +941,16 @@
       zonesHtml += '<div class="zone-sep zone-sep-' + e.dir + ' barrier-' + bar.type + '"' +
         ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';" title="' + (B_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '"></div>';
     });
+    // Séparateurs diagonaux (paires 1-4 et 2-3) au centre de la grille.
+    let zDiagHtml = '';
+    Z_DIAG.forEach(function (d) {
+      if (d.pair[0] >= nZones || d.pair[1] >= nZones) return;
+      const bar = barriers[d.pair[0] + '-' + d.pair[1]];
+      if (!bar) return;
+      zDiagHtml += '<div class="zone-sep-diag ' + d.dir + ' barrier-' + bar.type + '"' +
+        ' title="' + (B_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '"></div>';
+    });
+    if (zDiagHtml) zonesHtml += '<div class="zone-sep-diag-wrap" style="grid-row:2;grid-column:2;">' + zDiagHtml + '</div>';
     const gridStyle = nZones <= 1 ? 'grid-template-columns:1fr;'
       : (nZones === 2 ? 'grid-template-columns:1fr auto 1fr;'
         : 'grid-template-columns:1fr auto 1fr;grid-template-rows:1fr auto 1fr;');

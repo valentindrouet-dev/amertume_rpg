@@ -1611,6 +1611,16 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .zone-sep.barrier-mur { background: #c0392b; box-shadow: inset 0 0 0 2px #9c2b20; }
 .zone-sep.barrier-difficile { background: repeating-linear-gradient(45deg, #8a8276, #8a8276 6px, #756e64 6px, #756e64 12px); }
 
+/* Séparateurs diagonaux (zones adjacentes en diagonale : 1-4 et 2-3), croix centrale.
+   Même design que les séparateurs orthogonaux, simplement tournés de ±45°. */
+.zone-sep-diag-wrap { position: relative; align-self: stretch; justify-self: stretch; min-width: 12px; min-height: 12px; overflow: visible; pointer-events: none; }
+.zone-sep-diag { position: absolute; left: 50%; top: 50%; width: 64px; height: 14px; border-radius: 5px; transform-origin: center; }
+.zone-sep-diag.down-right { transform: translate(-50%, -50%) rotate(45deg); }
+.zone-sep-diag.down-left { transform: translate(-50%, -50%) rotate(-45deg); }
+.zone-sep-diag.barrier-infranchissable { background: repeating-linear-gradient(45deg, #e08a2a, #e08a2a 6px, #c77a1f 6px, #c77a1f 12px); }
+.zone-sep-diag.barrier-mur { background: #c0392b; box-shadow: inset 0 0 0 2px #9c2b20; }
+.zone-sep-diag.barrier-difficile { background: repeating-linear-gradient(45deg, #8a8276, #8a8276 6px, #756e64 6px, #756e64 12px); }
+
 /* ===================================================================
    v2.12 — Combat : PV+DEF, mouvement/objet, cimetière, résumé
    =================================================================== */
@@ -1788,10 +1798,11 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 /* Butin de fin de combat : vignettes d'équipement (même design que l'inventaire) */
 .cs-loot-strips { display: flex; flex-direction: column; gap: .35rem; margin-top: .3rem; max-width: 26rem; }
 .cs-loot-strips .inv-strip-row { align-items: center; }
-/* Largeur fixe pour le nom du destinataire → toutes les languettes ont la même taille */
-.cs-loot-dest { flex: 0 0 4.8rem; width: 4.8rem; text-align: right; align-self: center;
-  font-size: .75rem; font-weight: 600; color: #7a6a55; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; padding-left: .2rem; }
+/* Le nom du destinataire n'est plus tronqué : il occupe la place nécessaire et
+   passe à la ligne si besoin. */
+.cs-loot-dest { flex: 0 1 auto; max-width: 9rem; text-align: right; align-self: center;
+  font-size: .75rem; font-weight: 600; color: #7a6a55; white-space: normal;
+  overflow-wrap: anywhere; line-height: 1.15; padding-left: .2rem; }
 
 /* ===================================================================
    v2.19 — Résumé & bouton « Résultat » sur la DA parchemin + chips typées
