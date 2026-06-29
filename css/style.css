@@ -1267,8 +1267,10 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
   background: #efe4cf; border: 1px solid #cdb98f; font-size: .82rem;
 }
 .ses-skill-pill .ssk-hero { font-weight: 700; color: #6b4a1e; }
-.ses-skill-pill .ssk-skill { font-weight: 700; color: #2c6b39; background: rgba(44,107,57,.12);
-  border: 1px solid rgba(44,107,57,.35); border-radius: 7px; padding: 0 .4rem; }
+/* Cartouche de compétence : forme commune (bouton + languette) ; la couleur vient
+   de la classe skill-<compétence> (mêmes teintes que la création d'aventurier). */
+.ssk-skill { font-weight: 700; border: 1px solid var(--border); border-radius: 7px; padding: 0 .4rem;
+  background: rgba(0,0,0,.05); color: var(--text); white-space: nowrap; }
 .ses-skill-pill .ssk-bonus { font-weight: 800; color: #1a5a45; }
 .ses-skill-pill .ssk-tal { font-weight: 700; color: #7a5c12; }
 .ses-skill-pill .ssk-diff { font-weight: 700; color: #fff; border-radius: 7px; padding: 0 .45rem; background: #8a8276; }
