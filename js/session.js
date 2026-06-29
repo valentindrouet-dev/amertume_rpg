@@ -403,6 +403,9 @@
     const g = ses.levelGains ? ses.levelGains[h.id] : null;
     const state = ses.heroStates ? (ses.heroStates[h.id] || {}) : {};
     const maxVie = (h.vie || 0) + (g ? g.vie || 0 : 0);
+    // Compétences = base + points gagnés aux niveaux impairs (g.skills).
+    const skills = Object.assign({}, h.skills);
+    if (g && g.skills) Object.keys(g.skills).forEach(function (s) { skills[s] = (skills[s] || 0) + (g.skills[s] || 0); });
     return Object.assign({}, h, {
       // VIE courante = VIE max (base + gains) + pénalité de coma (négative)
       vie: Math.max(0, maxVie + (state.viePenalty || 0)),
@@ -410,6 +413,7 @@
       maxVie: maxVie,
       endu: (h.endu || 0) + (g ? g.endu || 0 : 0),
       damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
+      skills: skills,
       // chosenTalents = talents ÉQUIPÉS (ce qui est actif en combat / sur la fiche)
       chosenTalents: equippedTalents(g),
     });

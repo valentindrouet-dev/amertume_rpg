@@ -630,7 +630,7 @@
             '<div class="roster-label">Attaques</div>' +
             '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div>' +
           '</div>') +
-        skillsSummary(h.skills) +
+        skillsSummary(dh.skills) +
         (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
       '</div>';
     }).join('');
@@ -683,7 +683,7 @@
       '<div class="roster-section"><div class="roster-label">Attaques</div>' +
         '<div class="atk-badges">' + sheetWeaponAttacks(heroCombatAttacks(dh)) + '</div></div>' +
       talentSection(dh) +
-      skillsSummary(h.skills) +
+      skillsSummary(dh.skills) +
       (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '');
   }
   // Attaques d'arme sur la feuille de perso : nom + dés de dégâts alignés à droite,

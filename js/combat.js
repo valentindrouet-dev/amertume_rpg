@@ -524,7 +524,11 @@
       return 1;
     }
     const tpl = Store.state.heroes.find(function (h) { return h.id === c.templateId; });
-    return (tpl && tpl.skills && tpl.skills['Agilité']) || 0;
+    const base = (tpl && tpl.skills && tpl.skills['Agilité']) || 0;
+    // Ajoute les points d'Agilité gagnés aux niveaux impairs (gains de session).
+    const g = sessionGains && sessionGains[c.templateId];
+    const gain = (g && g.skills && g.skills['Agilité']) || 0;
+    return base + gain;
   }
   // Franchit les terrains difficiles sans test : talent Pieds Sûrs (aventurier) /
   // AGILE (adversaire).
