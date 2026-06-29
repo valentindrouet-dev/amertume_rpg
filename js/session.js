@@ -565,7 +565,9 @@
     (ses.heroIds || []).forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (!h) return;
-      const v = (h.skills && h.skills[skill]) || 0;
+      const g = ses.levelGains ? ses.levelGains[hid] : null;
+      const sessSkill = (g && g.skills && g.skills[skill]) || 0; // points gagnés en montée de niveau
+      const v = ((h.skills && h.skills[skill]) || 0) + sessSkill;
       const tal = skillTalentBonus(ses, hid, skill);
       const eff = v + tal;
       if (eff > bestEff) { bestEff = eff; best = h; bestSkill = v; bestTal = tal; }
@@ -656,10 +658,13 @@
     });
   }
 
+  const LVL_SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
   function renderLevelUp(root, ses, adv, newLevel) {
     const heroes = engagedHeroes(ses);
     const statSel = {}; // idx -> 'endu'|'damage'|'vie'
     const talSel  = {}; // idx -> talentId
+    const skillSel = {}; // idx -> [skill, skill] (2 différentes) ; niveaux impairs uniquement
+    const needSkills = (newLevel % 2) === 1; // niveaux impairs (3, 5, 7…)
 
     function heroBlock(h, idx) {
       // Sépare les talents génériques et de classe pour l'affichage en deux sections.
@@ -725,6 +730,21 @@
           (clsTalents.length ? talentRows(clsTalents) : noTalent) +
         '</div>';
 
+      // Compétences (niveaux impairs) : +1 dans 2 compétences DIFFÉRENTES.
+      let skillHtml = '';
+      if (needSkills) {
+        const cur = (h.skills || {});
+        const gSk = (g.skills || {});
+        skillHtml =
+          '<div class="lvl-sec-title">Compétences <small>(+1 dans 2 différentes)</small></div>' +
+          '<div class="lvl-skill-grid">' +
+            LVL_SKILLS.map(function (s) {
+              const base = (cur[s] || 0) + (gSk[s] || 0);
+              return '<button type="button" class="lvl-skill-chip skill-' + slug(s) + '" data-idx="' + idx + '" data-skill="' + esc(s) + '">' +
+                esc(s) + ' <b>+' + base + '</b></button>';
+            }).join('') +
+          '</div>';
+      }
       return '<div class="lvl-col" data-idx="' + idx + '">' +
         '<div class="lvl-col-head">' +
           '<span class="lvl-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' + esc(h.name) + '</span>' +
@@ -732,6 +752,7 @@
         '</div>' +
         '<div class="lvl-sec-title">Caractéristique</div>' +
         '<div class="lvl-stat-choice">' + statHtml + '</div>' +
+        skillHtml +
         '<div class="lvl-sec-title">Talent</div>' +
         '<div class="lvl-tal-col">' + talHtml + '</div>' +
       '</div>';
@@ -754,6 +775,7 @@
       heroes.forEach(function (h, idx) {
         if (!statSel[idx]) ok = false;
         if (availableTalents(ses, h, newLevel).length > 0 && !talSel[idx]) ok = false;
+        if (needSkills && (!skillSel[idx] || skillSel[idx].length !== 2)) ok = false;
       });
       contBtn.disabled = !ok;
     }
@@ -770,6 +792,18 @@
         const icon = row.querySelector('.lvl-stat-pick-icon');
         if (icon) icon.textContent = '✓';
         statSel[idx] = row.getAttribute('data-stat');
+        refresh();
+      });
+    });
+    // Compétences (niveaux impairs) : sélection de 2 compétences différentes.
+    root.querySelectorAll('.lvl-skill-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        const idx = chip.getAttribute('data-idx');
+        const sk = chip.getAttribute('data-skill');
+        const arr = skillSel[idx] || (skillSel[idx] = []);
+        const pos = arr.indexOf(sk);
+        if (pos >= 0) { arr.splice(pos, 1); chip.classList.remove('selected'); }
+        else if (arr.length < 2) { arr.push(sk); chip.classList.add('selected'); }
         refresh();
       });
     });
@@ -820,6 +854,11 @@
           if (!Array.isArray(g.equipped)) g.equipped = [];
           if (g.equipped.length < 6 && g.equipped.indexOf(talSel[idx]) < 0) g.equipped.push(talSel[idx]);
         }
+        // Compétences (niveaux impairs) : +1 dans 2 compétences différentes.
+        if (needSkills && skillSel[idx] && skillSel[idx].length === 2) {
+          if (!g.skills) g.skills = {};
+          skillSel[idx].forEach(function (s) { g.skills[s] = (g.skills[s] || 0) + 1; });
+        }
       });
       ses.levelDone = newLevel;
       const target = ses.pendingNav;
@@ -842,25 +881,39 @@
 
   function renderCombatScene(box, scene, adv, ses) {
     const zones = sceneZones(scene);
-    // Mini-schéma des zones : adversaires par zone + position de départ des aventuriers
-    const preview = '<div class="combat-preview zc-' + Math.max(1, zones.length) + '">' +
-      zones.map(function (z) {
-        const rank = { boss: 4, solitaire: 3, alpha: 2, standard: 1 };
-        let bestType = '';
-        const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
-          const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
-          if (m && (rank[m.type] || 0) > (rank[bestType] || 0)) bestType = m.type;
-          const t = m ? (m.type === 'standard' ? 'sbire' : m.type) : '';
-          return '<span class="pz-mon ztype-' + t + '">' + esc(m ? m.name : '?') + (r.count > 1 ? ' ×' + r.count : '') + '</span>';
-        }).join('');
-        const ztype = z.heroStart ? 'ztype-heroes' : (bestType ? 'ztype-' + (bestType === 'standard' ? 'sbire' : bestType) : '');
-        return '<div class="preview-zone ' + ztype + (z.heroStart ? ' hero-start' : '') + '">' +
-          '<div class="pz-name">' + esc(z.name || 'Zone') + '</div>' +
-          (z.heroStart ? '<div class="pz-heroes">🛡 Aventuriers</div>' : '') +
-          (mons || (z.heroStart ? '' : '<span class="pz-empty">—</span>')) +
-        '</div>';
-      }).join('') +
-    '</div>';
+    const barriers = scene.barriers || [];
+    const partyHeroes = engagedHeroes(ses);
+    // Vignette compacte d'un combattant (façon module de combat).
+    function previewChip(name, cls) {
+      const initial = (name || '?').charAt(0).toUpperCase();
+      return '<div class="pv-chip ' + cls + '"><span class="pv-chip-av">' + esc(initial) + '</span>' +
+        '<span class="pv-chip-name">' + esc(name) + '</span></div>';
+    }
+    const B_LABEL = { infranchissable: '⛔ Infranchissable', obstruante: '🧱 Obstruante', difficile: '⛰ Difficile' };
+    const zonesHtml = zones.map(function (z, zi) {
+      const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
+        const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
+        const t = m ? (m.type === 'standard' ? 'sbire' : m.type) : '';
+        const n = Math.max(1, r.count || 1);
+        let out = '';
+        for (let k = 0; k < n; k++) out += previewChip((m ? m.name : '?') + (n > 1 ? ' ' + (k + 1) : ''), 'pv-foe ztype-' + t);
+        return out;
+      }).join('');
+      const heroesHtml = z.heroStart
+        ? (partyHeroes.length ? partyHeroes.map(function (h) { return previewChip(h.name, 'pv-hero'); }).join('') : '<span class="pz-empty">🛡 Aventuriers</span>')
+        : '';
+      const body = (heroesHtml + mons) || '<span class="pz-empty">—</span>';
+      const zoneDiv = '<div class="preview-zone' + (z.heroStart ? ' hero-start' : '') + '">' +
+        '<div class="pz-name">' + esc(z.name || 'Zone') + '</div>' +
+        '<div class="pz-chips">' + body + '</div>' +
+      '</div>';
+      // Séparateur de barrière avant la zone suivante.
+      const bar = (zi < zones.length - 1 && barriers[zi]) ? barriers[zi] : null;
+      const bType = bar && bar.type && bar.type !== 'none' ? bar.type : '';
+      const sep = bType ? '<div class="preview-barrier barrier-' + bType + '" title="' + (B_LABEL[bType] || '') + '">' + (B_LABEL[bType] || '') + '</div>' : '';
+      return zoneDiv + sep;
+    }).join('');
+    const preview = '<div class="combat-preview">' + zonesHtml + '</div>';
 
     const sec = appendSection(box);
     sec.innerHTML =
@@ -921,7 +974,7 @@
     const root = $('#session-root');
     root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
     ensureLevelData(ses);
-    Combat.startInSession(ses.heroIds, { combatZones: zones }, ctx, '#session-combat-root', ses.levelGains);
+    Combat.startInSession(ses.heroIds, { combatZones: zones, barriers: scene.barriers || [] }, ctx, '#session-combat-root', ses.levelGains);
   }
 
   // Récompense de scène affichée EN LIGNE : XP (auto au Continue) + objets avec une

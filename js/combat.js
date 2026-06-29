@@ -161,10 +161,12 @@
     }
     let hsi = zones.findIndex(function (z) { return z.heroStart; });
     if (hsi < 0) hsi = 0;
+    const barriers = (src && Array.isArray(src.barriers)) ? src.barriers : [];
     return {
       zones: zones.slice(0, 4).map(function (z) {
         return { name: z.name || '', monsterRefs: (z.monsterRefs || []).filter(function (r) { return r.monsterId; }) };
       }),
+      barriers: barriers.map(function (b) { return { type: (b && b.type) || 'none', difficulty: (b && b.difficulty) || 'moyen' }; }),
       heroStartZone: hsi,
     };
   }
@@ -204,7 +206,9 @@
       });
     });
     pendingAttack = null; pendingMove = null; stateMenuFor = null;
-    setCombat({ turn: 1, phase: 'heroes', bonusXp: 0, analyzeXp: 0, noDmgXp: 0, zones: zones, combatants: combatants, log: [], outcome: null });
+    setCombat({ turn: 1, phase: 'heroes', bonusXp: 0, analyzeXp: 0, noDmgXp: 0, zones: zones,
+      barriers: (cfg.barriers || []).map(function (b) { return { type: b.type || 'none', difficulty: b.difficulty || 'moyen' }; }),
+      combatants: combatants, log: [], outcome: null });
   }
 
   function startCombat() {
@@ -398,10 +402,49 @@
   function zones() { return combat().zones || []; }
   function zoneCount() { return Math.max(1, zones().length); }
   function zname(zi) { const z = zones()[zi]; return (z && z.name) ? z.name : ('Zone ' + (zi + 1)); }
-  // Une attaque atteint sa cible : contact = même zone ; distance = n'importe quelle zone
+
+  // ----- Barrières entre zones (barriers[i] sépare la zone i et i+1) -----
+  function barriersOnPath(a, b) {
+    const bars = (combat() && combat().barriers) || [];
+    const lo = Math.min(a, b), hi = Math.max(a, b);
+    const out = [];
+    for (let i = lo; i < hi; i++) { const bar = bars[i]; if (bar && bar.type && bar.type !== 'none') out.push(bar); }
+    return out;
+  }
+  // Blocage de déplacement entre deux zones : 'block' (infranchissable/obstruante),
+  // 'difficile' (test d'Agilité requis), ou null.
+  function moveBarrier(a, b) {
+    let res = null, diff = 'moyen';
+    barriersOnPath(a, b).forEach(function (bar) {
+      if (bar.type === 'obstruante' || bar.type === 'infranchissable') res = 'block';
+      else if (bar.type === 'difficile' && res !== 'block') { res = 'difficile'; diff = bar.difficulty || 'moyen'; }
+    });
+    return { type: res, diff: diff };
+  }
+  // Le tir est bloqué uniquement par une barrière Obstruante.
+  function shootBlocked(a, b) {
+    return barriersOnPath(a, b).some(function (bar) { return bar.type === 'obstruante'; });
+  }
+  // Test d'Agilité pour franchir une barrière Difficile (1d6 + Agilité, 4+ = réussite, 6 explosif).
+  const BARRIER_NEED = { facile: 1, moyen: 2, difficile: 3 };
+  function acrobaticsTest(c, difficulty) {
+    const tpl = Store.state.heroes.find(function (h) { return h.id === c.templateId; });
+    const agi = (tpl && tpl.skills && tpl.skills['Agilité']) || 0;
+    const need = BARRIER_NEED[difficulty] || 2;
+    let toRoll = 1 + agi, succ = 0, guard = 0;
+    while (toRoll > 0 && guard++ < 40) {
+      let nx = 0;
+      for (let i = 0; i < toRoll; i++) { const r = 1 + Math.floor(Math.random() * 6); if (r >= 4) succ++; if (r === 6) nx++; }
+      toRoll = nx;
+    }
+    return { passed: succ >= need, succ: succ, need: need };
+  }
+
+  // Une attaque atteint sa cible : contact = même zone ; distance = n'importe quelle
+  // zone, sauf si une barrière Obstruante coupe la ligne de tir.
   function canReach(attacker, target, atk) {
     if (atk && atk.range === 'contact') return attacker.zone === target.zone;
-    return true;
+    return !shootBlocked(attacker.zone, target.zone);
   }
   // Adversaires actifs présents dans la zone de l'attaquant (pour les dégâts-choc)
   function enemyZoneMates(attacker) {
@@ -498,6 +541,23 @@
     if (asAction) { if (c.used.action) { pendingMove = null; arrivalTargetIid = null; render(); return; } }
     else if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0)) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; arrivalTargetIid = null; render(); return; }
+    // BARRIÈRES : bloque ou exige un test d'Agilité (Difficile) pour franchir.
+    const mb = moveBarrier(c.zone, zi);
+    if (mb.type === 'block') {
+      alert('Une barrière infranchissable sépare ces zones — déplacement impossible.');
+      pendingMove = null; arrivalTargetIid = null; render(); return;
+    }
+    if (mb.type === 'difficile') {
+      const t = acrobaticsTest(c, mb.diff);
+      if (!t.passed) {
+        log(cname(c) + ' tente de franchir une <span class="lstate">barrière difficile</span> (Agilité ' +
+          t.succ + '/' + t.need + ') — <span class="lfail">échec</span> : ne franchit pas.', 'state');
+        c.used.move = true; // l'essai consomme le mouvement
+        pendingMove = null; arrivalTargetIid = null; checkOutcome(); Store.save(); render(); return;
+      }
+      log(cname(c) + ' franchit une <span class="lstate">barrière difficile</span> (Agilité ' +
+        t.succ + '/' + t.need + ') — <span class="lcrit">réussite</span> !', 'state');
+    }
     // POISON X : inflige X dégâts avant de se déplacer
     applyPoison(c);
     if (c.status !== 'active') { pendingMove = null; checkOutcome(); Store.save(); render(); return; }
@@ -1021,7 +1081,8 @@
     if (!heroes.length) return;
     // HAPPE : avant d'attaquer, déplace de force un aventurier d'une autre zone dans la sienne.
     if (monsterTalent(m, 'pull_to_zone')) {
-      const outsiders = heroes.filter(function (h) { return h.zone !== m.zone; });
+      // On ne happe pas un aventurier au travers d'une barrière infranchissable/obstruante.
+      const outsiders = heroes.filter(function (h) { return h.zone !== m.zone && moveBarrier(m.zone, h.zone).type !== 'block'; });
       if (outsiders.length) {
         const pulled = chooseFrom(m, outsiders);
         if (pulled) {
@@ -1034,22 +1095,28 @@
     }
     const sameZone = heroes.filter(function (h) { return h.zone === m.zone; });
     const otherZone = heroes.filter(function (h) { return h.zone !== m.zone; });
-    const contactIdx = usableAttackIdx(m, 'contact');
+    // BARRIÈRES : cibles atteignables au tir (pas d'Obstruante) et au déplacement (pas de blocage).
+    const shootable = heroes.filter(function (h) { return !shootBlocked(m.zone, h.zone); });
+    const reachable = heroes.filter(function (h) { return h.zone === m.zone || moveBarrier(m.zone, h.zone).type !== 'block'; });
     const distIdx = usableAttackIdx(m, 'distance');
+    const contactIdx = usableAttackIdx(m, 'contact');
 
     // 1) Arme de contact + cible dans la zone → frappe au contact
     if (contactIdx >= 0 && sameZone.length) {
       applyAttack(m, contactIdx, chooseFrom(m, sameZone));
-    // 2) Arme à distance → frappe en priorité une autre zone, sinon n'importe qui
-    } else if (distIdx >= 0) {
-      applyAttack(m, distIdx, chooseFrom(m, otherZone.length ? otherZone : heroes));
-    // 3) Seulement du contact, personne dans la zone → se déplace vers une cible puis frappe
+    // 2) Arme à distance → frappe une autre zone visible, sinon n'importe quelle cible visible
+    } else if (distIdx >= 0 && shootable.length) {
+      const distTargets = shootable.filter(function (h) { return h.zone !== m.zone; });
+      applyAttack(m, distIdx, chooseFrom(m, distTargets.length ? distTargets : shootable));
+    // 3) Seulement du contact, personne dans la zone → se déplace vers une cible accessible puis frappe
     } else if (contactIdx >= 0) {
-      const target = chooseFrom(m, heroes);
+      const target = chooseFrom(m, reachable.length ? reachable : heroes);
       let moved = false;
-      if (target && !m.used.move) {
+      if (target && !m.used.move && target.zone !== m.zone && moveBarrier(m.zone, target.zone).type !== 'block') {
         m.zone = target.zone; m.used.move = true; moved = true;
         pushFx({ type: 'move', iid: m.iid });
+      } else if (target && target.zone === m.zone) {
+        // déjà dans la zone : pas de déplacement nécessaire
       }
       // LENT : un adversaire qui s'est déplacé ne peut plus attaquer ce tour.
       if (moved && monsterTalent(m, 'slow')) {
@@ -1921,7 +1988,12 @@
       '<div id="combat-actionbar" class="combat-actionbar"></div>' +
       '<div class="combat-zones-grid zc-' + zoneCount() + '">' +
         zones().map(function (z, zi) {
-          return '<div class="combat-zone' + (pendingMove ? ' movable' : '') + '" data-zone="' + zi + '">' +
+          // Barrière avant cette zone (barriers[zi-1]) : liseré coloré + libellé.
+          const bar = (zi > 0 && c.barriers && c.barriers[zi - 1]) ? c.barriers[zi - 1] : null;
+          const bType = bar && bar.type && bar.type !== 'none' ? bar.type : '';
+          const bLabel = { infranchissable: '⛔ Infranchissable', obstruante: '🧱 Obstruante', difficile: '⛰ Difficile' };
+          return '<div class="combat-zone' + (pendingMove ? ' movable' : '') + (bType ? ' barrier-left barrier-' + bType : '') + '" data-zone="' + zi + '">' +
+            (bType ? '<div class="zone-barrier-tag barrier-' + bType + '">' + (bLabel[bType] || '') + '</div>' : '') +
             '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
             '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
           '</div>';

@@ -693,10 +693,38 @@
     save(); // persiste la migration
   }
 
+  // Barrières entre zones consécutives : barriers[i] sépare la zone i et i+1.
+  const BARRIER_TYPES = [
+    { key: 'none', label: 'Aucune barrière' },
+    { key: 'infranchissable', label: 'Infranchissable (tir possible)' },
+    { key: 'difficile', label: 'Difficile (test d\'Agilité)' },
+    { key: 'obstruante', label: 'Obstruante (ni déplacement ni tir)' },
+  ];
+  function ensureBarriers(scene) {
+    const need = Math.max(0, (scene.combatZones || []).length - 1);
+    if (!Array.isArray(scene.barriers)) scene.barriers = [];
+    while (scene.barriers.length < need) scene.barriers.push({ type: 'none', difficulty: 'moyen' });
+    scene.barriers.length = need;
+  }
   function renderMonsterRefs(scene, monsters) {
     ensureZones(scene);
+    ensureBarriers(scene);
     const box = document.getElementById('sm-monster-refs');
     const zones = scene.combatZones;
+    function barrierRow(i) {
+      const b = scene.barriers[i] || { type: 'none', difficulty: 'moyen' };
+      const typeOpts = BARRIER_TYPES.map(function (t) {
+        return '<option value="' + t.key + '"' + (b.type === t.key ? ' selected' : '') + '>' + esc(t.label) + '</option>';
+      }).join('');
+      const diffOpts = [['facile', 'Facile'], ['moyen', 'Moyen'], ['difficile', 'Difficile']].map(function (d) {
+        return '<option value="' + d[0] + '"' + ((b.difficulty || 'moyen') === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
+      }).join('');
+      return '<div class="adv-barrier" data-bi="' + i + '">' +
+        '<span class="adv-barrier-lbl">⛓ Barrière ' + (i + 1) + '–' + (i + 2) + '</span>' +
+        '<select class="barrier-type">' + typeOpts + '</select>' +
+        '<select class="barrier-diff"' + (b.type === 'difficile' ? '' : ' style="display:none"') + '>' + diffOpts + '</select>' +
+      '</div>';
+    }
     box.innerHTML = zones.map(function (z, zi) {
       const rows = (z.monsterRefs || []).map(function (ref, mi) {
         const monOpts = monsters.map(function (m) {
@@ -708,7 +736,7 @@
           '<button type="button" class="icon-btn ref-del">✕</button>' +
         '</div>';
       }).join('');
-      return '<div class="adv-zone" data-zi="' + zi + '">' +
+      const zoneHtml = '<div class="adv-zone" data-zi="' + zi + '">' +
         '<div class="adv-zone-head">' +
           '<input type="text" class="zone-name-input" value="' + esc(z.name || ('Zone ' + (zi + 1))) + '" placeholder="Nom de la zone" />' +
           '<label class="zone-start"><input type="radio" name="adv-hero-zone"' + (z.heroStart ? ' checked' : '') + '> Départ des aventuriers</label>' +
@@ -717,8 +745,22 @@
         rows +
         '<button type="button" class="ghost small zone-add-mon">+ Monstre</button>' +
       '</div>';
+      // Barrière affichée entre cette zone et la suivante.
+      return zoneHtml + (zi < zones.length - 1 ? barrierRow(zi) : '');
     }).join('') +
     (zones.length < 4 ? '<button type="button" class="ghost small" id="sm-add-zone">+ Zone</button>' : '');
+
+    box.querySelectorAll('.adv-barrier').forEach(function (bEl) {
+      const bi = parseInt(bEl.getAttribute('data-bi'), 10);
+      const typeSel = bEl.querySelector('.barrier-type');
+      const diffSel = bEl.querySelector('.barrier-diff');
+      typeSel.onchange = function () {
+        scene.barriers[bi].type = this.value;
+        diffSel.style.display = this.value === 'difficile' ? '' : 'none';
+        save();
+      };
+      diffSel.onchange = function () { scene.barriers[bi].difficulty = this.value; save(); };
+    });
 
     function refresh() { save(); renderMonsterRefs(scene, Store.state.monsters); }
 
