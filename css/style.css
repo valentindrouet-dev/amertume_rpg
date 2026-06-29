@@ -2096,11 +2096,43 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   100% { opacity: 0; transform: translate(-50%, -54%) scale(1.04); }
 }
 
+/* ----- VFX v2.2.58 : estafilade, projectile, brûlure, secousse ----- */
+/* Attaque Contact : trait oblique qui balaie la cible. */
+.fx-slash { position: fixed; z-index: 9999; pointer-events: none; width: 78px; height: 10px;
+  margin-left: -39px; margin-top: -5px; border-radius: 6px; transform: rotate(-32deg) scaleX(0);
+  background: linear-gradient(90deg, rgba(255,255,255,0), #fff 45%, #ffe9c2 60%, rgba(255,255,255,0));
+  filter: drop-shadow(0 0 4px rgba(255,240,210,.9)); animation: fx-slash-anim .34s ease-out forwards; }
+@keyframes fx-slash-anim {
+  0%   { opacity: 0; transform: rotate(-32deg) translateX(-26px) scaleX(.2); }
+  35%  { opacity: 1; transform: rotate(-32deg) translateX(0) scaleX(1); }
+  100% { opacity: 0; transform: rotate(-32deg) translateX(26px) scaleX(1); }
+}
+/* Attaque Distance : projectile filant de l'attaquant vers la cible. */
+.fx-projectile { position: fixed; z-index: 9999; pointer-events: none; width: 22px; height: 5px;
+  border-radius: 3px; transition: transform .3s ease-out;
+  background: linear-gradient(90deg, rgba(255,210,120,0), #ffd27a 55%, #fff 100%);
+  filter: drop-shadow(0 0 4px rgba(255,200,110,.95)); }
+/* Brûlure : halo de feu pulsé sur les combattants en FEU. */
+.combat-card.on-fire { animation: fx-fire-glow 1.1s ease-in-out infinite; }
+@keyframes fx-fire-glow {
+  0%, 100% { box-shadow: 0 0 5px 1px rgba(230,110,30,.45), inset 0 0 6px rgba(240,140,40,.25); }
+  50%      { box-shadow: 0 0 13px 3px rgba(245,150,40,.75), inset 0 0 10px rgba(255,170,60,.4); }
+}
+/* Critique : secousse de l'écran (module de combat). */
+.fx-shake { animation: fx-shake-anim .4s cubic-bezier(.36,.07,.19,.97); }
+@keyframes fx-shake-anim {
+  10%, 90% { transform: translate(-1px, 0); }
+  20%, 80% { transform: translate(2px, 0); }
+  30%, 50%, 70% { transform: translate(-4px, 0); }
+  40%, 60% { transform: translate(4px, 0); }
+}
+
 /* Respect de l'accessibilité : pas d'animation si l'utilisateur la refuse */
 @media (prefers-reduced-motion: reduce) {
   #combat-fx { display: none; }
   .combat-card.fx-hit, .combat-card.fx-crit, .combat-card.fx-whiff,
-  .combat-card.fx-heal, .combat-card.fx-state, .combat-card.fx-move { animation: none; }
+  .combat-card.fx-heal, .combat-card.fx-state, .combat-card.fx-move,
+  .combat-card.on-fire, .fx-shake { animation: none; }
 }
 
 /* ===================================================================
@@ -2835,11 +2867,22 @@ body.mode-player #item-list.roster-list { display: block; }
   color: var(--muted); font-weight: 700; margin: .25rem 0 .1rem; }
 .lvl-sec-title small { text-transform: none; letter-spacing: 0; font-weight: 600; }
 /* Compétences (niveaux impairs) : puces colorées, max 2 sélectionnées */
-.lvl-skill-grid { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .3rem; }
-.lvl-skill-chip { font-size: .74rem; font-weight: 700; padding: .15rem .45rem; border-radius: 8px;
-  border: 1px solid var(--border); background: rgba(0,0,0,.05); cursor: pointer; }
-.lvl-skill-chip.selected { outline: 2px solid #2a7a40; outline-offset: 1px; }
+/* Choix de compétence bonus : 2 colonnes, cartouches pleins de taille égale. */
+.lvl-skill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; margin-bottom: .3rem; }
+.lvl-skill-chip { display: flex; align-items: center; justify-content: center; gap: .3rem;
+  font-size: .74rem; font-weight: 700; padding: .3rem .4rem; border-radius: 8px; text-align: center;
+  border: 1px solid transparent; color: #fff; cursor: pointer; transition: filter .1s, box-shadow .1s; }
+.lvl-skill-chip:hover { filter: brightness(1.08); }
+.lvl-skill-chip.selected { box-shadow: 0 0 0 2.5px #d4af5a; }
 .lvl-skill-chip b { font-weight: 800; }
+.lvl-skill-chip.skill-agilite    { background: #5fa45f; }
+.lvl-skill-chip.skill-force      { background: #c14e35; }
+.lvl-skill-chip.skill-mysticisme { background: #9d72c4; }
+.lvl-skill-chip.skill-perception { background: #cdb22f; color: #2f2806; }
+.lvl-skill-chip.skill-robustesse { background: #b07a2e; }
+.lvl-skill-chip.skill-ruse       { background: #6e6e6e; }
+.lvl-skill-chip.skill-savoir     { background: #3f7bc0; }
+.lvl-skill-chip.skill-technique  { background: #2f9e8f; }
 /* Choix de caractéristique : lignes cliquables dans le style création d'aventurier */
 .lvl-stat-choice { display: flex; flex-direction: column; gap: .35rem; }
 .lvl-stat-row { cursor: pointer; transition: box-shadow .1s; }

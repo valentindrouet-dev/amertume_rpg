@@ -10,6 +10,18 @@
   const $ = function (sel) { return document.querySelector(sel); };
   const esc = function (s) { return Inventory.escapeHtml(s); };
 
+  // Effets visuels de combat (VFX). Pour désactiver un effet, mettre sa clé à
+  // false (par son nom) — accessible aussi à chaud via Combat.vfx.<nom> = false.
+  //   contact   : Attaque Contact (estafilade sur la cible)
+  //   distance  : Attaque Distance (projectile attaquant → cible)
+  //   brulure   : Brûlure (halo de feu sur les combattants en FEU)
+  //   mouvement : Mouvement (glissement de la carte d'une zone à l'autre)
+  //   critique  : Critique (secousse de l'écran / screen shake)
+  const VFX = { contact: true, distance: true, brulure: true, mouvement: true, critique: true };
+  // Positions des cartes capturées juste avant un re-rendu (pour le glissement
+  // de mouvement façon FLIP).
+  let preMoveRects = {};
+
   // Sélections de l'écran de préparation (Combat Test)
   let setupHeroes = {};      // { heroId: true }
   let setupZones = [{ name: 'Zone 1', monsters: [] }, { name: 'Zone 2', monsters: [] }]; // [{name, monsters:[{templateId,count}]}]
@@ -871,6 +883,8 @@
       res.pvLost += extra;
       log(cname(attacker) + ' frappe un adversaire rapide : <span class="lstate">dégâts doublés</span> (+' + extra + ').', 'state');
     }
+    // VFX d'attaque : estafilade (contact) ou projectile (distance), joué avant l'impact.
+    pushFx({ type: 'attack', iid: target.iid, fromIid: attacker.iid, range: atk.range });
     const pvBefore = target.pv;
     if (res.pvLost > 0) {
       target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; attacker.dmgDealt += res.pvLost;
@@ -1680,6 +1694,72 @@
     card.classList.add(cls);
     card.addEventListener('animationend', function () { card.classList.remove(cls); }, { once: true });
   }
+  // VFX : estafilade (coup au contact) — un trait oblique balaie la cible.
+  function slashFx(iid) {
+    const a = fxAnchor(iid); if (!a) return;
+    const el = document.createElement('div');
+    el.className = 'fx-slash';
+    el.style.left = (a.rect.left + a.rect.width / 2) + 'px';
+    el.style.top = (a.rect.top + a.rect.height / 2) + 'px';
+    fxLayer().appendChild(el);
+    el.addEventListener('animationend', function () { el.remove(); }, { once: true });
+  }
+  // VFX : projectile (tir) — file de la carte de l'attaquant vers la cible.
+  function projectileFx(fromIid, toIid) {
+    const f = fxAnchor(fromIid), t = fxAnchor(toIid);
+    if (!f || !t) return;
+    const x0 = f.rect.left + f.rect.width / 2, y0 = f.rect.top + f.rect.height / 2;
+    const x1 = t.rect.left + t.rect.width / 2, y1 = t.rect.top + t.rect.height / 2;
+    if (Math.abs(x1 - x0) < 2 && Math.abs(y1 - y0) < 2) return; // même zone : pas de trajectoire
+    const ang = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI;
+    const el = document.createElement('div');
+    el.className = 'fx-projectile';
+    el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
+    el.style.transform = 'translate(-50%,-50%) rotate(' + ang + 'deg)';
+    fxLayer().appendChild(el);
+    requestAnimationFrame(function () {
+      el.style.transform = 'translate(-50%,-50%) translate(' + (x1 - x0) + 'px,' + (y1 - y0) + 'px) rotate(' + ang + 'deg)';
+    });
+    el.addEventListener('transitionend', function () { el.remove(); }, { once: true });
+  }
+  // VFX : secousse de l'écran (screen shake) sur un coup critique.
+  function screenShake() {
+    const root = $(rootSel); if (!root) return;
+    root.classList.remove('fx-shake'); void root.offsetWidth; root.classList.add('fx-shake');
+    function onEnd(e) {
+      if (e.target !== root) return; // ignore les fins d'animation des cartes filles
+      root.classList.remove('fx-shake'); root.removeEventListener('animationend', onEnd);
+    }
+    root.addEventListener('animationend', onEnd);
+  }
+  // VFX : glissement d'une carte (FLIP) de son ancienne zone vers la nouvelle.
+  function flipMove(iid) {
+    const a = fxAnchor(iid);
+    if (!a || !a.card) return;
+    const card = a.card;
+    const oldR = preMoveRects[iid];
+    if (!oldR) { cardAnim(card, 'fx-move'); return; }
+    const newR = card.getBoundingClientRect();
+    const dx = oldR.left - newR.left, dy = oldR.top - newR.top;
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) { cardAnim(card, 'fx-move'); return; }
+    card.style.transition = 'none';
+    card.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    void card.offsetWidth;
+    requestAnimationFrame(function () {
+      card.style.transition = 'transform .42s cubic-bezier(.22,.61,.36,1)';
+      card.style.transform = '';
+    });
+    card.addEventListener('transitionend', function () { card.style.transition = ''; card.style.transform = ''; }, { once: true });
+  }
+  // Capture la position des cartes affichées (avant un re-rendu) pour le FLIP.
+  function captureCardRects() {
+    const root = $(rootSel); const out = {};
+    if (root) root.querySelectorAll('.combat-card[data-iid]').forEach(function (card) {
+      const iid = card.getAttribute('data-iid');
+      if (iid) out[iid] = card.getBoundingClientRect();
+    });
+    return out;
+  }
   // Fait glisser la barre de PV de l'ancien % vers le nouveau
   function pvGlide(card, fromPct, toPct) {
     if (!card || fromPct == null) return;
@@ -1730,7 +1810,13 @@
           cardAnim(a.card, 'fx-crit');
           if (ev.amount > 0) floatText(a.rect, '-' + ev.amount, 'fx-dmg fx-dmg-crit', fxFloatIdx++);
           centerText('CRITIQUE !', 'fx-center-crit', fxCenterIdx++); // gros texte central
+          if (VFX.critique) screenShake(); // Critique : secousse de l'écran
           pvGlide(a.card, ev.fromPct, ev.toPct);
+          break;
+        case 'attack':
+          // Attaque Contact (estafilade) / Attaque Distance (projectile).
+          if (ev.range === 'distance') { if (VFX.distance) projectileFx(ev.fromIid, ev.iid); }
+          else if (VFX.contact) slashFx(ev.iid);
           break;
         case 'miss':
           cardAnim(a.card, 'fx-whiff');
@@ -1746,7 +1832,8 @@
           cardAnim(a.card, 'fx-state');
           break;
         case 'move':
-          cardAnim(a.card, 'fx-move');
+          if (VFX.mouvement) flipMove(ev.iid); // glissement de zone à zone
+          else cardAnim(a.card, 'fx-move');
           break;
         case 'faint':
           // Adversaire vaincu : fondu fantôme + annonce centrale « <Nom> est vaincu ! ».
@@ -1772,6 +1859,8 @@
   function render() {
     const root = $(rootSel);
     if (!root) return;
+    // Capture les positions des cartes AVANT le re-rendu (glissement de mouvement).
+    if (VFX.mouvement && !reduceMotion()) { try { preMoveRects = captureCardRects(); } catch (e) { preMoveRects = {}; } }
     try {
       if (!combat()) { renderSetup(root); }
       else if (combat().finished) { renderSummary(); }
@@ -2637,6 +2726,8 @@
     if (dead) cls.push('is-' + c.status);
     if (selectedIid === c.iid) cls.push('selected');
     if (c.side === 'hero' && !dead && !c.used.action) cls.push('has-action');
+    // Brûlure : halo de feu persistant tant que le combattant est en FEU.
+    if (VFX.brulure && !dead && c.states && c.states.feu) cls.push('on-fire');
     // PRÉ-TOUR : surligne en jaune les aventuriers ayant encore un talent de pré-tour à jouer.
     if (combat().phase === 'pretour' && c.side === 'hero' && !dead && c.freeMoveReady) cls.push('pretour-ready');
     // Cible valide pendant le ciblage au clic (attaque ou analyse)
@@ -3200,5 +3291,6 @@
     startInSession: startInSession,
     resumeInSession: resumeInSession,
     hasActiveCombat: hasActiveCombat,
+    vfx: VFX, // active/désactive un effet visuel par son nom (ex. Combat.vfx.brulure = false)
   };
 })(window);
