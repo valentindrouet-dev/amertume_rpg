@@ -1314,6 +1314,7 @@
     { id: 'mark_target_dice',   label: 'Proie : +X dés (couleur) contre un aventurier désigné', paramKey: 'count', paramLabel: 'Nb de dés', defaultVal: 1, colorParam: true, modeParam: true },
     { id: 'pull_to_zone',       label: 'Happe : déplace un aventurier dans sa zone avant d\'attaquer', paramKey: 'none', paramLabel: '', defaultVal: 0, noParam: true },
     { id: 'counter_attack',     label: 'Riposte : contre-attaque qui l\'attaque (1×/tour)', paramKey: 'none', paramLabel: '', defaultVal: 0, noParam: true },
+    { id: 'cross_difficult_free', label: 'Agile : franchit les terrains difficiles sans test', paramKey: 'none', paramLabel: '', defaultVal: 0, noParam: true },
   ];
   // Couleurs de dés offrables pour le talent « Proie » (offensives).
   const MARK_DICE_COLORS = [
