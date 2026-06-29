@@ -1262,6 +1262,7 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 /* Languette du test de compétence (design inspiré de la création d'aventurier). */
 .ses-skill-pill {
   display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+  width: fit-content; max-width: 100%; align-self: flex-start;
   margin: .35rem 0 .1rem; padding: .25rem .5rem; border-radius: 9px;
   background: #efe4cf; border: 1px solid #cdb98f; font-size: .82rem;
 }

@@ -463,6 +463,12 @@
     if (scene.type === 'fin') renderFinButton(box, scene, adv, ses);
   }
 
+  // La scène cible d'un choix déclenche-t-elle un combat ? (pour l'emoji ⚔️)
+  function choiceLeadsToCombat(adv, targetSceneId) {
+    if (!targetSceneId) return false;
+    const found = findScene(adv, targetSceneId);
+    return !!(found && sceneHasCombat(found.scene));
+  }
   function renderChoicesPlay(box, scene, adv, ses) {
     const DIFF = { facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile' };
     const sec = appendSection(box);
@@ -471,23 +477,27 @@
         if (ch.skillTest) {
           const bh = bestHeroForSkill(ses, ch.skill);
           const talBonus = bh.talentSucc || 0;
+          const dice = 1 + (bh.bonus || 0); // somme des dés lancés = 1 + bonus de compétence
           const helper = bh.hero
             ? '<div class="ses-skill-pill">' +
-                '<span class="ssk-hero">🛡 ' + esc(bh.hero.name) + '</span>' +
-                '<span class="ssk-skill">' + esc(ch.skill || '') + '</span>' +
-                '<span class="ssk-bonus">+' + bh.bonus + (talBonus ? ' <span class="ssk-tal">(+' + talBonus + ')</span>' : '') + '</span>' +
+                '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
+                '<span class="ssk-skill">' + esc(ch.skill || '') + ' ' + dice + ' 🎲</span>' +
+                (talBonus ? '<span class="ssk-tal">+' + talBonus + ' réussite' + (talBonus > 1 ? 's' : '') + '</span>' : '') +
                 '<span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span>' +
               '</div>'
             : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
           return '<div class="ses-choice">' +
             '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '">' +
-              '🎲 ' + esc(ch.label) + ' <span class="choice-skill">(' + esc(ch.skill || '') + ')</span></button>' +
+              esc(ch.label) + ' <span class="choice-skill">(' + esc(ch.skill || '') + ')</span></button>' +
             helper +
             (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
           '</div>';
         }
+        // Choix menant à un combat : ⚔️ devant le libellé.
+        const leadsToCombat = choiceLeadsToCombat(adv, ch.targetSceneId);
         return '<div class="ses-choice">' +
-          '<button class="ses-choice-btn choice-type-' + (ch.choiceType || 'neutre') + '" data-target="' + ch.targetSceneId + '">' + esc(ch.label) + '</button>' +
+          '<button class="ses-choice-btn choice-type-' + (ch.choiceType || 'neutre') + '" data-target="' + ch.targetSceneId + '">' +
+            (leadsToCombat ? '⚔️ ' : '') + esc(ch.label) + '</button>' +
           (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
         '</div>';
       }).join('') +
