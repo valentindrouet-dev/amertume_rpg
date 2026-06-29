@@ -893,27 +893,26 @@
     const zonesHtml = zones.map(function (z, zi) {
       const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
         const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
-        const t = m ? (m.type === 'standard' ? 'sbire' : m.type) : '';
+        const t = m ? (m.type === 'standard' ? 'sbire' : m.type) : 'sbire';
         const n = Math.max(1, r.count || 1);
         let out = '';
         for (let k = 0; k < n; k++) out += previewChip((m ? m.name : '?') + (n > 1 ? ' ' + (k + 1) : ''), 'pv-foe ztype-' + t);
         return out;
       }).join('');
       const heroesHtml = z.heroStart
-        ? (partyHeroes.length ? partyHeroes.map(function (h) { return previewChip(h.name, 'pv-hero'); }).join('') : '<span class="pz-empty">🛡 Aventuriers</span>')
+        ? (partyHeroes.length ? partyHeroes.map(function (h) { return previewChip(h.name, 'pv-hero' + (h.klass ? ' klass-' + slug(h.klass) : '')); }).join('') : '<span class="pz-empty">🛡 Aventuriers</span>')
         : '';
       const body = (heroesHtml + mons) || '<span class="pz-empty">—</span>';
-      const zoneDiv = '<div class="preview-zone' + (z.heroStart ? ' hero-start' : '') + '">' +
+      // Barrière AVANT cette zone (barriers[zi-1]) : liseré + étiquette (comme le module).
+      const bar = (zi > 0 && barriers[zi - 1]) ? barriers[zi - 1] : null;
+      const bType = bar && bar.type && bar.type !== 'none' ? bar.type : '';
+      return '<div class="preview-zone' + (z.heroStart ? ' hero-start' : '') + (bType ? ' barrier-left barrier-' + bType : '') + '">' +
+        (bType ? '<div class="zone-barrier-tag barrier-' + bType + '">' + (B_LABEL[bType] || '') + '</div>' : '') +
         '<div class="pz-name">' + esc(z.name || 'Zone') + '</div>' +
         '<div class="pz-chips">' + body + '</div>' +
       '</div>';
-      // Séparateur de barrière avant la zone suivante.
-      const bar = (zi < zones.length - 1 && barriers[zi]) ? barriers[zi] : null;
-      const bType = bar && bar.type && bar.type !== 'none' ? bar.type : '';
-      const sep = bType ? '<div class="preview-barrier barrier-' + bType + '" title="' + (B_LABEL[bType] || '') + '">' + (B_LABEL[bType] || '') + '</div>' : '';
-      return zoneDiv + sep;
     }).join('');
-    const preview = '<div class="combat-preview">' + zonesHtml + '</div>';
+    const preview = '<div class="combat-preview zc-' + Math.max(1, zones.length) + '">' + zonesHtml + '</div>';
 
     const sec = appendSection(box);
     sec.innerHTML =

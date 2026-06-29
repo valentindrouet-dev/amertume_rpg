@@ -1555,40 +1555,46 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .cem-chip em { font-style: normal; opacity: .7; }
 
 /* Mini-schéma de combat (aperçu avant lancement) */
-/* Disposition de combat (preview) : façon module de combat — zones + vignettes. */
-.combat-preview { display: flex; flex-wrap: wrap; align-items: stretch; gap: .4rem; margin: .4rem 0; }
-.preview-zone { flex: 1 1 13rem; min-width: 11rem; border: 1px solid var(--border); border-radius: 10px;
+/* Disposition de combat (preview) : façon module de combat — grille 2×2, zones + vignettes. */
+.combat-preview { display: grid; gap: .5rem; margin: .4rem 0; }
+.combat-preview.zc-1 { grid-template-columns: 1fr; }
+.combat-preview.zc-2, .combat-preview.zc-3, .combat-preview.zc-4 { grid-template-columns: 1fr 1fr; }
+.preview-zone { position: relative; border: 1px solid var(--border); border-radius: 10px;
   padding: .5rem; background: rgba(255,255,255,.04); }
 .preview-zone.hero-start { border-color: #4a8dd6; background: rgba(77,142,209,.10); }
 .pz-name { font-weight: 700; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); margin-bottom: .35rem; }
 .pz-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
-.pv-chip { display: inline-flex; align-items: center; gap: .3rem; font-size: .76rem; font-weight: 600;
-  border-radius: 8px; padding: .12rem .4rem .12rem .15rem; border: 1px solid var(--border); background: rgba(0,0,0,.04); }
+.pv-chip { display: inline-flex; align-items: center; gap: .3rem; font-size: .76rem; font-weight: 600; color: #2c2418;
+  border-radius: 8px; padding: .12rem .45rem .12rem .15rem; border: 1px solid var(--border); border-left-width: 3px; background: #e7e3d8; }
 .pv-chip-av { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem;
-  border-radius: 50%; background: rgba(0,0,0,.12); font-weight: 800; font-size: .7rem; }
-.pv-chip.pv-hero { background: rgba(95,164,95,.16); border-color: rgba(95,164,95,.5); }
-.pv-chip.pv-hero .pv-chip-av { background: rgba(95,164,95,.4); }
-.pv-chip.pv-foe { background: rgba(192,86,63,.12); border-color: rgba(192,86,63,.4); }
-.pv-chip.pv-foe .pv-chip-av { background: rgba(192,86,63,.35); }
+  border-radius: 50%; background: rgba(0,0,0,.18); font-weight: 800; font-size: .7rem; }
+/* Adversaires : couleur par type (mêmes teintes que les cartes de combat). */
+.pv-chip.ztype-sbire     { background: #e7e3d8; border-left-color: #8d8676; }
+.pv-chip.ztype-alpha     { background: #f3e8c8; border-left-color: #c79a3a; }
+.pv-chip.ztype-solitaire { background: #f2d8d2; border-left-color: #c0392b; }
+.pv-chip.ztype-boss      { background: #e7dcf1; border-left-color: #8a5cc4; }
+/* Aventuriers : couleur par classe (mêmes teintes que les cartes de combat). */
+.pv-chip.pv-hero { background: #d9ead0; border-left-color: #5fa45f; }
+.pv-chip.pv-hero.klass-apothicaire { background: #dfeccf; border-left-color: #7bbf6a; }
+.pv-chip.pv-hero.klass-artificier  { background: #f3e6c6; border-left-color: #d9a94a; }
+.pv-chip.pv-hero.klass-chasseur    { background: #d9ead0; border-left-color: #74b85e; }
+.pv-chip.pv-hero.klass-destructeur { background: #f2d9d1; border-left-color: #d36a52; }
+.pv-chip.pv-hero.klass-deviant     { background: #e6dcef; border-left-color: #9d7fc4; }
+.pv-chip.pv-hero.klass-gardien     { background: #d7e3f1; border-left-color: #6f9fd6; }
+.pv-chip.pv-hero.klass-lamevent    { background: #d4ebe6; border-left-color: #5cb6a6; }
+.pv-chip.pv-hero.klass-pyromane    { background: #f6ddc6; border-left-color: #e08a4a; }
 .pz-empty { color: var(--muted); font-size: .8rem; }
 /* Éditeur de barrières (éditeur de scène de combat) */
 .adv-barrier { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin: .25rem 0 .25rem .8rem;
   padding: .25rem .5rem; border-left: 3px solid #b0843a; background: rgba(176,132,58,.08); border-radius: 6px; }
 .adv-barrier-lbl { font-size: .78rem; font-weight: 700; color: #8a5e22; }
-/* Séparateur de barrière (preview) : barre verticale colorée entre deux zones. */
-.preview-barrier { flex: 0 0 auto; align-self: stretch; display: flex; align-items: center; justify-content: center;
-  writing-mode: vertical-rl; text-orientation: mixed; font-size: .62rem; font-weight: 800; letter-spacing: .04em;
-  border-radius: 6px; padding: .15rem .1rem; color: #fff; }
-.preview-barrier.barrier-infranchissable { background: #e08a2a; }
-.preview-barrier.barrier-obstruante { background: #c0392b; }
-.preview-barrier.barrier-difficile { background: #8a8276; }
-@media (max-width: 560px) { .preview-barrier { writing-mode: horizontal-tb; width: 100%; flex-basis: 100%; padding: .15rem; } }
+/* Les barrières de la preview réutilisent .zone-barrier-tag / .barrier-left (module). */
 
-/* Barrières dans le module de combat : liseré coloré + étiquette sur la zone. */
-.combat-zone.barrier-left { position: relative; }
-.combat-zone.barrier-left.barrier-infranchissable { border-left: 4px solid #e08a2a; }
-.combat-zone.barrier-left.barrier-obstruante { border-left: 4px solid #c0392b; }
-.combat-zone.barrier-left.barrier-difficile { border-left: 4px solid #8a8276; }
+/* Barrières dans le module de combat ET la preview : liseré coloré + étiquette. */
+.combat-zone.barrier-left, .preview-zone.barrier-left { position: relative; }
+.combat-zone.barrier-left.barrier-infranchissable, .preview-zone.barrier-left.barrier-infranchissable { border-left: 4px solid #e08a2a; }
+.combat-zone.barrier-left.barrier-obstruante, .preview-zone.barrier-left.barrier-obstruante { border-left: 4px solid #c0392b; }
+.combat-zone.barrier-left.barrier-difficile, .preview-zone.barrier-left.barrier-difficile { border-left: 4px solid #8a8276; }
 .zone-barrier-tag { position: absolute; top: -9px; left: 8px; font-size: .6rem; font-weight: 800; color: #fff;
   border-radius: 6px; padding: .05rem .4rem; }
 .zone-barrier-tag.barrier-infranchissable { background: #e08a2a; }
