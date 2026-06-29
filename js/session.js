@@ -470,12 +470,18 @@
       scene.choices.map(function (ch, i) {
         if (ch.skillTest) {
           const bh = bestHeroForSkill(ses, ch.skill);
+          const talBonus = bh.talentSucc || 0;
           const helper = bh.hero
-            ? '<div class="ses-choice-help">🎲 ' + esc(bh.hero.name) + ' — ' + esc(ch.skill || '') + ' +' + bh.bonus + ' · ' + (DIFF[ch.difficulty] || 'Moyen') + '</div>'
-            : '<div class="ses-choice-help">Aucun aventurier disponible pour ce test</div>';
+            ? '<div class="ses-skill-pill">' +
+                '<span class="ssk-hero">🛡 ' + esc(bh.hero.name) + '</span>' +
+                '<span class="ssk-skill">' + esc(ch.skill || '') + '</span>' +
+                '<span class="ssk-bonus">+' + bh.bonus + (talBonus ? ' <span class="ssk-tal">(+' + talBonus + ')</span>' : '') + '</span>' +
+                '<span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span>' +
+              '</div>'
+            : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
           return '<div class="ses-choice">' +
             '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '">' +
-              esc(ch.label) + ' <span class="choice-skill">(Compétence) ' + esc(ch.skill || '') + '</span></button>' +
+              '🎲 ' + esc(ch.label) + ' <span class="choice-skill">(' + esc(ch.skill || '') + ')</span></button>' +
             helper +
             (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
           '</div>';
@@ -935,12 +941,21 @@
         (heroes.length ? '<select class="rp-hero" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '') +
       '</div>';
     }).join('');
-    sec.innerHTML =
-      '<div class="ses-reward-block">' +
-        '<div class="ses-reward-title">🎁 Récompense' + (xp ? ' — ✦ <strong>+' + xp + ' XP</strong> (au groupe)' : '') + '</div>' +
-        (lines.length ? '<div class="rp-list">' + rowsHtml + '</div>' +
-          '<p class="hint">Choisis le destinataire de chaque objet ; l\'attribution se fait en cliquant sur « Continuer ».</p>' : '') +
+    // Deux cases distinctes : XP d'un côté, équipement de l'autre.
+    let html = '';
+    if (xp) {
+      html += '<div class="ses-reward-block ses-reward-xp">' +
+        '<div class="ses-reward-title">✦ Expérience — <strong>+' + xp + ' XP</strong> (au groupe)</div>' +
       '</div>';
+    }
+    if (lines.length) {
+      html += '<div class="ses-reward-block ses-reward-items">' +
+        '<div class="ses-reward-title">🎁 Équipement</div>' +
+        '<div class="rp-list">' + rowsHtml + '</div>' +
+        '<p class="hint">Choisis le destinataire de chaque objet ; l\'attribution se fait en cliquant sur « Continuer ».</p>' +
+      '</div>';
+    }
+    sec.innerHTML = html;
   }
 
   // Applique les récompenses (XP + objets) de la scène en lisant les listes affichées.

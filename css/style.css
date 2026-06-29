@@ -954,6 +954,10 @@ main { padding: 1.5rem 1.25rem 3rem; }
 
 .ses-fin { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; padding: .75rem; background: var(--panel-2); border-radius: 9px; border: 1px solid var(--border); }
 .ses-combat-block, .ses-reward-block { background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px; padding: .75rem .9rem; }
+/* Cases de récompense : espace sous chacune (ne touche pas le bouton de choix dessous) */
+.ses-reward-block { margin-bottom: .7rem; }
+.ses-reward-block.ses-reward-xp { border-left: 4px solid #c49a20; }
+.ses-reward-block.ses-reward-items { border-left: 4px solid #5fa45f; }
 
 .ses-heroes {
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
@@ -1240,20 +1244,37 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 /* ---- Choix colorés par type ---- */
 .ses-choice-btn {
   text-align: left; padding: .65rem .95rem; font-size: 1rem; width: 100%; cursor: pointer;
-  border-radius: 9px; border: 1px solid rgba(0,0,0,.25); border-left-width: 5px;
-  background: #6b6357; color: #fff;
-  font-family: "Georgia", serif; font-weight: 700; letter-spacing: .01em;
-  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  border-radius: 9px; border: 1px solid rgba(0,0,0,.18); border-left-width: 5px;
+  background: #e7e0d2; color: #2c2418;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; font-weight: 700; letter-spacing: .01em;
+  box-shadow: 0 1px 2px rgba(0,0,0,.18);
 }
-.ses-choice-btn:hover { filter: brightness(1.1); }
-/* Boutons de choix : couleurs PLEINES (opaques) par type, texte blanc en gras. */
-.ses-choice-btn.choice-type-neutre     { background: #6b6357; border-left-color: #4a463d; }
-.ses-choice-btn.choice-type-violence   { background: #c0492f; border-left-color: #8f3320; }
-.ses-choice-btn.choice-type-calme      { background: #3a78c0; border-left-color: #295a93; }
-.ses-choice-btn.choice-type-ruse       { background: #8456b0; border-left-color: #623e85; }
-.ses-choice-btn.choice-type-enquete    { background: #b08a16; border-left-color: #856810; }
-.ses-choice-btn.choice-type-discussion { background: #2f9385; border-left-color: #226e63; }
-.ses-choice-btn .choice-skill { font-weight: 700; opacity: .92; }
+.ses-choice-btn:hover { filter: brightness(1.04); }
+/* Boutons de choix : couleurs PASTEL par type (opaques mais douces), texte sombre. */
+.ses-choice-btn.choice-type-neutre     { background: #e3ddd0; border-left-color: #9b968a; }
+.ses-choice-btn.choice-type-violence   { background: #f3d2c8; border-left-color: #d65c40; }
+.ses-choice-btn.choice-type-calme      { background: #cfe0f2; border-left-color: #4a8dd6; }
+.ses-choice-btn.choice-type-ruse       { background: #e2d3f0; border-left-color: #9d72c4; }
+.ses-choice-btn.choice-type-enquete    { background: #f0e3bd; border-left-color: #c49a20; }
+.ses-choice-btn.choice-type-discussion { background: #cdeae5; border-left-color: #2f9385; }
+.ses-choice-btn .choice-skill { font-weight: 700; opacity: .8; }
+
+/* Languette du test de compétence (design inspiré de la création d'aventurier). */
+.ses-skill-pill {
+  display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+  margin: .35rem 0 .1rem; padding: .25rem .5rem; border-radius: 9px;
+  background: #efe4cf; border: 1px solid #cdb98f; font-size: .82rem;
+}
+.ses-skill-pill .ssk-hero { font-weight: 700; color: #6b4a1e; }
+.ses-skill-pill .ssk-skill { font-weight: 700; color: #2c6b39; background: rgba(44,107,57,.12);
+  border: 1px solid rgba(44,107,57,.35); border-radius: 7px; padding: 0 .4rem; }
+.ses-skill-pill .ssk-bonus { font-weight: 800; color: #1a5a45; }
+.ses-skill-pill .ssk-tal { font-weight: 700; color: #7a5c12; }
+.ses-skill-pill .ssk-diff { font-weight: 700; color: #fff; border-radius: 7px; padding: 0 .45rem; background: #8a8276; }
+.ses-skill-pill .ssk-diff-facile { background: #5fa45f; }
+.ses-skill-pill .ssk-diff-moyen { background: #c49a20; }
+.ses-skill-pill .ssk-diff-difficile { background: #c0492f; }
+.ses-skill-pill.ssk-none { color: var(--muted); font-style: italic; }
 /* Sélecteur de type de choix (éditeur) */
 select.ch-type { width: auto; font-weight: 600; }
 select.choice-type-violence { color: #d65c40; } select.choice-type-calme { color: #4a8dd6; }
