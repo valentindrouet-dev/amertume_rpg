@@ -2266,17 +2266,20 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   flex: 0 0 auto; width: 92px; align-self: stretch; min-height: 64px; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; gap: 3px;
   border: 1px solid var(--border); border-radius: 7px; padding: .35rem .3rem;
-  background: #efb277; color: #fff; cursor: pointer;
+  background: #ed9d4f; color: #fff; cursor: pointer;
 }
 .ab-orbes:hover:not(:disabled) { filter: brightness(1.05); }
 .ab-orbes:disabled { opacity: .55; cursor: not-allowed; }
-.ab-orbes.selected { background: #e08a3e; box-shadow: 0 0 0 2px rgba(224,138,74,.5); }
+.ab-orbes.selected { background: #df8326; box-shadow: 0 0 0 2px rgba(224,138,74,.5); }
 .ab-orbes-title { font-weight: 800; font-size: 1.08rem; letter-spacing: .02em; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
 .ab-orbes-figs { display: inline-flex; align-items: center; justify-content: center; gap: .25rem; }
 .ab-orbes-figs .dice-row { gap: 3px; flex-wrap: nowrap; }
 .ab-orbes-figs .atk-dmg { color: #fff; background: rgba(200,50,50,.9); border: 1px solid rgba(200,50,50,.65);
   border-radius: 4px; padding: 0 .25rem; font-weight: 700; font-size: .72rem; }
 .ab-orbes-count { font-size: .66rem; font-weight: 700; }
+/* Légère ombre portée sur le texte de TOUS les boutons du bandeau de combat. */
+.ab-atk, .ab-talent, .ab-tool, .ab-orbes { text-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.ab-talent.ab-talent-empty, .ab-talent.ab-talent-unknown { text-shadow: none; }
 
 /* Zone d'actions : grille 2 LIGNES, remplie COLONNE PAR COLONNE (cf. croquis).
    Col. action : Attaque (haut) + Mouv/Objet/Analyse (bas).

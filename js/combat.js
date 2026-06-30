@@ -124,6 +124,7 @@
       attacks.forEach(function (a) {
         if (a.pyromaneOrb) {
           a.uses = orbs;
+          a.freeAction = true; // les Orbes sont GRATUITS : ne consomment jamais l'action du tour
           a.name = orbs + ' Orbe' + (orbs > 1 ? 's' : '') + (orbFeu ? ' de Feu' : ' Mystique' + (orbs > 1 ? 's' : ''));
           a.dice = Object.assign(D.emptyPool(), { blue: per });
         }
@@ -803,7 +804,7 @@
     hero.dmgTaken += dmg; monster.dmgDealt += dmg;
     pushFx({ type: 'hit', iid: hero.iid, amount: dmg, fromPct: pct(pvBefore, hero.maxPv), toPct: pct(hero.pv, hero.maxPv) });
     const why = reason === 'distance'
-      ? 'car il utilise une <i>arme à distance</i> dans sa zone'
+      ? 'car il utilise une <i>attaque à distance</i> dans sa zone'
       : 'car il quitte sa zone';
     log('<b class="lopp">Attaque d\'Opportunité !</b> ' + cname(monster) + ' inflige ' + amt(dmg, 'dmg') +
       ' Dégâts à ' + cname(hero) + ' ' + why + '.', 'dchoc');
