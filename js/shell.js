@@ -186,6 +186,12 @@
     if (adminBtn) adminBtn.addEventListener('click', enterAdmin);
     const homeBtn = $('#btn-home');
     if (homeBtn) homeBtn.addEventListener('click', goHome);
+    // Clic sur le logo/titre « Amertüme Solo RPG » : retour à l'accueil.
+    const brandHome = $('#brand-home');
+    if (brandHome) {
+      brandHome.addEventListener('click', goHome);
+      brandHome.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } });
+    }
     goHome();
   }
 

@@ -491,7 +491,7 @@
               '</div>'
             : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
           return '<div class="ses-choice">' +
-            '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '">' +
+            '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '" data-skill-hero="' + (bh.hero ? esc(bh.hero.id) : '') + '">' +
               esc(ch.label) + ' <span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + '</span></button>' +
             helper +
             (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
@@ -509,7 +509,7 @@
     sec.querySelectorAll('.ses-choice-btn').forEach(function (b) {
       b.addEventListener('click', function () {
         const ci = b.getAttribute('data-ci');
-        if (ci !== null) { runSkillTest(ses, adv, scene, scene.choices[+ci]); return; }
+        if (ci !== null) { runSkillTest(ses, adv, scene, scene.choices[+ci], b.getAttribute('data-skill-hero')); return; }
         const targetId = b.getAttribute('data-target');
         ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent, targetSceneId: targetId });
         navigateTo(ses, adv, targetId);
@@ -563,9 +563,13 @@
     });
     return sum;
   }
-  // Aventurier du groupe ayant le meilleur bonus dans la compétence (talents inclus)
-  function bestHeroForSkill(ses, skill) {
-    let best = null, bestEff = -1, bestSkill = 0, bestTal = 0;
+  // Aventurier du groupe ayant le meilleur bonus dans la compétence (talents inclus).
+  // En cas d'égalité au sommet, un des ex æquo est choisi aléatoirement.
+  // preferHeroId : si fourni et toujours ex æquo, on conserve ce choix (cohérence
+  // entre le cartouche affiché et le test réellement lancé).
+  function bestHeroForSkill(ses, skill, preferHeroId) {
+    let bestEff = -1;
+    const cands = [];
     (ses.heroIds || []).forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (!h) return;
@@ -574,9 +578,14 @@
       const v = ((h.skills && h.skills[skill]) || 0) + sessSkill;
       const tal = skillTalentBonus(ses, hid, skill);
       const eff = v + tal;
-      if (eff > bestEff) { bestEff = eff; best = h; bestSkill = v; bestTal = tal; }
+      cands.push({ hero: h, v: v, tal: tal, eff: eff });
+      if (eff > bestEff) bestEff = eff;
     });
-    return { hero: best, bonus: Math.max(0, bestSkill), talentSucc: Math.max(0, bestTal) };
+    const top = cands.filter(function (c) { return c.eff === bestEff; });
+    let pick = preferHeroId ? top.find(function (c) { return c.hero.id === preferHeroId; }) : null;
+    if (!pick && top.length) pick = top[Math.floor(Math.random() * top.length)];
+    if (!pick) return { hero: null, bonus: 0, talentSucc: 0 };
+    return { hero: pick.hero, bonus: Math.max(0, pick.v), talentSucc: Math.max(0, pick.tal) };
   }
   // 1d6 + 1d6 par point de compétence ; réussite = dé à 4+ ; les 6 sont explosifs
   function rollSkill(bonus) {
@@ -593,12 +602,12 @@
     }
     return { successes: successes, rolls: rolls };
   }
-  function runSkillTest(ses, adv, scene, ch) {
+  function runSkillTest(ses, adv, scene, ch, preferHeroId) {
     if (!ch) return;
     const skill = ch.skill || 'Force';
     const diff = ch.difficulty || 'moyen';
     const need = SKILL_DIFF[diff] || 2;
-    const bh = bestHeroForSkill(ses, skill);
+    const bh = bestHeroForSkill(ses, skill, preferHeroId);
     const res = rollSkill(bh.bonus);
     const talSucc = bh.talentSucc || 0;
     const totalSucc = res.successes + talSucc;
@@ -1061,7 +1070,7 @@
     let html = '';
     if (xp) {
       html += '<div class="ses-reward-block ses-reward-xp">' +
-        '<div class="ses-reward-title">✦ Expérience — <strong>+' + xp + ' XP</strong> (au groupe)</div>' +
+        '<div class="ses-reward-title">✦ Expérience <strong>+' + xp + ' XP</strong></div>' +
       '</div>';
     }
     if (lines.length) {
@@ -1414,8 +1423,9 @@
     sessions.push(ses); save();
     activeSession = ses;
     setupSel = {};
+    // Lancement direct de la première scène (plus d'écran « L'Aventure commence »).
     const root = $('#session-root');
-    if (root) renderAdventureIntro(root, ses, adv);
+    if (root) renderScene(root);
   }
 
   // Écran d'introduction affiché juste après « Commencer l'aventure » (style scène).

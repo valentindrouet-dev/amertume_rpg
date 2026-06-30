@@ -16,6 +16,11 @@
     'Gardien', 'Lamevent', 'Pyromane'];
   // Classes actuellement jouables (les autres existent en base mais sont cachées).
   const PLAYABLE_CLASSES = ['Destructeur', 'Gardien', 'Lamevent', 'Pyromane'];
+  // Courts descriptifs de classe (affichés à la sélection dans l'assistant).
+  // À compléter au fil des définitions fournies.
+  const CLASS_DESC = {
+    'Lamevent': 'Combattant redoutablement rapide, vous vous faufilez entre les adversaires pour leur infliger d\'innombrables coups et attaques.',
+  };
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
   function emptySkills() { const o = {}; SKILLS.forEach(function (s) { o[s] = 0; }); return o; }
   function mergeSkills(src) {
@@ -816,7 +821,15 @@
       setTimeout(function () { inp.focus(); }, 0);
     } else if (stepName === 'Classe') {
       const classes = Store.loadClasses().filter(function (c) { return PLAYABLE_CLASSES.indexOf(c.name) >= 0; });
-      body.innerHTML = '<p class="hint">Choisis une classe.</p><div class="hw-class-list">' +
+      // Languette de la classe sélectionnée : nom + court descriptif.
+      const desc = wiz.klass ? (CLASS_DESC[wiz.klass] || '') : '';
+      const tab = wiz.klass
+        ? '<div class="hw-class-tab klass-' + classSlug(wiz.klass) + '">' +
+            '<span class="hw-class-tab-name">' + esc(wiz.klass) + '</span>' +
+            (desc ? '<span class="hw-class-tab-desc">' + esc(desc) + '</span>' : '') +
+          '</div>'
+        : '';
+      body.innerHTML = '<p class="hint">Choisis une classe.</p>' + tab + '<div class="hw-class-list">' +
         (classes.length ? classes.map(function (c) {
           return '<button type="button" class="hw-class klass-' + classSlug(c.name) + (wiz.klass === c.name ? ' selected' : '') + '" data-class="' + esc(c.name) + '">' +
             '<span class="hw-class-name">' + esc(c.name) + '</span><span class="hw-class-pv">PV +' + (CLASS_PV[c.name] || 0) + '</span></button>';

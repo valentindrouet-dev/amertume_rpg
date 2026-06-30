@@ -1973,6 +1973,22 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .hw-class.klass-gardien     { background:#d7e3f1; border-color:#6f9fd6; color:#2c5a93; }
 .hw-class.klass-lamevent    { background:#d4ebe6; border-color:#5cb6a6; color:#1f6b5e; }
 .hw-class.klass-pyromane    { background:#f6ddc6; border-color:#e08a4a; color:#8a3e10; }
+/* Languette de la classe sélectionnée (nom + descriptif). */
+.hw-class-tab { border-radius: 10px; padding: .6rem .8rem; margin-top: .5rem; border: 1px solid var(--border);
+  border-left: 5px solid var(--accent-2); background: var(--panel-2); display: flex; flex-direction: column; gap: .25rem; }
+.hw-class-tab-name { font-weight: 800; font-family: "Georgia", serif; font-size: 1.06rem; }
+.hw-class-tab-desc { font-size: .85rem; font-style: italic; }
+.hw-class-tab.klass-destructeur { background:#f2d9d1; border-left-color:#d36a52; }
+.hw-class-tab.klass-gardien     { background:#d7e3f1; border-left-color:#6f9fd6; }
+.hw-class-tab.klass-lamevent    { background:#d4ebe6; border-left-color:#5cb6a6; }
+.hw-class-tab.klass-pyromane    { background:#f6ddc6; border-left-color:#e08a4a; }
+.hw-class-tab.klass-destructeur .hw-class-tab-name { color:#9a3320; }
+.hw-class-tab.klass-gardien     .hw-class-tab-name { color:#2c5a93; }
+.hw-class-tab.klass-lamevent    .hw-class-tab-name { color:#1f6b5e; }
+.hw-class-tab.klass-pyromane    .hw-class-tab-name { color:#8a3e10; }
+/* Logo/titre cliquable → retour à l'accueil. */
+.brand-home-link { cursor: pointer; }
+.brand-home-link:hover h1 { text-decoration: underline; }
 .hw-class.klass-apothicaire .hw-class-pv { color:#4f8b4f; }
 .hw-class.klass-artificier  .hw-class-pv { color:#9a6c12; }
 .hw-class.klass-chasseur    .hw-class-pv { color:#2e6b1f; }
