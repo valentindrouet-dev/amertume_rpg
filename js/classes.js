@@ -179,13 +179,15 @@
     const right =
       (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT[kind] || kind) + '</span>' : '<span class="tl-kind tl-kind-none">Descriptif</span>') +
       '<span class="tal-lvl">Niv. ' + (t.level || 1) + '</span>';
+    // Talent avec prérequis : seulement une flèche d'arborescence devant le nom
+    // (même design que l'onglet Talents du mode Joueur), pas le nom complet du prérequis.
     const prereqName = t.prereq ? talentNameById(t.prereq) : '';
-    const prereqChip = prereqName ? '<span class="tal-prereq" title="Nécessite : ' + esc(prereqName) + '">↳ ' + esc(prereqName) + '</span>' : '';
+    const upgradeMark = prereqName ? '<span class="tpe-upgrade-arrow" title="Évolution de : ' + esc(prereqName) + '">↳</span> ' : '';
     return '<div class="tal-row-wrap">' +
       '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + '">' +
         '<div class="inv-strip tal-strip" data-desc-toggle="1" title="Voir le descriptif">' +
-          '<span class="inv-strip-name">' + esc(t.name || '(sans nom)') + '</span>' +
-          '<span class="inv-strip-val">' + prereqChip + right + '</span>' +
+          '<span class="inv-strip-name">' + upgradeMark + esc(t.name || '(sans nom)') + '</span>' +
+          '<span class="inv-strip-val">' + right + '</span>' +
         '</div>' +
         '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
       '</div>' +
