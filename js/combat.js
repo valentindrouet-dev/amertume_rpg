@@ -114,9 +114,10 @@
     const talents = Combatants.resolveHeroTalents(Array.isArray(hero.chosenTalents) ? hero.chosenTalents : null);
     const hasTalent = function (e) { return talents.some(function (t) { return t.effect === e; }); };
     // PYROMANE : nombre d'Orbes Mystiques par tour = 2 + 1 par niveau impair (3, 5, 7…).
+    // Le nom de l'attaque devient « X Orbes Mystiques » (varie avec le niveau).
     if (hasTalent('pyromane')) {
       const orbs = 2 + Math.floor((Math.max(1, combatHeroLevel) - 1) / 2);
-      attacks.forEach(function (a) { if (a.pyromaneOrb) a.uses = orbs; });
+      attacks.forEach(function (a) { if (a.pyromaneOrb) { a.uses = orbs; a.name = orbs + ' Orbes Mystiques'; } });
     }
     // Objet consommable équipé : on en garde une copie légère pour le combat.
     const eq = Combatants.normalizeEquip(h.equipment || {});
@@ -3001,7 +3002,7 @@
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
         (revealed && uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
       '</span>';
-    return '<button class="ab-atk atk-chip' + (a.special ? ' ab-atk-special' : '') + (isThisAtk ? ' selected' : '') +
+    return '<button class="ab-atk atk-chip' + (a.special ? ' ab-atk-special' : '') + ((a.pyromaneOrb || a.deflagration) ? ' ab-atk-mystic' : '') + (isThisAtk ? ' selected' : '') +
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
         ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
       nameHtml +

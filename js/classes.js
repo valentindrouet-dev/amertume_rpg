@@ -24,9 +24,9 @@
     { value: 'combat', label: 'En combat' },
     { value: 'out',    label: 'Hors combat' },
   ];
-  const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', upgrade: 'Amélioration', mastery: 'Maîtrise' };
-  const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', upgrade: 'AME', mastery: 'MAIT' };
-  const KIND_ORDER = ['action', 'reaction', 'passive', 'critique', 'upgrade', 'mastery'];
+  const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélioration', mastery: 'Maîtrise' };
+  const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT' };
+  const KIND_ORDER = ['action', 'reaction', 'passive', 'critique', 'garde', 'upgrade', 'mastery'];
   // Libellés lisibles des valeurs de choix (les états internes → noms affichés).
   const CHOICE_LABELS = { feu: 'Feu', auSol: 'Au sol', affaibli: 'Affaibli', sbire: 'Sbires', elite: 'Alpha / Solitaire / Boss' };
 

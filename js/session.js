@@ -17,7 +17,7 @@
   let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
 
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
-  const KIND_LABELS = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', upgrade: 'AME', mastery: 'MAIT' };
+  const KIND_LABELS = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT' };
   function KIND_SHORT(k) { return KIND_LABELS[k] || 'TAL'; }
 
   // Conseil de difficulté selon le nombre d'aventuriers engagés
@@ -1526,7 +1526,7 @@
     Store.loadClasses().forEach(function (c) { (c.talents || []).forEach(function (t) { map[t.id] = t; }); });
     return map;
   }
-  const TAL_KIND_ORDER = { action: 0, mastery: 1, reaction: 2, passive: 3, critique: 4, upgrade: 5 };
+  const TAL_KIND_ORDER = { action: 0, mastery: 1, reaction: 2, passive: 3, critique: 4, garde: 5, upgrade: 6 };
   function talKindOf(t, effMap) {
     if (!t) return '';
     if (t.kind) return t.kind;

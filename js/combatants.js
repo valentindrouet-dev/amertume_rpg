@@ -736,7 +736,7 @@
     }).join('');
   }
   // Section « Talents » de la fiche : badges colorés par type (Action/Réaction/Passif/Amélioration)
-  const KIND_BADGE = { action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', upgrade: 'Amélior.', mastery: 'Maîtrise' };
+  const KIND_BADGE = { action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélior.', mastery: 'Maîtrise' };
   function talentSection(dh) {
     const resolved = resolveHeroTalents(Array.isArray(dh.chosenTalents) ? dh.chosenTalents : null);
     if (!resolved.length) return '';
@@ -981,7 +981,7 @@
         : [];
       // Talents sélectionnés (hors maîtrise auto)
       const selCount = wiz.talents.filter(function (id) { return !masteryTal || id !== masteryTal.id; }).length;
-      const KIND_SHORT_WIZ = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', upgrade: 'AME', mastery: 'MAIT' };
+      const KIND_SHORT_WIZ = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT' };
       function talRow(t, isAuto) {
         const kind = wizTalentKind(t);
         const sel = wiz.talents.indexOf(t.id) >= 0;
