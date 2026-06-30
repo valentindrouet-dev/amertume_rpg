@@ -78,6 +78,7 @@
         critique = true; critValue = 6;
       }
     }
+    if (opts.noCrit) { critique = false; critValue = 0; }
     if (critique) {
       let keepRolling = true;
       let guard = 0;

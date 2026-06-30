@@ -115,9 +115,26 @@
     const hasTalent = function (e) { return talents.some(function (t) { return t.effect === e; }); };
     // PYROMANE : nombre d'Orbes Mystiques par tour = 2 + 1 par niveau impair (3, 5, 7…).
     // Le nom de l'attaque devient « X Orbes Mystiques » (varie avec le niveau).
+    // Les améliorations/maîtrises d'Orbe se cumulent ici (feu, double dé, bonus, perçant, critique).
     if (hasTalent('pyromane')) {
       const orbs = 2 + Math.floor((Math.max(1, combatHeroLevel) - 1) / 2);
-      attacks.forEach(function (a) { if (a.pyromaneOrb) { a.uses = orbs; a.name = orbs + ' Orbes Mystiques'; } });
+      const per = hasTalent('orbe_double') ? 2 : 1;
+      const orbFeu = hasTalent('orbe_feu'), orbBonus = hasTalent('orbe_bonus_dmg');
+      const orbIgnoreDef = hasTalent('orbe_ignore_def'), orbCrit = hasTalent('orbe_critique');
+      attacks.forEach(function (a) {
+        if (a.pyromaneOrb) {
+          a.uses = orbs;
+          a.name = orbs + ' Orbe' + (orbs > 1 ? 's' : '') + (orbFeu ? ' de Feu' : ' Mystique' + (orbs > 1 ? 's' : ''));
+          a.dice = Object.assign(D.emptyPool(), { blue: per });
+        }
+        if (a.pyromaneOrb || a.deflagration) {
+          if (orbFeu) { a.effects = a.effects || {}; a.effects.feu = true; }
+          if (orbBonus) a.useOwnDamage = true;
+          if (orbIgnoreDef) a.orbIgnoreDef = true;
+          a.orbNoCrit = !orbCrit;   // par défaut un Orbe ne fait pas de critique
+          a.orbPer = per;           // nb de dés bleus par orbe (pour la Déflagration)
+        }
+      });
     }
     // Objet consommable équipé : on en garde une copie légère pour le combat.
     const eq = Combatants.normalizeEquip(h.equipment || {});
@@ -142,7 +159,7 @@
       side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: (hero.endu || 1) + endurHard, imageUrl: h.imageUrl || null,
       maxPv: Combatants.heroPv(hero) + renf, pv: Combatants.heroCurPv(hero) + renf,
       def: Combatants.heroDef(hero), damage: (hero.damage || 0) + surv, xp: 0, type: 'hero',
-      menace: null, esquive: hasTalent('esquive_innee') || false, rapide: !!h.rapide, socle: 'medium',
+      menace: null, esquive: hasTalent('esquive_innee') || hasTalent('esquive_6') || false, rapide: !!h.rapide, socle: 'medium',
       hasShield: hasShield,             // COUP DE BOUCLIER : +1 dé rouge si bouclier
       attacks: attacks, attackUses: initUses(attacks),
       talents: talents,                 // talents résolus (kind/effect/val) pour le moteur
@@ -806,6 +823,17 @@
     }
     const poisonVal = atk.effects.poison || 0;
     if (poisonVal > 0) toApply.push('poison');
+    // IMMUNITÉ (amélioration) : la cible ne subit jamais l'état choisi.
+    if (target.side === 'hero' && Array.isArray(target.talents)) {
+      const immune = {};
+      target.talents.forEach(function (t) { if (t.effect === 'immun_etat' && t.choice) immune[t.choice] = true; });
+      for (let i = toApply.length - 1; i >= 0; i--) {
+        if (immune[toApply[i]]) {
+          log(cname(target) + ' est <span class="lstate">immunisé</span> contre ' + stateLabel(toApply[i]) + '.', 'state');
+          toApply.splice(i, 1);
+        }
+      }
+    }
     if (!toApply.length) return;
     // Onde annule le prochain état négatif reçu
     let list = toApply.slice();
@@ -849,6 +877,13 @@
     if (attacker.side === 'hero' && heroHasTalent(attacker, 'force_blindee') && hasBlindage(attacker)) {
       pool.red = (pool.red || 0) + 1;
     }
+    // COMBUSTION : +1 dé bleu contre un adversaire affecté par FEU.
+    if (attacker.side === 'hero' && heroHasTalent(attacker, 'bonus_bleu_feu') && target.states && target.states.feu) {
+      pool.blue = (pool.blue || 0) + 1;
+    }
+    // ORBES PARTAGÉS : le buff de l'attaquant ajoute des dés bleus (et FEU) à cette attaque.
+    const orbBuffN = (attacker.side === 'hero' && attacker.orbBuff) ? attacker.orbBuff : 0;
+    if (orbBuffN > 0) { pool.blue = (pool.blue || 0) + orbBuffN; attacker.orbBuff = 0; } // consommé à la prochaine attaque
     const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
     const talentBonus = getTalentDmgBonus(attacker, target, atk);
     const dmg = baseDmg + talentBonus + (atk.bonusDmg || 0);
@@ -862,6 +897,12 @@
       }).length;
       if (epuise > 0) def = Math.max(0, def - epuise);
     }
+    // ORBE PERFORANT / FAILLE TACTIQUE (aventurier) : ignore la DEF de la cible.
+    if (attacker.side === 'hero') {
+      if (atk.orbIgnoreDef) def = 0;
+      const idt = Array.isArray(attacker.talents) ? attacker.talents.find(function (t) { return t.effect === 'ignore_def_etat'; }) : null;
+      if (idt && idt.choice && target.states && (idt.choice === 'poison' ? target.states.poison > 0 : target.states[idt.choice])) def = 0;
+    }
     // COUP DE GRÂCE (passif) : pas d'échec (double 1) contre une cible AU SOL.
     const noFumble = target.states.auSol && attacker.side === 'hero' && heroHasTalent(attacker, 'pas_echec_ausol');
     // DESTRUCTEUR (maîtrise) : critique sur tout double. BOUCLIER MYSTIQUE : la cible
@@ -870,7 +911,9 @@
     const ignoreBlue = target.side === 'hero' && heroHasTalent(target, 'bouclier_mystique');
     // SOLIDITÉ (amélioration) : la DEF de l'aventurier bloque aussi les dés rouges.
     const defBlocksRed = target.side === 'hero' && heroHasTalent(target, 'solidite');
-    const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue, defBlocksRed: defBlocksRed });
+    // ORBE : par défaut un Orbe ne réalise pas de critique (sauf Orbe Critique).
+    const noCrit = attacker.side === 'hero' && atk.orbNoCrit;
+    const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue, defBlocksRed: defBlocksRed, noCrit: noCrit });
 
     // MUR IMBRISABLE (passif) : un critique adverse contre cet aventurier devient un échec.
     let critToEchec = false;
@@ -975,6 +1018,11 @@
     // REGAIN : la DEF a tout absorbé (aucun dégât d'une attaque adverse).
     if (res.pvLost <= 0 && res.pvHealed <= 0) applyRegain(target, attacker);
     applyStates(attacker, target, atk);
+    // ORBES PARTAGÉS : l'attaque dopée inflige aussi FEU.
+    if (orbBuffN > 0 && target.status === 'active' && !(target.states && target.states.feu)) {
+      target.states.feu = true; pushFx({ type: 'state', iid: target.iid });
+      log(cname(target) + ' subit <span class="lstate">Feu</span> (Orbes Partagés).', 'state');
+    }
     checkMonsterTalents(target, res.pvLost);
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
     // Dégâts-choc (attaque d'opportunité) : tirer à distance dans une zone ennemie.
@@ -1064,6 +1112,26 @@
     return null;
   }
 
+  // ORBES PARTAGÉS : répartit les Orbes Mystiques en buffs (+1 dé bleu & FEU sur la
+  // prochaine attaque) sur différents aventuriers (choix du joueur).
+  function triggerOrbeShare(attacker) {
+    const pi = attacker.attacks.findIndex(function (a) { return a.pyromaneOrb; });
+    let orbs = pi >= 0 ? (attacker.attackUses[pi] || 0) : 0;
+    if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour.'); return; }
+    log('<b class="lreact">Orbes Partagés</b> : ' + cname(attacker) + ' répartit ses Orbes sur ses alliés.', 'state');
+    while (orbs > 0) {
+      const allies = activeOf('hero').filter(function (h) { return !(h.orbBuff > 0); });
+      if (!allies.length) break;
+      const ally = playerPick('Orbes Partagés : sur quel aventurier ? (' + orbs + ' orbe(s) restant(s) — Annuler pour arrêter)', allies, plainName);
+      if (!ally) break;
+      ally.orbBuff = (ally.orbBuff || 0) + 1;
+      if (pi >= 0) attacker.attackUses[pi] = Math.max(0, (attacker.attackUses[pi] || 0) - 1);
+      orbs--;
+      pushFx({ type: 'state', iid: ally.iid });
+      log(cname(ally) + ' reçoit <span class="lstate">+1 dé bleu &amp; Feu</span> sur sa prochaine attaque.', 'state');
+    }
+  }
+
   // COOPÉRATION : un allié GARDÉ de la zone effectue une attaque gratuite (choix joueur).
   function triggerCooperation(attacker) {
     const allies = activeOf('hero').filter(function (h) {
@@ -1100,6 +1168,13 @@
           log(cname(attacker) + ' <span class="lstate">Bain de Sang</span> : +' + amt(attacker.pv - before, 'heal') + ' PV.', 'state');
         }
       }
+    }
+    // IMPLOSION (réaction) : après un critique, 1 action supplémentaire (1×/tour).
+    if (heroHasTalent(attacker, 'implosion') && attacker.used.action && !(attacker.reactUsed && attacker.reactUsed.implosion)) {
+      attacker.reactUsed = attacker.reactUsed || {};
+      attacker.reactUsed.implosion = true;
+      attacker.used.action = false;
+      log('<b class="lreact">Implosion !</b> ' + cname(attacker) + ' regagne une action grâce à son critique.', 'state');
     }
     if (critTriggerDepth > 2) return; // garde-fou anti-récursion
     critTriggerDepth++;
@@ -1693,8 +1768,8 @@
   // startHeroTurn n'ait recalculé le flag) pour une détection fiable dès le début.
   function needsPretour() {
     return activeOf('hero').some(function (h) {
-      return h.freeMoveReady || heroHasTalent(h, 'pas_leger') || !!h.rapide ||
-        (combat().turn === 1 && !combat().gardienDone && heroHasTalent(h, 'gardien'));
+      return h.freeMoveReady || heroHasTalent(h, 'pas_leger') || !!h.rapide || heroHasTalent(h, 'pretour_first') ||
+        (combat().turn === 1 && !combat().gardienDone && (heroHasTalent(h, 'gardien') || heroHasTalent(h, 'orbe_pretour')));
     }) || activeOf('monster').some(function (m) { return !!m.rapide; });
   }
 
@@ -1729,12 +1804,18 @@
   function startPretour() {
     const c = combat();
     c.phase = 'pretour';
-    // Octroie le mouvement gratuit (Pas Léger) et l'action rapide (Rapide) aux héros.
+    // Octroie le mouvement gratuit (Pas Léger), l'action rapide (Rapide), et l'accès
+    // au Pré-Tour pour Initiative / Préparation Arcanique (Orbes en Pré-Tour 1).
     activeOf('hero').forEach(function (h) {
-      h.freeMoveReady = heroHasTalent(h, 'pas_leger') || !!h.rapide;
+      h.freeMoveReady = heroHasTalent(h, 'pas_leger') || !!h.rapide || heroHasTalent(h, 'pretour_first') ||
+        (c.turn === 1 && heroHasTalent(h, 'orbe_pretour'));
     });
     // GARDIEN (maîtrise) : au Pré-Tour 1, désignation des alliés Gardés.
     if (c.turn === 1) applyGardienDesignations();
+    // INITIATIVE : si un aventurier agit avant les rapides, on diffère ces derniers.
+    const deferFast = activeOf('hero').some(function (h) { return heroHasTalent(h, 'pretour_first'); }) &&
+      activeOf('monster').some(function (m) { return !!m.rapide; });
+    c.fastDeferred = !!deferFast;
     // Présélectionne un aventurier disposant d'un talent de pré-tour, si possible.
     const readyHeroes = activeOf('hero').filter(function (h) { return h.freeMoveReady; });
     if (readyHeroes.length) selectedIid = readyHeroes[0].iid;
@@ -1746,7 +1827,8 @@
       log('Pré-Tour ' + c.turn + '.', 'turn');
     }
     centerText('Pré-Tour ' + c.turn, 'fx-center-turn');
-    pretourMonstersAct();
+    // INITIATIVE : les adversaires rapides agissent maintenant SAUF s'ils sont différés.
+    if (!c.fastDeferred) pretourMonstersAct();
     // Si aucun aventurier n'a finalement de talent à jouer (ex. seuls des
     // adversaires rapides agissaient), on enchaîne directement le vrai tour.
     if (!combat().outcome && !activeOf('hero').some(function (h) { return h.freeMoveReady; })) {
@@ -1758,6 +1840,12 @@
   function startTurnFromPretour() {
     if (combat().outcome) return;
     const c = combat();
+    // INITIATIVE : les adversaires rapides différés agissent maintenant (après les héros).
+    if (c.fastDeferred) {
+      c.fastDeferred = false;
+      pretourMonstersAct();
+      if (c.outcome) { Store.save(); render(); return; }
+    }
     log('Tour ' + c.turn + '.', 'turn');
     centerText('Tour ' + c.turn, 'fx-center-turn');
     c.phase = 'heroes';
@@ -1957,7 +2045,9 @@
       if (c.status !== 'active' || !c.states.feu) return;
       // BLINDAGE : absorbe les dégâts de Feu (consomme une source).
       if (absorbBlindage(c, 'le Feu')) return;
-      const v = 1 + Math.floor(Math.random() * 6);
+      let v = 1 + Math.floor(Math.random() * 6);
+      // EMBRASEMENT : les dégâts de Feu des adversaires sont doublés en fin de tour.
+      if (c.side === 'monster' && activeOf('hero').some(function (h) { return heroHasTalent(h, 'feu_double'); })) v *= 2;
       const before = c.pv;
       c.pv = Math.max(0, c.pv - v);
       c.dmgTaken += v;
@@ -2983,8 +3073,11 @@
     const usedA = c.used.action;
     const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
     const depleted = uses === 0;
+    // PRÉPARATION ARCANIQUE : un Orbe est lançable dès le Pré-Tour 1.
+    const orbPretour = a.pyromaneOrb && combat().phase === 'pretour' && combat().turn === 1 &&
+      heroHasTalent(c, 'orbe_pretour') && c.status === 'active' && !combat().outcome;
     // AU SOL : aucune attaque ni talent possible tant que le combattant n'est pas relevé
-    const blocked = !canAct || depleted || (!a.freeAction && usedA) || (c.states && c.states.auSol);
+    const blocked = (!canAct && !orbPretour) || depleted || (!a.freeAction && usedA) || (c.states && c.states.auSol);
     const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average;
     const isEnemy = c.side === 'monster';
     const revealed = !isEnemy || c.analyzed;
@@ -3139,13 +3232,19 @@
     if (!atk) return;
     if (attacker.attackUses[atkIndex] === 0) return;
     if (!atk.freeAction && attacker.used.action) return;
+    // ORBES PARTAGÉS : action de buff (ne résout pas d'attaque classique).
+    if (atk.orbeShare) { triggerOrbeShare(attacker); if (!atk.freeAction) attacker.used.action = true; return; }
+    let deflagZone = null;
     // DÉFLAGRATION : lance tous les Orbes Mystiques restants (dés bleus) d'un coup.
     if (atk.deflagration) {
       const pi = attacker.attacks.findIndex(function (a) { return a.pyromaneOrb; });
       const orbs = pi >= 0 ? (attacker.attackUses[pi] || 0) : 0;
       if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour pour la Déflagration.'); return; }
-      atk = Object.assign({}, atk, { dice: Object.assign(D.emptyPool(), { blue: orbs }) });
+      const per = atk.orbPer || 1;
+      atk = Object.assign({}, atk, { dice: Object.assign(D.emptyPool(), { blue: orbs * per }) });
       if (pi >= 0) attacker.attackUses[pi] = 0; // consomme tous les orbes restants
+      // ORBE À DISPERSION : 3 orbes ou plus → la Déflagration touche toute la zone.
+      if (orbs >= 3 && heroHasTalent(attacker, 'orbe_zone') && target) deflagZone = target.zone;
       log(cname(attacker) + ' concentre <span class="lstate">' + orbs + ' Orbe(s) Mystique(s)</span> en une Déflagration !', 'state');
     }
     // POISON X : inflige X dégâts avant d'attaquer
@@ -3155,6 +3254,10 @@
     let targets = (atk.targets === 'all')
       ? activeOf(enemySide).filter(function (t) { return canReach(attacker, t, atk); })
       : (target ? [target] : []);
+    // DÉFLAGRATION à dispersion : tous les adversaires de la zone visée.
+    if (deflagZone != null) targets = activeOf('monster').filter(function (t) { return t.zone === deflagZone && !shootBlocked(attacker.zone, t.zone); });
+    // BRASIER : ne touche que les adversaires affectés par FEU.
+    if (atk.brasier) targets = targets.filter(function (t) { return t.states && t.states.feu; });
     // Frappe Tournoyante : limitée aux adversaires de la zone de l'aventurier.
     if (atk.zoneOnly) targets = targets.filter(function (t) { return t.zone === attacker.zone; });
     // PROVOCATION : attire la cible dans la zone de l'attaquant avant de frapper.
@@ -3479,6 +3582,8 @@
           if (!atk) return;
           // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
           if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
+          // ORBES PARTAGÉS : buff auto-ciblé sur les alliés, sans ciblage d'ennemi.
+          if (atk.orbeShare) { applyAttack(c, i, null); pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
           // COURSE (action de déplacement) : arme un mouvement qui consomme l'action.
           if (atk.moveAction) {
             if (c.used.action) return;

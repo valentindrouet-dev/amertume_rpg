@@ -421,6 +421,13 @@
           // Lance tous les orbes restants (dés bleus) sur une cible (dés calculés au moteur).
           return Object.assign(common, { range: 'distance', useOwnDamage: false,
             dice: D.emptyPool(), deflagration: true });
+        case 'orbe_partage':
+          // Répartit les orbes en buffs sur des alliés (géré par le moteur).
+          return Object.assign(common, { range: 'distance', useOwnDamage: false,
+            dice: D.emptyPool(), targets: 'self', orbeShare: true });
+        case 'brasier':
+          // Frappe tous les adversaires affectés par FEU (filtrage par le moteur).
+          return Object.assign(common, { range: baseRange(), targets: 'all', brasier: true });
         case 'frappe_puissante':
           return Object.assign(common, { range: 'contact', bonusDmg: t.val || 0 });
         case 'coup_renversant':
