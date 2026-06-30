@@ -113,6 +113,11 @@
     const attacks = Combatants.heroCombatAttacks(hero);
     const talents = Combatants.resolveHeroTalents(Array.isArray(hero.chosenTalents) ? hero.chosenTalents : null);
     const hasTalent = function (e) { return talents.some(function (t) { return t.effect === e; }); };
+    // PYROMANE : nombre d'Orbes Mystiques par tour = 2 + 1 par niveau impair (3, 5, 7…).
+    if (hasTalent('pyromane')) {
+      const orbs = 2 + Math.floor((Math.max(1, combatHeroLevel) - 1) / 2);
+      attacks.forEach(function (a) { if (a.pyromaneOrb) a.uses = orbs; });
+    }
     // Objet consommable équipé : on en garde une copie légère pour le combat.
     const eq = Combatants.normalizeEquip(h.equipment || {});
     const objTpl = eq.objectId ? Store.state.items.find(function (it) { return it.id === eq.objectId; }) : null;
@@ -3129,10 +3134,19 @@
 
   // Cœur d'exécution d'une attaque (sans rendu) — réutilisé par l'UI et l'auto-combat
   function applyAttack(attacker, atkIndex, target) {
-    const atk = attacker.attacks[atkIndex];
+    let atk = attacker.attacks[atkIndex];
     if (!atk) return;
     if (attacker.attackUses[atkIndex] === 0) return;
     if (!atk.freeAction && attacker.used.action) return;
+    // DÉFLAGRATION : lance tous les Orbes Mystiques restants (dés bleus) d'un coup.
+    if (atk.deflagration) {
+      const pi = attacker.attacks.findIndex(function (a) { return a.pyromaneOrb; });
+      const orbs = pi >= 0 ? (attacker.attackUses[pi] || 0) : 0;
+      if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour pour la Déflagration.'); return; }
+      atk = Object.assign({}, atk, { dice: Object.assign(D.emptyPool(), { blue: orbs }) });
+      if (pi >= 0) attacker.attackUses[pi] = 0; // consomme tous les orbes restants
+      log(cname(attacker) + ' concentre <span class="lstate">' + orbs + ' Orbe(s) Mystique(s)</span> en une Déflagration !', 'state');
+    }
     // POISON X : inflige X dégâts avant d'attaquer
     applyPoison(attacker);
     if (attacker.status !== 'active') return;

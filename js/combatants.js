@@ -355,7 +355,7 @@
     // Un talent de niveau supérieur peut ainsi renforcer un talent existant
     // (ex. « +1 Orbe de Feu » s'ajoute à l'effet de base).
     const merged = {}; const order = [];
-    talents.filter(function (t) { return t.kind === 'action'; }).forEach(function (t) {
+    talents.filter(function (t) { return t.kind === 'action' || t.effect === 'pyromane'; }).forEach(function (t) {
       if (!merged[t.effect]) {
         merged[t.effect] = { id: t.id, name: t.name, effect: t.effect, kind: 'action',
           val: 0, dice: null, range: null, choice: t.choice || null, scope: t.scope || 'count' };
@@ -412,6 +412,15 @@
         case 'provocation':
           // Attire un adversaire dans la zone puis l'attaque (moteur).
           return Object.assign(common, { range: 'contact', provoke: true });
+        case 'pyromane':
+          // Orbe Mystique : 1 dé bleu, à distance, action gratuite réutilisable.
+          // Le nombre d'orbes/tour (uses) est ajusté selon le niveau par le moteur.
+          return Object.assign(common, { range: 'distance', useOwnDamage: false,
+            dice: Object.assign(D.emptyPool(), { blue: 1 }), freeAction: true, uses: 2, pyromaneOrb: true });
+        case 'deflagration':
+          // Lance tous les orbes restants (dés bleus) sur une cible (dés calculés au moteur).
+          return Object.assign(common, { range: 'distance', useOwnDamage: false,
+            dice: D.emptyPool(), deflagration: true });
         case 'frappe_puissante':
           return Object.assign(common, { range: 'contact', bonusDmg: t.val || 0 });
         case 'coup_renversant':
