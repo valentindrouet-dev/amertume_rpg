@@ -403,6 +403,15 @@
         case 'attaque_furieuse':
           // 1 attaque normale ; le chaînage sur kill est géré par le moteur de combat.
           return Object.assign(common, { range: baseRange(), chainOnKill: true });
+        case 'attaque_blindee':
+          // 1 attaque, puis l'attaquant gagne Blindage (géré par le moteur).
+          return Object.assign(common, { range: baseRange(), grantBlindageSelf: true });
+        case 'cooperation':
+          // 1 attaque ; un allié Gardé de la zone attaque gratuitement (moteur).
+          return Object.assign(common, { range: baseRange(), cooperation: true });
+        case 'provocation':
+          // Attire un adversaire dans la zone puis l'attaque (moteur).
+          return Object.assign(common, { range: 'contact', provoke: true });
         case 'frappe_puissante':
           return Object.assign(common, { range: 'contact', bonusDmg: t.val || 0 });
         case 'coup_renversant':
@@ -447,6 +456,16 @@
     const chosen = Array.isArray(h.chosenTalents) ? h.chosenTalents : null;
     const talents = resolveHeroTalents(chosen);
     applyUpgrades(atks, talents);
+    // COUP DE BOUCLIER (passif) : si un Bouclier est équipé, +1 dé rouge visible sur
+    // chaque attaque d'arme.
+    const hasCoupBouclier = talents.some(function (t) { return t.effect === 'coup_bouclier'; });
+    if (hasCoupBouclier) {
+      const e = normalizeEquip(h.equipment || {});
+      const shield = [e.mainG, e.mainD, e.armorId].some(function (id) {
+        const it = id ? itemById(id) : null; return !!(it && it.category === 'armor' && it.slot === 'shield');
+      });
+      if (shield) atks.forEach(function (a) { if (a.dice) a.dice.red = (a.dice.red || 0) + 1; });
+    }
     return atks.concat(talentActionAttacks(weapon.length ? weapon : atks, talents));
   }
 
@@ -784,6 +803,7 @@
     else if (step === 'Classe') ok = !!wiz.klass;
     else if (step === 'Caractéristiques') ok = wiz.statClicks === 3;
     else if (step === 'Équipement') ok = !!wiz.equipCombo;
+    else if (step === 'Talents') ok = (wiz.talents || []).length >= 1;
     else if (step === 'Compétences') ok = wizSkillTotal() === 3;
     const nb = $('#hw-next'); if (nb) nb.disabled = !ok;
   }

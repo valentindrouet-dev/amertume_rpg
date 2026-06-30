@@ -41,6 +41,7 @@
   let movePrefix = null;      // { iid, zone } : déplacement à fusionner avec l'attaque qui suit
   let rootSel = '#combat-root'; // cible de rendu (redirigée pendant un combat de session)
   let sessionGains = null;    // { heroId: { endu, damage, talents:[] } } pour le combat courant
+  let combatHeroLevel = 1;    // niveau du groupe (pour ENDURCISSEMENT)
 
   const SOCLE_RANK = { small: 0, medium: 1, large: 2, huge: 3 };
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
@@ -120,19 +121,32 @@
       : null;
     // RENFORCEMENT (amélioration) : +bonus de dégâts au maximum (et au courant) de PV.
     const renf = hasTalent('renforcement') ? Math.max(0, hero.damage || 0) : 0;
+    // SURVIVALISTE (maîtrise) : ajoute la VIE au bonus de dégâts.
+    const surv = hasTalent('survivaliste') ? Math.max(0, hero.vie || 0) : 0;
+    // ENDURCISSEMENT (amélioration) : +1 ENDU par Niveau.
+    const endurHard = hasTalent('endurcissement') ? Math.max(0, combatHeroLevel) : 0;
+    // Bouclier équipé (item « armure » de slot 'shield', en main ou en armure).
+    const hasShield = [eq.mainG, eq.mainD, eq.armorId].some(function (id) {
+      if (!id) return false;
+      const it = Store.state.items.find(function (x) { return x.id === id; });
+      return !!(it && it.category === 'armor' && it.slot === 'shield');
+    });
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
-      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: hero.endu || 1, imageUrl: h.imageUrl || null,
+      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: (hero.endu || 1) + endurHard, imageUrl: h.imageUrl || null,
       maxPv: Combatants.heroPv(hero) + renf, pv: Combatants.heroCurPv(hero) + renf,
-      def: Combatants.heroDef(hero), damage: hero.damage, xp: 0, type: 'hero',
+      def: Combatants.heroDef(hero), damage: (hero.damage || 0) + surv, xp: 0, type: 'hero',
       menace: null, esquive: hasTalent('esquive_innee') || false, rapide: !!h.rapide, socle: 'medium',
+      hasShield: hasShield,             // COUP DE BOUCLIER : +1 dé rouge si bouclier
       attacks: attacks, attackUses: initUses(attacks),
       talents: talents,                 // talents résolus (kind/effect/val) pour le moteur
       reactUsed: {},                    // réactions déjà déclenchées dans le tour courant
       freeMoveReady: hasTalent('pas_leger'), // PAS LÉGER : mouvement gratuit dispo dès le 1er tour
       freeMoves: 0,                     // REBOND : compteur de mouvements gratuits supplémentaires
       objectItem: objectItem,           // objet consommable équipé (null si aucun)
-      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 },
+      lastBreathUsed: false,            // DERNIER SOUFFLE : ignore le coma 1×/combat
+      // BLINDAGE INITIAL : on commence le combat avec Blindage.
+      states: { affaibli: false, auSol: false, feu: false, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0 },
       used: { action: false, move: false, object: false },
       zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
       dmgDealt: 0, dmgTaken: 0,
@@ -291,6 +305,14 @@
     });
     // Bonus +1 XP par aventurier n'ayant subi aucun dégât pendant le combat
     c.noDmgXp = unscathedHeroes().length;
+    // GARDE SECRÈTE : chaque allié GARDÉ ayant conservé son Blindage → +2 XP.
+    if (finalize && c.combatants.some(function (h) { return h.side === 'hero' && heroHasTalent(h, 'garde_secrete'); })) {
+      const kept = c.combatants.filter(function (h) { return h.side === 'hero' && h.states && h.states.garde && hasBlindage(h); }).length;
+      if (kept > 0) {
+        c.bonusXp = (c.bonusXp || 0) + kept * 2;
+        log('<b class="lreact">Garde Secrète</b> : +' + (kept * 2) + ' XP (' + kept + ' allié(s) Gardé(s) ont conservé leur Blindage).', 'turn');
+      }
+    }
     c.finalize = !!finalize;
     c.lootResults = finalize ? rollLoot(c) : [];
     c.finished = true;
@@ -800,6 +822,12 @@
 
   function resolveAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
+    // Interceptions défensives (Protection / Rempart) avant une attaque adverse.
+    if (attacker.side === 'monster' && target.side === 'hero' && !atk._noIntercept && interceptDepth < 3) {
+      if (defensiveIntercept(attacker, target, atk) === 'redirected') return;
+      if (attacker.status !== 'active') return; // l'attaquant est tombé (Protection)
+      if (target.status !== 'active') return;
+    }
 
     const pool = Object.assign(D.emptyPool(), atk.dice);
     // FAILLE : ajoute 1 dé rose au pool de l'attaquant (les doubles avec ce dé sont exclus des dégâts)
@@ -809,6 +837,11 @@
       Object.keys(combat().markDice).forEach(function (col) {
         pool[col] = (pool[col] || 0) + combat().markDice[col];
       });
+    }
+    // FORCE BLINDÉE : +1 dé rouge (Lourd) tant que l'attaquant a Blindage (dynamique).
+    // (COUP DE BOUCLIER est ajouté statiquement aux dés de l'attaque — visible sur le bouton.)
+    if (attacker.side === 'hero' && heroHasTalent(attacker, 'force_blindee') && hasBlindage(attacker)) {
+      pool.red = (pool.red || 0) + 1;
     }
     const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
     const talentBonus = getTalentDmgBonus(attacker, target, atk);
@@ -829,7 +862,9 @@
     // aventurier ignore les dégâts des dés bleus.
     const destructeur = attacker.side === 'hero' && heroHasTalent(attacker, 'critique_destructeur');
     const ignoreBlue = target.side === 'hero' && heroHasTalent(target, 'bouclier_mystique');
-    const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue });
+    // SOLIDITÉ (amélioration) : la DEF de l'aventurier bloque aussi les dés rouges.
+    const defBlocksRed = target.side === 'hero' && heroHasTalent(target, 'solidite');
+    const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue, defBlocksRed: defBlocksRed });
 
     // MUR IMBRISABLE (passif) : un critique adverse contre cet aventurier devient un échec.
     let critToEchec = false;
@@ -876,12 +911,14 @@
       log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
         ' ' + diceStr + failTxt, 'attack');
       pushFx({ type: 'miss', iid: target.iid, text: 'ÉCHEC', center: true });
+      applyRegain(target, attacker); // échec adverse → Regain
       return;
     }
     if (negated) {
       log(cname(attacker) + movePfx + ' attaque ' + cname(target) +
         ' mais l’attaque est annulée (<span class="lstate">' + reason + '</span>).', 'attack');
       pushFx({ type: 'miss', iid: target.iid, text: reason });
+      applyRegain(target, attacker); // Blindage / annulation → Regain
       return;
     }
 
@@ -913,8 +950,10 @@
     const wasActive = target.status === 'active';
     if (res.pvLost > 0) {
       target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; attacker.dmgDealt += res.pvLost;
-      // RÉACTION Contre-Attaque : l'aventurier blessé pourra riposter à son tour.
-      if (target.side === 'hero' && attacker.side === 'monster' && heroHasTalent(target, 'contre_attaque')) {
+      // RÉACTION Contre-Attaque : l'aventurier blessé pourra riposter. Restreinte
+      // au contact, sauf RIPOSTE À DISTANCE qui l'autorise aussi à distance.
+      if (target.side === 'hero' && attacker.side === 'monster' && heroHasTalent(target, 'contre_attaque') &&
+          (atk.range === 'contact' || heroHasTalent(target, 'riposte_distance'))) {
         target.tookDamage = true; target.lastAttacker = attacker.iid;
       }
     }
@@ -927,6 +966,8 @@
         (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' ' + diceStr + ' : ' +
         (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' Dégâts infligés !' : 'aucun dégât.'),
         res.critique ? 'crit' : 'attack');
+    // REGAIN : la DEF a tout absorbé (aucun dégât d'une attaque adverse).
+    if (res.pvLost <= 0 && res.pvHealed <= 0) applyRegain(target, attacker);
     applyStates(attacker, target, atk);
     checkMonsterTalents(target, res.pvLost);
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
@@ -961,6 +1002,82 @@
     return (idx >= 0 && idx < items.length) ? items[idx] : null;
   }
   function plainName(c) { return c ? (c.name || '') : ''; }
+
+  // REGAIN (passif) : aucune blessure subie d'une attaque adverse → soin d'ENDU PV.
+  function applyRegain(c, attacker) {
+    if (!c || c.side !== 'hero' || !attacker || attacker.side !== 'monster') return;
+    if (c.status !== 'active' || !heroHasTalent(c, 'regain')) return;
+    const heal = Math.max(0, c.endu || 0);
+    if (heal <= 0 || c.pv >= c.maxPv) return;
+    const before = c.pv;
+    c.pv = Math.min(c.maxPv, c.pv + heal);
+    pushFx({ type: 'heal', iid: c.iid, amount: c.pv - before, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
+    log(cname(c) + ' <span class="lstate">Regain</span> : récupère ' + amt(c.pv - before, 'heal') + ' PV.', 'state');
+  }
+
+  // PROTECTION / REMPART : réactions déclenchées AVANT qu'un aventurier ne subisse
+  // une attaque adverse. Retourne 'redirected' si Rempart a redirigé l'attaque.
+  let interceptDepth = 0;
+  function defensiveIntercept(attacker, target, atk) {
+    interceptDepth++;
+    try {
+      // PROTECTION : un allié GARDÉ va être attaqué → un protecteur se déplace et frappe l'assaillant.
+      if (target.states && target.states.garde) {
+        const protectors = activeOf('hero').filter(function (h) {
+          return h.iid !== target.iid && heroHasTalent(h, 'protection') && !(h.reactUsed && h.reactUsed.protection) &&
+            (h.zone === target.zone || moveBarrier(h.zone, target.zone).type !== 'block');
+        });
+        const p = protectors.length
+          ? playerPick('Protection : ' + plainName(target) + ' (Gardé) est attaqué. Qui intervient (déplacement + attaque sur ' + plainName(attacker) + ') ?', protectors, plainName)
+          : null;
+        if (p) {
+          p.reactUsed = p.reactUsed || {}; p.reactUsed.protection = true;
+          if (p.zone !== target.zone) { p.zone = target.zone; pushFx({ type: 'move', iid: p.iid }); }
+          const wi = firstWeaponIdx(p);
+          log('<b class="lreact">Protection !</b> ' + cname(p) + ' protège ' + cname(target) + ' et attaque ' + cname(attacker) + '.', 'state');
+          if (wi >= 0 && attacker.status === 'active') resolveAttack(p, attacker, p.attacks[wi]);
+          if (attacker.status !== 'active') return 'attacker-down';
+        }
+      }
+      // REMPART : un allié de la zone de la cible subit les dégâts à sa place (sa DEF).
+      if (target.status === 'active' && attacker.status === 'active') {
+        const guards = activeOf('hero').filter(function (h) {
+          return h.iid !== target.iid && h.zone === target.zone && heroHasTalent(h, 'rempart') && !(h.reactUsed && h.reactUsed.rempart);
+        });
+        const g = guards.length
+          ? playerPick('Rempart : qui encaisse l\'attaque à la place de ' + plainName(target) + ' (avec sa propre DEF) ?', guards, plainName)
+          : null;
+        if (g) {
+          g.reactUsed = g.reactUsed || {}; g.reactUsed.rempart = true;
+          log('<b class="lreact">Rempart !</b> ' + cname(g) + ' encaisse l\'attaque à la place de ' + cname(target) + '.', 'state');
+          resolveAttack(attacker, g, Object.assign({}, atk, { _noIntercept: true }));
+          return 'redirected';
+        }
+      }
+    } finally { interceptDepth--; }
+    return null;
+  }
+
+  // COOPÉRATION : un allié GARDÉ de la zone effectue une attaque gratuite (choix joueur).
+  function triggerCooperation(attacker) {
+    const allies = activeOf('hero').filter(function (h) {
+      if (h.iid === attacker.iid || h.zone !== attacker.zone) return false;
+      if (!(h.states && h.states.garde)) return false;
+      const wi = firstWeaponIdx(h);
+      if (wi < 0) return false;
+      return activeOf('monster').some(function (m) { return canReach(h, m, h.attacks[wi]); });
+    });
+    if (!allies.length) return;
+    log('<b class="lreact">Coopération !</b> un allié Gardé de la zone peut attaquer gratuitement.', 'state');
+    const ally = playerPick('Coopération : quel allié Gardé attaque gratuitement ?', allies, plainName);
+    if (!ally) return;
+    const wi = firstWeaponIdx(ally);
+    const foes = activeOf('monster').filter(function (m) { return canReach(ally, m, ally.attacks[wi]); });
+    const foe = playerPick('Cible de ' + plainName(ally) + ' (attaque gratuite) ?', foes, plainName);
+    if (!foe) return;
+    log(cname(ally) + ' <span class="lreact">attaque gratuitement</span> (Coopération) !', 'state');
+    resolveAttack(ally, foe, ally.attacks[wi]);
+  }
 
   let critTriggerDepth = 0;
   // Effets déclenchés par un critique d'un aventurier (passifs de classe).
@@ -1007,6 +1124,7 @@
           if (m) {
             m.zone = attacker.zone; pushFx({ type: 'move', iid: m.iid });
             log(cname(attacker) + ' attire ' + cname(m) + ' dans sa zone (Cri de Rage).', 'state');
+            epinesOnArrival(m);
           }
         }
       }
@@ -1090,6 +1208,13 @@
   }
 
   function checkComa(c) {
+    // DERNIER SOUFFLE (passif) : 1×/combat, l'aventurier ignore le coup fatal.
+    if (c.status === 'active' && c.pv <= 0 && c.side === 'hero' && heroHasTalent(c, 'dernier_souffle') && !c.lastBreathUsed) {
+      c.lastBreathUsed = true; c.pv = 1;
+      pushFx({ type: 'state', iid: c.iid });
+      log(cname(c) + ' <span class="lstate">Dernier Souffle</span> : ignore les dégâts fatals et reste à 1 PV !', 'state');
+      return;
+    }
     if (c.status === 'active' && c.pv <= 0) {
       c.status = 'coma';
       c.pv = 0;
@@ -1223,6 +1348,24 @@
   function heroHasTalent(c, effect) {
     return c && c.side === 'hero' && Array.isArray(c.talents) &&
       c.talents.some(function (t) { return t.effect === effect; });
+  }
+  // ÉPINES (passif) : un adversaire qui arrive dans la zone d'un aventurier doté du
+  // talent subit son bonus de dégâts.
+  function epinesOnArrival(m) {
+    if (!m || m.side !== 'monster' || m.status !== 'active') return;
+    activeOf('hero').forEach(function (h) {
+      if (h.zone !== m.zone || !heroHasTalent(h, 'epines')) return;
+      const dmg = h.damage || 0;
+      if (dmg <= 0 || m.status !== 'active') return;
+      if (absorbBlindage(m, 'Épines')) return;
+      const before = m.pv;
+      m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; h.dmgDealt += dmg;
+      pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
+      log('<b class="lopp">Épines !</b> ' + cname(h) + ' inflige ' + amt(dmg, 'dmg') + ' Dégâts à ' + cname(m) + ' qui arrive dans sa zone.', 'dchoc');
+      if (m.pv <= 0 && !m.killedBy) m.killedBy = h.iid;
+      checkMonsterTalents(m, dmg);
+      checkComa(m);
+    });
   }
   // Valeur X d'un talent de l'aventurier (0 si absent)
   function heroTalentVal(c, effect) {
@@ -1388,6 +1531,7 @@
         if (cross === 'ok') {
           m.zone = target.zone; m.used.move = true; moved = true;
           pushFx({ type: 'move', iid: m.iid });
+          epinesOnArrival(m); // ÉPINES : dégâts en arrivant dans la zone d'un aventurier
         } else {
           m.used.move = true; // tentative ratée ou zone bloquée : le mouvement est consommé
         }
@@ -1478,7 +1622,7 @@
   function pendingHeroReactor() {
     return activeOf('hero').find(function (h) {
       return heroHasTalent(h, 'contre_attaque') && h.tookDamage && byId(h.lastAttacker) &&
-        !(h.reactUsed && h.reactUsed.contre_attaque);
+        riposteRemaining(h) > 0;
     }) || null;
   }
   // Reprend la séquence adverse mise en pause par une Réaction.
@@ -1495,13 +1639,24 @@
     monstersActSequential(function () { Store.save(); render(); });
   }
 
+  // MENACE (maîtrise) : un aventurier de la zone du Sbire (ou de l'Élite) l'oblige
+  // à le prendre pour cible.
+  function heroMenaces(h, m) {
+    if (!h || !m || h.zone !== m.zone) return false;
+    const t = Array.isArray(h.talents) ? h.talents.find(function (x) { return x.effect === 'menace'; }) : null;
+    if (!t) return false;
+    const isElite = m.type === 'alpha' || m.type === 'solitaire' || m.type === 'boss';
+    return (t.choice === 'elite') ? isElite : (m.type === 'standard');
+  }
   // Sélection d'une cible selon la menace, parmi un ensemble de candidats
   function chooseFrom(monster, candidates) {
     if (!candidates || !candidates.length) return null;
-    if (monster.menace === 'pvLow') return minBy(candidates, function (h) { return h.pv; });
-    if (monster.menace === 'pvHigh') return maxBy(candidates, function (h) { return h.pv; });
-    if (monster.menace === 'defLow') return minBy(candidates, function (h) { return h.def; });
-    return candidates[0];
+    const taunters = candidates.filter(function (h) { return heroMenaces(h, monster); });
+    const pool = taunters.length ? taunters : candidates;
+    if (monster.menace === 'pvLow') return minBy(pool, function (h) { return h.pv; });
+    if (monster.menace === 'pvHigh') return maxBy(pool, function (h) { return h.pv; });
+    if (monster.menace === 'defLow') return minBy(pool, function (h) { return h.def; });
+    return pool[0];
   }
 
   function minBy(arr, f) { return arr.reduce(function (a, b) { return f(b) < f(a) ? b : a; }); }
@@ -1532,7 +1687,8 @@
   // startHeroTurn n'ait recalculé le flag) pour une détection fiable dès le début.
   function needsPretour() {
     return activeOf('hero').some(function (h) {
-      return h.freeMoveReady || heroHasTalent(h, 'pas_leger') || !!h.rapide;
+      return h.freeMoveReady || heroHasTalent(h, 'pas_leger') || !!h.rapide ||
+        (combat().turn === 1 && !combat().gardienDone && heroHasTalent(h, 'gardien'));
     }) || activeOf('monster').some(function (m) { return !!m.rapide; });
   }
 
@@ -1544,6 +1700,26 @@
     checkOutcome();
   }
 
+  // GARDIEN : désigne X alliés qui reçoivent Blindage + Gardé (Pré-Tour 1).
+  function applyGardienDesignations() {
+    const c = combat();
+    if (c.gardienDone) return;
+    c.gardienDone = true;
+    activeOf('hero').filter(function (h) { return heroHasTalent(h, 'gardien'); }).forEach(function (h) {
+      const x = Math.max(1, heroTalentVal(h, 'gardien') || 1);
+      log('<b class="lreact">Gardien</b> : ' + cname(h) + ' peut désigner ' + x + ' allié(s) Gardé(s).', 'state');
+      for (let k = 0; k < x; k++) {
+        const cands = activeOf('hero').filter(function (a) { return a.iid !== h.iid && !(a.states && a.states.garde); });
+        if (!cands.length) break;
+        const ally = playerPick('Gardien : désignez un allié à protéger (Blindage + Gardé).', cands, plainName);
+        if (!ally) break;
+        ally.states.blindage = true; ally.states.garde = true;
+        pushFx({ type: 'state', iid: ally.iid });
+        log(cname(ally) + ' reçoit <span class="lstate">Blindage</span> et <span class="lstate">Gardé</span> (Gardien).', 'state');
+      }
+    });
+  }
+
   function startPretour() {
     const c = combat();
     c.phase = 'pretour';
@@ -1551,6 +1727,8 @@
     activeOf('hero').forEach(function (h) {
       h.freeMoveReady = heroHasTalent(h, 'pas_leger') || !!h.rapide;
     });
+    // GARDIEN (maîtrise) : au Pré-Tour 1, désignation des alliés Gardés.
+    if (c.turn === 1) applyGardienDesignations();
     // Présélectionne un aventurier disposant d'un talent de pré-tour, si possible.
     const readyHeroes = activeOf('hero').filter(function (h) { return h.freeMoveReady; });
     if (readyHeroes.length) selectedIid = readyHeroes[0].iid;
@@ -1732,6 +1910,7 @@
     affaibli: { l: 'Affaibli', neg: true }, auSol: { l: 'Au sol', neg: true }, feu: { l: 'Feu', neg: true },
     blindage: { l: 'Blindage', neg: false }, onde: { l: 'Onde', neg: false }, ciblage: { l: 'Ciblage', neg: false },
     brise: { l: 'Brisé', neg: true }, faille: { l: 'Faille', neg: true }, poison: { l: 'Poison', neg: true },
+    garde: { l: 'Gardé', neg: false },
   };
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
   // Blindage actif : état ponctuel (states.blindage) OU charges restantes (blindageCharges).
@@ -2732,9 +2911,12 @@
       return h.side === 'hero' && h.status === 'coma' && deadZones[h.zone];
     }) || null;
   }
+  // RIPOSTE 2 : Riposte utilisable 2 fois par tour adverse (sinon 1).
+  function riposteMax(c) { return heroHasTalent(c, 'riposte2') ? 2 : 1; }
+  function riposteRemaining(c) { return riposteMax(c) - ((c.reactUsed && c.reactUsed.contre_attaque_count) || 0); }
   function reactionReady(c, t) {
+    if (t.effect === 'contre_attaque') return riposteRemaining(c) > 0 && !!c.tookDamage && !!byId(c.lastAttacker);
     if (c.reactUsed && c.reactUsed[t.effect]) return false;
-    if (t.effect === 'contre_attaque') return !!c.tookDamage && !!byId(c.lastAttacker);
     if (t.effect === 'reanimation') return reanimTarget(c) != null;
     return false;
   }
@@ -2761,15 +2943,18 @@
   }
   function execHeroReaction(c, effect) {
     if (!c || c.status !== 'active') return;
-    if (c.reactUsed && c.reactUsed[effect]) return;
+    if (effect !== 'contre_attaque' && c.reactUsed && c.reactUsed[effect]) return;
     if (effect === 'contre_attaque') {
+      if (riposteRemaining(c) <= 0) return;
       const tgt = byId(c.lastAttacker);
       const wi = firstWeaponIdx(c);
       if (tgt && tgt.status === 'active' && wi >= 0) {
         log(cname(c) + ' <span class="lreact">riposte</span> !', 'state');
         resolveAttack(c, tgt, c.attacks[wi]);
       }
-      c.reactUsed.contre_attaque = true; c.tookDamage = false;
+      // Compteur de Riposte (1 ou 2 par tour adverse) ; on attend un nouveau coup.
+      c.reactUsed.contre_attaque_count = ((c.reactUsed.contre_attaque_count) || 0) + 1;
+      c.tookDamage = false;
     } else if (effect === 'reanimation') {
       const ally = reanimTarget(c);
       const val = heroTalentVal(c, 'reanimation');
@@ -2957,7 +3142,20 @@
       : (target ? [target] : []);
     // Frappe Tournoyante : limitée aux adversaires de la zone de l'aventurier.
     if (atk.zoneOnly) targets = targets.filter(function (t) { return t.zone === attacker.zone; });
+    // PROVOCATION : attire la cible dans la zone de l'attaquant avant de frapper.
+    if (atk.provoke && target && target.zone !== attacker.zone && moveBarrier(attacker.zone, target.zone).type !== 'block') {
+      target.zone = attacker.zone; pushFx({ type: 'move', iid: target.iid });
+      log('<b class="lopp">Provocation !</b> ' + cname(attacker) + ' attire ' + cname(target) + ' dans sa zone.', 'state');
+      epinesOnArrival(target);
+    }
     targets.forEach(function (t) { resolveAttack(attacker, t, atk); });
+    // ATTAQUE BLINDÉE : l'attaquant gagne Blindage après son attaque.
+    if (atk.grantBlindageSelf && attacker.status === 'active') {
+      attacker.states.blindage = true; pushFx({ type: 'state', iid: attacker.iid });
+      log(cname(attacker) + ' gagne <span class="lstate">Blindage</span>.', 'state');
+    }
+    // COOPÉRATION : un allié GARDÉ de la zone attaque gratuitement (choix du joueur).
+    if (atk.cooperation && attacker.status === 'active') triggerCooperation(attacker);
     // ATTAQUE FURIEUSE : si la cible est tuée, UNE seule attaque gratuite sur un
     // autre adversaire de la zone (pas de chaînage à l'infini).
     if (atk.chainOnKill && target && target.status !== 'active' && attacker.status === 'active') {
@@ -3410,6 +3608,13 @@
       return;
     }
     Store.state.sessionCombat = sessionCtx || null;
+    combatHeroLevel = 1;
+    try {
+      if (sessionCtx && sessionCtx.sessionId && Store.levelInfo) {
+        const ses = Store.loadSessions().find(function (s) { return s.id === sessionCtx.sessionId; });
+        if (ses && ses.party) combatHeroLevel = Store.levelInfo(ses.party.xp || 0).level || 1;
+      }
+    } catch (e) { combatHeroLevel = 1; }
     buildCombat(heroObjs, normalizeZoneConfig(sceneCombat));
     sessionGains = null;  // les instances sont figées : on ne garde pas l'overlay
     log('Début du combat — Tour 1.', 'turn');

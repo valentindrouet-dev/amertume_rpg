@@ -148,7 +148,9 @@
       }
 
       let passes;
-      if (t.ignoresDef) {
+      // SOLIDITÉ (opts.defBlocksRed) : le défenseur fait comparer les dés rouges à la DEF.
+      const ignoresDef = t.ignoresDef && !(opts.defBlocksRed && d.color === 'red');
+      if (ignoresDef) {
         passes = true;             // lourds, mortels, soins ignorent la DEF
       } else {
         passes = compare > def;

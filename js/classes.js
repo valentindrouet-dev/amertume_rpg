@@ -28,7 +28,7 @@
   const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', upgrade: 'AME', mastery: 'MAIT' };
   const KIND_ORDER = ['action', 'reaction', 'passive', 'critique', 'upgrade', 'mastery'];
   // Libellés lisibles des valeurs de choix (les états internes → noms affichés).
-  const CHOICE_LABELS = { feu: 'Feu', auSol: 'Au sol', affaibli: 'Affaibli' };
+  const CHOICE_LABELS = { feu: 'Feu', auSol: 'Au sol', affaibli: 'Affaibli', sbire: 'Sbires', elite: 'Alpha / Solitaire / Boss' };
 
   let classes = [];
   let generics = [];
