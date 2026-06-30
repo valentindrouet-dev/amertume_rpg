@@ -2232,9 +2232,25 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 .ab-name .tag { flex: 0 0 auto; }
-/* Classe (aventurier) / type (adversaire) affichés SOUS la barre de PV. */
+/* Classe (aventurier) / type (adversaire) affichés SOUS la barre de PV :
+   cartouches PLEINS, colorés selon la classe / le type. */
 .ab-subline { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
 .ab-subline:empty { display: none; }
+.ab-subline .tag { color: #fff !important; border: none !important; font-weight: 700;
+  border-radius: 7px; padding: .05rem .5rem; }
+.ab-subline .class-tag.klass-apothicaire { background: #6fae5e !important; }
+.ab-subline .class-tag.klass-artificier  { background: #c79a35 !important; }
+.ab-subline .class-tag.klass-chasseur    { background: #5fa748 !important; }
+.ab-subline .class-tag.klass-destructeur { background: #c75740 !important; }
+.ab-subline .class-tag.klass-deviant     { background: #8a6cb4 !important; }
+.ab-subline .class-tag.klass-gardien     { background: #5a86bd !important; }
+.ab-subline .class-tag.klass-lamevent    { background: #3ea692 !important; }
+.ab-subline .class-tag.klass-pyromane    { background: #e08a4a !important; }
+.ab-subline .type.ztype-standard   { background: #8d8676 !important; }
+.ab-subline .type.ztype-alpha      { background: #d98324 !important; }
+.ab-subline .type.ztype-solitaire  { background: #c0392b !important; }
+.ab-subline .type.ztype-boss       { background: #8a5cc4 !important; }
+.ab-subline .tag.dead { background: #6b6b6b !important; }
 .ab-pvline { display: flex; align-items: center; gap: .35rem; }
 /* Barre de PV : hauteur fixe et fine, largeur stable dans la colonne fixe */
 .ab-pvline .pv-bar { flex: 1 1 auto; min-width: 0; height: 16px; margin-bottom: 0; }
@@ -2247,22 +2263,20 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
    la grille d'actions. Même habillage que les boutons d'attaque du bandeau. */
 .ab-card.has-orbes .ab-id { flex: 1 1 130px; }
 .ab-orbes {
-  flex: 0 0 auto; width: 90px; align-self: stretch; min-height: 64px; box-sizing: border-box;
-  display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; gap: 2px;
-  border: 1px solid var(--border); border-radius: 7px; padding: .3rem .3rem;
-  background: rgba(124,82,168,.75); color: #fff; cursor: pointer;
+  flex: 0 0 auto; width: 92px; align-self: stretch; min-height: 64px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; gap: 3px;
+  border: 1px solid var(--border); border-radius: 7px; padding: .35rem .3rem;
+  background: #efb277; color: #fff; cursor: pointer;
 }
-.ab-orbes:hover:not(:disabled) { filter: brightness(1.06); }
-.ab-orbes:disabled { opacity: .5; cursor: not-allowed; }
-.ab-orbes.selected { background: rgba(106,63,156,.92); box-shadow: 0 0 0 2px rgba(124,82,168,.5); }
-.ab-orbes-title { font-weight: 700; font-size: .72rem; letter-spacing: .03em; }
-.ab-orbes-figs { display: inline-flex; align-items: center; justify-content: center; gap: .2rem; }
-.ab-orbes-figs .dice-row { gap: 2px; flex-wrap: nowrap; }
-.ab-orbes-figs .die-sq { width: 13px; height: 13px; border-width: 1px; border-radius: 3px; }
-.ab-orbes-figs .die-sq::after { width: 4px; height: 4px; }
+.ab-orbes:hover:not(:disabled) { filter: brightness(1.05); }
+.ab-orbes:disabled { opacity: .55; cursor: not-allowed; }
+.ab-orbes.selected { background: #e08a3e; box-shadow: 0 0 0 2px rgba(224,138,74,.5); }
+.ab-orbes-title { font-weight: 800; font-size: 1.08rem; letter-spacing: .02em; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.ab-orbes-figs { display: inline-flex; align-items: center; justify-content: center; gap: .25rem; }
+.ab-orbes-figs .dice-row { gap: 3px; flex-wrap: nowrap; }
 .ab-orbes-figs .atk-dmg { color: #fff; background: rgba(200,50,50,.9); border: 1px solid rgba(200,50,50,.65);
-  border-radius: 4px; padding: 0 .2rem; font-weight: 700; font-size: .6rem; }
-.ab-orbes-count { font-size: .6rem; font-weight: 700; opacity: .9; }
+  border-radius: 4px; padding: 0 .25rem; font-weight: 700; font-size: .72rem; }
+.ab-orbes-count { font-size: .66rem; font-weight: 700; }
 
 /* Zone d'actions : grille 2 LIGNES, remplie COLONNE PAR COLONNE (cf. croquis).
    Col. action : Attaque (haut) + Mouv/Objet/Analyse (bas).
@@ -2412,8 +2426,8 @@ img.ab-atk-name {
 }
 
 /* 3. Dés plus grands dans les boutons du bandeau */
-.ab-atk .die-sq { width: 16px; height: 16px; }
-.ab-atk .die-sq::after { width: 5px; height: 5px; }
+.ab-atk .die-sq, .ab-orbes-figs .die-sq { width: 16px; height: 16px; }
+.ab-atk .die-sq::after, .ab-orbes-figs .die-sq::after { width: 5px; height: 5px; }
 
 /* 4. Barre de PV plus haute dans le bandeau (même hauteur que dans les zones) */
 .ab-pvline .pv-bar { height: 22px; }
@@ -2486,8 +2500,8 @@ img.ab-atk-name {
 .ab-attack-cell .ab-atk { min-width: 0; overflow: hidden; flex-shrink: 1; }
 
 /* Dés dans le bandeau : taille maximale (contraints par la hauteur 32px du bouton) */
-.ab-atk .die-sq { width: 22px !important; height: 22px !important; border-radius: 5px; }
-.ab-atk .die-sq::after { width: 7px !important; height: 7px !important; }
+.ab-atk .die-sq, .ab-orbes-figs .die-sq { width: 22px !important; height: 22px !important; border-radius: 5px; }
+.ab-atk .die-sq::after, .ab-orbes-figs .die-sq::after { width: 7px !important; height: 7px !important; }
 
 /* Avatar avec image : la lettre doit disparaître quand une image couvre tout */
 .cc-avatar[style*="background-image"],
@@ -2538,8 +2552,8 @@ img.ab-atk-name {
 .ab-atk-name { font-size: .9rem; }
 img.ab-atk-name { width: 2.1em; height: 2.1em; }
 .ab-atk .atk-dmg, .ab-atk .atk-uses { font-size: .75rem; }
-.ab-atk .die-sq { width: 27px !important; height: 27px !important; border-radius: 6px; }
-.ab-atk .die-sq::after { width: 9px !important; height: 9px !important; }
+.ab-atk .die-sq, .ab-orbes-figs .die-sq { width: 27px !important; height: 27px !important; border-radius: 6px; }
+.ab-atk .die-sq::after, .ab-orbes-figs .die-sq::after { width: 9px !important; height: 9px !important; }
 .ab-tool { font-size: .83rem; }
 /* Le blason de DEF du bandeau (.def-img / .def-shield, dimensionnés en em) suit
    automatiquement le font-size +25 % de .ab-pvline .def-badge ci-dessus ;

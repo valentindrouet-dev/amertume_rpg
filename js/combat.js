@@ -2877,8 +2877,8 @@
         '</div>' +
         // Classe de l'aventurier / type de l'adversaire : SOUS la barre de PV.
         '<div class="ab-subline">' +
-          (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
-          (isEnemy && c.type ? '<span class="tag type">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
+          (c.klass ? '<span class="tag class-tag klass-' + slug(c.klass) + '">' + esc(c.klass) + '</span>' : '') +
+          (isEnemy && c.type ? '<span class="tag type ztype-' + c.type + '">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
           (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
         '</div>' +
         (statesBadges(c) ? '<div class="ab-states-badges">' + statesBadges(c) + '</div>' : '') +
