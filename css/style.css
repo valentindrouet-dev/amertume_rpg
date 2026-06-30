@@ -2232,6 +2232,9 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 .ab-name .tag { flex: 0 0 auto; }
+/* Classe (aventurier) / type (adversaire) affichés SOUS la barre de PV. */
+.ab-subline { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.ab-subline:empty { display: none; }
 .ab-pvline { display: flex; align-items: center; gap: .35rem; }
 /* Barre de PV : hauteur fixe et fine, largeur stable dans la colonne fixe */
 .ab-pvline .pv-bar { flex: 1 1 auto; min-width: 0; height: 16px; margin-bottom: 0; }
@@ -2241,18 +2244,25 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ab-pvline .def-badge { flex: 0 0 auto; font-size: .7rem; }
 
 /* Bouton spécial ORBES (Pyromane) : occupe la hauteur des 2 lignes, à gauche de
-   la grille d'actions. La colonne Nom/PV se réduit pour lui faire de la place. */
+   la grille d'actions. Même habillage que les boutons d'attaque du bandeau. */
 .ab-card.has-orbes .ab-id { flex: 1 1 130px; }
 .ab-orbes {
-  flex: 0 0 auto; width: 92px; align-self: stretch; min-height: 64px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  border: none; border-radius: 10px; padding: .25rem .3rem; cursor: pointer;
+  flex: 0 0 auto; width: 90px; align-self: stretch; min-height: 64px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; gap: 2px;
+  border: 1px solid var(--border); border-radius: 7px; padding: .3rem .3rem;
+  background: rgba(124,82,168,.75); color: #fff; cursor: pointer;
 }
-.ab-orbes-title { font-weight: 800; font-size: .72rem; letter-spacing: .05em; }
-.ab-orbes-figs { display: flex; align-items: center; justify-content: center; gap: 2px; flex-wrap: wrap; }
-.ab-orbes-figs .atk-dmg { font-size: .72rem; }
-.ab-orbes-count { font-size: .64rem; font-weight: 700; opacity: .85; }
-.ab-orbes:disabled { opacity: .45; cursor: not-allowed; }
+.ab-orbes:hover:not(:disabled) { filter: brightness(1.06); }
+.ab-orbes:disabled { opacity: .5; cursor: not-allowed; }
+.ab-orbes.selected { background: rgba(106,63,156,.92); box-shadow: 0 0 0 2px rgba(124,82,168,.5); }
+.ab-orbes-title { font-weight: 700; font-size: .72rem; letter-spacing: .03em; }
+.ab-orbes-figs { display: inline-flex; align-items: center; justify-content: center; gap: .2rem; }
+.ab-orbes-figs .dice-row { gap: 2px; flex-wrap: nowrap; }
+.ab-orbes-figs .die-sq { width: 13px; height: 13px; border-width: 1px; border-radius: 3px; }
+.ab-orbes-figs .die-sq::after { width: 4px; height: 4px; }
+.ab-orbes-figs .atk-dmg { color: #fff; background: rgba(200,50,50,.9); border: 1px solid rgba(200,50,50,.65);
+  border-radius: 4px; padding: 0 .2rem; font-weight: 700; font-size: .6rem; }
+.ab-orbes-count { font-size: .6rem; font-weight: 700; opacity: .9; }
 
 /* Zone d'actions : grille 2 LIGNES, remplie COLONNE PAR COLONNE (cf. croquis).
    Col. action : Attaque (haut) + Mouv/Objet/Analyse (bas).

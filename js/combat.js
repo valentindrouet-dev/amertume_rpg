@@ -2810,7 +2810,7 @@
     const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === idx && !pendingAttack.average;
     const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
     const figs = Inventory.poolBadges(a.dice) + (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '');
-    return '<button class="ab-orbes atk-chip ab-atk-mystic' + (isThisAtk ? ' selected' : '') + '" type="button"' +
+    return '<button class="ab-orbes' + (isThisAtk ? ' selected' : '') + '" type="button"' +
       ' data-iid="' + c.iid + '" data-atk="' + idx + '"' + (blocked ? ' disabled' : '') +
       ' title="Lancer un Orbe Mystique (1 par clic)">' +
       '<span class="ab-orbes-title">ORBES</span>' +
@@ -2867,17 +2867,19 @@
     let html = '<div class="' + cls.join(' ') + '">' +
       '<div class="ab-avatar"' + abAvatarStyle + ' aria-hidden="true">' + (c.imageUrl ? '' : esc(initial)) + '</div>' +
       '<div class="ab-id">' +
-        '<div class="ab-name"><span class="roster-name">' + esc(c.name) + '</span>' +
-          (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
-          (isEnemy && c.type ? '<span class="tag type">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
-          (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
-        '</div>' +
+        '<div class="ab-name"><span class="roster-name">' + esc(c.name) + '</span></div>' +
         '<div class="ab-pvline cc-pvline">' +
           '<div class="pv-bar' + (hasBlindage(c) ? ' has-blindage' : '') + '"><div class="pv-fill" style="width:' + pct + '%"></div>' +
             (hasBlindage(c) ? '<div class="pv-blindage-fill" title="Blindage actif"></div>' : '') +
             '<span class="pv-text">' + (hasBlindage(c) && known ? 'BLINDAGE' : pvText) + '</span></div>' +
           (known ? '<span class="def-badge">' + defShield((c.states.auSol || c.states.brise) ? 0 : c.def) + '</span>' : '') +
           (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage">🛡✦ ' + c.blindageCharges + '</span>' : '') +
+        '</div>' +
+        // Classe de l'aventurier / type de l'adversaire : SOUS la barre de PV.
+        '<div class="ab-subline">' +
+          (c.klass ? '<span class="tag class-tag">' + esc(c.klass) + '</span>' : '') +
+          (isEnemy && c.type ? '<span class="tag type">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
+          (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
         '</div>' +
         (statesBadges(c) ? '<div class="ab-states-badges">' + statesBadges(c) + '</div>' : '') +
       '</div>';
@@ -3600,6 +3602,18 @@
         if (c.used.move) return;
         pendingAnalyze = (pendingAnalyze === c.iid) ? null : c.iid;
         pendingAttack = null; pendingMove = null; render();
+      });
+      // Bouton spécial ORBES (Pyromane) : arme le ciblage de l'Orbe (mono-cible).
+      root.querySelectorAll('.ab-orbes[data-iid="' + c.iid + '"]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (b.disabled) return;
+          const i = parseInt(b.getAttribute('data-atk'), 10);
+          if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average) {
+            pendingAttack = null; render(); return; // re-clic = annuler
+          }
+          pendingAttack = { iid: c.iid, atkIndex: i, average: false };
+          pendingAnalyze = null; pendingMove = null; stateMenuFor = null; render();
+        });
       });
       // Chips d'attaque (dé)
       root.querySelectorAll('.atk-chip[data-iid="' + c.iid + '"]').forEach(function (b) {
