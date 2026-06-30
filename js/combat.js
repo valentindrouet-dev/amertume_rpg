@@ -3530,6 +3530,7 @@
           if (caster && orbs > 0 && !(c.orbBuff > 0)) {
             c.orbBuff = (c.orbBuff || 0) + 1;
             caster.attackUses[pi] = Math.max(0, orbs - 1);
+            caster.used.action = true; // ORBES PARTAGÉS est une Action : elle consomme l'action dès le 1er allié doté
             pushFx({ type: 'state', iid: c.iid });
             log(cname(c) + ' reçoit <span class="lstate">+1 dé bleu &amp; Feu</span> sur sa prochaine attaque (Orbes Partagés).', 'state');
             if (caster.attackUses[pi] <= 0) pendingOrbeShare = null; // plus d'orbes : fin auto
