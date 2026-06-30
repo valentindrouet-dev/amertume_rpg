@@ -2783,6 +2783,8 @@
     const atks = Array.isArray(c.attacks) ? c.attacks : [];
     return slots.map(function (t) {
       const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
+      // L'Orbe Mystique est rendu par le bouton spécial ORBES, pas dans les slots.
+      if (ai >= 0 && atks[ai].pyromaneOrb) return null;
       if (ai >= 0) return abAttackBtn(c, atks[ai], ai, canAct);
       const r = reactions.find(function (x) { return x.t.id === t.id; });
       if (r) {
@@ -2795,7 +2797,26 @@
       }
       return '<button class="ab-talent ab-talent-named ab-talent-kind-' + t.kind + '" type="button" disabled ' +
         'title="' + esc(t.name) + '">' + esc(t.name) + '</button>';
-    });
+    }).filter(function (s) { return s !== null; });
+  }
+
+  // Bouton spécial ORBES (Pyromane) : titre + dés de dégâts + nombre d'orbes restants.
+  function orbesButtonHtml(c, idx, canAct) {
+    const a = c.attacks[idx];
+    const uses = (c.attackUses && c.attackUses[idx] != null) ? c.attackUses[idx] : 0;
+    const orbPretour = combat().phase === 'pretour' && combat().turn === 1 &&
+      heroHasTalent(c, 'orbe_pretour') && c.status === 'active' && !combat().outcome;
+    const blocked = (!canAct && !orbPretour) || uses === 0 || (c.states && c.states.auSol);
+    const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === idx && !pendingAttack.average;
+    const showDmg = a.useOwnDamage !== false && c.damage > 0 && !c.states.affaibli;
+    const figs = Inventory.poolBadges(a.dice) + (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '');
+    return '<button class="ab-orbes atk-chip ab-atk-mystic' + (isThisAtk ? ' selected' : '') + '" type="button"' +
+      ' data-iid="' + c.iid + '" data-atk="' + idx + '"' + (blocked ? ' disabled' : '') +
+      ' title="Lancer un Orbe Mystique (1 par clic)">' +
+      '<span class="ab-orbes-title">ORBES</span>' +
+      '<span class="ab-orbes-figs">' + figs + '</span>' +
+      '<span class="ab-orbes-count">' + uses + ' restant' + (uses > 1 ? 's' : '') + '</span>' +
+    '</button>';
   }
 
   function renderActionBar() {
@@ -2828,6 +2849,9 @@
     const cls = ['ab-card', 'side-' + c.side];
     if (c.klass) cls.push('klass-' + slug(c.klass));
     if (isEnemy && c.type) cls.push('type-' + c.type);
+    // PYROMANE : bouton spécial ORBES (occupe les 2 lignes, à gauche de la grille).
+    const orbIdx = (!isEnemy && Array.isArray(c.attacks)) ? c.attacks.findIndex(function (a) { return a.pyromaneOrb; }) : -1;
+    if (orbIdx >= 0) cls.push('has-orbes');
     const initial = (c.name || '?').charAt(0).toUpperCase();
     const abAvatarStyle = c.imageUrl
       ? ' style="background-image:url(\'' + c.imageUrl.replace(/'/g, '%27') + '\');background-size:cover;background-position:center;"'
@@ -2857,6 +2881,9 @@
         '</div>' +
         (statesBadges(c) ? '<div class="ab-states-badges">' + statesBadges(c) + '</div>' : '') +
       '</div>';
+
+    // Bouton spécial ORBES (Pyromane) entre l'identité et la grille d'actions.
+    if (orbIdx >= 0) html += orbesButtonHtml(c, orbIdx, canAct);
 
     // Grille d'actions : 2 lignes, remplissage colonne par colonne (cf. croquis).
     //   Col. action : Attaque (haut) + Mouv/Objet/Analyse (bas)
