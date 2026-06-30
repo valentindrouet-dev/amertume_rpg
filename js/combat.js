@@ -36,6 +36,7 @@
   let pendingReaction = null; // iid de l'aventurier dont une Réaction interrompt le tour des adversaires
   let aiResume = null;        // reprise de la séquence adverse en pause (Réaction)
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
+  let pendingOrbeShare = null; // iid du Pyromane répartissant ses Orbes Partagés (clic sur alliés)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
   let movePrefix = null;      // { iid, zone } : déplacement à fusionner avec l'attaque qui suit
@@ -346,28 +347,49 @@
   }
 
   // Tirage du butin sur les adversaires vaincus
+  // Aventurier au hasard ne possédant pas encore l'objet (à défaut, n'importe lequel).
+  // Utilisé quand aucun aventurier n'est à l'origine de la mort (dégâts de Feu, etc.).
+  function randomLootHero(c, itemId) {
+    const heroes = c.combatants.filter(function (x) { return x.side === 'hero'; });
+    if (!heroes.length) return null;
+    let owned = {};
+    try {
+      const ctx = Store.state.sessionCombat;
+      if (ctx && ctx.sessionId) {
+        const ses = Store.loadSessions().find(function (s) { return s.id === ctx.sessionId; });
+        if (ses && ses.heroOwned) owned = ses.heroOwned;
+      }
+    } catch (e) { owned = {}; }
+    const eligible = heroes.filter(function (h) { const set = owned[h.templateId] || {}; return !(set[itemId] > 0); });
+    const pool = eligible.length ? eligible : heroes;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
   function rollLoot(c) {
     const out = [];
     c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; }).forEach(function (m) {
       const tpl = Store.state.monsters.find(function (t) { return t.id === m.templateId; });
       if (!tpl) return;
       const killer = m.killedBy ? c.combatants.find(function (x) { return x.iid === m.killedBy; }) : null;
-      const killerName = (killer && killer.side === 'hero') ? killer.name : null;
-      const killerHeroId = (killer && killer.side === 'hero') ? killer.templateId : null;
-      // Équipement de l'adversaire → au tueur
+      const killerHero = (killer && killer.side === 'hero') ? killer : null;
+      // Destinataire : le tueur si c'est un aventurier ; sinon un aventurier au
+      // hasard qui ne possède pas encore l'objet.
+      function recipient(itemId) {
+        const rh = killerHero || randomLootHero(c, itemId);
+        return rh ? { toName: rh.name, toHeroId: rh.templateId } : { toName: null, toHeroId: null };
+      }
       (tpl.equipment || []).forEach(function (r) {
         if (!r.itemId) return;
         if (Math.random() * 100 < (r.loot != null ? r.loot : 0)) {
           const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-          if (it) out.push({ itemId: r.itemId, name: it.name, qty: 1, toName: killerName, toHeroId: killerHeroId });
+          if (it) { const rc = recipient(r.itemId); out.push({ itemId: r.itemId, name: it.name, qty: 1, toName: rc.toName, toHeroId: rc.toHeroId }); }
         }
       });
-      // Butin → au tueur (à défaut au groupe)
       (tpl.loot || []).forEach(function (r) {
         if (!r.itemId) return;
         if (Math.random() * 100 < (r.loot != null ? r.loot : 0)) {
           const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-          if (it) out.push({ itemId: r.itemId, name: it.name, qty: r.qty || 1, toName: killerName, toHeroId: killerHeroId });
+          if (it) { const rc = recipient(r.itemId); out.push({ itemId: r.itemId, name: it.name, qty: r.qty || 1, toName: rc.toName, toHeroId: rc.toHeroId }); }
         }
       });
     });
@@ -1539,7 +1561,7 @@
   }
 
   function endHeroPhase() {
-    pendingAttack = null; stateMenuFor = null;
+    pendingAttack = null; stateMenuFor = null; pendingOrbeShare = null; pendingMove = null; pendingObject = null;
     combat().phase = 'monsters';
     log('Phase des adversaires.', 'turn');
     Store.save(); render();
@@ -2682,6 +2704,8 @@
     if (ca) ca.addEventListener('click', function () { pendingAnalyze = null; render(); });
     const co = root.querySelector('#cancel-object');
     if (co) co.addEventListener('click', function () { pendingObject = null; render(); });
+    const cos = root.querySelector('#cancel-orbeshare');
+    if (cos) cos.addEventListener('click', function () { pendingOrbeShare = null; render(); });
 
     // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement
     // (uniquement après avoir cliqué le bouton Mouv.).
@@ -2703,6 +2727,13 @@
 
   // Contenu de la bannière de ciblage / déplacement (toujours présente : pas de saut d'UI)
   function bannerHtml() {
+    if (pendingOrbeShare) {
+      const ps = byId(pendingOrbeShare);
+      const pi = ps ? ps.attacks.findIndex(function (a) { return a.pyromaneOrb; }) : -1;
+      const orbs = (ps && pi >= 0) ? (ps.attackUses[pi] || 0) : 0;
+      return '✦ <b>' + esc(ps ? ps.name : '') + '</b> — Orbes Partagés : <b>clique les alliés à doter</b> ' +
+        '(<b>' + orbs + '</b> orbe(s) restant(s)). <button id="cancel-orbeshare" class="ghost xs">Terminer</button>';
+    }
     if (pendingObject) {
       const ou = byId(pendingObject);
       const benefic = ou && ou.objectItem && ou.objectItem.objBenefic;
@@ -3214,6 +3245,10 @@
         if (c.side === wantSide) cls.push('targetable', 'tgt-choisir');
       }
     }
+    // ORBES PARTAGÉS : alliés ciblables (non encore dotés du bonus).
+    if (pendingOrbeShare && !dead && c.side === 'hero' && c.iid !== pendingOrbeShare && !(c.orbBuff > 0)) {
+      cls.push('targetable', 'tgt-choisir');
+    }
     // PROIE : l'aventurier désigné ce tour.
     const isMarked = !dead && c.side === 'hero' && combat().markedHeroIid === c.iid;
     if (isMarked) cls.push('is-marked');
@@ -3487,6 +3522,21 @@
       card.addEventListener('click', function (e) {
         if (e.target.closest('button')) return;
         const targetable = card.classList.contains('targetable');
+        // 0bis) ORBES PARTAGÉS : clic sur la vignette d'un allié → +1 dé bleu & FEU.
+        if (pendingOrbeShare && c.side === 'hero' && c.status === 'active' && c.iid !== pendingOrbeShare) {
+          const caster = byId(pendingOrbeShare);
+          const pi = caster ? caster.attacks.findIndex(function (a) { return a.pyromaneOrb; }) : -1;
+          const orbs = (caster && pi >= 0) ? (caster.attackUses[pi] || 0) : 0;
+          if (caster && orbs > 0 && !(c.orbBuff > 0)) {
+            c.orbBuff = (c.orbBuff || 0) + 1;
+            caster.attackUses[pi] = Math.max(0, orbs - 1);
+            pushFx({ type: 'state', iid: c.iid });
+            log(cname(c) + ' reçoit <span class="lstate">+1 dé bleu &amp; Feu</span> sur sa prochaine attaque (Orbes Partagés).', 'state');
+            if (caster.attackUses[pi] <= 0) pendingOrbeShare = null; // plus d'orbes : fin auto
+            Store.save(); render();
+          }
+          return;
+        }
         // 0) Ciblage d'un objet consommable
         if (targetable && pendingObject) {
           const ouser = byId(pendingObject);
@@ -3568,7 +3618,7 @@
         }
         // 3) Sinon : sélectionne ce combattant et annule toute action en cours
         selectedIid = c.iid;
-        pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null; pendingObject = null;
+        pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null; pendingObject = null; pendingOrbeShare = null;
         render();
       });
     }
@@ -3613,7 +3663,7 @@
             pendingAttack = null; render(); return; // re-clic = annuler
           }
           pendingAttack = { iid: c.iid, atkIndex: i, average: false };
-          pendingAnalyze = null; pendingMove = null; stateMenuFor = null; render();
+          pendingAnalyze = null; pendingMove = null; pendingOrbeShare = null; stateMenuFor = null; render();
         });
       });
       // Chips d'attaque (dé)
@@ -3622,10 +3672,20 @@
           const i = parseInt(b.getAttribute('data-atk'), 10);
           const atk = c.attacks[i];
           if (!atk) return;
+          // Cliquer un AUTRE bouton met fin à la répartition des Orbes Partagés.
+          if (!atk.orbeShare) pendingOrbeShare = null;
           // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
           if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
-          // ORBES PARTAGÉS : buff auto-ciblé sur les alliés, sans ciblage d'ennemi.
-          if (atk.orbeShare) { applyAttack(c, i, null); pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
+          // ORBES PARTAGÉS : on arme le ciblage des ALLIÉS (clic sur leurs vignettes),
+          // sans pop-up. Re-clic = annuler.
+          if (atk.orbeShare) {
+            const pi = c.attacks.findIndex(function (a) { return a.pyromaneOrb; });
+            const orbs = pi >= 0 ? (c.attackUses[pi] || 0) : 0;
+            if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour.'); return; }
+            pendingOrbeShare = (pendingOrbeShare === c.iid) ? null : c.iid;
+            pendingAttack = null; pendingAnalyze = null; pendingMove = null; pendingObject = null; stateMenuFor = null;
+            render(); return;
+          }
           // COURSE (action de déplacement) : arme un mouvement qui consomme l'action.
           if (atk.moveAction) {
             if (c.used.action) return;
@@ -3694,7 +3754,7 @@
       if (mv) mv.addEventListener('click', function () {
         if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0)) return;
         pendingMove = (pendingMove === c.iid) ? null : c.iid;
-        pendingAttack = null; pendingAnalyze = null; render();
+        pendingAttack = null; pendingAnalyze = null; pendingOrbeShare = null; render();
       });
     }
   }
