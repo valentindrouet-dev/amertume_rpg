@@ -288,6 +288,58 @@
     try { global.localStorage.setItem(ADV_KEY, JSON.stringify(adventures)); } catch (e) {}
   }
 
+  // ---------- Grandes Aventures (regroupements d'aventures-chapitres) ----------
+  // Chaque Grande Aventure : { id, title, adventureIds: [] } (ordre des chapitres).
+  // homeOrder : ordre d'affichage des entrées de l'accueil — liste de
+  // { type:'saga'|'adv', id }. Les entrées absentes sont ajoutées à la fin.
+  const SAGA_KEY = 'amertume_sagas_v1';
+  const HOME_ORDER_KEY = 'amertume_home_order_v1';
+  function loadSagas() {
+    try {
+      const raw = global.localStorage.getItem(SAGA_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.map(function (s) {
+        return { id: s.id, title: s.title || '', adventureIds: Array.isArray(s.adventureIds) ? s.adventureIds : [] };
+      }) : [];
+    } catch (e) { return []; }
+  }
+  function saveSagas(sagas) {
+    try { global.localStorage.setItem(SAGA_KEY, JSON.stringify(sagas || [])); } catch (e) {}
+  }
+  function loadHomeOrder() {
+    try {
+      const raw = global.localStorage.getItem(HOME_ORDER_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.filter(function (e) { return e && e.type && e.id; }) : [];
+    } catch (e) { return []; }
+  }
+  function saveHomeOrder(order) {
+    try { global.localStorage.setItem(HOME_ORDER_KEY, JSON.stringify(order || [])); } catch (e) {}
+  }
+  // Calcule l'ordre d'affichage de l'accueil : entrées { type, id } ordonnées
+  // selon homeOrder, complétées par les nouvelles sagas/aventures autonomes.
+  // Auto-réparant (ignore les références obsolètes).
+  function homeLayout() {
+    const advs = loadAdventures();
+    const sagas = loadSagas();
+    const order = loadHomeOrder();
+    const advById = {}; advs.forEach(function (a) { advById[a.id] = a; });
+    const sagaById = {}; sagas.forEach(function (s) { sagaById[s.id] = s; });
+    const inSaga = {};
+    sagas.forEach(function (s) { (s.adventureIds || []).forEach(function (id) { inSaga[id] = true; }); });
+    const entries = []; const seen = {};
+    function pushEntry(type, id) {
+      const key = type + ':' + id;
+      if (seen[key]) return;
+      if (type === 'saga' && sagaById[id]) { seen[key] = 1; entries.push({ type: 'saga', id: id }); }
+      else if (type === 'adv' && advById[id] && !inSaga[id]) { seen[key] = 1; entries.push({ type: 'adv', id: id }); }
+    }
+    order.forEach(function (e) { pushEntry(e.type, e.id); });
+    sagas.forEach(function (s) { pushEntry('saga', s.id); });
+    advs.forEach(function (a) { if (!inSaga[a.id]) pushEntry('adv', a.id); });
+    return { entries: entries, advById: advById, sagaById: sagaById, adventures: advs, sagas: sagas, inSaga: inSaga };
+  }
+
   function loadSessions() {
     try {
       const raw = global.localStorage.getItem(SES_KEY);
@@ -588,6 +640,11 @@
     },
     loadAdventures: loadAdventures,
     saveAdventures: saveAdventures,
+    loadSagas: loadSagas,
+    saveSagas: saveSagas,
+    loadHomeOrder: loadHomeOrder,
+    saveHomeOrder: saveHomeOrder,
+    homeLayout: homeLayout,
     loadSessions: loadSessions,
     saveSessions: saveSessions,
     loadClasses: loadClasses,

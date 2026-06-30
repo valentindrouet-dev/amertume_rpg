@@ -40,6 +40,8 @@
       v: 1,
       publishedAt: Date.now(),
       adventures: Store.loadAdventures(),
+      sagas: Store.loadSagas(),
+      homeOrder: Store.loadHomeOrder(),
       monsters: Store.state.monsters || [],
       items: Store.state.items || [],
       prebuilts: prebuilts,
@@ -51,6 +53,8 @@
   function applyBundle(b) {
     if (!b) return;
     if (Array.isArray(b.adventures)) Store.saveAdventures(b.adventures);
+    if (Array.isArray(b.sagas)) Store.saveSagas(b.sagas);
+    if (Array.isArray(b.homeOrder)) Store.saveHomeOrder(b.homeOrder);
     if (Array.isArray(b.classes)) Store.saveClasses(b.classes);
     if (Array.isArray(b.monsters)) Store.state.monsters = b.monsters;
     if (Array.isArray(b.items)) Store.state.items = b.items;

@@ -22,6 +22,8 @@
 
   // ---------- Données ----------
   let adventures = [];
+  let sagas = [];        // Grandes Aventures : { id, title, adventureIds:[] }
+  let homeOrder = [];    // ordre d'accueil : [{ type:'saga'|'adv', id }]
   let collapsedChapters = {}; // { chapterId: true } — état enroulé dans l'éditeur
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
 
@@ -165,8 +167,9 @@
   }
 
   // ---------- Persistance ----------
-  function load() { adventures = Store.loadAdventures(); }
+  function load() { adventures = Store.loadAdventures(); sagas = Store.loadSagas(); homeOrder = Store.loadHomeOrder(); }
   function save() { Store.saveAdventures(adventures); }
+  function saveOrg() { Store.saveSagas(sagas); Store.saveHomeOrder(homeOrder); }
 
   // ---------- Rendu principal ----------
   function render() {
@@ -180,14 +183,124 @@
           '<button id="adv-new" class="primary">+ Nouvelle aventure</button>' +
         '</div>' +
         '<div id="adv-list" class="adv-list"></div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<div class="card-head"><h2>Organisation de l\'accueil</h2>' +
+          '<button id="saga-new" class="ghost small">+ Grande Aventure</button>' +
+        '</div>' +
+        '<p class="hint">Regroupe des aventures en Grandes Aventures (menus déroulants sur l\'accueil) ' +
+          'et réordonne l\'affichage. Les aventures hors Grande Aventure restent affichées telles quelles.</p>' +
+        '<div id="home-org"></div>' +
       '</div>';
 
     renderList();
+    renderHomeOrg();
     $('#adv-new').addEventListener('click', function () {
       const a = newAdventure();
       adventures.push(a);
       save();
       openEditor(a.id);
+    });
+    $('#saga-new').addEventListener('click', function () {
+      const title = prompt('Nom de la Grande Aventure :');
+      if (title === null) return;
+      sagas.push({ id: 'saga_' + Store.uid(), title: (title || '').trim() || 'Grande Aventure', adventureIds: [] });
+      saveOrg(); renderHomeOrg();
+    });
+  }
+
+  // ---------- Organisation de l'accueil (Grandes Aventures + ordre) ----------
+  function moveEntry(idx, dir) {
+    const layout = Store.homeLayout();
+    const entries = layout.entries;
+    const j = idx + dir;
+    if (j < 0 || j >= entries.length) return;
+    const tmp = entries[idx]; entries[idx] = entries[j]; entries[j] = tmp;
+    homeOrder = entries.map(function (e) { return { type: e.type, id: e.id }; });
+    saveOrg(); renderHomeOrg();
+  }
+  function moveInSaga(saga, idx, dir) {
+    const j = idx + dir;
+    if (j < 0 || j >= saga.adventureIds.length) return;
+    const tmp = saga.adventureIds[idx]; saga.adventureIds[idx] = saga.adventureIds[j]; saga.adventureIds[j] = tmp;
+    saveOrg(); renderHomeOrg();
+  }
+  function assignToSaga(advId, sagaId) {
+    sagas.forEach(function (s) { s.adventureIds = s.adventureIds.filter(function (id) { return id !== advId; }); });
+    if (sagaId) {
+      const s = sagas.find(function (x) { return x.id === sagaId; });
+      if (s && s.adventureIds.indexOf(advId) === -1) s.adventureIds.push(advId);
+    }
+    saveOrg(); renderHomeOrg();
+  }
+  function deleteSaga(sagaId) {
+    sagas = sagas.filter(function (s) { return s.id !== sagaId; });
+    homeOrder = homeOrder.filter(function (e) { return !(e.type === 'saga' && e.id === sagaId); });
+    saveOrg(); renderHomeOrg();
+  }
+
+  function renderHomeOrg() {
+    const box = $('#home-org');
+    if (!box) return;
+    const layout = Store.homeLayout();
+    const advById = layout.advById;
+    if (!layout.adventures.length) {
+      box.innerHTML = '<p class="empty">Crée d\'abord des aventures.</p>';
+      return;
+    }
+    // Options de Grande Aventure pour les menus d'affectation.
+    function sagaOptions(selId) {
+      return '<option value="">— Aucune (autonome) —</option>' +
+        sagas.map(function (s) {
+          return '<option value="' + s.id + '"' + (s.id === selId ? ' selected' : '') + '>' + esc(s.title || 'Grande Aventure') + '</option>';
+        }).join('');
+    }
+    const n = layout.entries.length;
+    box.innerHTML = layout.entries.map(function (e, i) {
+      const arrows = '<span class="org-arrows">' +
+        '<button class="icon-btn org-up" data-i="' + i + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+        '<button class="icon-btn org-down" data-i="' + i + '"' + (i === n - 1 ? ' disabled' : '') + '>↓</button></span>';
+      if (e.type === 'adv') {
+        const a = advById[e.id];
+        if (!a) return '';
+        return '<div class="org-row org-adv">' + arrows +
+          '<span class="org-name">' + esc(a.title) + '</span>' +
+          '<label class="org-assign">Dans : <select class="org-saga-sel" data-adv="' + a.id + '">' + sagaOptions('') + '</select></label>' +
+        '</div>';
+      }
+      const saga = layout.sagaById[e.id];
+      if (!saga) return '';
+      const members = (saga.adventureIds || []).map(function (id) { return advById[id]; }).filter(Boolean);
+      const m = members.length;
+      const membersHtml = members.map(function (a, k) {
+        const idx = saga.adventureIds.indexOf(a.id);
+        return '<div class="org-member">' +
+          '<span class="org-arrows">' +
+            '<button class="icon-btn saga-up" data-saga="' + saga.id + '" data-k="' + idx + '"' + (k === 0 ? ' disabled' : '') + '>↑</button>' +
+            '<button class="icon-btn saga-down" data-saga="' + saga.id + '" data-k="' + idx + '"' + (k === m - 1 ? ' disabled' : '') + '>↓</button></span>' +
+          '<span class="org-name">' + esc(a.title) + '</span>' +
+          '<button class="ghost small saga-remove" data-adv="' + a.id + '">Retirer</button>' +
+        '</div>';
+      }).join('') || '<p class="hint org-empty">Aucun chapitre. Affecte des aventures via leur menu « Dans ».</p>';
+      return '<div class="org-row org-saga">' +
+        '<div class="org-saga-head">' + arrows +
+          '<span class="org-saga-ic">📚</span>' +
+          '<input type="text" class="org-saga-title" data-saga="' + saga.id + '" value="' + esc(saga.title || '') + '" placeholder="Nom de la Grande Aventure" />' +
+          '<button class="icon-btn saga-del" data-saga="' + saga.id + '" title="Supprimer la Grande Aventure">✕</button>' +
+        '</div>' +
+        '<div class="org-members">' + membersHtml + '</div>' +
+      '</div>';
+    }).join('');
+
+    box.querySelectorAll('.org-up').forEach(function (b) { b.onclick = function () { moveEntry(parseInt(b.getAttribute('data-i'), 10), -1); }; });
+    box.querySelectorAll('.org-down').forEach(function (b) { b.onclick = function () { moveEntry(parseInt(b.getAttribute('data-i'), 10), 1); }; });
+    box.querySelectorAll('.saga-up').forEach(function (b) { b.onclick = function () { const s = sagas.find(function (x) { return x.id === b.getAttribute('data-saga'); }); if (s) moveInSaga(s, parseInt(b.getAttribute('data-k'), 10), -1); }; });
+    box.querySelectorAll('.saga-down').forEach(function (b) { b.onclick = function () { const s = sagas.find(function (x) { return x.id === b.getAttribute('data-saga'); }); if (s) moveInSaga(s, parseInt(b.getAttribute('data-k'), 10), 1); }; });
+    box.querySelectorAll('.org-saga-sel').forEach(function (sel) { sel.onchange = function () { assignToSaga(sel.getAttribute('data-adv'), sel.value); }; });
+    box.querySelectorAll('.saga-remove').forEach(function (b) { b.onclick = function () { assignToSaga(b.getAttribute('data-adv'), ''); }; });
+    box.querySelectorAll('.saga-del').forEach(function (b) { b.onclick = function () { if (confirm('Supprimer cette Grande Aventure ? (Ses aventures redeviennent autonomes.)')) deleteSaga(b.getAttribute('data-saga')); }; });
+    box.querySelectorAll('.org-saga-title').forEach(function (inp) {
+      inp.onchange = function () { const s = sagas.find(function (x) { return x.id === inp.getAttribute('data-saga'); }); if (s) { s.title = inp.value.trim() || 'Grande Aventure'; saveOrg(); } };
     });
   }
 
@@ -217,8 +330,12 @@
     box.querySelectorAll('.adv-del').forEach(function (b) {
       b.addEventListener('click', function () {
         if (!confirm('Supprimer cette aventure ?')) return;
-        adventures = adventures.filter(function (a) { return a.id !== b.getAttribute('data-id'); });
-        save(); renderList();
+        const id = b.getAttribute('data-id');
+        adventures = adventures.filter(function (a) { return a.id !== id; });
+        // Nettoie les références dans les Grandes Aventures et l'ordre d'accueil.
+        sagas.forEach(function (s) { s.adventureIds = s.adventureIds.filter(function (x) { return x !== id; }); });
+        homeOrder = homeOrder.filter(function (e) { return !(e.type === 'adv' && e.id === id); });
+        save(); saveOrg(); renderList(); renderHomeOrg();
       });
     });
   }

@@ -1029,6 +1029,32 @@ body.mode-home main { display: none; }
 .home-sub { color: var(--muted); margin-top: .35rem; font-size: .95rem; }
 .home-section h2 { margin-bottom: .85rem; }
 .home-adv-list { display: flex; flex-direction: column; gap: .7rem; }
+/* Grande Aventure : menu déroulant regroupant des chapitres sur l'accueil. */
+.home-saga { border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); overflow: hidden; }
+.home-saga > .home-saga-head { display: flex; align-items: center; gap: .6rem; cursor: pointer;
+  padding: .85rem 1.1rem; list-style: none; font-family: "Georgia", serif; }
+.home-saga > .home-saga-head::-webkit-details-marker { display: none; }
+.home-saga-caret { transition: transform .15s; color: var(--accent-2); font-size: .9rem; }
+.home-saga[open] > .home-saga-head .home-saga-caret { transform: rotate(90deg); }
+.home-saga-title { font-size: 1.12rem; color: var(--text); flex: 1 1 auto; }
+.home-saga-meta { font-size: .8rem; color: var(--muted); }
+.home-saga-body { display: flex; flex-direction: column; gap: .55rem; padding: 0 .7rem .7rem; }
+.home-saga-body .home-adv-card { background: var(--panel); }
+/* Panneau MJ : organisation de l'accueil (Grandes Aventures + ordre). */
+#home-org { display: flex; flex-direction: column; gap: .5rem; }
+.org-row { border: 1px solid var(--border); border-radius: 10px; padding: .5rem .6rem; background: var(--panel-2); }
+.org-arrows { display: inline-flex; gap: .15rem; }
+.org-arrows .icon-btn { padding: 0 .35rem; }
+.org-adv { display: flex; align-items: center; gap: .6rem; }
+.org-adv .org-name { flex: 1 1 auto; font-weight: 600; }
+.org-assign { font-size: .8rem; color: var(--muted); display: flex; align-items: center; gap: .3rem; }
+.org-saga-head { display: flex; align-items: center; gap: .5rem; }
+.org-saga-ic { font-size: 1.1rem; }
+.org-saga-title { flex: 1 1 auto; font-weight: 700; }
+.org-members { display: flex; flex-direction: column; gap: .35rem; margin: .45rem 0 0 1.4rem; }
+.org-member { display: flex; align-items: center; gap: .5rem; padding: .25rem .4rem; border-left: 2px solid var(--border); }
+.org-member .org-name { flex: 1 1 auto; }
+.org-empty { margin: .3rem 0 0; }
 .home-adv-card {
   display: flex; align-items: center; gap: 1rem;
   background: var(--panel); border: 1px solid var(--border);

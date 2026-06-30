@@ -25,47 +25,75 @@
   }
 
   // ---------- Accueil ----------
+  // Carte HTML d'une aventure sur l'accueil (verrouillée ou jouable).
+  function advCardHtml(a, unlocked) {
+    const chCount = a.chapters.length;
+    const scCount = a.chapters.reduce(function (n, ch) { return n + ch.scenes.length; }, 0);
+    const locked = a.password && unlocked.indexOf(a.id) === -1;
+    const badges = [];
+    if (a.duration) badges.push('<span class="home-adv-badge">⏱ ' + esc(a.duration) + '</span>');
+    if (a.difficulty) badges.push('<span class="home-adv-badge">📊 ' + esc(a.difficulty) + '</span>');
+    if (locked) {
+      return '<div class="home-adv-card locked">' +
+        '<div class="home-adv-info">' +
+          '<div class="home-adv-toprow">' +
+            '<span class="home-adv-title">🔒 ' + esc(a.title) + '</span>' +
+            '<span class="home-adv-meta">' + chCount + ' ch. · ' + scCount + ' scène(s)</span>' +
+            (badges.length ? '<span class="home-adv-badges">' + badges.join('') + '</span>' : '') +
+          '</div>' +
+          (a.summary ? '<div class="home-adv-scroll"><span class="home-adv-summary">' + esc(a.summary) + '</span></div>' : '') +
+        '</div>' +
+        '<button class="ghost home-locked" data-id="' + a.id + '">🔒 Verrouillé</button>' +
+      '</div>';
+    }
+    return '<div class="home-adv-card home-play" data-id="' + a.id + '">' +
+      '<div class="home-adv-info">' +
+        '<div class="home-adv-toprow">' +
+          '<span class="home-adv-title">' + esc(a.title) + '</span>' +
+          '<span class="home-adv-meta">' + chCount + ' ch. · ' + scCount + ' scène(s)</span>' +
+          (badges.length ? '<span class="home-adv-badges">' + badges.join('') + '</span>' : '') +
+          '<button class="primary home-play-btn" data-id="' + a.id + '">▶ Jouer</button>' +
+        '</div>' +
+        (a.summary ? '<div class="home-adv-scroll"><span class="home-adv-summary">' + esc(a.summary) + '</span></div>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
   function renderHome() {
     const box = $('#home-adv-list');
     if (!box) return;
-    const advs = Store.loadAdventures();
-    if (!advs.length) {
+    const layout = Store.homeLayout();
+    if (!layout.adventures.length) {
       box.innerHTML = '<p class="empty">Aucune aventure disponible pour le moment. ' +
         'Crée-en une depuis le Mode MJ / Admin.</p>';
       return;
     }
+    const advs = layout.adventures;
     const unlocked = Store.loadUnlocked();
-    box.innerHTML = advs.map(function (a) {
-      const chCount = a.chapters.length;
-      const scCount = a.chapters.reduce(function (n, ch) { return n + ch.scenes.length; }, 0);
-      const locked = a.password && unlocked.indexOf(a.id) === -1;
-      const badges = [];
-      if (a.duration) badges.push('<span class="home-adv-badge">⏱ ' + esc(a.duration) + '</span>');
-      if (a.difficulty) badges.push('<span class="home-adv-badge">📊 ' + esc(a.difficulty) + '</span>');
-      if (locked) {
-        return '<div class="home-adv-card locked">' +
-          '<div class="home-adv-info">' +
-            '<div class="home-adv-toprow">' +
-              '<span class="home-adv-title">🔒 ' + esc(a.title) + '</span>' +
-              '<span class="home-adv-meta">' + chCount + ' ch. · ' + scCount + ' scène(s)</span>' +
-              (badges.length ? '<span class="home-adv-badges">' + badges.join('') + '</span>' : '') +
-            '</div>' +
-            (a.summary ? '<div class="home-adv-scroll"><span class="home-adv-summary">' + esc(a.summary) + '</span></div>' : '') +
-          '</div>' +
-          '<button class="ghost home-locked" data-id="' + a.id + '">🔒 Verrouillé</button>' +
-        '</div>';
+    box.innerHTML = layout.entries.map(function (e) {
+      if (e.type === 'adv') {
+        const a = layout.advById[e.id];
+        return a ? advCardHtml(a, unlocked) : '';
       }
-      return '<div class="home-adv-card home-play" data-id="' + a.id + '">' +
-        '<div class="home-adv-info">' +
-          '<div class="home-adv-toprow">' +
-            '<span class="home-adv-title">' + esc(a.title) + '</span>' +
-            '<span class="home-adv-meta">' + chCount + ' ch. · ' + scCount + ' scène(s)</span>' +
-            (badges.length ? '<span class="home-adv-badges">' + badges.join('') + '</span>' : '') +
-            '<button class="primary home-play-btn" data-id="' + a.id + '">▶ Jouer</button>' +
-          '</div>' +
-          (a.summary ? '<div class="home-adv-scroll"><span class="home-adv-summary">' + esc(a.summary) + '</span></div>' : '') +
+      // Grande Aventure : menu déroulant regroupant ses chapitres.
+      const saga = layout.sagaById[e.id];
+      if (!saga) return '';
+      const chapters = (saga.adventureIds || []).map(function (id) { return layout.advById[id]; }).filter(Boolean);
+      if (!chapters.length) return '';
+      const totalSc = chapters.reduce(function (n, a) {
+        return n + a.chapters.reduce(function (m, ch) { return m + ch.scenes.length; }, 0);
+      }, 0);
+      return '<details class="home-saga">' +
+        '<summary class="home-saga-head">' +
+          '<span class="home-saga-caret">▸</span>' +
+          '<span class="home-saga-title">📚 ' + esc(saga.title || 'Grande Aventure') + '</span>' +
+          '<span class="home-saga-meta">' + chapters.length + ' chapitre' + (chapters.length > 1 ? 's' : '') +
+            ' · ' + totalSc + ' scène(s)</span>' +
+        '</summary>' +
+        '<div class="home-saga-body">' +
+          chapters.map(function (a) { return advCardHtml(a, unlocked); }).join('') +
         '</div>' +
-      '</div>';
+      '</details>';
     }).join('');
     box.querySelectorAll('.home-play').forEach(function (card) {
       card.addEventListener('click', function (e) {
