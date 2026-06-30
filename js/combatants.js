@@ -829,7 +829,7 @@
             (desc ? '<span class="hw-class-tab-desc">' + esc(desc) + '</span>' : '') +
           '</div>'
         : '';
-      body.innerHTML = '<p class="hint">Choisis une classe.</p>' + tab + '<div class="hw-class-list">' +
+      body.innerHTML = tab + '<div class="hw-class-list">' +
         (classes.length ? classes.map(function (c) {
           return '<button type="button" class="hw-class klass-' + classSlug(c.name) + (wiz.klass === c.name ? ' selected' : '') + '" data-class="' + esc(c.name) + '">' +
             '<span class="hw-class-name">' + esc(c.name) + '</span><span class="hw-class-pv">PV +' + (CLASS_PV[c.name] || 0) + '</span></button>';
