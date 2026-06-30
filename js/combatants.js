@@ -400,6 +400,9 @@
         case 'soin_endu':
         case 'soin_des':
           return Object.assign(common, { selfHeal: t.effect, healVal: t.val || 0, targets: 'self' });
+        case 'attaque_furieuse':
+          // 1 attaque normale ; le chaînage sur kill est géré par le moteur de combat.
+          return Object.assign(common, { range: baseRange(), chainOnKill: true });
         case 'frappe_puissante':
           return Object.assign(common, { range: 'contact', bonusDmg: t.val || 0 });
         case 'coup_renversant':
@@ -426,6 +429,7 @@
         if (t.effect === 'arme_enflammee' && a.range === 'contact') a.effects.feu = true;
         if (t.effect === 'arme_affaiblissante') a.effects.affaibli = true;
         if (t.effect === 'perce_blindage') a.ignoreBlindage = true;
+        if (t.effect === 'frappe_perforante') a.ignoreBlindage = true; // ignore Blindage sans le retirer
         if (t.effect === 'bourreau_rapides') a.doubleVsRapide = true;
       });
     });

@@ -448,6 +448,21 @@
       desc: 'Vous n\'effectuez pas d\'échec (double 1) contre les adversaires AU SOL (les 1 sont infligés normalement comme des dégâts, s\'ils passent la DEF).' },
     { effect: 'crit_en_echec', name: 'Mur Imbrisable', kind: 'passive', hasVal: false,
       desc: 'Les critiques adverses contre vous deviennent des échecs.' },
+    // --- Passifs liés au critique / à la zone (classes) ---
+    { effect: 'mvt_critique', name: 'Mouvement Critique', kind: 'passive', hasVal: false,
+      desc: 'Après un critique, vous pouvez effectuer un mouvement.' },
+    { effect: 'epuisement', name: 'Épuisement', kind: 'passive', hasVal: false,
+      desc: 'Les adversaires dans votre zone subissent DEF -1.' },
+    { effect: 'accentuation', name: 'Accentuation', kind: 'passive', hasVal: false,
+      desc: 'Vos attaques critiques infligent le double de votre bonus de dégâts.' },
+    { effect: 'allie_critique', name: 'Allié Critique', kind: 'passive', hasVal: false,
+      desc: 'Après un critique, un allié dans votre zone peut effectuer une attaque gratuite (sans consommer son action).' },
+    { effect: 'critique_explosif', name: 'Critique Explosif', kind: 'passive', hasVal: false,
+      desc: 'Après un critique, vous infligez votre bonus de dégâts à tous les adversaires dans votre zone.' },
+    { effect: 'bain_de_sang', name: 'Bain de Sang', kind: 'passive', hasVal: false,
+      desc: 'Chaque adversaire tué par une de vos attaques critiques vous soigne de votre ENDU en PV.' },
+    { effect: 'cri_de_rage', name: 'Cri de Rage', kind: 'passive', hasVal: false,
+      desc: 'Après un critique, vous forcez un adversaire à se déplacer dans votre zone.' },
     // --- Améliorations (modifient un élément existant) ---
     { effect: 'arme_enflammee', name: 'Arme Enflammée', kind: 'upgrade', hasVal: false,
       desc: 'Vos attaques de contact infligent FEU.' },
@@ -463,6 +478,12 @@
       desc: 'Vous doublez les dégâts infligés à un adversaire rapide.' },
     { effect: 'franchissement_libre', name: 'Pieds Sûrs', kind: 'upgrade', hasVal: false,
       desc: 'Vous franchissez les terrains difficiles sans test d\'Agilité.' },
+    { effect: 'frappe_perforante', name: 'Frappe Perforante', kind: 'upgrade', hasVal: false,
+      desc: 'Vos attaques ignorent Blindage (les dégâts passent), sans le faire disparaître.' },
+    { effect: 'bouclier_mystique', name: 'Bouclier Mystique', kind: 'upgrade', hasVal: false,
+      desc: 'Vous ignorez les dégâts des dés bleus (Mystiques) ; les autres dés vous touchent normalement.' },
+    { effect: 'renforcement', name: 'Renforcement', kind: 'upgrade', hasVal: false,
+      desc: 'Votre maximum de PV augmente de la valeur de votre bonus de dégâts.' },
     { effect: 'boost_competence', name: 'Expertise', kind: 'upgrade', hasVal: true, defaultVal: 1, valLabel: 'Réussites bonus',
       hasChoice: true, choiceLabel: 'Compétence', choices: ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'],
       desc: 'Vous ajoutez +X réussites à tous vos tests de la compétence choisie.' },
@@ -474,13 +495,19 @@
       desc: 'Vous effectuez 1 mouvement gratuit avant le début de chaque tour.' },
     { effect: 'charge_devastatrice', name: 'Charge Dévastatrice', kind: 'mastery', hasVal: true, defaultVal: 1, valLabel: 'Nb de cibles', hasScope: true,
       desc: 'Vous infligez votre bonus de dégâts à X adversaires en arrivant dans leur zone.' },
+    { effect: 'critique_destructeur', name: 'Destructeur', kind: 'mastery', hasVal: false,
+      desc: 'Vous réalisez un critique sur tout double (sauf les 1). Le critique explose tant que la même face est reproduite. Les dégâts d\'un dé doivent toujours passer la DEF (sauf dés rouge ou noir).' },
     { effect: 'action_mouvement', name: 'Course', kind: 'action', hasVal: false,
       desc: 'Action : vous effectuez un mouvement.' },
+    { effect: 'attaque_furieuse', name: 'Attaque Furieuse', kind: 'action', hasVal: false,
+      desc: 'Action : 1 attaque. Si vous tuez la cible, vous effectuez une attaque gratuite sur un autre adversaire de la zone.' },
     // --- Réactions (déclenchées par le joueur) ---
     { effect: 'contre_attaque', name: 'Contre-Attaque', kind: 'reaction', hasVal: false,
       desc: 'Après avoir subi des dégâts, ripostez par une attaque gratuite.' },
     { effect: 'reanimation', name: 'Réanimation', kind: 'reaction', hasVal: true, defaultVal: 5, valLabel: 'PV rendus',
       desc: 'Relevez un allié au coma situé dans une zone où un adversaire est mort (X PV).' },
+    { effect: 'execution', name: 'Exécution', kind: 'reaction', hasVal: false,
+      desc: 'Avant qu\'un adversaire de votre zone ne fuie, vous lui infligez votre bonus de dégâts.' },
   ];
   function talentEffects() { return JSON.parse(JSON.stringify(TALENT_EFFECTS)); }
   function talentEffectMap() {
@@ -498,6 +525,10 @@
     garde_imprenable: 5, contre_attaque: 4, reanimation: 5,
     devance_rapides: 3, perce_blindage: 3, bourreau_rapides: 4, franchissement_libre: 2,
     pas_leger: 2, charge_devastatrice: 4,
+    critique_destructeur: 5, attaque_furieuse: 3, execution: 3,
+    mvt_critique: 2, epuisement: 3, accentuation: 4, allie_critique: 4,
+    critique_explosif: 4, bain_de_sang: 5, cri_de_rage: 3,
+    frappe_perforante: 3, bouclier_mystique: 3, renforcement: 3,
   };
   // Talents génériques par défaut : un talent prêt à l'emploi par effet câblé.
   const DEFAULT_GENTALENTS = TALENT_EFFECTS.map(function (e) {

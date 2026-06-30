@@ -63,11 +63,22 @@
       }
     });
 
-    // 2. Critique : deux 6 ou plus (toutes couleurs) déclenchent une relance bonus en chaîne
+    // 2. Critique : deux 6 ou plus (toutes couleurs) déclenchent une relance bonus en chaîne.
+    // DESTRUCTEUR (opts.destructeur) : critique sur TOUT double (sauf les 1) ; la relance
+    // bonus n'explose que si la même face que le double critique est reproduite.
     const colorsPresent = DICE_ORDER.filter(function (c) { return (pool[c] || 0) > 0; });
     let critique = false;
-    if (dice.filter(function (d) { return d.value === 6; }).length >= 2 && colorsPresent.length) {
-      critique = true;
+    let critValue = 6;
+    if (colorsPresent.length) {
+      const initFace = {};
+      dice.forEach(function (d) { initFace[d.value] = (initFace[d.value] || 0) + 1; });
+      if (opts.destructeur) {
+        for (let v = 6; v >= 2; v--) { if ((initFace[v] || 0) >= 2) { critique = true; critValue = v; break; } }
+      } else if ((initFace[6] || 0) >= 2) {
+        critique = true; critValue = 6;
+      }
+    }
+    if (critique) {
       let keepRolling = true;
       let guard = 0;
       while (keepRolling && guard < 50) {
@@ -75,7 +86,7 @@
         const color = colorsPresent[Math.floor(Math.random() * colorsPresent.length)];
         const v = d6();
         dice.push({ color: color, value: v, bonus: true });
-        keepRolling = (v === 6); // un 6 sur le dé bonus relance indéfiniment
+        keepRolling = (v === critValue); // relance tant que la face critique est reproduite
       }
     }
 
@@ -128,6 +139,12 @@
       } else if (d.color === 'bone' && isDouble(d)) {
         removed = true;            // léger retiré du total sur double
         note = 'retiré (double)';
+      }
+
+      // BOUCLIER MYSTIQUE (opts.ignoreBlue) : le défenseur ignore les dégâts des dés bleus.
+      if (opts.ignoreBlue && d.color === 'blue') {
+        d.contributed = 0; d.compare = d.value; d.passes = false; d.removed = true; d.note = 'Bouclier Mystique ✕';
+        return;
       }
 
       let passes;

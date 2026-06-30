@@ -118,10 +118,12 @@
     const objectItem = (objTpl && (objTpl.category === 'object' || objTpl.category === 'misc'))
       ? { id: objTpl.id, name: objTpl.name, objEffect: objTpl.objEffect || 'none', objDice: objTpl.objDice || 0, objBenefic: objTpl.objBenefic !== false }
       : null;
+    // RENFORCEMENT (amélioration) : +bonus de dégâts au maximum (et au courant) de PV.
+    const renf = hasTalent('renforcement') ? Math.max(0, hero.damage || 0) : 0;
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
       side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: hero.endu || 1, imageUrl: h.imageUrl || null,
-      maxPv: Combatants.heroPv(hero), pv: Combatants.heroCurPv(hero),
+      maxPv: Combatants.heroPv(hero) + renf, pv: Combatants.heroCurPv(hero) + renf,
       def: Combatants.heroDef(hero), damage: hero.damage, xp: 0, type: 'hero',
       menace: null, esquive: hasTalent('esquive_innee') || false, rapide: !!h.rapide, socle: 'medium',
       attacks: attacks, attackUses: initUses(attacks),
@@ -812,10 +814,22 @@
     const talentBonus = getTalentDmgBonus(attacker, target, atk);
     const dmg = baseDmg + talentBonus + (atk.bonusDmg || 0);
     // BRISÉ et AU SOL : DEF = 0
-    const def = (target.states.auSol || target.states.brise) ? 0 : target.def;
+    let def = (target.states.auSol || target.states.brise) ? 0 : target.def;
+    // ÉPUISEMENT (passif) : chaque aventurier doté du talent dans la zone de la cible
+    // adverse lui retire 1 DEF.
+    if (target.side === 'monster') {
+      const epuise = combat().combatants.filter(function (h) {
+        return h.side === 'hero' && h.status === 'active' && h.zone === target.zone && heroHasTalent(h, 'epuisement');
+      }).length;
+      if (epuise > 0) def = Math.max(0, def - epuise);
+    }
     // COUP DE GRÂCE (passif) : pas d'échec (double 1) contre une cible AU SOL.
     const noFumble = target.states.auSol && attacker.side === 'hero' && heroHasTalent(attacker, 'pas_echec_ausol');
-    const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble });
+    // DESTRUCTEUR (maîtrise) : critique sur tout double. BOUCLIER MYSTIQUE : la cible
+    // aventurier ignore les dégâts des dés bleus.
+    const destructeur = attacker.side === 'hero' && heroHasTalent(attacker, 'critique_destructeur');
+    const ignoreBlue = target.side === 'hero' && heroHasTalent(target, 'bouclier_mystique');
+    const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue });
 
     // MUR IMBRISABLE (passif) : un critique adverse contre cet aventurier devient un échec.
     let critToEchec = false;
@@ -887,9 +901,16 @@
       res.pvLost += extra;
       log(cname(attacker) + ' frappe un adversaire rapide : <span class="lstate">dégâts doublés</span> (+' + extra + ').', 'state');
     }
+    // ACCENTUATION (passif) : un critique inflige le double du bonus de dégâts
+    // (on ajoute une seconde fois le bonus déjà compté).
+    if (res.critique && res.pvLost > 0 && attacker.side === 'hero' && heroHasTalent(attacker, 'accentuation') && (attacker.damage || 0) > 0) {
+      res.pvLost += attacker.damage;
+      log(cname(attacker) + ' <span class="lstate">Accentuation</span> : +' + amt(attacker.damage, 'dmg') + ' dégâts (critique).', 'state');
+    }
     // VFX d'attaque : estafilade (contact) ou projectile (distance), joué avant l'impact.
     pushFx({ type: 'attack', iid: target.iid, fromIid: attacker.iid, range: atk.range });
     const pvBefore = target.pv;
+    const wasActive = target.status === 'active';
     if (res.pvLost > 0) {
       target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; attacker.dmgDealt += res.pvLost;
       // RÉACTION Contre-Attaque : l'aventurier blessé pourra riposter à son tour.
@@ -918,9 +939,74 @@
       });
     }
     checkComa(target);
+    const killedNow = wasActive && target.status !== 'active';
+    // Talents de critique (classes) : déclenchés après un critique d'un aventurier.
+    if (res.critique && attacker.side === 'hero') onHeroCritTriggers(attacker, target, killedNow);
     // RIPOSTE (adversaire) : un adversaire attaqué par un aventurier riposte
     // systématiquement (1 fois par tour), s'il est encore en vie.
     maybeMonsterCounter(target, attacker);
+  }
+
+  let critTriggerDepth = 0;
+  // Effets déclenchés par un critique d'un aventurier (passifs de classe).
+  function onHeroCritTriggers(attacker, primaryTarget, killed) {
+    if (!attacker || attacker.side !== 'hero') return;
+    // BAIN DE SANG : un adversaire tué par un critique soigne l'attaquant de son ENDU.
+    if (killed && primaryTarget.side === 'monster' && heroHasTalent(attacker, 'bain_de_sang') && attacker.status === 'active') {
+      const heal = attacker.endu || 0;
+      if (heal > 0) {
+        const before = attacker.pv;
+        attacker.pv = Math.min(attacker.maxPv, attacker.pv + heal);
+        if (attacker.pv > before) {
+          pushFx({ type: 'heal', iid: attacker.iid, amount: attacker.pv - before, fromPct: pct(before, attacker.maxPv), toPct: pct(attacker.pv, attacker.maxPv) });
+          log(cname(attacker) + ' <span class="lstate">Bain de Sang</span> : +' + amt(attacker.pv - before, 'heal') + ' PV.', 'state');
+        }
+      }
+    }
+    if (critTriggerDepth > 2) return; // garde-fou anti-récursion
+    critTriggerDepth++;
+    try {
+      // MOUVEMENT CRITIQUE : octroie un mouvement gratuit.
+      if (attacker.status === 'active' && heroHasTalent(attacker, 'mvt_critique')) {
+        attacker.freeMoves = (attacker.freeMoves || 0) + 1;
+        log(cname(attacker) + ' <span class="lstate">Mouvement Critique</span> : +1 mouvement gratuit.', 'state');
+      }
+      // CRITIQUE EXPLOSIF : bonus de dégâts à tous les adversaires de la zone.
+      if (heroHasTalent(attacker, 'critique_explosif') && (attacker.damage || 0) > 0) {
+        const dmg = attacker.damage;
+        combat().combatants.filter(function (m) { return m.side === 'monster' && m.status === 'active' && m.zone === attacker.zone; }).forEach(function (m) {
+          if (absorbBlindage(m, 'Critique Explosif')) return;
+          const before = m.pv; m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; attacker.dmgDealt += dmg;
+          pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
+          log('<b class="lopp">Critique Explosif !</b> ' + cname(attacker) + ' inflige ' + amt(dmg, 'dmg') + ' Dégâts à ' + cname(m) + '.', 'dchoc');
+          if (m.pv <= 0 && !m.killedBy) m.killedBy = attacker.iid;
+          checkMonsterTalents(m, dmg); checkComa(m);
+        });
+      }
+      // CRI DE RAGE : force un adversaire d'une autre zone à rejoindre la zone.
+      if (heroHasTalent(attacker, 'cri_de_rage')) {
+        const outs = activeOf('monster').filter(function (m) { return m.zone !== attacker.zone && moveBarrier(m.zone, attacker.zone).type !== 'block'; });
+        if (outs.length) {
+          const m = outs[Math.floor(Math.random() * outs.length)];
+          m.zone = attacker.zone; pushFx({ type: 'move', iid: m.iid });
+          log('<b class="lopp">Cri de Rage !</b> ' + cname(attacker) + ' attire ' + cname(m) + ' dans sa zone.', 'state');
+        }
+      }
+      // ALLIÉ CRITIQUE : un allié de la zone attaque gratuitement (sans consommer son action).
+      if (heroHasTalent(attacker, 'allie_critique')) {
+        const ally = activeOf('hero').find(function (h) { return h.iid !== attacker.iid && h.zone === attacker.zone; });
+        if (ally) {
+          const wi = firstWeaponIdx(ally);
+          if (wi >= 0) {
+            const foe = activeOf('monster').find(function (m) { return canReach(ally, m, ally.attacks[wi]); });
+            if (foe) {
+              log(cname(ally) + ' <span class="lreact">attaque gratuitement</span> (Allié Critique) !', 'state');
+              resolveAttack(ally, foe, ally.attacks[wi]);
+            }
+          }
+        }
+      }
+    } finally { critTriggerDepth--; }
   }
 
   // Un adversaire doté de RIPOSTE contre-attaque l'aventurier qui l'a frappé.
@@ -988,6 +1074,25 @@
     }
   }
 
+  // EXÉCUTION (réaction) : avant qu'un adversaire de la zone d'un aventurier doté du
+  // talent ne fuie, celui-ci lui inflige son bonus de dégâts. Retourne true si la
+  // fuite est empêchée (l'adversaire est mort).
+  function executionBeforeFlee(m) {
+    if (!m || m.side !== 'monster' || m.status !== 'active') return false;
+    activeOf('hero').filter(function (h) { return h.zone === m.zone && heroHasTalent(h, 'execution'); }).forEach(function (h) {
+      if (m.status !== 'active') return;
+      const dmg = h.damage || 0;
+      if (dmg <= 0) return;
+      if (absorbBlindage(m, 'Exécution')) return;
+      const before = m.pv; m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; h.dmgDealt += dmg;
+      pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
+      log('<b class="lopp">Exécution !</b> ' + cname(h) + ' inflige ' + amt(dmg, 'dmg') + ' Dégâts à ' + cname(m) + ' avant sa fuite.', 'dchoc');
+      if (m.pv <= 0 && !m.killedBy) m.killedBy = h.iid;
+      checkComa(m);
+    });
+    return m.status !== 'active';
+  }
+
   // Vérifie les talents "flee_on_big_hit" du monstre cible après avoir subi pvLost PV
   function checkMonsterTalents(target, pvLost) {
     if (!pvLost || target.side !== 'monster' || target.status !== 'active') return;
@@ -995,6 +1100,8 @@
     if (!tpl || !Array.isArray(tpl.talents)) return;
     tpl.talents.forEach(function (t) {
       if (t.trigger === 'flee_on_big_hit' && pvLost >= (t.threshold || 0) && target.status === 'active') {
+        // EXÉCUTION : l'adversaire peut mourir avant de fuir.
+        if (executionBeforeFlee(target)) return;
         target.status = 'fled';
         pushFx({ type: 'flee', iid: target.iid });
         log(cname(target) + ' prend la fuite ! (talent : reçu ' + amt(pvLost, 'dmg') + ' ≥ ' + t.threshold + ')', 'turn');
@@ -1382,6 +1489,8 @@
       if (!fleeT) return;
       const after = fleeT.turns || 0;
       if (after <= 0 || c.turn < after) return;
+      // EXÉCUTION : l'adversaire peut mourir avant de fuir.
+      if (executionBeforeFlee(m)) return;
       m.status = 'fled';
       log(cname(m) + ' fuit le combat (talent : fuite après le tour ' + after + ').', 'turn');
     });
@@ -2819,6 +2928,19 @@
     // Frappe Tournoyante : limitée aux adversaires de la zone de l'aventurier.
     if (atk.zoneOnly) targets = targets.filter(function (t) { return t.zone === attacker.zone; });
     targets.forEach(function (t) { resolveAttack(attacker, t, atk); });
+    // ATTAQUE FURIEUSE : sur chaque adversaire tué, une attaque gratuite enchaîne
+    // sur un autre adversaire de la zone (tant que ça tue).
+    if (atk.chainOnKill && target && target.status !== 'active' && attacker.status === 'active') {
+      let guard = 0;
+      while (guard++ < 12 && attacker.status === 'active') {
+        const next = activeOf('monster').find(function (m) { return m.zone === attacker.zone; })
+          || activeOf('monster').find(function (m) { return canReach(attacker, m, atk); });
+        if (!next) break;
+        log(cname(attacker) + ' <span class="lreact">enchaîne</span> (Attaque Furieuse) !', 'state');
+        resolveAttack(attacker, next, atk);
+        if (next.status === 'active') break; // pas de kill → fin de la chaîne
+      }
+    }
     if (attacker.attackUses[atkIndex] !== null) {
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
     }
