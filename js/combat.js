@@ -947,6 +947,21 @@
     maybeMonsterCounter(target, attacker);
   }
 
+  // Choix joueur (synchrone) parmi une liste de combattants. Retourne l'élément
+  // choisi, ou null si le joueur annule. labelFn donne un libellé texte simple.
+  function playerPick(message, items, labelFn) {
+    if (!items || !items.length) return null;
+    if (items.length === 1) {
+      return global.confirm(message + '\n\n→ ' + labelFn(items[0]) + ' ?') ? items[0] : null;
+    }
+    const list = items.map(function (it, i) { return (i + 1) + '. ' + labelFn(it); }).join('\n');
+    const ans = global.prompt(message + '\n\n' + list + '\n\nNuméro (laisser vide pour annuler) :');
+    if (ans === null) return null;
+    const idx = parseInt(ans, 10) - 1;
+    return (idx >= 0 && idx < items.length) ? items[idx] : null;
+  }
+  function plainName(c) { return c ? (c.name || '') : ''; }
+
   let critTriggerDepth = 0;
   // Effets déclenchés par un critique d'un aventurier (passifs de classe).
   function onHeroCritTriggers(attacker, primaryTarget, killed) {
@@ -983,22 +998,34 @@
           checkMonsterTalents(m, dmg); checkComa(m);
         });
       }
-      // CRI DE RAGE : force un adversaire d'une autre zone à rejoindre la zone.
+      // CRI DE RAGE : le joueur choisit un adversaire d'une autre zone à attirer.
       if (heroHasTalent(attacker, 'cri_de_rage')) {
         const outs = activeOf('monster').filter(function (m) { return m.zone !== attacker.zone && moveBarrier(m.zone, attacker.zone).type !== 'block'; });
         if (outs.length) {
-          const m = outs[Math.floor(Math.random() * outs.length)];
-          m.zone = attacker.zone; pushFx({ type: 'move', iid: m.iid });
-          log('<b class="lopp">Cri de Rage !</b> ' + cname(attacker) + ' attire ' + cname(m) + ' dans sa zone.', 'state');
+          log('<b class="lopp">Cri de Rage !</b> ' + cname(attacker) + ' peut attirer un adversaire dans sa zone.', 'state');
+          const m = playerPick('Cri de Rage : quel adversaire attirer dans votre zone ?', outs, plainName);
+          if (m) {
+            m.zone = attacker.zone; pushFx({ type: 'move', iid: m.iid });
+            log(cname(attacker) + ' attire ' + cname(m) + ' dans sa zone (Cri de Rage).', 'state');
+          }
         }
       }
-      // ALLIÉ CRITIQUE : un allié de la zone attaque gratuitement (sans consommer son action).
+      // ALLIÉ CRITIQUE : le joueur choisit un allié de la zone qui attaque gratuitement
+      // (sans consommer son action) et sa cible.
       if (heroHasTalent(attacker, 'allie_critique')) {
-        const ally = activeOf('hero').find(function (h) { return h.iid !== attacker.iid && h.zone === attacker.zone; });
-        if (ally) {
-          const wi = firstWeaponIdx(ally);
-          if (wi >= 0) {
-            const foe = activeOf('monster').find(function (m) { return canReach(ally, m, ally.attacks[wi]); });
+        const allies = activeOf('hero').filter(function (h) {
+          if (h.iid === attacker.iid || h.zone !== attacker.zone) return false;
+          const wi = firstWeaponIdx(h);
+          if (wi < 0) return false;
+          return activeOf('monster').some(function (m) { return canReach(h, m, h.attacks[wi]); });
+        });
+        if (allies.length) {
+          log('<b class="lreact">Allié Critique !</b> ' + cname(attacker) + ' : un allié de la zone peut attaquer gratuitement.', 'state');
+          const ally = playerPick('Allié Critique : quel allié attaque gratuitement ?', allies, plainName);
+          if (ally) {
+            const wi = firstWeaponIdx(ally);
+            const foes = activeOf('monster').filter(function (m) { return canReach(ally, m, ally.attacks[wi]); });
+            const foe = playerPick('Cible de ' + plainName(ally) + ' (attaque gratuite) ?', foes, plainName);
             if (foe) {
               log(cname(ally) + ' <span class="lreact">attaque gratuitement</span> (Allié Critique) !', 'state');
               resolveAttack(ally, foe, ally.attacks[wi]);
@@ -1083,6 +1110,9 @@
       if (m.status !== 'active') return;
       const dmg = h.damage || 0;
       if (dmg <= 0) return;
+      // Réaction : le joueur décide s'il exécute l'adversaire avant sa fuite.
+      log('<b class="lreact">Exécution ?</b> ' + cname(m) + ' va fuir : ' + cname(h) + ' peut lui infliger ' + amt(dmg, 'dmg') + ' Dégâts.', 'state');
+      if (!global.confirm('Exécution : ' + plainName(h) + ' inflige ' + dmg + ' Dégâts à ' + plainName(m) + ' avant sa fuite ?')) return;
       if (absorbBlindage(m, 'Exécution')) return;
       const before = m.pv; m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; h.dmgDealt += dmg;
       pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
@@ -2928,17 +2958,14 @@
     // Frappe Tournoyante : limitée aux adversaires de la zone de l'aventurier.
     if (atk.zoneOnly) targets = targets.filter(function (t) { return t.zone === attacker.zone; });
     targets.forEach(function (t) { resolveAttack(attacker, t, atk); });
-    // ATTAQUE FURIEUSE : sur chaque adversaire tué, une attaque gratuite enchaîne
-    // sur un autre adversaire de la zone (tant que ça tue).
+    // ATTAQUE FURIEUSE : si la cible est tuée, UNE seule attaque gratuite sur un
+    // autre adversaire de la zone (pas de chaînage à l'infini).
     if (atk.chainOnKill && target && target.status !== 'active' && attacker.status === 'active') {
-      let guard = 0;
-      while (guard++ < 12 && attacker.status === 'active') {
-        const next = activeOf('monster').find(function (m) { return m.zone === attacker.zone; })
-          || activeOf('monster').find(function (m) { return canReach(attacker, m, atk); });
-        if (!next) break;
+      const next = activeOf('monster').find(function (m) { return m.zone === attacker.zone; })
+        || activeOf('monster').find(function (m) { return canReach(attacker, m, atk); });
+      if (next) {
         log(cname(attacker) + ' <span class="lreact">enchaîne</span> (Attaque Furieuse) !', 'state');
         resolveAttack(attacker, next, atk);
-        if (next.status === 'active') break; // pas de kill → fin de la chaîne
       }
     }
     if (attacker.attackUses[atkIndex] !== null) {
