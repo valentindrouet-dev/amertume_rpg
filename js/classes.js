@@ -24,9 +24,9 @@
     { value: 'combat', label: 'En combat' },
     { value: 'out',    label: 'Hors combat' },
   ];
-  const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', upgrade: 'Amélioration', mastery: 'Maîtrise' };
-  const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', upgrade: 'AME', mastery: 'MAIT' };
-  const KIND_ORDER = ['action', 'reaction', 'passive', 'upgrade', 'mastery'];
+  const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', upgrade: 'Amélioration', mastery: 'Maîtrise' };
+  const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', upgrade: 'AME', mastery: 'MAIT' };
+  const KIND_ORDER = ['action', 'reaction', 'passive', 'critique', 'upgrade', 'mastery'];
   // Libellés lisibles des valeurs de choix (les états internes → noms affichés).
   const CHOICE_LABELS = { feu: 'Feu', auSol: 'Au sol', affaibli: 'Affaibli' };
 
@@ -380,6 +380,7 @@
     $('#tl-f-group').innerHTML = groupOptions(ref || 'generic');
     $('#tl-f-level').value = t.level || 1;
     $('#tl-f-usage').value = t.usage || 'both';
+    if ($('#tl-f-kind')) $('#tl-f-kind').value = t.kindOverride || '';
     const prereqSel = $('#tl-f-prereq');
     if (prereqSel) prereqSel.innerHTML = prereqOptions(t.id, t.prereq || '');
     $('#tl-f-desc').value = t.description || '';
@@ -421,6 +422,7 @@
     });
     const first = effects[0] || null;
     const firstMeta = first ? (cat[first.effect] || {}) : null;
+    const kindOverride = ($('#tl-f-kind') && $('#tl-f-kind').value) || '';
     const data = {
       id: $('#tl-f-id').value || Store.uid(),
       name: ($('#tl-f-name').value || '').trim() || 'Talent',
@@ -429,7 +431,9 @@
       effects: effects,
       // Champs « représentatifs » conservés pour la rétro-compat (affichage, coloration)
       effect: first ? first.effect : '',
-      kind: firstMeta ? firstMeta.kind : '',
+      // Vignette : override manuel (ex. CRITIQUE) sinon type dérivé du 1ᵉʳ effet.
+      kindOverride: kindOverride,
+      kind: kindOverride || (firstMeta ? firstMeta.kind : ''),
       val: (first && typeof first.val === 'number') ? first.val : 0,
       prereq: (($('#tl-f-prereq') && $('#tl-f-prereq').value) || '') || null,
       description: ($('#tl-f-desc').value || '').trim(),

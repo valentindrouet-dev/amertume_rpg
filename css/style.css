@@ -3094,6 +3094,17 @@ body.mode-player #item-list.roster-list { display: block; }
 .tal-row.tal-kind-mastery  .inv-strip { border-left-color: #d4af37; }
 .tl-eff-row:has(.tl-eff-kind .tl-kind-mastery) { border-left-color: #d4af37; }
 
+/* ----- Critique (catégorie de talents, grenat bordeaux) ----- */
+.tl-kind-critique  { background: rgba(140,34,48,.30); color: #7a1f2b; }
+.tl-badge.tl-kind-critique { background: rgba(140,34,48,.18); color: #f0c2c8; border-color: rgba(140,34,48,.45); }
+.lib-kind-critique > .lib-kind-head { background: rgba(140,34,48,.24); color: #f0c2c8; }
+.lib-leg.lib-kind-critique { background: rgba(140,34,48,.26); color: #f0c2c8; }
+.tal-row.tal-kind-critique .inv-strip { border-left-color: #8c2230; }
+.tl-eff-row:has(.tl-eff-kind .tl-kind-critique) { border-left-color: #8c2230; }
+.tpe-kind-critique { border-left-color: #8c2230; }
+.lvl-tal-btn.lvl-tal-critique { border-color: rgba(140,34,48,.5); background: rgba(140,34,48,.14); color: #f0c2c8; }
+.lvl-tal-btn.lvl-tal-critique.selected { border-color: #8c2230; background: rgba(140,34,48,.34); color: #ffd9dd; }
+
 /* ----- Assistant de création : choix des talents de niveau 1 (strip design) ----- */
 .hw-tal-list { display: flex; flex-direction: column; gap: .3rem; }
 .hw-tal-list .inv-strip-row { cursor: pointer; }
