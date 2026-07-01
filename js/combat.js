@@ -3708,7 +3708,10 @@
           if (atk.multiTarget) {
             pendingAttack = { iid: c.iid, atkIndex: i, average: false, multi: atk.multiTarget, picked: [], zone: null };
             pendingAnalyze = null; pendingMove = null; stateMenuFor = null; render();
-          } else if (atk.targets === 'all') { execHeroAttack(c, i, null); }
+          } else if (atk.targets === 'all' && !atk.zoneOnly) { execHeroAttack(c, i, null); }
+          // Frappe Tournoyante (zoneOnly) : attaque normale — on cible un adversaire,
+          // le déplacement au contact se fait automatiquement, puis TOUS les adversaires
+          // de la zone d'arrivée sont touchés (filtrage zoneOnly dans applyAttack).
           else { pendingAttack = { iid: c.iid, atkIndex: i, average: false }; pendingAnalyze = null; stateMenuFor = null; render(); }
         });
       });
