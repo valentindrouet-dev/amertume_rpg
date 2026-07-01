@@ -20,6 +20,7 @@
   // À compléter au fil des définitions fournies.
   const CLASS_DESC = {
     'Lamevent': 'Combattant redoutablement rapide, vous vous faufilez entre les adversaires pour leur infliger d\'innombrables coups et attaques.',
+    'Pyromane': 'Maître des arts mystiques et adeptes des brûlures extrêmes, vous manipulez des puissances qui, bien souvent, vous dépassent. Ce qui permet également d\'annihiler des hordes d\'adversaires facilement...',
   };
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
   function emptySkills() { const o = {}; SKILLS.forEach(function (s) { o[s] = 0; }); return o; }
