@@ -3156,7 +3156,7 @@
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
         (revealed && uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
       '</span>';
-    return '<button class="ab-atk atk-chip' + (a.special ? ' ab-atk-special' : '') + ((a.pyromaneOrb || a.deflagration) ? ' ab-atk-mystic' : '') + (isThisAtk ? ' selected' : '') +
+    return '<button class="ab-atk atk-chip' + (a.special ? ' ab-atk-special' : '') + (isThisAtk ? ' selected' : '') +
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
         ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
       nameHtml +
