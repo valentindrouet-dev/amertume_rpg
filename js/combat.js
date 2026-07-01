@@ -38,6 +38,10 @@
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let pendingOrbeShare = null; // iid du Pyromane répartissant ses Orbes Partagés (clic sur alliés)
   let pendingDesignate = null; // iid du Gardien désignant ses alliés Gardés (clic sur alliés, Pré-Tour 1)
+  // File de choix joueur au CLIC (remplace les pop-up prompt/confirm des talents
+  // « vous pouvez… »). Chaque choix : { casterIid, prompt, isValidTarget(c), onPick(c), allowSkip }.
+  let choiceQueue = [];
+  let activeChoice = null;
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
   let movePrefix = null;      // { iid, zone } : déplacement à fusionner avec l'attaque qui suit
@@ -69,6 +73,7 @@
     fxQueue = [];
     movePrefix = null;
     selectedIid = null;
+    choiceQueue = []; activeChoice = null;
     const fxEl = document.getElementById('combat-fx');
     if (fxEl) fxEl.innerHTML = '';
     Store.state[combatKey] = v;
@@ -1085,6 +1090,45 @@
   }
   function plainName(c) { return c ? (c.name || '') : ''; }
 
+  // ----- Choix joueur au CLIC (sans pop-up) -----
+  // Empile un choix ; il sera présenté au joueur (surbrillance des cibles + bandeau)
+  // dès que l'action en cours est terminée.
+  // On ne propose des choix au clic que pendant la phase des aventuriers (jamais
+  // au milieu du tour des adversaires : une éventuelle Riposte critique n'ouvre
+  // donc pas de choix — cas marginal).
+  function canOfferChoice() { return combat().phase === 'heroes' && !aiRunning && !pendingReaction; }
+  function enqueueChoice(choice) { if (canOfferChoice()) choiceQueue.push(choice); }
+  // Démarre le prochain choix en attente (le cas échéant). Retourne true si un
+  // choix est désormais actif.
+  function startNextChoice() {
+    if (activeChoice) return true;
+    while (choiceQueue.length) {
+      const ch = choiceQueue.shift();
+      // Le choix peut être devenu caduc (plus aucune cible valide) : on l'ignore.
+      const some = activeOf('hero').concat(activeOf('monster')).some(function (c) { return ch.isValidTarget(c); });
+      if (!some) continue;
+      activeChoice = ch;
+      const caster = byId(ch.casterIid);
+      if (caster) selectedIid = caster.iid;
+      return true;
+    }
+    return false;
+  }
+  // Résout le choix actif avec la cible cliquée, puis enchaîne les suivants.
+  function resolveActiveChoice(target) {
+    const ch = activeChoice; activeChoice = null;
+    if (ch && target) { try { ch.onPick(target); } catch (e) { console.error('[combat] choix', e); } }
+    checkOutcome();
+    if (!combat().outcome) startNextChoice();
+    Store.save(); render();
+  }
+  // Passe le choix actif (talents « vous pouvez » : facultatifs).
+  function skipActiveChoice() {
+    activeChoice = null;
+    if (!combat().outcome) startNextChoice();
+    Store.save(); render();
+  }
+
   // REGAIN (passif) : aucune blessure subie d'une attaque adverse → soin d'ENDU PV.
   function applyRegain(c, attacker) {
     if (!c || c.side !== 'hero' || !attacker || attacker.side !== 'monster') return;
@@ -1160,7 +1204,28 @@
     }
   }
 
-  // COOPÉRATION : un allié GARDÉ de la zone effectue une attaque gratuite (choix joueur).
+  // Empile le choix de la cible d'une attaque gratuite d'un allié (clic sur un
+  // adversaire à sa portée), puis résout l'attaque au clic. Facultatif.
+  function enqueueAllyFreeAttack(ally, label) {
+    if (!ally || ally.status !== 'active') return;
+    const wi = firstWeaponIdx(ally);
+    if (wi < 0) return;
+    const foes = activeOf('monster').filter(function (m) { return canReach(ally, m, ally.attacks[wi]); });
+    if (!foes.length) return;
+    enqueueChoice({
+      casterIid: ally.iid,
+      prompt: cname(ally) + ' — attaque gratuite (' + label + ') : <b>cliquez l\'adversaire à frapper</b>.',
+      isValidTarget: function (c) { return c.side === 'monster' && c.status === 'active' && foes.some(function (f) { return f.iid === c.iid; }); },
+      onPick: function (foe) {
+        log(cname(ally) + ' <span class="lreact">attaque gratuitement</span> (' + label + ') !', 'state');
+        resolveAttack(ally, foe, ally.attacks[wi]);
+      },
+      allowSkip: true,
+    });
+  }
+
+  // COOPÉRATION : un allié GARDÉ de la zone effectue une attaque gratuite.
+  // Choix au CLIC : on clique l'allié, puis sa cible (aucune pop-up).
   function triggerCooperation(attacker) {
     const allies = activeOf('hero').filter(function (h) {
       if (h.iid === attacker.iid || h.zone !== attacker.zone) return false;
@@ -1170,15 +1235,14 @@
       return activeOf('monster').some(function (m) { return canReach(h, m, h.attacks[wi]); });
     });
     if (!allies.length) return;
-    log('<b class="lreact">Coopération !</b> un allié Gardé de la zone peut attaquer gratuitement.', 'state');
-    const ally = playerPick('Coopération : quel allié Gardé attaque gratuitement ?', allies, plainName);
-    if (!ally) return;
-    const wi = firstWeaponIdx(ally);
-    const foes = activeOf('monster').filter(function (m) { return canReach(ally, m, ally.attacks[wi]); });
-    const foe = playerPick('Cible de ' + plainName(ally) + ' (attaque gratuite) ?', foes, plainName);
-    if (!foe) return;
-    log(cname(ally) + ' <span class="lreact">attaque gratuitement</span> (Coopération) !', 'state');
-    resolveAttack(ally, foe, ally.attacks[wi]);
+    log('<b class="lreact">Coopération !</b> ' + cname(attacker) + ' : un allié Gardé de la zone peut attaquer gratuitement.', 'state');
+    enqueueChoice({
+      casterIid: attacker.iid,
+      prompt: 'Coopération : <b>cliquez l\'allié Gardé</b> qui attaque gratuitement.',
+      isValidTarget: function (c) { return allies.some(function (a) { return a.iid === c.iid; }); },
+      onPick: function (ally) { enqueueAllyFreeAttack(ally, 'Coopération'); },
+      allowSkip: true,
+    });
   }
 
   let critTriggerDepth = 0;
@@ -1224,21 +1288,26 @@
           checkMonsterTalents(m, dmg); checkComa(m);
         });
       }
-      // CRI DE RAGE : le joueur choisit un adversaire d'une autre zone à attirer.
+      // CRI DE RAGE : le joueur clique un adversaire d'une autre zone à attirer.
       if (heroHasTalent(attacker, 'cri_de_rage')) {
         const outs = activeOf('monster').filter(function (m) { return m.zone !== attacker.zone && moveBarrier(m.zone, attacker.zone).type !== 'block'; });
         if (outs.length) {
           log('<b class="lopp">Cri de Rage !</b> ' + cname(attacker) + ' peut attirer un adversaire dans sa zone.', 'state');
-          const m = playerPick('Cri de Rage : quel adversaire attirer dans votre zone ?', outs, plainName);
-          if (m) {
-            m.zone = attacker.zone; pushFx({ type: 'move', iid: m.iid });
-            log(cname(attacker) + ' attire ' + cname(m) + ' dans sa zone (Cri de Rage).', 'state');
-            epinesOnArrival(m);
-          }
+          enqueueChoice({
+            casterIid: attacker.iid,
+            prompt: cname(attacker) + ' — Cri de Rage : <b>cliquez l\'adversaire à attirer</b> dans votre zone.',
+            isValidTarget: function (c) { return c.side === 'monster' && c.status === 'active' && outs.some(function (o) { return o.iid === c.iid; }); },
+            onPick: function (m) {
+              m.zone = attacker.zone; pushFx({ type: 'move', iid: m.iid });
+              log(cname(attacker) + ' attire ' + cname(m) + ' dans sa zone (Cri de Rage).', 'state');
+              epinesOnArrival(m);
+            },
+            allowSkip: true,
+          });
         }
       }
-      // ALLIÉ CRITIQUE : le joueur choisit un allié de la zone qui attaque gratuitement
-      // (sans consommer son action) et sa cible.
+      // ALLIÉ CRITIQUE : le joueur clique un allié de la zone qui attaque
+      // gratuitement (sans consommer son action), puis sa cible.
       if (heroHasTalent(attacker, 'allie_critique')) {
         const allies = activeOf('hero').filter(function (h) {
           if (h.iid === attacker.iid || h.zone !== attacker.zone) return false;
@@ -1248,16 +1317,13 @@
         });
         if (allies.length) {
           log('<b class="lreact">Allié Critique !</b> ' + cname(attacker) + ' : un allié de la zone peut attaquer gratuitement.', 'state');
-          const ally = playerPick('Allié Critique : quel allié attaque gratuitement ?', allies, plainName);
-          if (ally) {
-            const wi = firstWeaponIdx(ally);
-            const foes = activeOf('monster').filter(function (m) { return canReach(ally, m, ally.attacks[wi]); });
-            const foe = playerPick('Cible de ' + plainName(ally) + ' (attaque gratuite) ?', foes, plainName);
-            if (foe) {
-              log(cname(ally) + ' <span class="lreact">attaque gratuitement</span> (Allié Critique) !', 'state');
-              resolveAttack(ally, foe, ally.attacks[wi]);
-            }
-          }
+          enqueueChoice({
+            casterIid: attacker.iid,
+            prompt: 'Allié Critique : <b>cliquez l\'allié</b> qui attaque gratuitement.',
+            isValidTarget: function (c) { return allies.some(function (a) { return a.iid === c.iid; }); },
+            onPick: function (ally) { enqueueAllyFreeAttack(ally, 'Allié Critique'); },
+            allowSkip: true,
+          });
         }
       }
     } finally { critTriggerDepth--; }
@@ -1567,6 +1633,7 @@
 
   function endHeroPhase() {
     pendingAttack = null; stateMenuFor = null; pendingOrbeShare = null; pendingDesignate = null; pendingMove = null; pendingObject = null;
+    choiceQueue = []; activeChoice = null;
     combat().phase = 'monsters';
     log('Phase des adversaires.', 'turn');
     Store.save(); render();
@@ -2643,6 +2710,14 @@
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
+      // Bandeau de choix au clic (talents « vous pouvez… ») : visible seulement
+      // quand un choix est en attente.
+      (activeChoice
+        ? '<div class="combat-choicebar">' +
+            '<span class="choicebar-msg">✦ ' + activeChoice.prompt + '</span>' +
+            (activeChoice.allowSkip ? '<button id="choice-skip" class="ghost xs">Passer</button>' : '') +
+          '</div>'
+        : '') +
       // Journal compact : hauteur fixe 4 lignes minimum, scrollable au-delà.
       '<div id="combat-log" class="combat-log compact"></div>' +
       '<div id="combat-actionbar" class="combat-actionbar"></div>' +
@@ -2712,6 +2787,8 @@
     if (co) co.addEventListener('click', function () { pendingObject = null; render(); });
     const cos = root.querySelector('#cancel-orbeshare');
     if (cos) cos.addEventListener('click', function () { pendingOrbeShare = null; render(); });
+    const csk = root.querySelector('#choice-skip');
+    if (csk) csk.addEventListener('click', function () { skipActiveChoice(); });
 
     // Déplacement : cliquer une zone y envoie le combattant en cours de mouvement
     // (uniquement après avoir cliqué le bouton Mouv.).
@@ -3268,6 +3345,10 @@
     if (pendingDesignate && !dead && c.side === 'hero' && c.iid !== pendingDesignate && !(c.states && c.states.garde)) {
       cls.push('targetable', 'tgt-choisir');
     }
+    // CHOIX AU CLIC (Cri de Rage, Allié Critique, Coopération…) : cibles valides.
+    if (activeChoice && !dead && activeChoice.isValidTarget(c)) {
+      cls.push('targetable', 'tgt-choisir');
+    }
     // PROIE : l'aventurier désigné ce tour.
     const isMarked = !dead && c.side === 'hero' && combat().markedHeroIid === c.iid;
     if (isMarked) cls.push('is-marked');
@@ -3403,6 +3484,7 @@
     applyMultiAttack(attacker, atkIndex, zoneIdx, iids);
     pendingAttack = null;
     checkOutcome(); Store.save(); render();
+    if (startNextChoice()) render();
   }
 
   // Version UI : applique puis rafraîchit
@@ -3410,6 +3492,7 @@
     applyAttack(attacker, atkIndex, target);
     pendingAttack = null;
     checkOutcome(); Store.save(); render();
+    if (startNextChoice()) render();
   }
 
   // Action de soin auto-ciblée (talents soin_fixe / soin_endu / soin_des).
@@ -3529,6 +3612,7 @@
     applyAverageAttack(attacker, atkIndex, target);
     pendingAttack = null;
     checkOutcome(); Store.save(); render();
+    if (startNextChoice()) render();
   }
 
   function wireCard(c) {
@@ -3541,6 +3625,12 @@
       card.addEventListener('click', function (e) {
         if (e.target.closest('button')) return;
         const targetable = card.classList.contains('targetable');
+        // 0a) CHOIX AU CLIC en attente (talents « vous pouvez… ») : seule une cible
+        // valide résout le choix ; tout autre clic est ignoré tant qu'il est actif.
+        if (activeChoice) {
+          if (activeChoice.isValidTarget(c)) resolveActiveChoice(c);
+          return;
+        }
         // 0bis) ORBES PARTAGÉS : clic sur la vignette d'un allié → +1 dé bleu & FEU.
         if (pendingOrbeShare && c.side === 'hero' && c.status === 'active' && c.iid !== pendingOrbeShare) {
           const caster = byId(pendingOrbeShare);
