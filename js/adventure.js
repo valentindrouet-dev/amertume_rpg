@@ -854,10 +854,13 @@
       const diffOpts = [['facile', 'Facile'], ['moyen', 'Moyen'], ['difficile', 'Difficile']].map(function (d) {
         return '<option value="' + d[0] + '"' + ((bar.difficulty || 'moyen') === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
       }).join('');
+      const named = bar.type && bar.type !== 'none';
       return '<div class="adv-barrier" data-bkey="' + key + '">' +
         '<span class="adv-barrier-lbl">⛓ Zone ' + (Math.min(a, b) + 1) + ' – Zone ' + (Math.max(a, b) + 1) + '</span>' +
         '<select class="barrier-type">' + typeOpts + '</select>' +
         '<select class="barrier-diff"' + (bar.type === 'difficile' ? '' : ' style="display:none"') + '>' + diffOpts + '</select>' +
+        '<input type="text" class="barrier-name" maxlength="24" placeholder="Nom (mur, palissade, ravin…)" ' +
+          'value="' + esc(bar.name || '') + '"' + (named ? '' : ' style="display:none"') + ' />' +
       '</div>';
     }
     box.innerHTML = zones.map(function (z, zi) {
@@ -895,16 +898,19 @@
       const key = bEl.getAttribute('data-bkey');
       const typeSel = bEl.querySelector('.barrier-type');
       const diffSel = bEl.querySelector('.barrier-diff');
+      const nameInp = bEl.querySelector('.barrier-name');
       typeSel.onchange = function () {
         if (this.value === 'none') { delete scene.barriers[key]; }
         else {
           const prev = scene.barriers[key] || {};
-          scene.barriers[key] = { type: this.value, difficulty: prev.difficulty || 'moyen' };
+          scene.barriers[key] = { type: this.value, difficulty: prev.difficulty || 'moyen', name: prev.name || '' };
         }
         diffSel.style.display = this.value === 'difficile' ? '' : 'none';
+        if (nameInp) nameInp.style.display = (this.value === 'none') ? 'none' : '';
         save();
       };
       diffSel.onchange = function () { if (scene.barriers[key]) { scene.barriers[key].difficulty = this.value; save(); } };
+      if (nameInp) nameInp.oninput = function () { if (scene.barriers[key]) { scene.barriers[key].name = this.value; save(); } };
     });
 
     function refresh() { save(); renderMonsterRefs(scene, Store.state.monsters); }

@@ -495,12 +495,12 @@
     const out = {};
     if (Array.isArray(raw)) {
       raw.forEach(function (b, i) {
-        if (b && b.type && b.type !== 'none') out[i + '-' + (i + 1)] = { type: migrateBarrierType(b.type), difficulty: b.difficulty || 'moyen' };
+        if (b && b.type && b.type !== 'none') out[i + '-' + (i + 1)] = { type: migrateBarrierType(b.type), difficulty: b.difficulty || 'moyen', name: b.name || '' };
       });
     } else if (raw && typeof raw === 'object') {
       Object.keys(raw).forEach(function (k) {
         const b = raw[k];
-        if (b && b.type && b.type !== 'none') out[k] = { type: migrateBarrierType(b.type), difficulty: b.difficulty || 'moyen' };
+        if (b && b.type && b.type !== 'none') out[k] = { type: migrateBarrierType(b.type), difficulty: b.difficulty || 'moyen', name: b.name || '' };
       });
     }
     return out;
@@ -539,6 +539,10 @@
   ];
   const BARRIER_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile' };
   const BARRIER_NAME = { infranchissable: 'INFRANCHISSABLE', mur: 'MUR', difficile: 'DIFFICILE' };
+  // Nom affiché d'une barrière : nom personnalisé (MJ) sinon libellé du type.
+  function barrierDisplayName(bar) {
+    return (bar && bar.name && bar.name.trim()) ? bar.name.trim() : (BARRIER_NAME[bar && bar.type] || '');
+  }
   function zonesGridStyle(n) {
     if (n <= 1) return 'grid-template-columns:1fr;';
     if (n === 2) return 'grid-template-columns:1fr auto 1fr;';
@@ -570,8 +574,8 @@
       if (!bar || !bar.type || bar.type === 'none') return;
       html += '<div class="zone-sep zone-sep-' + e.dir + ' barrier-' + bar.type + '"' +
         ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';"' +
-        ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
-        '<span class="zone-sep-lbl">' + (BARRIER_NAME[bar.type] || '') + '</span></div>';
+        ' title="' + esc(barrierDisplayName(bar)) + ' — ' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
+        '<span class="zone-sep-lbl">' + esc(barrierDisplayName(bar)) + '</span></div>';
     });
     // Séparateurs diagonaux (croix centrale) pour les paires 1-4 et 2-3.
     let diagHtml = '';
@@ -580,8 +584,8 @@
       const bar = bars[d.pair[0] + '-' + d.pair[1]];
       if (!bar || !bar.type || bar.type === 'none') return;
       diagHtml += '<div class="zone-sep-diag ' + d.dir + ' barrier-' + bar.type + '"' +
-        ' title="' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
-        '<span class="zone-sep-lbl">' + (BARRIER_NAME[bar.type] || '') + '</span></div>';
+        ' title="' + esc(barrierDisplayName(bar)) + ' — ' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
+        '<span class="zone-sep-lbl">' + esc(barrierDisplayName(bar)) + '</span></div>';
     });
     if (diagHtml) html += '<div class="zone-sep-diag-wrap" style="grid-row:2;grid-column:2;">' + diagHtml + '</div>';
     return html;

@@ -1637,10 +1637,10 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .zone-barrier-tag { position: absolute; top: -9px; left: 8px; font-size: .6rem; font-weight: 800; color: #fff;
   border-radius: 6px; padding: .05rem .4rem; }
 .zone-barrier-tag.barrier-infranchissable { background: #e08a2a; }
-.zone-barrier-tag.barrier-obstruante,
-.zone-barrier-tag.barrier-mur { background: #c0392b; }
+.zone-barrier-tag.barrier-obstruante { background: #c0392b; }
+.zone-barrier-tag.barrier-mur { background: #6b6b6b; }
 .zone-barrier-tag.barrier-difficile { background: #8a8276; }
-.combat-zone.barrier-left.barrier-mur, .preview-zone.barrier-left.barrier-mur { border-left: 4px solid #c0392b; }
+.combat-zone.barrier-left.barrier-mur, .preview-zone.barrier-left.barrier-mur { border-left: 4px solid #6b6b6b; }
 
 /* Séparateurs-blocs matérialisant une barrière entre deux zones du module. */
 .zone-sep { align-self: stretch; justify-self: stretch; border-radius: 5px; min-width: 14px; min-height: 14px;
@@ -1654,7 +1654,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .zone-sep-v .zone-sep-lbl { writing-mode: vertical-rl; text-orientation: mixed; }
 .zone-sep-diag { display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .zone-sep.barrier-infranchissable { background: repeating-linear-gradient(45deg, #e08a2a, #e08a2a 6px, #c77a1f 6px, #c77a1f 12px); }
-.zone-sep.barrier-mur { background: #c0392b; box-shadow: inset 0 0 0 2px #9c2b20; }
+.zone-sep.barrier-mur { background: #6b6b6b; box-shadow: inset 0 0 0 2px #4f4f4f; }
 .zone-sep.barrier-difficile { background: repeating-linear-gradient(45deg, #8a8276, #8a8276 6px, #756e64 6px, #756e64 12px); }
 
 /* Séparateurs diagonaux (zones adjacentes en diagonale : 1-4 et 2-3), croix centrale.
@@ -1664,7 +1664,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .zone-sep-diag.down-right { transform: translate(-50%, -50%) rotate(45deg); }
 .zone-sep-diag.down-left { transform: translate(-50%, -50%) rotate(-45deg); }
 .zone-sep-diag.barrier-infranchissable { background: repeating-linear-gradient(45deg, #e08a2a, #e08a2a 6px, #c77a1f 6px, #c77a1f 12px); }
-.zone-sep-diag.barrier-mur { background: #c0392b; box-shadow: inset 0 0 0 2px #9c2b20; }
+.zone-sep-diag.barrier-mur { background: #6b6b6b; box-shadow: inset 0 0 0 2px #4f4f4f; }
 .zone-sep-diag.barrier-difficile { background: repeating-linear-gradient(45deg, #8a8276, #8a8276 6px, #756e64 6px, #756e64 12px); }
 
 /* ===================================================================
