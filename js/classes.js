@@ -183,12 +183,16 @@
     // (même design que l'onglet Talents du mode Joueur), pas le nom complet du prérequis.
     const prereqName = t.prereq ? talentNameById(t.prereq) : '';
     const upgradeMark = prereqName ? '<span class="tpe-upgrade-arrow" title="Évolution de : ' + esc(prereqName) + '">↳</span> ' : '';
+    const hidden = !!t.hidden;
     return '<div class="tal-row-wrap">' +
-      '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + '">' +
+      '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + (hidden ? ' tal-hidden' : '') + '">' +
         '<div class="inv-strip tal-strip" data-desc-toggle="1" title="Voir le descriptif">' +
           '<span class="inv-strip-name">' + upgradeMark + esc(t.name || '(sans nom)') + '</span>' +
           '<span class="inv-strip-val">' + right + '</span>' +
         '</div>' +
+        '<button class="inv-strip-eye' + (hidden ? ' off' : '') + '" data-eye="' + esc(ref) + '" data-tid="' + esc(t.id) + '" ' +
+          'title="' + (hidden ? 'Talent masqué aux aventuriers — cliquer pour réactiver' : 'Masquer ce talent aux aventuriers') + '">' +
+          (hidden ? '🙈' : '👁') + '</button>' +
         '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
       '</div>' +
       (t.description ? '<div class="tal-strip-desc" hidden>' + esc(t.description) + '</div>' : '') +
@@ -216,6 +220,19 @@
 
     box.querySelectorAll('.tl-col-add').forEach(function (b) {
       b.addEventListener('click', function () { openTalentModal(null, b.getAttribute('data-ref')); });
+    });
+    // L'œil masque/réaffiche le talent aux aventuriers (non débloquable ni
+    // visible dans les aventures tant qu'il est masqué).
+    box.querySelectorAll('.inv-strip-eye[data-eye]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const g = groupByRef(el.getAttribute('data-eye'));
+        const t = g && g.list.find(function (x) { return x.id === el.getAttribute('data-tid'); });
+        if (!t) return;
+        t.hidden = !t.hidden;
+        persist();
+        renderColumns();
+      });
     });
     // Le crayon ouvre l'éditeur ; le corps de la languette déroule le descriptif.
     box.querySelectorAll('.inv-strip-edit[data-edit]').forEach(function (el) {
@@ -423,6 +440,13 @@
     const first = effects[0] || null;
     const firstMeta = first ? (cat[first.effect] || {}) : null;
     const kindOverride = ($('#tl-f-kind') && $('#tl-f-kind').value) || '';
+    // Conserve l'état « masqué » (œil) à travers l'édition du talent.
+    const existingHidden = (function () {
+      if (!editing) return false;
+      const og = groupByRef(editing.ref);
+      const ex = og && og.list.find(function (x) { return x.id === editing.id; });
+      return ex ? !!ex.hidden : false;
+    })();
     const data = {
       id: $('#tl-f-id').value || Store.uid(),
       name: ($('#tl-f-name').value || '').trim() || 'Talent',
@@ -437,6 +461,7 @@
       val: (first && typeof first.val === 'number') ? first.val : 0,
       prereq: (($('#tl-f-prereq') && $('#tl-f-prereq').value) || '') || null,
       description: ($('#tl-f-desc').value || '').trim(),
+      hidden: existingHidden,
     };
     // Retire l'ancienne occurrence (changement de groupe possible)
     if (editing) {

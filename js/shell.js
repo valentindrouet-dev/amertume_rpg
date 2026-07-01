@@ -15,6 +15,17 @@
   let adventureId = null;       // aventure sélectionnée en mode Joueur
   let publishedMode = false;    // ouvert via un lien partagé (#pub=…) : pas d'accès MJ
 
+  // Grandes Aventures dépliées sur l'accueil : conservées ouvertes entre deux
+  // retours à l'accueil (persistées localement).
+  const OPEN_SAGAS_KEY = 'amertume_home_open_sagas_v1';
+  let openSagas = (function () {
+    try { const a = JSON.parse(global.localStorage.getItem(OPEN_SAGAS_KEY)); return new Set(Array.isArray(a) ? a : []); }
+    catch (e) { return new Set(); }
+  })();
+  function saveOpenSagas() {
+    try { global.localStorage.setItem(OPEN_SAGAS_KEY, JSON.stringify([...openSagas])); } catch (e) {}
+  }
+
   // Quand on arrive via un lien partagé, on masque l'accès au mode MJ/Admin.
   function setPublishedMode(v) {
     publishedMode = !!v;
@@ -83,7 +94,7 @@
       const totalSc = chapters.reduce(function (n, a) {
         return n + a.chapters.reduce(function (m, ch) { return m + ch.scenes.length; }, 0);
       }, 0);
-      return '<details class="home-saga">' +
+      return '<details class="home-saga" data-saga="' + esc(e.id) + '"' + (openSagas.has(e.id) ? ' open' : '') + '>' +
         '<summary class="home-saga-head">' +
           '<span class="home-saga-caret">▸</span>' +
           '<span class="home-saga-title">📚 ' + esc(saga.title || 'Grande Aventure') + '</span>' +
@@ -95,6 +106,15 @@
         '</div>' +
       '</details>';
     }).join('');
+    // Mémorise l'état ouvert/fermé de chaque Grande Aventure pour le conserver
+    // au prochain retour à l'accueil.
+    box.querySelectorAll('.home-saga[data-saga]').forEach(function (d) {
+      d.addEventListener('toggle', function () {
+        const id = d.getAttribute('data-saga');
+        if (d.open) openSagas.add(id); else openSagas.delete(id);
+        saveOpenSagas();
+      });
+    });
     box.querySelectorAll('.home-play').forEach(function (card) {
       card.addEventListener('click', function (e) {
         if (e.target.classList.contains('home-locked')) return;

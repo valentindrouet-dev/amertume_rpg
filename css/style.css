@@ -2371,6 +2371,21 @@ img.ab-atk-name {
   background: rgba(193,78,53,.16); color: #9a3d20; border-color: rgba(193,78,53,.45);
   font-size: .66rem; letter-spacing: .02em; opacity: 1;
 }
+/* Bouton de désignation Gardien (Pré-Tour 1) : bleu marine, cliquable, avec
+   le nombre d'alliés restant à désigner. */
+.ab-talent.ab-gardien-btn {
+  background: #3f5b86; color: #fff; border-color: #5a86bd; opacity: 1;
+  cursor: pointer; gap: .3rem;
+}
+.ab-talent.ab-gardien-btn:hover { filter: brightness(1.12); }
+.ab-talent.ab-gardien-btn.selected {
+  outline: 2px solid #fff; box-shadow: 0 0 0 2px rgba(90,134,189,.7);
+}
+.ab-gardien-left {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.2em; height: 1.2em; padding: 0 .2em; border-radius: 6px;
+  background: rgba(255,255,255,.28); font-weight: 800; font-size: .78em;
+}
 
 /* Carte sélectionnée dans les zones : surbrillance TRÈS marquée (aucun doute
    possible sur le combattant sélectionné). */
@@ -2833,6 +2848,17 @@ body.mode-player #item-list.roster-list { display: block; }
   font-size: 1rem; cursor: pointer; padding: .1rem .3rem; line-height: 1;
 }
 .inv-strip-edit:hover { color: var(--text); }
+/* Œil : masque/réaffiche un talent aux aventuriers (onglet Classes MJ). */
+.inv-strip-eye {
+  flex: 0 0 auto; align-self: center;
+  background: none; border: none; cursor: pointer;
+  font-size: 1rem; padding: .1rem .3rem; line-height: 1; opacity: .85;
+}
+.inv-strip-eye:hover { opacity: 1; }
+.inv-strip-eye.off { filter: grayscale(1); opacity: .6; }
+/* Talent masqué : languette grisée avec un léger filet, pour repérage rapide. */
+.tal-row.tal-hidden { opacity: .5; }
+.tal-row.tal-hidden .inv-strip-name { text-decoration: line-through; }
 
 /* Couleurs par catégorie */
 .inv-strip-row.cat-weapon .inv-strip { border-left-color: #c0563f; background: linear-gradient(180deg,#efe4cf,#f0dcd2); }

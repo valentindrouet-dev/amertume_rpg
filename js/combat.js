@@ -37,6 +37,7 @@
   let aiResume = null;        // reprise de la séquence adverse en pause (Réaction)
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
   let pendingOrbeShare = null; // iid du Pyromane répartissant ses Orbes Partagés (clic sur alliés)
+  let pendingDesignate = null; // iid du Gardien désignant ses alliés Gardés (clic sur alliés, Pré-Tour 1)
   let stateMenuFor = null;    // iid dont le menu « + état » est ouvert
   let selectedIid = null;     // combattant dont la fiche est affichée dans le bandeau d'action
   let movePrefix = null;      // { iid, zone } : déplacement à fusionner avec l'attaque qui suit
@@ -1561,7 +1562,7 @@
   }
 
   function endHeroPhase() {
-    pendingAttack = null; stateMenuFor = null; pendingOrbeShare = null; pendingMove = null; pendingObject = null;
+    pendingAttack = null; stateMenuFor = null; pendingOrbeShare = null; pendingDesignate = null; pendingMove = null; pendingObject = null;
     combat().phase = 'monsters';
     log('Phase des adversaires.', 'turn');
     Store.save(); render();
@@ -1804,24 +1805,24 @@
     checkOutcome();
   }
 
-  // GARDIEN : désigne X alliés qui reçoivent Blindage + Gardé (Pré-Tour 1).
+  // GARDIEN : au Pré-Tour 1, chaque Gardien peut désigner X alliés qui reçoivent
+  // Blindage + Gardé. La désignation est INTERACTIVE (clic sur le talent puis sur
+  // les alliés — aucune fenêtre pop-up) : on initialise seulement le compteur.
   function applyGardienDesignations() {
     const c = combat();
     if (c.gardienDone) return;
     c.gardienDone = true;
     activeOf('hero').filter(function (h) { return heroHasTalent(h, 'gardien'); }).forEach(function (h) {
-      const x = Math.max(1, heroTalentVal(h, 'gardien') || 1);
-      log('<b class="lreact">Gardien</b> : ' + cname(h) + ' peut désigner ' + x + ' allié(s) Gardé(s).', 'state');
-      for (let k = 0; k < x; k++) {
-        const cands = activeOf('hero').filter(function (a) { return a.iid !== h.iid && !(a.states && a.states.garde); });
-        if (!cands.length) break;
-        const ally = playerPick('Gardien : désignez un allié à protéger (Blindage + Gardé).', cands, plainName);
-        if (!ally) break;
-        ally.states.blindage = true; ally.states.garde = true;
-        pushFx({ type: 'state', iid: ally.iid });
-        log(cname(ally) + ' reçoit <span class="lstate">Blindage</span> et <span class="lstate">Gardé</span> (Gardien).', 'state');
+      if (h.gardienLeft == null) h.gardienLeft = Math.max(1, heroTalentVal(h, 'gardien') || 1);
+      if (h.gardienLeft > 0) {
+        log('<b class="lreact">Gardien</b> : ' + cname(h) + ' peut désigner ' + h.gardienLeft +
+          ' allié(s) Gardé(s) — cliquez le talent puis un allié.', 'state');
       }
     });
+  }
+  // Un Gardien peut-il encore désigner un allié (Pré-Tour 1) ?
+  function canDesignateGardien(h) {
+    return combat().turn === 1 && !combat().outcome && h.side === 'hero' && h.status === 'active' && (h.gardienLeft || 0) > 0;
   }
 
   function startPretour() {
@@ -1854,7 +1855,7 @@
     if (!c.fastDeferred) pretourMonstersAct();
     // Si aucun aventurier n'a finalement de talent à jouer (ex. seuls des
     // adversaires rapides agissaient), on enchaîne directement le vrai tour.
-    if (!combat().outcome && !activeOf('hero').some(function (h) { return h.freeMoveReady; })) {
+    if (!combat().outcome && !activeOf('hero').some(function (h) { return h.freeMoveReady || canDesignateGardien(h); })) {
       startTurnFromPretour();
     }
   }
@@ -1862,6 +1863,7 @@
   // Démarre le vrai tour des héros après le Pré-Tour (ne réattribue pas freeMoveReady).
   function startTurnFromPretour() {
     if (combat().outcome) return;
+    pendingDesignate = null; // la désignation Gardien ne survit pas au Pré-Tour
     const c = combat();
     // INITIATIVE : les adversaires rapides différés agissent maintenant (après les héros).
     if (c.fastDeferred) {
@@ -2618,7 +2620,7 @@
     const isPretour = !c.outcome && c.phase === 'pretour';
     // Pré-Tour terminé : plus aucun aventurier n'a de talent de pré-tour à jouer →
     // le bouton « Tour X » clignote (comme « Tour des Adversaires » quand tout est joué).
-    const pretourDone = isPretour && !activeOf('hero').some(function (h) { return h.freeMoveReady; });
+    const pretourDone = isPretour && !activeOf('hero').some(function (h) { return h.freeMoveReady || canDesignateGardien(h); });
     root.innerHTML =
       '<div class="combat-bar">' +
         '<div class="cb-left"><span class="turn-pill">Tour ' + c.turn + '</span>' +
@@ -2814,6 +2816,15 @@
     const reactions = heroReactions(c);
     const atks = Array.isArray(c.attacks) ? c.attacks : [];
     return slots.map(function (t) {
+      // GARDIEN (Pré-Tour 1) : bouton de désignation cliquable (Blindage + Gardé).
+      const under = (c.talents || []).find(function (x) { return x.id === t.id; });
+      if (under && under.effect === 'gardien' && canDesignateGardien(c)) {
+        const armed = pendingDesignate === c.iid;
+        return '<button class="ab-talent ab-talent-kind-garde ab-gardien-btn' + (armed ? ' selected' : '') +
+          '" type="button" data-designate="' + c.iid + '" ' +
+          'title="Désignez un allié à protéger (Blindage + Gardé)">' +
+          esc(t.name) + ' <span class="ab-gardien-left">' + c.gardienLeft + '</span></button>';
+      }
       const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
       // L'Orbe Mystique est rendu par le bouton spécial ORBES, pas dans les slots.
       if (ai >= 0 && atks[ai].pyromaneOrb) return null;
@@ -2862,7 +2873,7 @@
     // Auto-sélection : en phase héros ou Pré-Tour, défaut = 1er aventurier actif.
     // En Pré-Tour, on privilégie un aventurier ayant encore un talent à jouer.
     if ((!sel || sel.status !== 'active') && (cmb.phase === 'heroes' || cmb.phase === 'pretour') && !cmb.outcome) {
-      const fh = (cmb.phase === 'pretour' && activeOf('hero').find(function (h) { return h.freeMoveReady; })) || activeOf('hero')[0];
+      const fh = (cmb.phase === 'pretour' && activeOf('hero').find(function (h) { return h.freeMoveReady || canDesignateGardien(h); })) || activeOf('hero')[0];
       if (fh) { sel = fh; selectedIid = fh.iid; }
     }
     if (!sel) {
@@ -3249,6 +3260,10 @@
     if (pendingOrbeShare && !dead && c.side === 'hero' && c.iid !== pendingOrbeShare && !(c.orbBuff > 0)) {
       cls.push('targetable', 'tgt-choisir');
     }
+    // GARDIEN : alliés désignables (pas soi-même, pas déjà Gardé).
+    if (pendingDesignate && !dead && c.side === 'hero' && c.iid !== pendingDesignate && !(c.states && c.states.garde)) {
+      cls.push('targetable', 'tgt-choisir');
+    }
     // PROIE : l'aventurier désigné ce tour.
     const isMarked = !dead && c.side === 'hero' && combat().markedHeroIid === c.iid;
     if (isMarked) cls.push('is-marked');
@@ -3538,6 +3553,19 @@
           }
           return;
         }
+        // 0ter) GARDIEN : clic sur la vignette d'un allié → Blindage + Gardé.
+        if (pendingDesignate && c.side === 'hero' && c.status === 'active' && c.iid !== pendingDesignate && !(c.states && c.states.garde)) {
+          const guardian = byId(pendingDesignate);
+          if (guardian && (guardian.gardienLeft || 0) > 0) {
+            c.states.blindage = true; c.states.garde = true;
+            guardian.gardienLeft = Math.max(0, guardian.gardienLeft - 1);
+            pushFx({ type: 'state', iid: c.iid });
+            log(cname(c) + ' reçoit <span class="lstate">Blindage</span> et <span class="lstate">Gardé</span> (Gardien).', 'state');
+            if (guardian.gardienLeft <= 0) pendingDesignate = null; // toutes les désignations faites
+            Store.save(); render();
+          }
+          return;
+        }
         // 0) Ciblage d'un objet consommable
         if (targetable && pendingObject) {
           const ouser = byId(pendingObject);
@@ -3619,7 +3647,7 @@
         }
         // 3) Sinon : sélectionne ce combattant et annule toute action en cours
         selectedIid = c.iid;
-        pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null; pendingObject = null; pendingOrbeShare = null;
+        pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null; pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
         render();
       });
     }
@@ -3636,6 +3664,15 @@
         pendingAttack = null; pendingAnalyze = null; render();
       });
     }
+    // GARDIEN (Pré-Tour 1) : arme la désignation d'un allié (clic ensuite sur sa
+    // vignette). Câblé hors de la phase héros car la désignation a lieu au Pré-Tour.
+    root.querySelectorAll('.ab-gardien-btn[data-designate="' + c.iid + '"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        pendingDesignate = (pendingDesignate === c.iid) ? null : c.iid;
+        pendingAttack = null; pendingAnalyze = null; pendingMove = null; pendingObject = null; pendingOrbeShare = null; stateMenuFor = null;
+        render();
+      });
+    });
     // RÉACTION en pause : le bouton de réaction de l'aventurier concerné est cliquable
     // même pendant le tour des adversaires.
     if (pendingReaction === c.iid && c.status === 'active' && !combat().outcome) {
@@ -3664,7 +3701,7 @@
             pendingAttack = null; render(); return; // re-clic = annuler
           }
           pendingAttack = { iid: c.iid, atkIndex: i, average: false };
-          pendingAnalyze = null; pendingMove = null; pendingOrbeShare = null; stateMenuFor = null; render();
+          pendingAnalyze = null; pendingMove = null; pendingOrbeShare = null; pendingDesignate = null; stateMenuFor = null; render();
         });
       });
       // Chips d'attaque (dé)
@@ -3673,8 +3710,9 @@
           const i = parseInt(b.getAttribute('data-atk'), 10);
           const atk = c.attacks[i];
           if (!atk) return;
-          // Cliquer un AUTRE bouton met fin à la répartition des Orbes Partagés.
+          // Cliquer un AUTRE bouton met fin à la répartition des Orbes Partagés / désignation Gardien.
           if (!atk.orbeShare) pendingOrbeShare = null;
+          pendingDesignate = null;
           // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
           if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
           // ORBES PARTAGÉS : on arme le ciblage des ALLIÉS (clic sur leurs vignettes),

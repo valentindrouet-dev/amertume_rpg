@@ -734,8 +734,26 @@
     try { global.localStorage.setItem(TUTO_KEY, JSON.stringify(arr)); } catch (e) {}
   }
 
+  // Remplace les balises dynamiques d'une description de talent par les valeurs
+  // de l'aventurier concerné. Balises reconnues : <ENDU>, <DEGATS>/<DÉGÂTS>,
+  // <VIE>, <PV>, <NIVEAU>/<NIV>, <ORBES>. Les balises inconnues sont conservées.
+  function fillTalentTags(desc, ctx) {
+    if (!desc || desc.indexOf('<') < 0) return desc;
+    ctx = ctx || {};
+    const map = {
+      'ENDU': ctx.endu, 'DEGATS': ctx.damage, 'DÉGÂTS': ctx.damage, 'DEGAT': ctx.damage,
+      'VIE': ctx.vie, 'PV': ctx.pv, 'NIVEAU': ctx.niveau, 'NIV': ctx.niveau,
+      'ORBES': ctx.orbes, 'ORBE': ctx.orbes,
+    };
+    return desc.replace(/<([A-Za-zÀ-ÿ]+)>/g, function (m, tag) {
+      const v = map[tag.toUpperCase()];
+      return (v == null) ? m : String(v);
+    });
+  }
+
   global.Store = {
     uid: uid,
+    fillTalentTags: fillTalentTags,
     noStates: noStates,
     loadOfficial: loadOfficial,
     levelInfo: levelInfo,

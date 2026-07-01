@@ -657,12 +657,12 @@
   // classe, niveau requis atteint), en excluant ceux déjà acquis.
   function availableTalents(ses, h, newLevel) {
     const taken = heroGains(ses, h.id).talents;
-    const gens = Store.loadGenericTalents().filter(function (t) { return (t.level || 1) <= newLevel; });
+    const gens = Store.loadGenericTalents().filter(function (t) { return !t.hidden && (t.level || 1) <= newLevel; });
     let cls = [];
     try {
       const c = Store.loadClasses().find(function (x) { return x.name === h.klass; });
       if (c && Array.isArray(c.talents)) {
-        cls = c.talents.filter(function (t) { return t.id && (t.level || 1) <= newLevel; });
+        cls = c.talents.filter(function (t) { return !t.hidden && t.id && (t.level || 1) <= newLevel; });
       }
     } catch (e) {}
     // Arborescence : un talent prérequis doit être déjà acquis pour débloquer celui-ci.
@@ -684,7 +684,7 @@
       const taken = heroGains(ses, h.id).talents;
       // Arborescence : prérequis doit être acquis ; talent non encore pris.
       const okTalent = function (t) {
-        return t.id && (t.level || 1) <= newLevel && taken.indexOf(t.id) < 0 &&
+        return !t.hidden && t.id && (t.level || 1) <= newLevel && taken.indexOf(t.id) < 0 &&
           (!t.prereq || taken.indexOf(t.prereq) >= 0);
       };
       const genTalents = Store.loadGenericTalents().filter(okTalent);
@@ -1538,7 +1538,10 @@
 
   // Talents débloqués d'un aventurier, triés Action→Maîtrise→Réaction→Passif→Amélioration, puis niveau, puis nom
   function sortedUnlocked(g, byId, effMap) {
-    const ids = Array.isArray(g.talents) ? g.talents.slice() : [];
+    // Talents masqués par le MJ (œil) : retirés de la liste vue par l'aventurier.
+    const ids = (Array.isArray(g.talents) ? g.talents.slice() : []).filter(function (id) {
+      const t = byId[id]; return !(t && t.hidden);
+    });
     const idset = {}; ids.forEach(function (id) { idset[id] = true; });
     // Une version est « dépassée » si une version supérieure (prereq = elle) est aussi débloquée.
     const superseded = {};
@@ -1607,11 +1610,19 @@
         if (g.equipped.length !== before) changed = true;
       }
       const equipped = equippedTalents(g);
+      // Contexte des balises dynamiques (<ENDU>, <PV>…) pour cet aventurier.
+      const eh = effectiveHero(ses, h);
+      const lvl = sessionLevel(ses);
+      const tagCtx = {
+        endu: eh.endu, damage: eh.damage, vie: eh.vie,
+        pv: Combatants.heroPv(eh), niveau: lvl,
+        orbes: 2 + Math.floor((Math.max(1, lvl) - 1) / 2),
+      };
       const body = list.length
         ? list.map(function (e) {
             const sup = e.superseded;
             const checked = !sup && equipped.indexOf(e.id) >= 0;
-            const desc = e.t.description || 'Aucune description.';
+            const desc = Store.fillTalentTags(e.t.description || 'Aucune description.', tagCtx);
             // Version dépassée : grisée, décochée et non cochable + flèche d'arborescence.
             const upgradeMark = e.depth > 0 ? '<span class="tpe-upgrade-arrow" title="Évolution de la version précédente">↳</span> ' : '';
             return '<div class="tpe-wrap' + (sup ? ' tpe-superseded' : '') + '">' +

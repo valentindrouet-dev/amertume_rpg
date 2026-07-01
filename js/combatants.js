@@ -800,10 +800,10 @@
   }
   // Talents de niveau 1 disponibles à la création : génériques + classe choisie
   function level1Talents(klass) {
-    const gens = Store.loadGenericTalents().filter(function (t) { return (t.level || 1) <= 1; });
+    const gens = Store.loadGenericTalents().filter(function (t) { return !t.hidden && (t.level || 1) <= 1; });
     let cls = [];
     const c = Store.loadClasses().find(function (x) { return x.name === klass; });
-    if (c && Array.isArray(c.talents)) cls = c.talents.filter(function (t) { return t.id && (t.level || 1) <= 1; });
+    if (c && Array.isArray(c.talents)) cls = c.talents.filter(function (t) { return !t.hidden && t.id && (t.level || 1) <= 1; });
     return gens.concat(cls);
   }
   function wizTalentKind(t) {
@@ -982,14 +982,18 @@
       const masteryTal = allTals.find(function (t) { return wizTalentKind(t) === 'mastery'; });
       if (masteryTal && wiz.talents.indexOf(masteryTal.id) < 0) wiz.talents.push(masteryTal.id);
       // Trier : génériques d'abord, puis talents de classe (hors maîtrise auto)
-      const gens = Store.loadGenericTalents().filter(function (t) { return (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); });
+      const gens = Store.loadGenericTalents().filter(function (t) { return !t.hidden && (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); });
       const klass = Store.loadClasses().find(function (x) { return x.name === wiz.klass; });
       const clsTals = klass && Array.isArray(klass.talents)
-        ? klass.talents.filter(function (t) { return t.id && (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); })
+        ? klass.talents.filter(function (t) { return !t.hidden && t.id && (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); })
         : [];
       // Talents sélectionnés (hors maîtrise auto)
       const selCount = wiz.talents.filter(function (id) { return !masteryTal || id !== masteryTal.id; }).length;
       const KIND_SHORT_WIZ = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT' };
+      // Contexte des balises dynamiques (<ENDU>, <PV>…) pour l'aventurier en création (niveau 1).
+      const wVie = 3 + (wiz.statBonuses.vie || 0);
+      const wTemp = { vie: wVie, endu: (wiz.statBonuses.endu || 0), damage: (wiz.statBonuses.damage || 0), klass: wiz.klass, pvBonus: 0, equipment: wiz.equipment };
+      const wizTagCtx = { endu: wTemp.endu, damage: wTemp.damage, vie: wVie, pv: heroPv(wTemp), niveau: 1, orbes: 2 };
       function talRow(t, isAuto) {
         const kind = wizTalentKind(t);
         const sel = wiz.talents.indexOf(t.id) >= 0;
@@ -1005,7 +1009,7 @@
             '</span>' +
           '</div>' +
         '</div>' +
-        (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(t.description) + '</div>' : '');
+        (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(Store.fillTalentTags(t.description, wizTagCtx)) + '</div>' : '');
       }
       const choiceRemaining = 1 - selCount;
       body.innerHTML = '<p class="hint">Le Talent de Maîtrise est automatiquement ajouté. Choisis <b>1 talent</b> supplémentaire. ' +
