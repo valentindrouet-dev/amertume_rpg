@@ -2901,7 +2901,7 @@
       const under = (c.talents || []).find(function (x) { return x.id === t.id; });
       if (under && under.effect === 'gardien' && canDesignateGardien(c)) {
         const armed = pendingDesignate === c.iid;
-        return '<button class="ab-talent ab-talent-kind-garde ab-gardien-btn' + (armed ? ' selected' : '') +
+        return '<button class="ab-talent ab-talent-named ab-talent-kind-garde ab-gardien-btn' + (armed ? ' selected' : '') +
           '" type="button" data-designate="' + c.iid + '" ' +
           'title="Désignez un allié à protéger (Blindage + Gardé)">' +
           esc(t.name) + ' <span class="ab-gardien-left">' + c.gardienLeft + '</span></button>';
@@ -3383,7 +3383,10 @@
               '<span class="pv-text">' + (hasBlindage(c) && known ? 'BLINDAGE' : pvText) + '</span></div>' +
             (known ? '<span class="cc-def-icon">' + defShield(c.states.auSol ? 0 : c.def) + '</span>' : '') +
           '</div>' +
-          (statesBadges(c) ? '<div class="cc-states">' + statesBadges(c) + '</div>' : '') +
+          // Zone d'états TOUJOURS présente (hauteur réservée pour une ligne) : recevoir
+          // un état n'agrandit plus la vignette ; elle ne grandit que si les états
+          // débordent sur une 2ᵉ ligne.
+          '<div class="cc-states">' + statesBadges(c) + '</div>' +
         '</div>' +
       '</div>';
 
