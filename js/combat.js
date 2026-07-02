@@ -3009,8 +3009,8 @@
         const armed = pendingDesignate === c.iid;
         return '<button class="ab-talent ab-talent-named ab-talent-kind-garde ab-gardien-btn' + (armed ? ' selected' : '') +
           '" type="button" data-designate="' + c.iid + '" ' +
-          'title="Désignez un allié à protéger (Blindage + Gardé)">' +
-          esc(t.name) + ' <span class="ab-gardien-left">' + c.gardienLeft + '</span></button>';
+          'title="Désignez ' + c.gardienLeft + ' allié(s) à protéger (Blindage + Gardé)">' +
+          esc(t.name) + '</button>';
       }
       const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
       // L'Orbe Mystique est rendu par le bouton spécial ORBES, pas dans les slots.

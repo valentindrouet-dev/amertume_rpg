@@ -2386,9 +2386,14 @@ img.ab-atk-name {
 }
 /* Bouton de désignation Gardien (Pré-Tour 1) : bleu marine, cliquable, avec
    le nombre d'alliés restant à désigner. */
+/* Vignette de talent GARDE (Gardien…) : même taille de police que les autres
+   types (1.08rem), navy comme la classe Gardien. */
+.ab-talent.ab-talent-kind-garde, .ab-talent.ab-talent-kind-garde:disabled {
+  background: #5a86bd; color: #fff; border-color: #4a72a5; font-size: 1.08rem;
+}
 .ab-talent.ab-gardien-btn {
   background: #3f5b86; color: #fff; border-color: #5a86bd; opacity: 1;
-  cursor: pointer; gap: .3rem;
+  cursor: pointer; gap: .3rem; font-size: 1.08rem;
 }
 .ab-talent.ab-gardien-btn:hover { filter: brightness(1.12); }
 .ab-talent.ab-gardien-btn.selected {
