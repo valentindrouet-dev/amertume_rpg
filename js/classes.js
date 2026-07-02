@@ -24,9 +24,9 @@
     { value: 'combat', label: 'En combat' },
     { value: 'out',    label: 'Hors combat' },
   ];
-  const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélioration', mastery: 'Maîtrise' };
-  const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT' };
-  const KIND_ORDER = ['action', 'reaction', 'passive', 'critique', 'garde', 'upgrade', 'mastery'];
+  const KIND_LABEL = { action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélioration', mastery: 'Maîtrise', espece: 'Espèce' };
+  const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT', espece: 'ESP' };
+  const KIND_ORDER = ['action', 'reaction', 'passive', 'critique', 'garde', 'upgrade', 'mastery', 'espece'];
   // Libellés lisibles des valeurs de choix (les états internes → noms affichés).
   const CHOICE_LABELS = { feu: 'Feu', auSol: 'Au sol', affaibli: 'Affaibli', brise: 'Brisé', faille: 'Faille', poison: 'Poison', sbire: 'Sbires', elite: 'Alpha / Solitaire / Boss' };
 
@@ -180,11 +180,13 @@
     });
     return found;
   }
-  function talentStrip(t, ref) {
+  function talentStrip(t, ref, opts) {
+    opts = opts || {};
     const kind = t.kind || (t.effect && effectMap()[t.effect] ? effectMap()[t.effect].kind : '');
     const right =
       (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT[kind] || kind) + '</span>' : '<span class="tl-kind tl-kind-none">Descriptif</span>') +
-      '<span class="tal-lvl">Niv. ' + (t.level || 1) + '</span>';
+      // Les adversaires n'ont pas de niveau : on masque « Niv. x » (opts.hideLevel).
+      (opts.hideLevel ? '' : '<span class="tal-lvl">Niv. ' + (t.level || 1) + '</span>');
     // Talent avec prérequis : seulement une flèche d'arborescence devant le nom
     // (même design que l'onglet Talents du mode Joueur), pas le nom complet du prérequis.
     const prereqName = t.prereq ? talentNameById(t.prereq) : '';
@@ -196,9 +198,12 @@
           '<span class="inv-strip-name">' + upgradeMark + esc(t.name || '(sans nom)') + '</span>' +
           '<span class="inv-strip-val">' + right + '</span>' +
         '</div>' +
-        '<button class="inv-strip-eye' + (hidden ? ' off' : '') + '" data-eye="' + esc(ref) + '" data-tid="' + esc(t.id) + '" ' +
-          'title="' + (hidden ? 'Talent masqué aux aventuriers — cliquer pour réactiver' : 'Masquer ce talent aux aventuriers') + '">' +
-          (hidden ? '🙈' : '👁') + '</button>' +
+        // L'œil (masquer aux aventuriers) n'a pas de sens pour les talents
+        // d'adversaires : on l'omet dans l'onglet Talents Adv. (opts.hideEye).
+        (opts.hideEye ? '' :
+          '<button class="inv-strip-eye' + (hidden ? ' off' : '') + '" data-eye="' + esc(ref) + '" data-tid="' + esc(t.id) + '" ' +
+            'title="' + (hidden ? 'Talent masqué aux aventuriers — cliquer pour réactiver' : 'Masquer ce talent aux aventuriers') + '">' +
+            (hidden ? '🙈' : '👁') + '</button>') +
         '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
       '</div>' +
       (t.description ? '<div class="tal-strip-desc" hidden>' + esc(t.description) + '</div>' : '') +
@@ -520,28 +525,35 @@
     const box = document.getElementById('talentadv-list');
     if (!box) return;
     const g = groupByRef('adversary');
-    const items = g ? sortTalents(g.list) : [];
-    box.innerHTML = '<div class="tal-cols"><div class="tal-col">' +
-      '<div class="tal-col-hdr klass-adversaire">' +
-        '<span class="tal-col-name">⚔️ Talents adverses</span>' +
-        '<span class="tag">' + (g ? g.list.length : 0) + '</span>' +
-        '<button class="ghost small tl-col-add" data-ref="adversary">+</button>' +
-      '</div>' +
-      '<div class="tal-col-body">' +
-        (items.length ? items.map(function (t) { return talentStrip(t, 'adversary'); }).join('')
-                      : '<p class="inv-col-empty">Aucun talent adverse. Crée-en un avec « + » — mêmes effets que les talents d\'aventurier.</p>') +
-      '</div>' +
-    '</div></div>';
+    const list = g ? g.list.slice() : [];
+    if (!list.length) {
+      box.innerHTML = '<p class="inv-col-empty">Aucun talent adverse. Crée-en un avec « + Nouveau talent » — mêmes effets que les talents d\'aventurier.</p>';
+      return;
+    }
+    // Une colonne par TYPE de talent (Action, Réaction, Passif, Espèce…). Les
+    // adversaires n'ont pas de niveau : pas de « Niv. x » ni d'œil sur les strips.
+    const byKind = {};
+    list.forEach(function (t) { const k = talentKind(t) || 'none'; (byKind[k] = byKind[k] || []).push(t); });
+    const cols = KIND_ORDER.filter(function (k) { return byKind[k] && byKind[k].length; });
+    if (byKind.none && byKind.none.length) cols.push('none'); // talents descriptifs (sans effet/type)
+    const stripOpts = { hideLevel: true, hideEye: true };
+    const colHtml = cols.map(function (k) {
+      const strips = byKind[k].sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+        .map(function (t) { return talentStrip(t, 'adversary', stripOpts); }).join('');
+      const short = (k === 'none') ? '—' : (KIND_SHORT[k] || k);
+      const name = (k === 'none') ? 'Descriptifs' : (KIND_LABEL[k] || k);
+      return '<div class="tal-col">' +
+        '<div class="tal-col-hdr">' +
+          '<span class="tal-col-name"><span class="tl-kind tl-kind-' + k + '">' + esc(short) + '</span> ' + esc(name) + '</span>' +
+          '<span class="tag">' + byKind[k].length + '</span>' +
+          '<button class="ghost small tl-col-add" data-ref="adversary">+</button>' +
+        '</div>' +
+        '<div class="tal-col-body">' + strips + '</div>' +
+      '</div>';
+    }).join('');
+    box.innerHTML = '<div class="tal-cols">' + colHtml + '</div>';
     box.querySelectorAll('.tl-col-add').forEach(function (b) {
       b.addEventListener('click', function () { openTalentModal(null, b.getAttribute('data-ref')); });
-    });
-    box.querySelectorAll('.inv-strip-eye[data-eye]').forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        const gg = groupByRef(el.getAttribute('data-eye'));
-        const t = gg && gg.list.find(function (x) { return x.id === el.getAttribute('data-tid'); });
-        if (t) { t.hidden = !t.hidden; persist(); renderAdvTalents(); }
-      });
     });
     box.querySelectorAll('.inv-strip-edit[data-edit]').forEach(function (el) {
       el.addEventListener('click', function (ev) {

@@ -287,27 +287,32 @@
     const own = JSON.parse(JSON.stringify(m.attacks || []));
     return weaponAttacks(weapons).concat(own);
   }
-  // Libellés des talents d'un adversaire affichés dans son bandeau de combat.
-  // En tête : les talents adverses NOMMÉS (nouveau système, m.advTalentIds),
-  // révélés à l'analyse. Ensuite : les anciens talents à déclencheur (legacy,
-  // m.talents) encore présents sur certains adversaires.
+  // Libellés des talents adverses NOMMÉS d'un adversaire (m.advTalentIds), pour
+  // son bandeau de combat — révélés à l'analyse. Noms lus directement dans le
+  // pool « Talents Adv. » : TOUS les talents attribués apparaissent. L'ancien
+  // système à déclencheur (m.talents) n'est plus consulté.
   function monsterTalentLabels(m) {
-    // Noms lus directement dans le pool « Talents Adv. » (indépendamment du
-    // filtre de résolution combat) : TOUS les talents attribués apparaissent
-    // dans le bandeau, révélés à l'analyse.
     const pool = Store.loadAdvTalents();
     const ids = (m && Array.isArray(m.advTalentIds)) ? m.advTalentIds : [];
-    const labels = ids.map(function (id) {
+    return ids.map(function (id) {
       const t = pool.find(function (x) { return x.id === id; });
       return t ? (t.name || 'Talent') : null;
     }).filter(Boolean);
-    const cat = Store.loadMonsterTalents();
-    (m && m.talents ? m.talents : []).forEach(function (t) {
-      const e = cat.find(function (c) { return c.id === t.catId; }) ||
-                cat.find(function (c) { return c.trigger === t.trigger; });
-      labels.push(e ? e.name : (t.trigger || 'Talent'));
-    });
-    return labels;
+  }
+  // Languettes des talents adverses attribués à un monstre, pour sa fiche de
+  // bestiaire (vignette de type colorée + nom).
+  function advTalentsSummary(m) {
+    const pool = Store.loadAdvTalents();
+    const effMap = Store.talentEffectMap();
+    const ids = (m && Array.isArray(m.advTalentIds)) ? m.advTalentIds : [];
+    return ids.map(function (id) {
+      const t = pool.find(function (x) { return x.id === id; });
+      if (!t) return '';
+      const k = t.kind || (t.effect && effMap[t.effect] ? effMap[t.effect].kind : '');
+      return '<span class="talent-badge">' +
+        (k ? '<span class="tl-kind tl-kind-' + k + '">' + esc((ADV_KIND_LABEL[k] || k).slice(0, 4)) + '</span> ' : '') +
+        esc(t.name || 'Talent') + '</span>';
+    }).join('');
   }
   function monsterTotalDef(m) {
     const armorDef = monsterEquipItems(m).filter(function (it) { return it.category === 'armor'; })
@@ -1362,9 +1367,10 @@
   let monsterAdvTalentIds = []; // ids des talents adverses (Talents Adv.) attribués
 
   // Sélecteur des talents adverses NOMMÉS (créés dans l'onglet Talents Adv.).
-  const ADV_KIND_LABEL = { mastery: 'Maîtrise', action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélioration' };
+  const ADV_KIND_LABEL = { mastery: 'Maîtrise', espece: 'Espèce', action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélioration' };
   // Ordre + libellés (pluriel) des sections repliables du sélecteur.
   const ADV_KIND_ORDER = [
+    { kind: 'espece', label: 'Espèces' },
     { kind: 'action', label: 'Actions' },
     { kind: 'reaction', label: 'Réactions' },
     { kind: 'mastery', label: 'Maîtrises' },
@@ -1796,7 +1802,7 @@
           '<div class="roster-label">Attaques</div>' +
           '<div class="atk-badges">' + attacksSummary(monsterCombatAttacks(m)) + '</div>' +
         '</div>' +
-        (m.talents && m.talents.length ? '<div class="roster-section"><div class="roster-label">Talents</div><div class="talent-badges">' + talentsSummary(m.talents) + '</div></div>' : '') +
+        (advTalentsSummary(m) ? '<div class="roster-section"><div class="roster-label">Talents adverses</div><div class="talent-badges">' + advTalentsSummary(m) + '</div></div>' : '') +
         (m.notes ? '<div class="roster-notes">' + esc(m.notes) + '</div>' : '') +
       '</div>';
     }).join('');

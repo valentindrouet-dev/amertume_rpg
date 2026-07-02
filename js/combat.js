@@ -187,8 +187,6 @@
   function instFromMonster(m, i) {
     // Armes équipées → attaques (avec effets) + attaques spéciales ; armures → DEF
     const attacks = Combatants.monsterCombatAttacks(m);
-    // BLINDAGE X : charges de blindage initiales (ignore X sources de dégâts)
-    const armorT = (m.talents || []).find(function (t) { return t.trigger === 'armor_charges'; });
     // FUSION : effets d'aventurier attribués à l'adversaire (appliqués par le moteur).
     const advTalents = Combatants.resolveMonsterAdvTalents ? Combatants.resolveMonsterAdvTalents(m) : [];
     const hasEsquiveEff = advTalents.some(function (t) { return t.effect === 'esquive_innee' || t.effect === 'esquive_6'; });
@@ -204,7 +202,7 @@
       talents: advTalents,
       talentLabels: Combatants.monsterTalentLabels(m),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 },
-      blindageCharges: armorT ? (armorT.charges || 0) : 0,
+      blindageCharges: 0,
       used: { action: false, move: false, object: false },
       zone: 0, status: 'active', analyzed: false,
       dmgDealt: 0, dmgTaken: 0,
@@ -1498,42 +1496,17 @@
   }
 
   // Vérifie les talents "flee_on_big_hit" du monstre cible après avoir subi pvLost PV
-  function checkMonsterTalents(target, pvLost) {
-    if (!pvLost || target.side !== 'monster' || target.status !== 'active') return;
-    const tpl = Store.state.monsters.find(function (m) { return m.id === target.templateId; });
-    if (!tpl || !Array.isArray(tpl.talents)) return;
-    tpl.talents.forEach(function (t) {
-      if (t.trigger === 'flee_on_big_hit' && pvLost >= (t.threshold || 0) && target.status === 'active') {
-        // EXÉCUTION : l'adversaire peut mourir avant de fuir.
-        if (executionBeforeFlee(target)) return;
-        target.status = 'fled';
-        pushFx({ type: 'flee', iid: target.iid });
-        log(cname(target) + ' prend la fuite ! (talent : reçu ' + amt(pvLost, 'dmg') + ' ≥ ' + t.threshold + ')', 'turn');
-      }
-    });
-  }
+  // OBSOLÈTE : l'ancien système de talents à déclencheur (m.talents) a été
+  // entièrement retiré. Ces fonctions restent en place (neutralisées) pour ne
+  // pas casser leurs appelants — seul le nouveau système de Talents adverses
+  // nommés (m.advTalentIds) est actif désormais.
+  function checkMonsterTalents(/* target, pvLost */) { /* no-op */ }
 
-  // Talent (objet) d'un combattant adverse pour un déclencheur donné, ou null
-  function monsterTalent(c, trigger) {
-    if (!c || c.side !== 'monster') return null;
-    const tpl = Store.state.monsters.find(function (m) { return m.id === c.templateId; });
-    if (!tpl || !Array.isArray(tpl.talents)) return null;
-    return tpl.talents.find(function (t) { return t.trigger === trigger; }) || null;
-  }
+  // Ancien déclencheur d'adversaire — désormais toujours inactif.
+  function monsterTalent(/* c, trigger */) { return null; }
 
-  // PROIE (mark_target_dice) : au début de chaque tour, désigne un aventurier ;
-  // tous les adversaires ajoutent les dés indiqués contre lui. On agrège les dés
-  // de tous les adversaires actifs porteurs du talent.
-  function markTalents() {
-    const out = [];
-    activeOf('monster').forEach(function (m) {
-      const tpl = Store.state.monsters.find(function (x) { return x.id === m.templateId; });
-      if (tpl && Array.isArray(tpl.talents)) {
-        tpl.talents.forEach(function (t) { if (t.trigger === 'mark_target_dice') out.push(t); });
-      }
-    });
-    return out;
-  }
+  // PROIE (ancien mark_target_dice) — désormais toujours inactif.
+  function markTalents() { return []; }
   // Sélectionne l'aventurier désigné selon le critère choisi. Réutilise focusPick
   // (mêmes priorités que le ciblage d'attaque). Compat. anciens modes PROIE.
   const MARK_MODE_MAP = { least_pv: 'pvLow', most_pv: 'pvHigh', least_def: 'defLow', most_def: 'defHigh' };
@@ -1969,23 +1942,10 @@
   function minBy(arr, f) { return arr.reduce(function (a, b) { return f(b) < f(a) ? b : a; }); }
   function maxBy(arr, f) { return arr.reduce(function (a, b) { return f(b) > f(a) ? b : a; }); }
 
-  // Fuite des adversaires en fin de tour — désormais portée uniquement par le
-  // talent « flee_after_turns » (plus de fuite automatique selon le type).
+  // Fuite des adversaires en fin de tour — l'ancien talent « flee_after_turns »
+  // a été retiré : plus aucune fuite automatique (le nouveau système de Talents
+  // adverses ne gère pas encore la fuite).
   function doFlee() {
-    const c = combat();
-    activeOf('monster').forEach(function (m) {
-      if (m.states.ciblage) return; // Ciblage interdit la fuite
-      const tpl = Store.state.monsters.find(function (x) { return x.id === m.templateId; });
-      if (!tpl || !Array.isArray(tpl.talents)) return;
-      const fleeT = tpl.talents.find(function (t) { return t.trigger === 'flee_after_turns'; });
-      if (!fleeT) return;
-      const after = fleeT.turns || 0;
-      if (after <= 0 || c.turn < after) return;
-      // EXÉCUTION : l'adversaire peut mourir avant de fuir.
-      if (executionBeforeFlee(m)) return;
-      m.status = 'fled';
-      log(cname(m) + ' fuit le combat (talent : fuite après le tour ' + after + ').', 'turn');
-    });
     checkOutcome();
   }
 
