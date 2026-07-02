@@ -565,7 +565,8 @@
     let html = '';
     zones().forEach(function (z, zi) {
       const p = pos[zi] || [1, 1];
-      const blocked = mover && mover.zone !== zi && moveBarrier(mover.zone, zi).type === 'block';
+      const teleports = mover && mover.side === 'hero' && heroHasTalent(mover, 'teleportation');
+      const blocked = mover && mover.zone !== zi && !teleports && moveBarrier(mover.zone, zi).type === 'block';
       const movable = pendingMove && !blocked && (!mover || mover.zone !== zi);
       html += '<div class="combat-zone' + (movable ? ' movable' : '') + '" data-zone="' + zi + '"' +
         ' style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';">' +
@@ -636,6 +637,11 @@
   // Journalise le résultat d'un test Difficile.
   function crossCheck(c, zi) {
     const mb = moveBarrier(c.zone, zi);
+    // TÉLÉPORTATION (amélioration) : l'aventurier franchit toutes les barrières.
+    if (c.side === 'hero' && heroHasTalent(c, 'teleportation')) {
+      if (mb.type) log(cname(c) + ' <span class="lstate">se téléporte</span> à travers la barrière.', 'state');
+      return 'ok';
+    }
     if (mb.type === 'block') return 'block';
     if (mb.type === 'difficile') {
       // Pieds Sûrs (aventurier) / AGILE (adversaire) : franchissement sans test.
@@ -654,6 +660,8 @@
       log(cname(c) + ' franchit une <span class="lstate">barrière difficile</span> (Agilité ' +
         t.succ + '/' + t.need + ') — <span class="lcrit">réussite</span> !', 'state');
     }
+    // ACROBATIE : franchir une barrière DIFFICILE amorce +1 dé noir sur le coup suivant.
+    if (mb.type === 'difficile' && c.side === 'hero' && heroHasTalent(c, 'acrobatie')) c.acrobatiePrimed = true;
     return 'ok';
   }
 
@@ -661,6 +669,9 @@
   // zone, sauf si un MUR coupe la ligne de tir.
   function canReach(attacker, target, atk) {
     if (atk && atk.range === 'contact') return attacker.zone === target.zone;
+    // CAMOUFLAGE (passif) : une cible aventurier ne peut être visée à distance
+    // depuis une AUTRE zone.
+    if (target && target.side === 'hero' && attacker.zone !== target.zone && heroHasTalent(target, 'camouflage')) return false;
     return !shootBlocked(attacker.zone, target.zone);
   }
   // Adversaires actifs présents dans la zone de l'attaquant (pour les dégâts-choc)
@@ -670,6 +681,17 @@
       return c.side === es && c.status === 'active' && c.zone === attacker.zone;
     });
   }
+  // RALLIEMENT : un allié actif (autre que c) présent dans la zone offre le mouvement.
+  function hasRalliementAlly(zone, c) {
+    return combat().combatants.some(function (h) {
+      return h.side === 'hero' && h.status === 'active' && h.zone === zone && h.iid !== c.iid && heroHasTalent(h, 'ralliement');
+    });
+  }
+  // DÉPHASAGE : l'aventurier est intouchable pendant le tour adverse suivant.
+  function isDephased(c) {
+    return c && c.side === 'hero' && c.dephaseTurn === combat().turn;
+  }
+
   // Déplacement (sans rendu). Un aventurier qui quitte une zone occupée par des
   // adversaires sans autre allié subit leurs dégâts-choc (attaques d'opportunité).
   function doMove(c, zi, silent) {
@@ -775,7 +797,7 @@
     doMove(c, zi); // doMove force used.move = true
     if (asAction) {
       // COURSE (action) : le déplacement coûte l'action, pas le mouvement.
-      c.used.action = true; c.used.move = prevMove;
+      useAction(c); c.used.move = prevMove;
     } else if (c.freeMoves > 0) {
       // REBOND : consomme d'abord un mouvement gratuit ; le mouvement normal reste dispo.
       c.freeMoves -= 1; c.used.move = prevMove;
@@ -783,6 +805,10 @@
       // PAS LÉGER : ce déplacement consomme d'abord le mouvement gratuit ; le
       // mouvement normal reste alors disponible.
       c.freeMoveReady = false; c.used.move = prevMove;
+    } else if (c.side === 'hero' && hasRalliementAlly(c.zone, c)) {
+      // RALLIEMENT : un allié de la zone d'arrivée offre le mouvement (non dépensé).
+      c.used.move = prevMove;
+      log(cname(c) + ' rejoint la zone sans dépenser son mouvement (<span class="lstate">Ralliement</span>).', 'state');
     }
     pendingMove = null; arrivalTargetIid = null; checkOutcome();
     // PRÉ-TOUR : dès que plus aucun aventurier n'a de talent à jouer, on démarre
@@ -821,6 +847,7 @@
   // (le héros quitte une zone occupée).
   function dchocFrom(monster, hero, reason) {
     if (monster.status !== 'active' || monster.states.affaibli) return 0;
+    if (isDephased(hero)) return 0; // Déphasage : aucune attaque d'opportunité ne l'atteint
     const dmg = monster.damage || 0;
     if (dmg <= 0) return 0;
     // INSAISISSABLE (passif) : l'aventurier ignore les dégâts des attaques d'opportunité.
@@ -889,6 +916,12 @@
 
   function resolveAttack(attacker, target, atk) {
     if (target.status !== 'active') return;
+    // DÉPHASAGE : un aventurier déphasé ne subit aucun dégât ni état d'un adversaire.
+    if (attacker.side === 'monster' && isDephased(target)) {
+      log(cname(target) + ' est <span class="lstate">Déphasé</span> : l\'attaque de ' + cname(attacker) + ' n\'a aucun effet.', 'state');
+      pushFx({ type: 'miss', iid: target.iid, text: 'DÉPHASÉ' });
+      return;
+    }
     // Interceptions défensives (Protection / Rempart) avant une attaque adverse.
     if (attacker.side === 'monster' && target.side === 'hero' && !atk._noIntercept && interceptDepth < 3) {
       if (defensiveIntercept(attacker, target, atk) === 'redirected') return;
@@ -917,9 +950,18 @@
     // ORBES PARTAGÉS : le buff de l'attaquant ajoute des dés bleus (et FEU) à cette attaque.
     const orbBuffN = (attacker.side === 'hero' && attacker.orbBuff) ? attacker.orbBuff : 0;
     if (orbBuffN > 0) { pool.blue = (pool.blue || 0) + orbBuffN; attacker.orbBuff = 0; } // consommé à la prochaine attaque
+    // ACROBATIE (passif) : +1 dé noir sur l'attaque suivant un franchissement de
+    // barrière DIFFICILE (amorcé dans crossCheck, consommé ici).
+    if (attacker.side === 'hero' && heroHasTalent(attacker, 'acrobatie') && attacker.acrobatiePrimed) {
+      pool.black = (pool.black || 0) + 1;
+      attacker.acrobatiePrimed = false;
+    }
     const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
     const talentBonus = getTalentDmgBonus(attacker, target, atk);
-    const dmg = baseDmg + talentBonus + (atk.bonusDmg || 0);
+    // ASSASSINAT (passif) : double le bonus de dégâts contre la cible choisie.
+    const assassin = assassinatEffect(attacker, target);
+    const assassinBonus = (assassin === 'bonus') ? baseDmg : 0;
+    const dmg = baseDmg + assassinBonus + talentBonus + (atk.bonusDmg || 0);
     // BRISÉ et AU SOL : DEF = 0
     let def = (target.states.auSol || target.states.brise) ? 0 : target.def;
     // ÉPUISEMENT (passif) : chaque aventurier doté du talent dans la zone de la cible
@@ -1026,6 +1068,12 @@
       res.pvLost += attacker.damage;
       log(cname(attacker) + ' <span class="lstate">Accentuation</span> : +' + amt(attacker.damage, 'dmg') + ' dégâts (critique).', 'state');
     }
+    // ASSASSINAT (variante « Attaque ») : double l'ensemble des dégâts de l'attaque
+    // contre la cible choisie.
+    if (res.pvLost > 0 && assassinatEffect(attacker, target) === 'attaque') {
+      const extra = res.pvLost; res.pvLost += extra;
+      log(cname(attacker) + ' <span class="lstate">Assassinat</span> : dégâts doublés (+' + amt(extra, 'dmg') + ').', 'state');
+    }
     // VFX d'attaque : estafilade (contact) ou projectile (distance), joué avant l'impact.
     pushFx({ type: 'attack', iid: target.iid, fromIid: attacker.iid, range: atk.range });
     const pvBefore = target.pv;
@@ -1060,7 +1108,8 @@
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
     // Dégâts-choc (attaque d'opportunité) : tirer à distance dans une zone ennemie.
     // Résolus APRÈS l'attaque : la cible éliminée (pv ≤ 0) ne contre-attaque pas.
-    if (atk.range === 'distance' && attacker.side === 'hero') {
+    // À BOUT PORTANT (amélioration) : aucune attaque d'opportunité sur un tir dans la zone.
+    if (atk.range === 'distance' && attacker.side === 'hero' && !heroHasTalent(attacker, 'a_bout_portant')) {
       enemyZoneMates(attacker).forEach(function (m) {
         if (m.iid === target.iid && target.pv <= 0) return;
         if (attacker.status === 'active') dchocFrom(m, attacker, 'distance');
@@ -1073,6 +1122,11 @@
     // RIPOSTE (adversaire) : un adversaire attaqué par un aventurier riposte
     // systématiquement (1 fois par tour), s'il est encore en vie.
     maybeMonsterCounter(target, attacker);
+    return res; // utilisé par DÉLUGE (relance tant qu'aucun 1 n'apparaît)
+  }
+  // DÉLUGE : aucun 1 sur les dés de Dégâts (hors soin) de ce lancer → on peut relancer.
+  function delugeNoOne(res) {
+    return !!res && !res.dice.some(function (d) { return d.value === 1 && !D.DICE_TYPES[d.color].heal; });
   }
 
   // Choix joueur (synchrone) parmi une liste de combattants. Retourne l'élément
@@ -1497,6 +1551,26 @@
   }
 
   // Bonus de dégâts des talents PASSIFS d'un aventurier attaquant
+  // ASSASSINAT : retourne 'bonus' | 'attaque' | null selon le choix du talent et
+  // si la cible remplit la condition (seul dans sa zone / solitaire / alpha / boss).
+  function assassinatEffect(attacker, target) {
+    if (attacker.side !== 'hero' || !target || target.side !== 'monster') return null;
+    if (!Array.isArray(attacker.talents)) return null;
+    const t = attacker.talents.find(function (x) { return x.effect === 'assassinat'; });
+    if (!t || !t.choice) return null;
+    const ch = t.choice.toLowerCase();
+    const what = ch.indexOf('attaque') >= 0 ? 'attaque' : 'bonus';
+    let ok = false;
+    if (ch.indexOf('seul') >= 0) {
+      ok = combat().combatants.filter(function (m) {
+        return m.side === 'monster' && m.status === 'active' && m.zone === target.zone;
+      }).length <= 1;
+    } else if (ch.indexOf('solitaire') >= 0) { ok = target.type === 'solitaire'; }
+    else if (ch.indexOf('alpha') >= 0) { ok = target.type === 'alpha'; }
+    else if (ch.indexOf('boss') >= 0) { ok = target.type === 'boss'; }
+    return ok ? what : null;
+  }
+
   function getHeroTalentDmgBonus(attacker, target, atk) {
     if (!Array.isArray(attacker.talents)) return 0;
     let bonus = 0;
@@ -1523,6 +1597,16 @@
   function heroHasTalent(c, effect) {
     return c && c.side === 'hero' && Array.isArray(c.talents) &&
       c.talents.some(function (t) { return t.effect === effect; });
+  }
+  // Consomme l'Action d'un combattant. SURVITAMINÉ (amélioration) : l'aventurier
+  // dispose de 2 Actions ; la 1ʳᵉ n'épuise pas encore son tour.
+  function useAction(c) {
+    if (!c) return;
+    if (c.side === 'hero' && heroHasTalent(c, 'survitamine') && !c.actedOnce) {
+      c.actedOnce = true;
+    } else {
+      c.used.action = true;
+    }
   }
   // ÉPINES (passif) : un adversaire qui arrive dans la zone d'un aventurier doté du
   // talent subit son bonus de dégâts.
@@ -1970,6 +2054,12 @@
   function startHeroTurn(afterPretour) {
     activeOf('hero').forEach(function (h) {
       h.reactUsed = {};
+      // SURVITAMINÉ : réinitialise le compteur de 2 actions à chaque tour.
+      h.actedOnce = false;
+      // ACROBATIE : l'amorce de dé noir ne survit pas au changement de tour.
+      h.acrobatiePrimed = false;
+      // DÉPHASAGE : l'immunité couvrait le tour adverse précédent ; on l'efface.
+      h.dephaseTurn = null;
       // Efface les marqueurs de réaction du tour précédent (un coup subi au tour des
       // adversaires ne doit pas rendre la Riposte « prête » au tour des héros).
       h.tookDamage = false; h.lastAttacker = null;
@@ -3401,7 +3491,15 @@
     if (attacker.attackUses[atkIndex] === 0) return;
     if (!atk.freeAction && attacker.used.action) return;
     // ORBES PARTAGÉS : action de buff (ne résout pas d'attaque classique).
-    if (atk.orbeShare) { triggerOrbeShare(attacker); if (!atk.freeAction) attacker.used.action = true; return; }
+    if (atk.orbeShare) { triggerOrbeShare(attacker); if (!atk.freeAction) useAction(attacker); return; }
+    // DÉPHASAGE : action pure — l'aventurier devient intouchable au prochain tour adverse.
+    if (atk.dephasage) {
+      attacker.dephaseTurn = combat().turn;
+      pushFx({ type: 'state', iid: attacker.iid });
+      log(cname(attacker) + ' active <span class="lstate">Déphasage</span> : intouchable au prochain tour des adversaires.', 'state');
+      if (!atk.freeAction) useAction(attacker);
+      return;
+    }
     let deflagZone = null;
     // DÉFLAGRATION : lance tous les Orbes Mystiques restants (dés bleus) d'un coup.
     if (atk.deflagration) {
@@ -3434,7 +3532,16 @@
       log('<b class="lopp">Provocation !</b> ' + cname(attacker) + ' attire ' + cname(target) + ' dans sa zone.', 'state');
       epinesOnArrival(target);
     }
-    targets.forEach(function (t) { resolveAttack(attacker, t, atk); });
+    // DÉLUGE : relance l'attaque sur la même cible tant qu'aucun 1 n'apparaît.
+    if (atk.deluge && target) {
+      let guard = 0, res = resolveAttack(attacker, target, atk);
+      while (guard++ < 20 && target.status === 'active' && attacker.status === 'active' && delugeNoOne(res)) {
+        log('<b class="lopp">Déluge !</b> ' + cname(attacker) + ' enchaîne une attaque (aucun 1).', 'state');
+        res = resolveAttack(attacker, target, atk);
+      }
+    } else {
+      targets.forEach(function (t) { resolveAttack(attacker, t, atk); });
+    }
     // ATTAQUE BLINDÉE : l'attaquant gagne Blindage après son attaque.
     if (atk.grantBlindageSelf && attacker.status === 'active') {
       attacker.states.blindage = true; pushFx({ type: 'state', iid: attacker.iid });
@@ -3455,7 +3562,7 @@
     if (attacker.attackUses[atkIndex] !== null) {
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
     }
-    if (!atk.freeAction) attacker.used.action = true;
+    if (!atk.freeAction) useAction(attacker);
   }
 
   // Attaque à cibles multiples (talent Double Attaque) : frappe plusieurs
@@ -3481,7 +3588,7 @@
     if (attacker.attackUses[atkIndex] !== null && attacker.attackUses[atkIndex] !== undefined) {
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
     }
-    if (!atk.freeAction) attacker.used.action = true;
+    if (!atk.freeAction) useAction(attacker);
   }
   function execHeroMultiAttack(attacker, atkIndex, zoneIdx, iids) {
     applyMultiAttack(attacker, atkIndex, zoneIdx, iids);
@@ -3523,7 +3630,7 @@
     pushFx({ type: 'heal', iid: c.iid, amount: gained, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
     log(cname(c) + ' utilise <span class="lwpn">' + nm(attackLabel(atk)) + '</span> et récupère ' +
       amt(gained, 'heal') + ' PV' + detail + '.', 'heal');
-    if (!atk.freeAction) c.used.action = true;
+    if (!atk.freeAction) useAction(c);
   }
   function execHeroSelfHeal(c, atkIndex) {
     applySelfHeal(c, atkIndex);
@@ -3608,7 +3715,7 @@
     if (attacker.attackUses[atkIndex] !== null) {
       attacker.attackUses[atkIndex] = Math.max(0, attacker.attackUses[atkIndex] - 1);
     }
-    if (!atk.freeAction) attacker.used.action = true;
+    if (!atk.freeAction) useAction(attacker);
   }
 
   function execHeroAverageAttack(attacker, atkIndex, target) {
@@ -3642,7 +3749,7 @@
           if (caster && orbs > 0 && !(c.orbBuff > 0)) {
             c.orbBuff = (c.orbBuff || 0) + 1;
             caster.attackUses[pi] = Math.max(0, orbs - 1);
-            caster.used.action = true; // ORBES PARTAGÉS est une Action : elle consomme l'action dès le 1er allié doté
+            useAction(caster); // ORBES PARTAGÉS est une Action : elle consomme l'action dès le 1er allié doté
             pushFx({ type: 'state', iid: c.iid });
             log(cname(c) + ' reçoit <span class="lstate">+1 dé bleu &amp; Feu</span> sur sa prochaine attaque (Orbes Partagés).', 'state');
             if (caster.attackUses[pi] <= 0) pendingOrbeShare = null; // plus d'orbes : fin auto
@@ -3812,6 +3919,8 @@
           pendingDesignate = null;
           // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
           if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
+          // DÉPHASAGE (auto-ciblé sur soi) : se résout immédiatement, sans ciblage.
+          if (atk.dephasage) { execHeroAttack(c, i, null); return; }
           // ORBES PARTAGÉS : on arme le ciblage des ALLIÉS (clic sur leurs vignettes),
           // sans pop-up. Re-clic = annuler.
           if (atk.orbeShare) {

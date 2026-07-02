@@ -589,6 +589,28 @@
       desc: 'Relevez un allié au coma situé dans une zone où un adversaire est mort (X PV).' },
     { effect: 'execution', name: 'Exécution', kind: 'reaction', hasVal: false,
       desc: 'Avant qu\'un adversaire de votre zone ne fuie, vous lui infligez votre bonus de dégâts.' },
+    // --- Nouveaux effets (v2.2.89) ---
+    { effect: 'assassinat', name: 'Assassinat', kind: 'passive', hasVal: false,
+      hasChoice: true, choiceLabel: 'Double … / cible',
+      choices: ['Bonus vs Seul', 'Bonus vs Solitaire', 'Bonus vs Alpha', 'Bonus vs Boss',
+                'Attaque vs Seul', 'Attaque vs Solitaire', 'Attaque vs Alpha', 'Attaque vs Boss'],
+      desc: 'Vous doublez votre bonus de dégâts (« Bonus ») ou l\'ensemble des dégâts de vos attaques (« Attaque ») contre la cible choisie : Seul dans sa zone / Solitaire / Alpha / Boss.' },
+    { effect: 'deluge', name: 'Déluge', kind: 'action', hasVal: false,
+      desc: 'Action : 1 attaque. Si aucun de vos dés de Dégâts n\'a produit un 1, vous pouvez relancer une attaque sur la même cible, et ainsi de suite tant qu\'aucun 1 n\'apparaît.' },
+    { effect: 'camouflage', name: 'Camouflage', kind: 'passive', hasVal: false,
+      desc: 'Les attaques à distance (et les sorts) ne peuvent pas vous prendre pour cible depuis une autre zone.' },
+    { effect: 'acrobatie', name: 'Acrobatie', kind: 'passive', hasVal: false,
+      desc: 'Ajoutez 1 dé noir à une attaque effectuée juste après un Mouvement qui franchit une barrière DIFFICILE.' },
+    { effect: 'ralliement', name: 'Ralliement', kind: 'passive', hasVal: false,
+      desc: 'Les alliés qui se déplacent dans votre zone ne dépensent pas leur mouvement.' },
+    { effect: 'dephasage', name: 'Déphasage', kind: 'action', hasVal: false,
+      desc: 'Action : vous ne pouvez subir aucun dégât ni état durant le prochain tour des adversaires.' },
+    { effect: 'teleportation', name: 'Téléportation', kind: 'upgrade', hasVal: false,
+      desc: 'Vos mouvements sont des téléportations : vous franchissez toutes les barrières, même les MURS et les INFRANCHISSABLES.' },
+    { effect: 'survitamine', name: 'Survitaminé', kind: 'upgrade', hasVal: false,
+      desc: 'Vous pouvez effectuer 2 Actions lors de votre tour.' },
+    { effect: 'a_bout_portant', name: 'À bout portant', kind: 'upgrade', hasVal: false,
+      desc: 'Vous ne subissez pas de dégâts d\'opportunité en effectuant une attaque à distance dans la zone d\'un adversaire.' },
   ];
   function talentEffects() { return JSON.parse(JSON.stringify(TALENT_EFFECTS)); }
   function talentEffectMap() {

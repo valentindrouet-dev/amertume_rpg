@@ -439,6 +439,12 @@
           return Object.assign(common, { range: 'contact', effects: Object.assign(Store.noStates(), { feu: true }) });
         case 'frappe_tournoyante':
           return Object.assign(common, { range: 'contact', targets: 'all', zoneOnly: true });
+        case 'deluge':
+          // 1 attaque relançable tant qu'aucun 1 n'apparaît sur les dés (moteur).
+          return Object.assign(common, { range: baseRange(), deluge: true });
+        case 'dephasage':
+          // Action pure : rend l'aventurier intouchable au prochain tour adverse.
+          return Object.assign(common, { dephasage: true, targets: 'self', useOwnDamage: false, dice: D.emptyPool() });
         case 'tir_charge':
           return Object.assign(common, { range: 'distance', bonusDmg: t.val || 0 });
         default:
