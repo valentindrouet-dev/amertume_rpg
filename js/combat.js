@@ -813,11 +813,7 @@
     pendingMove = null; arrivalTargetIid = null; checkOutcome();
     // PRÉ-TOUR : dès que plus aucun aventurier n'a de talent à jouer, on démarre
     // automatiquement le vrai tour (le joueur peut aussi passer via « Tour X »).
-    if (!combat().outcome && combat().phase === 'pretour' &&
-        !activeOf('hero').some(function (h) { return h.freeMoveReady; })) {
-      startTurnFromPretour();
-      return;
-    }
+    if (pretourAllDone()) { startTurnFromPretour(); return; }
     Store.save(); render();
   }
 
@@ -1995,6 +1991,12 @@
   function canDesignateGardien(h) {
     return combat().turn === 1 && !combat().outcome && h.side === 'hero' && h.status === 'active' && (h.gardienLeft || 0) > 0;
   }
+  // Pré-Tour terminé : plus aucun mouvement gratuit ni désignation Gardien en attente.
+  // (Les Orbes de Pré-Tour restent optionnels — ils gardent freeMoveReady actif.)
+  function pretourAllDone() {
+    return combat().phase === 'pretour' && !combat().outcome &&
+      !activeOf('hero').some(function (h) { return h.freeMoveReady || canDesignateGardien(h); });
+  }
 
   function startPretour() {
     const c = combat();
@@ -2987,6 +2989,12 @@
   function slotRank(k) { return KIND_SLOT_ORDER[k] == null ? 9 : KIND_SLOT_ORDER[k]; }
   // Construit un emplacement par talent équipé : action jouable (bouton d'attaque),
   // réaction (bouton violet) ou libellé non cliquable (passif/amélioration/maîtrise).
+  // Descriptif d'un talent équipé (pour l'infobulle au survol dans le bandeau).
+  function descForTalentId(c, id) {
+    if (!id || !Array.isArray(c.talents)) return '';
+    const t = c.talents.find(function (x) { return x.id === id; });
+    return t ? (t.description || '') : '';
+  }
   function heroTalentSlots(c, canAct) {
     if (!Array.isArray(c.talents)) return [];
     const byId = {}; const order = [];
@@ -3009,7 +3017,7 @@
         const armed = pendingDesignate === c.iid;
         return '<button class="ab-talent ab-talent-named ab-talent-kind-garde ab-gardien-btn' + (armed ? ' selected' : '') +
           '" type="button" data-designate="' + c.iid + '" ' +
-          'title="Désignez ' + c.gardienLeft + ' allié(s) à protéger (Blindage + Gardé)">' +
+          'title="' + esc((descForTalentId(c, under.id) || 'Désignez un allié à protéger (Blindage + Gardé)') + ' — Désignations restantes : ' + c.gardienLeft) + '">' +
           esc(t.name) + '</button>';
       }
       const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
@@ -3026,7 +3034,7 @@
         return reactionBtn(c, r.t, enabled);
       }
       return '<button class="ab-talent ab-talent-named ab-talent-kind-' + t.kind + '" type="button" disabled ' +
-        'title="' + esc(t.name) + '">' + esc(t.name) + '</button>';
+        'title="' + esc(t.name + (descForTalentId(c, t.id) ? ' — ' + descForTalentId(c, t.id) : '')) + '">' + esc(t.name) + '</button>';
     }).filter(function (s) { return s !== null; });
   }
 
@@ -3288,7 +3296,7 @@
     const blink = ready && pendingReaction === c.iid ? ' ab-react-blink' : '';
     return '<button class="ab-atk ab-atk-react' + (ready ? '' : ' ab-react-off') + blink + '" type="button"' +
       ' data-iid="' + c.iid + '" data-react="' + esc(t.effect) + '"' + (ready ? '' : ' disabled') +
-      ' title="' + esc(t.name + ' — ' + (REACT_HINT[t.effect] || '')) + '">' +
+      ' title="' + esc(t.name + ' — ' + (descForTalentId(c, t.id) || REACT_HINT[t.effect] || '')) + '">' +
       '<span class="ab-atk-talname">' + esc(t.name) + '</span>' +
     '</button>';
   }
@@ -3354,9 +3362,12 @@
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
         (revealed && uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
       '</span>';
+    // Infobulle : nom + portée, et pour un talent le descriptif complet (survol).
+    const talDesc = a.talentId ? descForTalentId(c, a.talentId) : '';
+    const atkTitle = a.name + ' (' + info.join(', ') + ')' + (talDesc ? ' — ' + talDesc : '');
     return '<button class="ab-atk atk-chip' + (a.special ? ' ab-atk-special' : '') + (isThisAtk ? ' selected' : '') +
         '" type="button" data-iid="' + c.iid + '" data-atk="' + i + '"' + (blocked ? ' disabled' : '') +
-        ' title="' + esc(a.name) + ' (' + info.join(', ') + ')">' +
+        ' title="' + esc(atkTitle) + '">' +
       nameHtml +
       figsHtml +
     '</button>';
@@ -3811,6 +3822,8 @@
             pushFx({ type: 'state', iid: c.iid });
             log(cname(c) + ' reçoit <span class="lstate">Blindage</span> et <span class="lstate">Gardé</span> (Gardien).', 'state');
             if (guardian.gardienLeft <= 0) pendingDesignate = null; // toutes les désignations faites
+            // PRÉ-TOUR : si plus rien à jouer, on enchaîne automatiquement le vrai tour.
+            if (pretourAllDone()) { startTurnFromPretour(); return; }
             Store.save(); render();
           }
           return;

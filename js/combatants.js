@@ -334,6 +334,7 @@
         const c = cat[e.effect] || {};
         out.push({
           id: t.id, name: t.name, effect: e.effect,
+          description: t.description || c.desc || '',
           kind: c.kind || 'passive',
           val: (typeof e.val === 'number') ? e.val : (c.defaultVal || 0),
           dice: e.dice || null,

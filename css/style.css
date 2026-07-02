@@ -2200,7 +2200,12 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   #combat-fx { display: none; }
   .combat-card.fx-hit, .combat-card.fx-crit, .combat-card.fx-whiff,
   .combat-card.fx-heal, .combat-card.fx-state, .combat-card.fx-move,
-  .combat-card.on-fire, .fx-shake { animation: none; }
+  .combat-card.on-fire, .fx-shake,
+  .ab-atk:not(:disabled), .ab-orbes:not(:disabled), .ab-talent.ab-gardien-btn { animation: none; }
+  /* Sans animation : un contour clair marque les talents cliquables. */
+  .ab-atk:not(:disabled), .ab-orbes:not(:disabled), .ab-talent.ab-gardien-btn {
+    box-shadow: 0 0 0 1px rgba(255,236,180,.9);
+  }
 }
 
 /* ===================================================================
@@ -2419,6 +2424,33 @@ img.ab-atk-name {
   background: rgba(226,151,74,.08); pointer-events: none; z-index: 1;
 }
 .combat-card { cursor: pointer; }
+/* Aventurier SÉLECTIONNÉ : fond aux couleurs de sa classe. Le filter:saturate(2)
+   déjà appliqué à .selected les rend « 2× plus vives » → repérage immédiat. */
+.combat-card.side-hero.selected.klass-apothicaire { background: #dcefd0; }
+.combat-card.side-hero.selected.klass-artificier  { background: #f3e6c6; }
+.combat-card.side-hero.selected.klass-chasseur    { background: #d8f0cf; }
+.combat-card.side-hero.selected.klass-destructeur { background: #f6d9d2; }
+.combat-card.side-hero.selected.klass-deviant     { background: #e6def4; }
+.combat-card.side-hero.selected.klass-gardien     { background: #d7e3f1; }
+.combat-card.side-hero.selected.klass-lamevent    { background: #d2f0e9; }
+.combat-card.side-hero.selected.klass-pyromane    { background: #f6ddc6; }
+/* Repli si l'aventurier n'a pas de classe : or clair, très identifiable. */
+.combat-card.side-hero.selected { background: #f6e2a8; }
+
+/* Talents / actions CLIQUABLES du bandeau : léger rayonnement pulsé pour lever
+   tout doute sur ce qui est activable (désactivé sous prefers-reduced-motion). */
+@keyframes ab-usable-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  50%      { box-shadow: 0 0 7px 1px rgba(255,236,180,.85); }
+}
+.ab-atk:not(:disabled),
+.ab-orbes:not(:disabled),
+.ab-talent.ab-gardien-btn {
+  animation: ab-usable-glow 1.6s ease-in-out infinite;
+}
+.ab-atk:not(:disabled):hover,
+.ab-orbes:not(:disabled):hover,
+.ab-talent.ab-gardien-btn:hover { animation: none; }
 
 /* Pastille bleue (coin haut-droit) : Action / Attaque non encore utilisée */
 .combat-card { position: relative; }
