@@ -751,6 +751,21 @@
     try { global.localStorage.setItem(MONTALENT_KEY, JSON.stringify(talents)); } catch (e) {}
   }
 
+  // ---------- Talents adverses NOMMÉS (effet-based, onglet Talents Adv.) ----------
+  // Créés par le MJ à partir du même pool d'effets que les talents d'aventurier ;
+  // référencés par les adversaires (m.advTalentIds) dans l'éditeur du Bestiaire.
+  const ADVTALENT_KEY = 'amertume_adv_talents_v1';
+  function loadAdvTalents() {
+    try {
+      const raw = global.localStorage.getItem(ADVTALENT_KEY);
+      const arr = raw ? JSON.parse(raw) : null;
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function saveAdvTalents(arr) {
+    try { global.localStorage.setItem(ADVTALENT_KEY, JSON.stringify(Array.isArray(arr) ? arr : [])); } catch (e) {}
+  }
+
   // ---------- Tutoriels / Encyclopédie ----------
   // Entrées pédagogiques affichées aux joueurs (onglet Tutoriel) et éditées
   // par le MJ (onglet Encyclopédie). Chaque entrée : { id, title, content }.
@@ -829,6 +844,8 @@
     talentEffectList: talentEffectList,
     loadMonsterTalents: loadMonsterTalents,
     saveMonsterTalents: saveMonsterTalents,
+    loadAdvTalents: loadAdvTalents,
+    saveAdvTalents: saveAdvTalents,
     loadTutorials: loadTutorials,
     saveTutorials: saveTutorials,
     loadUnlocked: loadUnlocked,

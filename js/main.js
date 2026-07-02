@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.2.97';
+  const APP_VERSION = 'v2.2.98';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
@@ -21,7 +21,7 @@
     if (target === 'combat') safe('combat', Combat.renderTest);
     if (target === 'heroes') safe('heroes', Combatants.renderHeroes);
     if (target === 'bestiary') safe('bestiary', Combatants.renderMonsters);
-    if (target === 'talentadv') safe('talentadv', Combatants.renderTalentsAdv);
+    if (target === 'talentadv') safe('talentadv', Classes.renderAdvTalents);
     if (target === 'classes') safe('classes', Classes.render);
     if (target === 'tutorial') safe('tutorial.play', Tutorial.renderPlay);
     if (target === 'tutorial-admin') safe('tutorial.admin', Tutorial.renderAdmin);

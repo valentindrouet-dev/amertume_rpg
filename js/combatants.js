@@ -310,21 +310,11 @@
   // Résout les talents d'un aventurier en objets complets (fusion avec la
   // bibliothèque des effets : kind, val). chosenIds = liste choisie aux montées
   // de niveau ; null (mode Admin) → tous les talents jusqu'au niveau du groupe.
-  // FUSION : résout les effets d'aventurier attribués à un adversaire (m.advTalents
-  // = [{effect, val, choice}]) au même format que les talents d'aventurier résolus.
+  // FUSION : résout les talents adverses NOMMÉS attribués à un adversaire
+  // (m.advTalentIds → talents du pool « Talents Adv. ») au même format que les
+  // talents d'aventurier résolus (kind/effect/val/choice).
   function resolveMonsterAdvTalents(m) {
-    const cat = Store.talentEffectMap();
-    return (m && Array.isArray(m.advTalents) ? m.advTalents : [])
-      .filter(function (t) { return t && t.effect && cat[t.effect]; })
-      .map(function (t) {
-        const c = cat[t.effect];
-        return {
-          id: 'madv_' + t.effect, name: c.name, effect: t.effect, kind: c.kind,
-          val: (typeof t.val === 'number') ? t.val : (c.defaultVal || 0),
-          choice: t.choice || (c.hasChoice && c.choices ? c.choices[0] : null),
-          description: c.desc || '', scope: 'count',
-        };
-      });
+    return resolveHeroTalents(m && Array.isArray(m.advTalentIds) ? m.advTalentIds : []);
   }
   function resolveHeroTalents(chosenIds) {
     const cat = Store.talentEffectMap();
@@ -333,6 +323,8 @@
     // un talent de sa classe : il doit donc être résolu pour le bandeau de combat).
     const all = Store.loadGenericTalents().slice();
     Store.loadClasses().forEach(function (c) { if (Array.isArray(c.talents)) all.push.apply(all, c.talents); });
+    // Talents adverses nommés (référencés par m.advTalentIds) résolus au même titre.
+    all.push.apply(all, Store.loadAdvTalents());
     // Talents retenus pour ce combattant.
     const kept = all.filter(function (t) {
       if (!(t.usage === 'combat' || t.usage === 'both')) return false;
@@ -1354,44 +1346,33 @@
   // ================= MONSTRES =================
   let monsterAttacks = [];
   let monsterTalents = [];
-  let monsterAdvTalents = []; // effets d'aventurier attribués à l'adversaire (fusion)
+  let monsterAdvTalentIds = []; // ids des talents adverses (Talents Adv.) attribués
 
-  // Effets d'aventurier applicables automatiquement à un adversaire (pris en charge
-  // par le moteur côté-neutre). Groupés pour l'éditeur.
-  const ADV_EFFECT_GROUPS = [
-    { title: 'Bonus de dégâts', effects: ['frappe_lourde', 'maitre_distance', 'tueur_au_sol', 'tueur_affaibli', 'meute', 'assassinat', 'accentuation'] },
-    { title: 'Critique', effects: ['critique_destructeur'] },
-    { title: 'Défense', effects: ['cuirasse', 'solidite', 'bouclier_mystique', 'garde_imprenable', 'immun_etat', 'esquive_innee', 'esquive_6', 'renforcement'] },
-    { title: 'Attaque / Déplacement', effects: ['force_blindee', 'camouflage', 'teleportation', 'franchissement_libre'] },
-  ];
-  function findAdvEff(effect) { return monsterAdvTalents.find(function (t) { return t.effect === effect; }); }
+  // Sélecteur des talents adverses NOMMÉS (créés dans l'onglet Talents Adv.).
+  const ADV_KIND_LABEL = { mastery: 'Maîtrise', action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélioration' };
   function buildAdvTalentsPicker(container) {
     if (!container) return;
-    const cat = Store.talentEffectMap();
-    container.innerHTML = ADV_EFFECT_GROUPS.map(function (g) {
-      const rows = g.effects.filter(function (e) { return cat[e]; }).map(function (e) {
-        const m = cat[e]; const sel = findAdvEff(e); const on = !!sel;
-        let extra = '';
-        if (on && m.hasVal) extra += ' <input type="number" class="adv-val" data-eff="' + e + '" value="' + (sel.val != null ? sel.val : (m.defaultVal || 0)) + '" style="width:52px" title="' + esc(m.valLabel || 'X') + '" />';
-        if (on && m.hasChoice) extra += ' <select class="adv-choice" data-eff="' + e + '">' + (m.choices || []).map(function (c) { return '<option value="' + esc(c) + '"' + (sel.choice === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select>';
-        return '<label class="adv-eff-row"><input type="checkbox" class="adv-check" data-eff="' + e + '"' + (on ? ' checked' : '') + ' /> ' +
-          '<span class="adv-eff-name">' + esc(m.name) + '</span> <span class="adv-eff-desc">' + esc(m.desc || '') + '</span>' + extra + '</label>';
-      }).join('');
-      return '<div class="adv-eff-group"><div class="adv-eff-group-title">' + esc(g.title) + '</div>' + rows + '</div>';
+    const effMap = Store.talentEffectMap();
+    const kindOf = function (t) { return t.kind || (t.effect && effMap[t.effect] ? effMap[t.effect].kind : ''); };
+    const pool = Store.loadAdvTalents().filter(function (t) { return !t.hidden; });
+    if (!pool.length) {
+      container.innerHTML = '<p class="inv-col-empty">Aucun talent adverse. Créez-en dans l\'onglet <b>Talents Adv.</b> (mêmes effets que les talents d\'aventurier), puis cochez-les ici.</p>';
+      return;
+    }
+    container.innerHTML = pool.map(function (t) {
+      const on = monsterAdvTalentIds.indexOf(t.id) >= 0;
+      const k = kindOf(t);
+      return '<label class="adv-eff-row"><input type="checkbox" class="adv-tal-check" data-id="' + esc(t.id) + '"' + (on ? ' checked' : '') + ' /> ' +
+        (k ? '<span class="tl-kind tl-kind-' + k + '">' + esc((ADV_KIND_LABEL[k] || k).slice(0, 4)) + '</span> ' : '') +
+        '<span class="adv-eff-name">' + esc(t.name || '(sans nom)') + '</span> ' +
+        '<span class="adv-eff-desc">' + esc(t.description || '') + '</span></label>';
     }).join('');
-    container.querySelectorAll('.adv-check').forEach(function (cb) {
+    container.querySelectorAll('.adv-tal-check').forEach(function (cb) {
       cb.addEventListener('change', function () {
-        const e = cb.getAttribute('data-eff'); const m = cat[e];
-        if (cb.checked) { if (!findAdvEff(e)) monsterAdvTalents.push({ effect: e, val: (m.hasVal ? (m.defaultVal || 0) : 0), choice: (m.hasChoice && m.choices ? m.choices[0] : null) }); }
-        else { monsterAdvTalents = monsterAdvTalents.filter(function (t) { return t.effect !== e; }); }
-        buildAdvTalentsPicker(container);
+        const id = cb.getAttribute('data-id');
+        if (cb.checked) { if (monsterAdvTalentIds.indexOf(id) < 0) monsterAdvTalentIds.push(id); }
+        else { monsterAdvTalentIds = monsterAdvTalentIds.filter(function (x) { return x !== id; }); }
       });
-    });
-    container.querySelectorAll('.adv-val').forEach(function (inp) {
-      inp.addEventListener('input', function () { const t = findAdvEff(inp.getAttribute('data-eff')); if (t) t.val = parseInt(inp.value, 10) || 0; });
-    });
-    container.querySelectorAll('.adv-choice').forEach(function (s) {
-      s.addEventListener('change', function () { const t = findAdvEff(s.getAttribute('data-eff')); if (t) t.choice = s.value; });
     });
   }
   let monsterEquip = [];   // [{ itemId, loot }]  armes/armures équipées
@@ -1845,7 +1826,7 @@
     buildLootEditor($('#m-loot'), monsterLoot, { withQty: true });
     monsterTalents = isEdit ? JSON.parse(JSON.stringify(m.talents || [])) : [];
     buildTalentsEditor($('#m-talents'), monsterTalents);
-    monsterAdvTalents = isEdit ? JSON.parse(JSON.stringify(m.advTalents || [])) : [];
+    monsterAdvTalentIds = isEdit ? (Array.isArray(m.advTalentIds) ? m.advTalentIds.slice() : []) : [];
     buildAdvTalentsPicker($('#m-adv-talents'));
     $('#btn-delete-monster').hidden = !isEdit;
     $('#monster-modal').hidden = false;
@@ -1875,7 +1856,7 @@
       equipment: monsterEquip.filter(function (r) { return r.itemId; }),
       loot: monsterLoot.filter(function (r) { return r.itemId; }),
       talents: monsterTalents,
-      advTalents: monsterAdvTalents.filter(function (t) { return t.effect; }),
+      advTalentIds: monsterAdvTalentIds.slice(),
     };
     if (existing) Object.assign(existing, data);
     else Store.state.monsters.push(data);
