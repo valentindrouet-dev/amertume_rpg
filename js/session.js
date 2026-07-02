@@ -1526,7 +1526,9 @@
     Store.loadClasses().forEach(function (c) { (c.talents || []).forEach(function (t) { map[t.id] = t; }); });
     return map;
   }
-  const TAL_KIND_ORDER = { action: 0, mastery: 1, reaction: 2, passive: 3, critique: 4, garde: 5, upgrade: 6 };
+  // Ordre d'affichage : MAÎTRISE / ACTION / RÉACTION / PASSIF / CRITIQUE / GARDE / AMÉLIORATION
+  const TAL_KIND_ORDER = { mastery: 0, action: 1, reaction: 2, passive: 3, critique: 4, garde: 5, upgrade: 6 };
+  const TAL_KIND_TITLE = { mastery: 'Maîtrise', action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélioration' };
   function talKindOf(t, effMap) {
     if (!t) return '';
     if (t.kind) return t.kind;
@@ -1618,14 +1620,21 @@
         pv: Combatants.heroPv(eh), niveau: lvl,
         orbes: 2 + Math.floor((Math.max(1, lvl) - 1) / 2),
       };
+      let prevKind = null;
       const body = list.length
         ? list.map(function (e) {
             const sup = e.superseded;
             const checked = !sup && equipped.indexOf(e.id) >= 0;
             const desc = Store.fillTalentTags(e.t.description || 'Aucune description.', tagCtx);
+            // Séparateur de type (Maîtrise / Action / Réaction / …) entre les groupes.
+            let sepHtml = '';
+            if (e.kind && e.kind !== prevKind) {
+              sepHtml = '<div class="tpe-kind-sep tpe-kind-sep-' + e.kind + '">' + esc(TAL_KIND_TITLE[e.kind] || e.kind) + '</div>';
+              prevKind = e.kind;
+            }
             // Version dépassée : grisée, décochée et non cochable + flèche d'arborescence.
             const upgradeMark = e.depth > 0 ? '<span class="tpe-upgrade-arrow" title="Évolution de la version précédente">↳</span> ' : '';
-            return '<div class="tpe-wrap' + (sup ? ' tpe-superseded' : '') + '">' +
+            return sepHtml + '<div class="tpe-wrap' + (sup ? ' tpe-superseded' : '') + '">' +
               '<div class="tpe-row tpe-kind-' + (e.kind || 'none') + (checked ? ' selected' : '') + '">' +
                 '<input type="checkbox" class="tal-equip-cb" data-hero="' + h.id + '" data-tal="' + esc(e.id) + '"' + (checked ? ' checked' : '') + (sup ? ' disabled' : '') + '>' +
                 '<span class="tpe-name" data-info="' + esc(e.id) + '" title="' + (sup ? 'Une version supérieure est débloquée' : 'Voir le descriptif') + '">' + upgradeMark + esc(e.t.name || '(sans nom)') + '</span>' +

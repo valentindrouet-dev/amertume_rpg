@@ -3382,6 +3382,20 @@ body.mode-player #item-list.roster-list { display: block; }
   border: 1px solid #cdb98f; border-left: 4px solid #b8a684;
   background: #efe4cf; color: #33271a; cursor: pointer; transition: filter .12s;
 }
+/* Séparateur de type de talent (onglet Talents joueur). */
+.tpe-kind-sep {
+  font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); margin: .6rem 0 .1rem; padding: .05rem .2rem .1rem;
+  border-bottom: 1px solid var(--border);
+}
+.tpe-wrap:first-child .tpe-kind-sep, .tpe-kind-sep:first-child { margin-top: .1rem; }
+.tpe-kind-sep-mastery { color: #b8901f; border-color: rgba(214,175,70,.5); }
+.tpe-kind-sep-action  { color: #3a72ad; border-color: rgba(77,142,209,.5); }
+.tpe-kind-sep-reaction{ color: #7a4dab; border-color: rgba(150,100,200,.5); }
+.tpe-kind-sep-passive { color: #6f6f6f; border-color: rgba(140,140,140,.5); }
+.tpe-kind-sep-critique{ color: #9a2f43; border-color: rgba(154,47,67,.5); }
+.tpe-kind-sep-garde   { color: #4a72a5; border-color: rgba(90,134,189,.5); }
+.tpe-kind-sep-upgrade { color: #468a54; border-color: rgba(90,171,106,.5); }
 .tpe-row:hover { filter: brightness(1.03); }
 .tpe-row .tal-equip-cb { flex: 0 0 auto; width: 16px; height: 16px; cursor: pointer; margin: 0; }
 .tpe-name {

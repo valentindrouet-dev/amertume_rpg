@@ -450,7 +450,7 @@
     const data = {
       id: $('#tl-f-id').value || Store.uid(),
       name: ($('#tl-f-name').value || '').trim() || 'Talent',
-      level: Math.max(1, Math.min(7, parseInt($('#tl-f-level').value, 10) || 1)),
+      level: Math.max(1, Math.min(Store.maxLevel(), parseInt($('#tl-f-level').value, 10) || 1)),
       usage: $('#tl-f-usage').value,
       effects: effects,
       // Champs « représentatifs » conservés pour la rétro-compat (affichage, coloration)

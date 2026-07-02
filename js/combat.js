@@ -3532,8 +3532,10 @@
     // ASSAUT : tous les aventuriers de la zone (vous compris) attaquent gratuitement.
     if (atk.assaut) {
       const zone = attacker.zone;
-      log('<b class="lreact">Assaut !</b> les aventuriers de la zone attaquent gratuitement.', 'state');
-      activeOf('hero').filter(function (h) { return h.zone === zone; }).forEach(function (h) { enqueueAllyFreeAttack(h, 'Assaut'); });
+      log('<b class="lreact">Assaut !</b> ' + cname(attacker) + ' : les AUTRES aventuriers de la zone attaquent gratuitement.', 'state');
+      // Tous les alliés de la zone SAUF l'initiateur (qui a dépensé son Action).
+      activeOf('hero').filter(function (h) { return h.zone === zone && h.iid !== attacker.iid; })
+        .forEach(function (h) { enqueueAllyFreeAttack(h, 'Assaut'); });
       if (!atk.freeAction) useAction(attacker);
       return;
     }

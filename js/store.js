@@ -143,14 +143,28 @@
 
   // Table des niveaux : seuil d'XP et points de talent cumulés
   var LEVELS = [
-    { lvl: 1, xp: 0, points: 10 },
-    { lvl: 2, xp: 20, points: 13 },
-    { lvl: 3, xp: 50, points: 16 },
-    { lvl: 4, xp: 100, points: 20 },
-    { lvl: 5, xp: 200, points: 25 },
-    { lvl: 6, xp: 350, points: 30 },
-    { lvl: 7, xp: 600, points: 35 },
+    { lvl: 1,  xp: 0,      points: 10 },
+    { lvl: 2,  xp: 100,    points: 13 },
+    { lvl: 3,  xp: 500,    points: 16 },
+    { lvl: 4,  xp: 1000,   points: 20 },
+    { lvl: 5,  xp: 2000,   points: 25 },
+    { lvl: 6,  xp: 3500,   points: 30 },
+    { lvl: 7,  xp: 5500,   points: 35 },
+    { lvl: 8,  xp: 8000,   points: 40 },
+    { lvl: 9,  xp: 11000,  points: 45 },
+    { lvl: 10, xp: 15000,  points: 50 },
+    { lvl: 11, xp: 21000,  points: 55 },
+    { lvl: 12, xp: 28000,  points: 60 },
+    { lvl: 13, xp: 37000,  points: 65 },
+    { lvl: 14, xp: 49000,  points: 70 },
+    { lvl: 15, xp: 64000,  points: 75 },
+    { lvl: 16, xp: 82000,  points: 80 },
+    { lvl: 17, xp: 104000, points: 85 },
+    { lvl: 18, xp: 130000, points: 90 },
+    { lvl: 19, xp: 162000, points: 95 },
+    { lvl: 20, xp: 200000, points: 100 },
   ];
+  var MAX_LEVEL = LEVELS.length;
 
   function xpForLevel(lvl) {
     lvl = Math.max(1, Math.min(LEVELS.length, lvl));
@@ -612,7 +626,7 @@
     { effect: 'a_bout_portant', name: 'À bout portant', kind: 'upgrade', hasVal: false,
       desc: 'Vous ne subissez pas de dégâts d\'opportunité en effectuant une attaque à distance dans la zone d\'un adversaire.' },
     { effect: 'assaut', name: 'Assaut', kind: 'action', hasVal: false,
-      desc: 'Action : tous les aventuriers de votre zone (vous compris) effectuent immédiatement une attaque gratuite.' },
+      desc: 'Action : tous les AUTRES aventuriers de votre zone effectuent immédiatement une attaque gratuite (vous n\'attaquez pas).' },
     { effect: 'eclipse', name: 'Éclipse', kind: 'action', hasVal: false,
       desc: 'Action : téléportez-vous dans une autre zone (vous franchissez toutes les barrières, même MURS et INFRANCHISSABLES) et effectuez 1 attaque.' },
     { effect: 'bousculade', name: 'Bousculade', kind: 'action', hasVal: false,
@@ -782,6 +796,7 @@
   global.Store = {
     uid: uid,
     fillTalentTags: fillTalentTags,
+    maxLevel: function () { return MAX_LEVEL; },
     noStates: noStates,
     loadOfficial: loadOfficial,
     levelInfo: levelInfo,
