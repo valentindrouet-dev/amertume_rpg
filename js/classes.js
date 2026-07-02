@@ -128,8 +128,10 @@
     load();
     const root = $('#classes-root');
     if (!root) return;
+    // L'onglet Classes ne montre que les classes et les génériques — le groupe
+    // « Adversaires » est réservé à l'onglet Talents Adv.
     const groupOpts = '<option value="">Tous les groupes</option>' +
-      groups().map(function (g) {
+      groups().filter(function (g) { return g.ref !== 'adversary'; }).map(function (g) {
         return '<option value="' + esc(g.ref) + '"' + (g.ref === groupFilter ? ' selected' : '') + '>' +
           esc(g.name.replace('★ ', '')) + '</option>';
       }).join('');
@@ -206,7 +208,7 @@
   function renderColumns() {
     const box = $('#class-list');
     if (!box) return;
-    const shown = groups().filter(function (g) { return !groupFilter || g.ref === groupFilter; });
+    const shown = groups().filter(function (g) { return g.ref !== 'adversary' && (!groupFilter || g.ref === groupFilter); });
     box.innerHTML = '<div class="tal-cols">' + shown.map(function (g) {
       const items = sortTalents(g.list.filter(matches));
       const strips = items.length
@@ -504,6 +506,10 @@
     if (ae) ae.addEventListener('click', function () { addEffectRow({}); });
     const m = $('#talent-modal');
     if (m) m.addEventListener('click', function (ev) { if (ev.target.id === 'talent-modal') closeTalentModal(); });
+    // Bouton « + Nouveau talent » de l'onglet Talents Adv. → éditeur d'effets
+    // partagé, pré-réglé sur le groupe « Adversaires ».
+    const addAdv = $('#btn-add-talentadv');
+    if (addAdv) addAdv.addEventListener('click', function () { openTalentModal(null, 'adversary'); });
     render();
   }
 

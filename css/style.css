@@ -126,7 +126,14 @@ button { font-family: inherit; }
 /* Étiquette de chapitre (organisation du bestiaire). */
 .tag.tag-chapter { background: rgba(122,90,168,.16); color: #7a5aa8; border-color: rgba(122,90,168,.4); }
 /* Sélecteur d'effets d'aventurier pour un adversaire (fusion des talents). */
-.adv-talents-picker { display: flex; flex-direction: column; gap: .6rem; }
+.adv-talents-picker { display: flex; flex-direction: column; gap: .4rem; }
+.adv-tal-group { border: 1px solid rgba(120,120,120,.18); border-radius: 8px; overflow: hidden; }
+.adv-tal-group > summary { cursor: pointer; list-style: none; padding: .4rem .6rem; display: flex; align-items: center; gap: .5rem; background: rgba(120,120,120,.07); user-select: none; }
+.adv-tal-group > summary::-webkit-details-marker { display: none; }
+.adv-tal-group > summary::before { content: '▸'; color: var(--muted); transition: transform .15s; }
+.adv-tal-group[open] > summary::before { transform: rotate(90deg); }
+.adv-tal-count { color: var(--muted); font-size: .78rem; margin-left: auto; }
+.adv-tal-group > .adv-eff-row { padding-left: .6rem; padding-right: .6rem; }
 .adv-eff-group-title { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .25rem; }
 .adv-eff-row { display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; padding: .18rem .1rem; border-bottom: 1px solid rgba(120,120,120,.12); }
 .adv-eff-row input[type="checkbox"] { flex: 0 0 auto; }

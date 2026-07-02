@@ -287,14 +287,27 @@
     const own = JSON.parse(JSON.stringify(m.attacks || []));
     return weaponAttacks(weapons).concat(own);
   }
-  // Libellés des talents passifs d'un adversaire (FUYARD, SOUTIEN…) pour le bandeau.
+  // Libellés des talents d'un adversaire affichés dans son bandeau de combat.
+  // En tête : les talents adverses NOMMÉS (nouveau système, m.advTalentIds),
+  // révélés à l'analyse. Ensuite : les anciens talents à déclencheur (legacy,
+  // m.talents) encore présents sur certains adversaires.
   function monsterTalentLabels(m) {
+    // Noms lus directement dans le pool « Talents Adv. » (indépendamment du
+    // filtre de résolution combat) : TOUS les talents attribués apparaissent
+    // dans le bandeau, révélés à l'analyse.
+    const pool = Store.loadAdvTalents();
+    const ids = (m && Array.isArray(m.advTalentIds)) ? m.advTalentIds : [];
+    const labels = ids.map(function (id) {
+      const t = pool.find(function (x) { return x.id === id; });
+      return t ? (t.name || 'Talent') : null;
+    }).filter(Boolean);
     const cat = Store.loadMonsterTalents();
-    return (m.talents || []).map(function (t) {
+    (m && m.talents ? m.talents : []).forEach(function (t) {
       const e = cat.find(function (c) { return c.id === t.catId; }) ||
                 cat.find(function (c) { return c.trigger === t.trigger; });
-      return e ? e.name : (t.trigger || 'Talent');
+      labels.push(e ? e.name : (t.trigger || 'Talent'));
     });
+    return labels;
   }
   function monsterTotalDef(m) {
     const armorDef = monsterEquipItems(m).filter(function (it) { return it.category === 'armor'; })
@@ -1350,6 +1363,17 @@
 
   // Sélecteur des talents adverses NOMMÉS (créés dans l'onglet Talents Adv.).
   const ADV_KIND_LABEL = { mastery: 'Maîtrise', action: 'Action', reaction: 'Réaction', passive: 'Passif', critique: 'Critique', garde: 'Garde', upgrade: 'Amélioration' };
+  // Ordre + libellés (pluriel) des sections repliables du sélecteur.
+  const ADV_KIND_ORDER = [
+    { kind: 'action', label: 'Actions' },
+    { kind: 'reaction', label: 'Réactions' },
+    { kind: 'mastery', label: 'Maîtrises' },
+    { kind: 'passive', label: 'Passifs' },
+    { kind: 'critique', label: 'Critiques' },
+    { kind: 'garde', label: 'Gardes' },
+    { kind: 'upgrade', label: 'Améliorations' },
+    { kind: '', label: 'Autres' },
+  ];
   function buildAdvTalentsPicker(container) {
     if (!container) return;
     const effMap = Store.talentEffectMap();
@@ -1359,13 +1383,27 @@
       container.innerHTML = '<p class="inv-col-empty">Aucun talent adverse. Créez-en dans l\'onglet <b>Talents Adv.</b> (mêmes effets que les talents d\'aventurier), puis cochez-les ici.</p>';
       return;
     }
-    container.innerHTML = pool.map(function (t) {
+    // Regroupe les talents par type ; une section repliable (<details>) par type.
+    const byKind = {};
+    pool.forEach(function (t) { const k = kindOf(t) || ''; (byKind[k] = byKind[k] || []).push(t); });
+    const rowHtml = function (t) {
       const on = monsterAdvTalentIds.indexOf(t.id) >= 0;
       const k = kindOf(t);
       return '<label class="adv-eff-row"><input type="checkbox" class="adv-tal-check" data-id="' + esc(t.id) + '"' + (on ? ' checked' : '') + ' /> ' +
         (k ? '<span class="tl-kind tl-kind-' + k + '">' + esc((ADV_KIND_LABEL[k] || k).slice(0, 4)) + '</span> ' : '') +
         '<span class="adv-eff-name">' + esc(t.name || '(sans nom)') + '</span> ' +
         '<span class="adv-eff-desc">' + esc(t.description || '') + '</span></label>';
+    };
+    container.innerHTML = ADV_KIND_ORDER.map(function (grp) {
+      const list = byKind[grp.kind];
+      if (!list || !list.length) return '';
+      const nbOn = list.filter(function (t) { return monsterAdvTalentIds.indexOf(t.id) >= 0; }).length;
+      // Ouvert d'emblée s'il contient au moins un talent déjà coché.
+      return '<details class="adv-tal-group"' + (nbOn ? ' open' : '') + '>' +
+        '<summary><span class="tl-kind tl-kind-' + (grp.kind || 'none') + '">' + esc(grp.label) + '</span> ' +
+          '<span class="adv-tal-count">' + list.length + (nbOn ? ' · ' + nbOn + ' coché' + (nbOn > 1 ? 's' : '') : '') + '</span></summary>' +
+        list.map(rowHtml).join('') +
+      '</details>';
     }).join('');
     container.querySelectorAll('.adv-tal-check').forEach(function (cb) {
       cb.addEventListener('change', function () {
@@ -1470,6 +1508,11 @@
   }
 
   function buildTalentsEditor(container, talents) {
+    // L'éditeur d'anciens talents à déclencheur a été retiré de la fiche
+    // adversaire (remplacé par les Talents adverses nommés). Les données
+    // existantes (m.talents) sont conservées telles quelles ; ce constructeur
+    // reste défensif au cas où le conteneur n'existe plus.
+    if (!container) return;
     container.innerHTML = '';
     const cat = montalentCatalog();
     if (!cat.length) {
@@ -1905,7 +1948,9 @@
     $('#m-add-attack').addEventListener('click', function () {
       monsterAttacks.push(newAttack()); buildAttacksEditor($('#m-attacks'), monsterAttacks);
     });
-    $('#m-add-talent').addEventListener('click', function () {
+    // (Ancien bouton « + Talent » retiré de la fiche adversaire.)
+    const addTalentBtn = $('#m-add-talent');
+    if (addTalentBtn) addTalentBtn.addEventListener('click', function () {
       monsterTalents.push(newTalent()); buildTalentsEditor($('#m-talents'), monsterTalents);
     });
     $('#m-add-equip').addEventListener('click', function () {
@@ -1949,9 +1994,9 @@
       }
     });
 
-    // Talents Adverses (catalogue)
-    const addTal = $('#btn-add-talentadv');
-    if (addTal) addTal.addEventListener('click', addMonsterTalentToCatalog);
+    // Talents Adverses : l'onglet est désormais rendu par Classes.renderAdvTalents
+    // (éditeur d'effets partagé). Le bouton d'ajout d'en-tête est câblé côté
+    // Classes ; l'ancien modal à déclencheur reste dormant (non atteignable).
     const tadvForm = $('#talentadv-form');
     if (tadvForm) tadvForm.addEventListener('submit', submitTalentAdv);
     const tadvClose = $('#talentadv-modal-close');
