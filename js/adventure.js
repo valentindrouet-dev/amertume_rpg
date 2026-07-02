@@ -44,6 +44,22 @@
     { value: 'discussion', label: 'Discussion' },
   ];
 
+  // Types de chapitres : narratif (liste ordonnée de scènes), donjon structuré
+  // (carte de salles reliées par des connecteurs, exploration libre), donjon
+  // aléatoire (salles pré-écrites enchaînées dans un ordre tiré au sort).
+  const CHAPTER_MODES = [
+    { value: 'linear',  label: '📖 Narratif' },
+    { value: 'dungeon', label: '🗺️ Donjon structuré' },
+    { value: 'random',  label: '🎲 Donjon aléatoire' },
+  ];
+  function chMode(ch) { return (ch && (ch.mode === 'dungeon' || ch.mode === 'random')) ? ch.mode : 'linear'; }
+  // Rôle d'une salle dans un donjon aléatoire (balises d'entrée / de sortie).
+  const ROOM_ROLES = [
+    { value: 'normal', label: '🎲 Aléatoire' },
+    { value: 'entry',  label: '🚪 Entrée'   },
+    { value: 'exit',   label: '🏁 Sortie'   },
+  ];
+
   // Modèle vide d'une scène
   function newScene(id) {
     return {
@@ -69,7 +85,8 @@
   }
 
   function newChapter() {
-    return { id: Store.uid(), title: '', scenes: [] };
+    // mode : 'linear' | 'dungeon' | 'random' — links/entryId servent aux donjons structurés
+    return { id: Store.uid(), title: '', scenes: [], mode: 'linear', links: [], entryId: null };
   }
 
   function newAdventure() {
@@ -403,17 +420,35 @@
     }
     box.innerHTML = a.chapters.map(function (ch, ci) {
       const collapsed = !!collapsedChapters[ch.id];
-      return '<div class="adv-chapter' + (collapsed ? ' collapsed' : '') + '" data-ch="' + ch.id + '">' +
+      const mode = chMode(ch);
+      const modeOpts = CHAPTER_MODES.map(function (m) {
+        return '<option value="' + m.value + '"' + (m.value === mode ? ' selected' : '') + '>' + m.label + '</option>';
+      }).join('');
+      // Corps du chapitre selon son type : liste de scènes (narratif / aléatoire)
+      // ou carte des salles (donjon structuré, injectée par renderDungeonEditor).
+      let body = '';
+      if (!collapsed) {
+        if (mode === 'dungeon') {
+          body = '<div class="adv-dmap" id="dmap-' + ch.id + '"></div>';
+        } else {
+          body = '<div class="adv-scenes" id="scenes-' + ch.id + '">' + renderScenesHTML(ch, a) + '</div>' +
+            (mode === 'random'
+              ? '<p class="hint dmap-hint">🎲 L\'ordre des salles est tiré au sort à chaque partie : Entrée(s) d\'abord, salles aléatoires mélangées, Sortie(s) à la fin.</p>'
+              : '') +
+            '<button class="ghost small adv-add-scene" data-ch="' + ch.id + '" style="margin:.4rem 0 .8rem">' +
+              (mode === 'random' ? '+ Salle' : '+ Scène') + '</button>';
+        }
+      }
+      return '<div class="adv-chapter adv-chapter-' + mode + (collapsed ? ' collapsed' : '') + '" data-ch="' + ch.id + '">' +
         '<div class="adv-ch-head">' +
           '<button type="button" class="icon-btn adv-ch-toggle" data-ch="' + ch.id + '" title="' + (collapsed ? 'Dérouler' : 'Enrouler') + '">' + (collapsed ? '▸' : '▾') + '</button>' +
           '<span class="adv-ch-num">Chapitre ' + (ci + 1) + '</span>' +
           '<input type="text" class="adv-ch-title" data-ch="' + ch.id + '" value="' + esc(ch.title) + '" placeholder="Titre du chapitre" />' +
-          (collapsed ? '<span class="adv-ch-count">' + ch.scenes.length + ' scène(s)</span>' : '') +
+          '<select class="adv-ch-mode" data-ch="' + ch.id + '" title="Type de chapitre">' + modeOpts + '</select>' +
+          (collapsed ? '<span class="adv-ch-count">' + ch.scenes.length + ' ' + (mode === 'linear' ? 'scène(s)' : 'salle(s)') + '</span>' : '') +
           '<button class="icon-btn adv-del-ch" data-ch="' + ch.id + '" title="Supprimer">✕</button>' +
         '</div>' +
-        (collapsed ? '' :
-          '<div class="adv-scenes" id="scenes-' + ch.id + '">' + renderScenesHTML(ch, a) + '</div>' +
-          '<button class="ghost small adv-add-scene" data-ch="' + ch.id + '" style="margin:.4rem 0 .8rem">+ Scène</button>') +
+        body +
       '</div>';
     }).join('');
 
@@ -428,6 +463,24 @@
       inp.addEventListener('input', function () {
         const ch = a.chapters.find(function (c) { return c.id === inp.getAttribute('data-ch'); });
         if (ch) { ch.title = inp.value; save(); }
+      });
+    });
+    // Type de chapitre (Narratif / Donjon structuré / Donjon aléatoire).
+    // Changer de type ne détruit rien : scènes, connecteurs et rôles sont conservés.
+    box.querySelectorAll('.adv-ch-mode').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        const ch = a.chapters.find(function (c) { return c.id === sel.getAttribute('data-ch'); });
+        if (ch) { ch.mode = sel.value; save(); renderChapters(a); }
+      });
+    });
+    // Rôle des salles d'un donjon aléatoire (Entrée / Aléatoire / Sortie).
+    box.querySelectorAll('.sc-role').forEach(function (sel) {
+      sel.addEventListener('click', function (e) { e.stopPropagation(); });
+      sel.addEventListener('change', function (e) {
+        e.stopPropagation();
+        const ch = a.chapters.find(function (c) { return c.id === sel.getAttribute('data-ch'); });
+        const s = ch && ch.scenes.find(function (x) { return x.id === sel.getAttribute('data-scene'); });
+        if (s) { s.roomRole = sel.value; save(); }
       });
     });
     box.querySelectorAll('.adv-del-ch').forEach(function (b) {
@@ -475,15 +528,25 @@
         const ch = a.chapters.find(function (c) { return c.id === b.getAttribute('data-ch'); });
         if (!ch) return;
         if (!confirm('Supprimer cette scène ?')) return;
-        ch.scenes = ch.scenes.filter(function (s) { return s.id !== b.getAttribute('data-scene'); });
+        const sid = b.getAttribute('data-scene');
+        ch.scenes = ch.scenes.filter(function (s) { return s.id !== sid; });
+        // Nettoie les connecteurs / l'entrée d'un donjon pointant vers la scène supprimée.
+        if (Array.isArray(ch.links)) ch.links = ch.links.filter(function (l) { return l.from !== sid && l.to !== sid; });
+        if (ch.entryId === sid) ch.entryId = ch.scenes.length ? ch.scenes[0].id : null;
         save(); renderChapters(a);
       });
+    });
+
+    // Cartes des donjons structurés (rendu + câblage spécifiques).
+    a.chapters.forEach(function (ch) {
+      if (!collapsedChapters[ch.id] && chMode(ch) === 'dungeon') renderDungeonEditor(a, ch);
     });
   }
 
   function renderScenesHTML(ch, adv) {
     if (!ch.scenes.length) return '<p class="empty" style="padding:.3rem 0">Aucune scène.</p>';
     const titles = sceneTitleMap(adv);
+    const isRandom = chMode(ch) === 'random';
     return ch.scenes.map(function (s, si) {
       const typeLabel = (SCENE_TYPES.find(function (t) { return t.value === s.type; }) || {}).label || s.type;
       const links = sceneLinks(s);
@@ -494,12 +557,20 @@
               esc(l.label) + ' <span class="link-to">→ ' + esc(t) + '</span></div>';
           }).join('') + '</div>'
         : '';
+      // Donjon aléatoire : balise du rôle de la salle (Entrée / Aléatoire / Sortie).
+      const roleSel = isRandom
+        ? '<select class="sc-role sc-role-' + (s.roomRole || 'normal') + '" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Rôle de la salle dans le donjon aléatoire">' +
+            ROOM_ROLES.map(function (r) {
+              return '<option value="' + r.value + '"' + ((s.roomRole || 'normal') === r.value ? ' selected' : '') + '>' + r.label + '</option>';
+            }).join('') + '</select>'
+        : '';
       const last = si === ch.scenes.length - 1;
       return '<div class="adv-scene-item">' +
         '<div class="adv-scene-row" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Cliquer pour éditer">' +
           '<span class="adv-scene-num">' + (si + 1) + '</span>' +
           '<span class="adv-scene-type type-' + s.type + '">' + typeLabel + '</span>' +
           '<span class="adv-scene-title">' + esc(s.title || '(sans titre)') + '</span>' +
+          roleSel +
           '<span class="adv-scene-tools">' +
             '<button type="button" class="icon-btn sc-up" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Monter"' + (si === 0 ? ' disabled' : '') + '>↑</button>' +
             '<button type="button" class="icon-btn sc-down" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Descendre"' + (last ? ' disabled' : '') + '>↓</button>' +
@@ -510,6 +581,232 @@
         tree +
       '</div>';
     }).join('');
+  }
+
+  // ---------- Éditeur de Donjon Structuré (carte des salles) ----------
+  // Les salles (scènes) sont des cartouches positionnés sur une grille
+  // (s.mapX / s.mapY), reliés par des connecteurs (ch.links). L'entrée du
+  // donjon est ch.entryId. On glisse les cartouches, 🔗 trace un connecteur.
+  const DMAP_CELL_W = 186, DMAP_CELL_H = 128, DMAP_BOX_W = 164, DMAP_BOX_H = 100, DMAP_PAD = 12;
+  let dmapLinking = null; // { chId, from } — connecteur en cours de traçage
+
+  function ensureDungeonData(ch) {
+    if (!Array.isArray(ch.links)) ch.links = [];
+    ch.links = ch.links.filter(function (l) {
+      return l && l.from !== l.to &&
+        ch.scenes.some(function (s) { return s.id === l.from; }) &&
+        ch.scenes.some(function (s) { return s.id === l.to; });
+    });
+    if (!ch.entryId || !ch.scenes.some(function (s) { return s.id === ch.entryId; })) {
+      ch.entryId = ch.scenes.length ? ch.scenes[0].id : null;
+    }
+    // Positionne les salles sans coordonnées (ou en double) sur des cellules libres.
+    const used = {};
+    ch.scenes.forEach(function (s) {
+      const ok = typeof s.mapX === 'number' && typeof s.mapY === 'number' && s.mapX >= 0 && s.mapY >= 0;
+      if (ok && !used[s.mapX + ',' + s.mapY]) { used[s.mapX + ',' + s.mapY] = true; }
+      else { s.mapX = null; s.mapY = null; }
+    });
+    let cursor = 0;
+    ch.scenes.forEach(function (s) {
+      if (typeof s.mapX === 'number' && s.mapX !== null) return;
+      while (used[(cursor % 4) + ',' + Math.floor(cursor / 4)]) cursor++;
+      s.mapX = cursor % 4; s.mapY = Math.floor(cursor / 4);
+      used[s.mapX + ',' + s.mapY] = true;
+    });
+  }
+
+  // Cellule libre la plus proche de (gx, gy) — recherche en couronnes croissantes.
+  function dmapFreeCell(ch, gx, gy, exceptId) {
+    const occ = {};
+    ch.scenes.forEach(function (s) { if (s.id !== exceptId) occ[s.mapX + ',' + s.mapY] = true; });
+    if (!occ[gx + ',' + gy]) return { x: gx, y: gy };
+    for (let r = 1; r < 24; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = gx + dx, y = gy + dy;
+          if (x < 0 || y < 0 || occ[x + ',' + y]) continue;
+          return { x: x, y: y };
+        }
+      }
+    }
+    return { x: gx, y: gy };
+  }
+
+  function renderDungeonEditor(a, ch) {
+    const box = document.getElementById('dmap-' + ch.id);
+    if (!box) return;
+    ensureDungeonData(ch);
+    const byId = {};
+    ch.scenes.forEach(function (s) { byId[s.id] = s; });
+    const titleOf = function (id) { const s = byId[id]; return s ? (s.title || '(sans titre)') : '?'; };
+    const maxX = ch.scenes.reduce(function (m, s) { return Math.max(m, s.mapX || 0); }, 0);
+    const maxY = ch.scenes.reduce(function (m, s) { return Math.max(m, s.mapY || 0); }, 0);
+    const W = (maxX + 2) * DMAP_CELL_W + DMAP_PAD, H = (maxY + 1) * DMAP_CELL_H + DMAP_BOX_H / 2 + DMAP_PAD;
+    const cx = function (s) { return s.mapX * DMAP_CELL_W + DMAP_PAD + DMAP_BOX_W / 2; };
+    const cy = function (s) { return s.mapY * DMAP_CELL_H + DMAP_PAD + DMAP_BOX_H / 2; };
+
+    // Connecteurs : traits + étiquette au milieu (couloir, porte, passage secret…).
+    const lines = ch.links.map(function (l) {
+      const f = byId[l.from], t = byId[l.to];
+      if (!f || !t) return '';
+      const mx = (cx(f) + cx(t)) / 2, my = (cy(f) + cy(t)) / 2;
+      return '<line x1="' + cx(f) + '" y1="' + cy(f) + '" x2="' + cx(t) + '" y2="' + cy(t) + '" class="dmap-line"></line>' +
+        (l.label ? '<text x="' + mx + '" y="' + (my - 5) + '" class="dmap-line-lbl" text-anchor="middle">' + esc(l.label) + '</text>' : '');
+    }).join('');
+
+    const rooms = ch.scenes.map(function (s) {
+      const isEntry = ch.entryId === s.id;
+      const typeLabel = (SCENE_TYPES.find(function (t) { return t.value === s.type; }) || {}).label || s.type;
+      const nLinks = ch.links.filter(function (l) { return l.from === s.id || l.to === s.id; }).length;
+      return '<div class="dmap-room type-' + s.type + (isEntry ? ' dmap-entry' : '') + '" data-scene="' + s.id + '"' +
+        ' style="left:' + (s.mapX * DMAP_CELL_W + DMAP_PAD) + 'px;top:' + (s.mapY * DMAP_CELL_H + DMAP_PAD) + 'px">' +
+        '<div class="dmap-room-head">' +
+          (isEntry ? '<span class="dmap-entry-badge" title="Entrée du donjon">🚪</span>' : '') +
+          '<span class="dmap-room-title">' + esc(s.title || '(sans titre)') + '</span>' +
+        '</div>' +
+        '<span class="adv-scene-type type-' + s.type + '">' + esc(typeLabel) + '</span>' +
+        (nLinks ? '<span class="dmap-room-links" title="Connecteurs">' + nLinks + ' ⟷</span>' : '') +
+        '<div class="dmap-room-tools">' +
+          '<button type="button" class="icon-btn dmap-link-btn" data-scene="' + s.id + '" title="Tracer un connecteur vers une autre salle">🔗</button>' +
+          '<button type="button" class="icon-btn dmap-entry-btn" data-scene="' + s.id + '" title="Définir comme entrée du donjon">🚪</button>' +
+          '<button type="button" class="icon-btn dmap-del-btn" data-scene="' + s.id + '" title="Supprimer la salle">✕</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    const linkRows = ch.links.length ? ch.links.map(function (l, i) {
+      return '<div class="dmap-link-row" data-i="' + i + '">' +
+        '<span class="dmap-link-ends">' + esc(titleOf(l.from)) + ' ⟷ ' + esc(titleOf(l.to)) + '</span>' +
+        '<input type="text" class="dmap-link-label" maxlength="60" placeholder="Description du passage (porte, couloir, escalier, passage secret…)" value="' + esc(l.label || '') + '" />' +
+        '<button type="button" class="icon-btn dmap-link-del" title="Supprimer le connecteur">✕</button>' +
+      '</div>';
+    }).join('') : '<p class="hint">Aucun connecteur. Clique 🔗 sur une salle puis sur la salle d\'arrivée.</p>';
+
+    const linking = dmapLinking && dmapLinking.chId === ch.id;
+    box.innerHTML =
+      '<p class="hint">Chaque cartouche est une <b>salle</b> (scène). Glisse les cartouches pour dessiner la carte, ' +
+        'clique une salle pour l\'éditer, <b>🔗</b> pour tracer un connecteur, <b>🚪</b> pour définir l\'entrée du donjon.</p>' +
+      '<div class="dmap-scroll' + (linking ? ' dmap-linking' : '') + '">' +
+        '<div class="dmap-canvas" style="width:' + W + 'px;height:' + H + 'px">' +
+          '<svg class="dmap-svg" width="' + W + '" height="' + H + '">' + lines + '</svg>' +
+          rooms +
+        '</div>' +
+      '</div>' +
+      '<div class="dmap-toolbar">' +
+        '<button type="button" class="ghost small dmap-add">+ Salle</button>' +
+        (linking ? '<span class="dmap-linkhint">🔗 Clique la salle d\'arrivée du connecteur (clic dans le vide pour annuler)</span>' : '') +
+      '</div>' +
+      '<div class="dmap-links"><div class="dmap-links-title">Connecteurs (couloirs, portes, passages…)</div>' + linkRows + '</div>';
+
+    // ----- Câblage -----
+    const scroll = box.querySelector('.dmap-scroll');
+    box.querySelector('.dmap-add').onclick = function () {
+      const cell = dmapFreeCell(ch, 0, 0, null);
+      const ns = newScene();
+      ns.title = 'Nouvelle salle'; ns.mapX = cell.x; ns.mapY = cell.y;
+      ch.scenes.push(ns);
+      save(); renderChapters(a);
+    };
+    // Clic dans le vide : annule le traçage en cours.
+    scroll.addEventListener('mousedown', function (ev) {
+      if (dmapLinking && dmapLinking.chId === ch.id && !ev.target.closest('.dmap-room')) {
+        dmapLinking = null; renderDungeonEditor(a, ch);
+      }
+    });
+    box.querySelectorAll('.dmap-link-btn').forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        dmapLinking = { chId: ch.id, from: b.getAttribute('data-scene') };
+        renderDungeonEditor(a, ch);
+      };
+    });
+    box.querySelectorAll('.dmap-entry-btn').forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        ch.entryId = b.getAttribute('data-scene');
+        save(); renderDungeonEditor(a, ch);
+      };
+    });
+    box.querySelectorAll('.dmap-del-btn').forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        const sid = b.getAttribute('data-scene');
+        if (!confirm('Supprimer cette salle (et ses connecteurs) ?')) return;
+        ch.scenes = ch.scenes.filter(function (s) { return s.id !== sid; });
+        ch.links = ch.links.filter(function (l) { return l.from !== sid && l.to !== sid; });
+        if (ch.entryId === sid) ch.entryId = ch.scenes.length ? ch.scenes[0].id : null;
+        if (dmapLinking && dmapLinking.from === sid) dmapLinking = null;
+        save(); renderChapters(a);
+      };
+    });
+    box.querySelectorAll('.dmap-link-label').forEach(function (inp) {
+      inp.oninput = function () {
+        const i = +inp.closest('.dmap-link-row').getAttribute('data-i');
+        if (ch.links[i]) { ch.links[i].label = inp.value; save(); }
+      };
+      // À la sortie du champ : rafraîchit l'étiquette sur la carte.
+      inp.onchange = function () { renderDungeonEditor(a, ch); };
+    });
+    box.querySelectorAll('.dmap-link-del').forEach(function (b) {
+      b.onclick = function () {
+        const i = +b.closest('.dmap-link-row').getAttribute('data-i');
+        ch.links.splice(i, 1);
+        save(); renderDungeonEditor(a, ch);
+      };
+    });
+
+    // Glisser-déposer des cartouches (aimantés sur la grille) + clic pour éditer.
+    box.querySelectorAll('.dmap-room').forEach(function (el) {
+      const sid = el.getAttribute('data-scene');
+      el.addEventListener('mousedown', function (ev) {
+        if (ev.button !== 0 || ev.target.closest('button')) return;
+        const s = byId[sid]; if (!s) return;
+        const startX = ev.clientX, startY = ev.clientY;
+        const origL = s.mapX * DMAP_CELL_W + DMAP_PAD, origT = s.mapY * DMAP_CELL_H + DMAP_PAD;
+        let moved = false;
+        function onMove(e2) {
+          const dx = e2.clientX - startX, dy = e2.clientY - startY;
+          if (!moved && Math.abs(dx) + Math.abs(dy) < 7) return;
+          moved = true;
+          el.classList.add('dragging');
+          el.style.left = Math.max(0, origL + dx) + 'px';
+          el.style.top = Math.max(0, origT + dy) + 'px';
+        }
+        function onUp() {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          if (!moved) return;
+          const gx = Math.max(0, Math.round((parseFloat(el.style.left) - DMAP_PAD) / DMAP_CELL_W));
+          const gy = Math.max(0, Math.round((parseFloat(el.style.top) - DMAP_PAD) / DMAP_CELL_H));
+          const cell = dmapFreeCell(ch, gx, gy, sid);
+          s.mapX = cell.x; s.mapY = cell.y;
+          save(); renderDungeonEditor(a, ch);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        ev.preventDefault();
+      });
+      el.addEventListener('click', function (ev) {
+        if (ev.target.closest('button')) return;
+        if (el.classList.contains('dragging')) { el.classList.remove('dragging'); return; }
+        // Traçage en cours : ce clic désigne la salle d'arrivée du connecteur.
+        if (dmapLinking && dmapLinking.chId === ch.id) {
+          const from = dmapLinking.from;
+          dmapLinking = null;
+          if (from && from !== sid && !ch.links.some(function (l) {
+            return (l.from === from && l.to === sid) || (l.from === sid && l.to === from);
+          })) {
+            ch.links.push({ id: Store.uid(), from: from, to: sid, label: '' });
+            save();
+          }
+          renderDungeonEditor(a, ch);
+          return;
+        }
+        openSceneModal(a, ch.id, sid);
+      });
+    });
   }
 
   // ---------- Modale d'édition de scène ----------

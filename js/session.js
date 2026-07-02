@@ -93,6 +93,76 @@
     return null;
   }
 
+  // ---------- Donjons (chapitres structurés & aléatoires) ----------
+  function chapterMode(ch) { return (ch && (ch.mode === 'dungeon' || ch.mode === 'random')) ? ch.mode : 'linear'; }
+  // Salle d'entrée d'un donjon structuré (ch.entryId, sinon la 1re salle).
+  function dungeonEntryScene(ch) {
+    if (!ch || !ch.scenes.length) return null;
+    return ch.scenes.find(function (s) { return s.id === ch.entryId; }) || ch.scenes[0];
+  }
+  // Ordre d'un donjon aléatoire : Entrée(s) → salles mélangées (Fisher-Yates) → Sortie(s).
+  function buildRandomOrder(ch) {
+    const entries = [], exits = [], mids = [];
+    (ch.scenes || []).forEach(function (s) {
+      const role = s.roomRole || 'normal';
+      (role === 'entry' ? entries : role === 'exit' ? exits : mids).push(s.id);
+    });
+    if (!entries.length && mids.length) entries.push(mids.shift()); // à défaut de balise, la 1re salle sert d'entrée
+    for (let i = mids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = mids[i]; mids[i] = mids[j]; mids[j] = t;
+    }
+    return entries.concat(mids, exits);
+  }
+  // Ordre tiré au sort pour CETTE partie (généré à l'entrée du chapitre, puis
+  // stable jusqu'à la fin de la session — une nouvelle partie retire au sort).
+  function ensureRandomOrder(ses, adv, ch) {
+    if (!ses.randomOrders) ses.randomOrders = {};
+    let order = ses.randomOrders[ch.id];
+    if (Array.isArray(order) && order.length) {
+      // Purge les salles supprimées par le MJ depuis la génération.
+      const filtered = order.filter(function (id) { return ch.scenes.some(function (s) { return s.id === id; }); });
+      if (filtered.length) { ses.randomOrders[ch.id] = filtered; return filtered; }
+    }
+    order = buildRandomOrder(ch);
+    ses.randomOrders[ch.id] = order;
+    save();
+    return order;
+  }
+  // Première scène du chapitre suivant (sortie de donjon) — null si dernier chapitre.
+  function nextChapterEntryId(adv, chapter) {
+    const idx = adv.chapters.indexOf(chapter);
+    for (let i = idx + 1; i < adv.chapters.length; i++) {
+      if (adv.chapters[i].scenes.length) return adv.chapters[i].scenes[0].id;
+    }
+    return null;
+  }
+  // À l'ENTRÉE dans un chapitre spécial, corrige la scène d'arrivée : donjon
+  // structuré → salle d'entrée ; donjon aléatoire → 1re salle de l'ordre tiré.
+  function chapterEntryTarget(ses, adv, chapter, sceneId) {
+    const mode = chapterMode(chapter);
+    if (mode === 'dungeon') {
+      const e = dungeonEntryScene(chapter);
+      return e ? e.id : sceneId;
+    }
+    if (mode === 'random') {
+      const order = ensureRandomOrder(ses, adv, chapter);
+      return order.length ? order[0] : sceneId;
+    }
+    return sceneId;
+  }
+  // À la création d'une session : si le 1er chapitre est un donjon, on démarre
+  // sur sa véritable entrée (et non mécaniquement sur la 1re scène de la liste).
+  function initChapterEntry(ses, adv) {
+    const found = findScene(adv, ses.currentSceneId);
+    if (!found) return;
+    const target = chapterEntryTarget(ses, adv, found.chapter, ses.currentSceneId);
+    if (target !== ses.currentSceneId) {
+      ses.currentSceneId = target;
+      ses.visitedSceneIds = [target];
+    }
+  }
+
   // ---------- Démarrer / reprendre ----------
   function startFromAdventure(advId) {
     const adv = findAdventure(advId);
@@ -133,6 +203,7 @@
       levelGains: {},            // { heroId: { endu, damage, talents:[] } }
     };
     sessions.push(ses);
+    initChapterEntry(ses, adv);  // 1er chapitre en donjon : démarre sur l'entrée / l'ordre tiré
     save();
     activeSession = ses;
     // Demander quels héros engager
@@ -295,6 +366,18 @@
       return !ses.heroIds.length || ses.heroIds.indexOf(h.id) !== -1;
     });
 
+    // Progression dans les donjons : « Salle x/N » (aléatoire) ou salles visitées (structuré).
+    const chMode_ = chapterMode(chapter);
+    let roomTag = '';
+    if (chMode_ === 'random') {
+      const order = ensureRandomOrder(ses, adv, chapter);
+      const ri = order.indexOf(scene.id);
+      if (ri >= 0) roomTag = '<span class="tag ses-room-tag">🎲 Salle ' + (ri + 1) + '/' + order.length + '</span>';
+    } else if (chMode_ === 'dungeon') {
+      const nVisited = chapter.scenes.filter(function (s) { return (ses.visitedSceneIds || []).indexOf(s.id) >= 0; }).length;
+      roomTag = '<span class="tag ses-room-tag">🗺️ ' + nVisited + '/' + chapter.scenes.length + ' salles</span>';
+    }
+
     root.innerHTML =
       '<div class="ses-bar">' +
         '<div class="ses-bar-left">' +
@@ -302,6 +385,7 @@
           (chapter.title ? ' <span class="ses-ch-title">— ' + esc(chapter.title) + '</span>' : '') +
         '</div>' +
         '<div class="ses-bar-right">' +
+          roomTag +
           '<span class="tag">XP : ' + ses.party.xp + '</span>' +
           '<button id="ses-quit" class="ghost small">✕ Quitter</button>' +
         '</div>' +
@@ -339,7 +423,7 @@
       });
     });
 
-    renderSceneActions(scene, adv, ses);
+    renderSceneActions(scene, adv, ses, chapter);
   }
 
   function xpProgressHtml(ses) {
@@ -454,17 +538,94 @@
 
   // Le type de scène n'est qu'un libellé : on affiche les fonctions réellement
   // présentes dans la scène (récompense, combat, choix, suite), dans cet ordre.
-  function renderSceneActions(scene, adv, ses) {
+  // Dans les donjons, les sorties (connecteurs / salle suivante) n'apparaissent
+  // qu'une fois la salle « résolue » (pas de combat, ou combat gagné).
+  function renderSceneActions(scene, adv, ses, chapter) {
     const box = $('#ses-actions');
     if (!box) return;
     box.innerHTML = '';
+    const ch = chapter || (findScene(adv, scene.id) || {}).chapter;
+    const mode = chapterMode(ch);
+    const cleared = !!(ses.clearedScenes && ses.clearedScenes[scene.id]);
+    const hasCombat = sceneHasCombat(scene);
 
     if (sceneHasReward(scene)) renderRewardScene(box, scene, adv, ses);
-    if (sceneHasCombat(scene)) renderCombatScene(box, scene, adv, ses);
+    if (hasCombat && (mode === 'linear' || !cleared)) renderCombatScene(box, scene, adv, ses);
+    else if (hasCombat && cleared && mode !== 'linear') {
+      appendSection(box).innerHTML = '<p class="hint ses-room-cleared">⚔ Salle déjà nettoyée — les adversaires ont été vaincus.</p>';
+    }
     const hasChoices = scene.choices && scene.choices.length;
     if (hasChoices) renderChoicesPlay(box, scene, adv, ses);
     else if (scene.nextSceneId) renderNextButton(box, scene, adv, ses);
+    const resolved = !hasCombat || cleared;
+    if (mode === 'dungeon' && resolved) renderDungeonExits(box, ch, scene, adv, ses);
+    if (mode === 'random' && resolved && !hasChoices && !scene.nextSceneId) renderRandomNext(box, ch, scene, adv, ses);
     if (scene.type === 'fin') renderFinButton(box, scene, adv, ses);
+  }
+
+  // ----- Donjon structuré : sorties & accès de la salle (connecteurs) -----
+  function renderDungeonExits(box, chapter, scene, adv, ses) {
+    const links = (chapter && Array.isArray(chapter.links) ? chapter.links : []).filter(function (l) {
+      return l.from === scene.id || l.to === scene.id;
+    });
+    const sec = appendSection(box);
+    if (!links.length) {
+      sec.innerHTML = '<p class="hint">Aucune sortie reliée à cette salle.</p>';
+      return;
+    }
+    const titleOf = function (id) {
+      const f = findScene(adv, id);
+      return f ? (f.scene.title || 'Salle') : 'Salle';
+    };
+    sec.innerHTML = '<div class="ses-exits">' +
+      '<div class="ses-exits-title">🚪 Sorties &amp; accès</div>' +
+      '<div class="ses-exits-list">' +
+      links.map(function (l) {
+        const other = l.from === scene.id ? l.to : l.from;
+        const visited = (ses.visitedSceneIds || []).indexOf(other) >= 0;
+        const f = findScene(adv, other);
+        // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
+        // (pas d'indice sur les salles inconnues).
+        const danger = visited && f && sceneHasCombat(f.scene) && !(ses.clearedScenes && ses.clearedScenes[other]);
+        return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + '" data-to="' + esc(other) + '">' +
+          '<span class="ses-exit-lbl">' + esc(l.label || 'Passage') + '</span>' +
+          '<span class="ses-exit-to">→ ' + (visited ? esc(titleOf(other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
+        '</button>';
+      }).join('') +
+      '</div></div>';
+    sec.querySelectorAll('.ses-exit-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const to = b.getAttribute('data-to');
+        ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent.trim(), targetSceneId: to });
+        navigateTo(ses, adv, to);
+      });
+    });
+  }
+
+  // ----- Donjon aléatoire : enchaînement automatique vers la salle suivante -----
+  function renderRandomNext(box, chapter, scene, adv, ses) {
+    const order = ensureRandomOrder(ses, adv, chapter);
+    const idx = order.indexOf(scene.id);
+    const nextId = (idx >= 0 && idx < order.length - 1) ? order[idx + 1] : null;
+    const sec = appendSection(box);
+    if (nextId) {
+      sec.innerHTML = '<button class="primary" id="ses-rand-next">Continuer l\'exploration → ' +
+        '<span class="ses-rand-count">(salle ' + (idx + 2) + '/' + order.length + ')</span></button>';
+      sec.querySelector('#ses-rand-next').addEventListener('click', function () {
+        navigateTo(ses, adv, nextId);
+      });
+    } else {
+      // Dernière salle (Sortie) : on quitte le donjon vers le chapitre suivant.
+      const outId = nextChapterEntryId(adv, chapter);
+      if (outId) {
+        sec.innerHTML = '<button class="primary" id="ses-rand-out">🏁 Sortir du donjon →</button>';
+        sec.querySelector('#ses-rand-out').addEventListener('click', function () {
+          navigateTo(ses, adv, outId);
+        });
+      } else if (scene.type !== 'fin') {
+        sec.innerHTML = '<p class="hint">🏁 Fin du donjon — dernier chapitre de l\'aventure.</p>';
+      }
+    }
   }
 
   // La scène cible d'un choix déclenche-t-elle un combat ? (pour l'emoji ⚔️)
@@ -628,8 +789,19 @@
     // Récompenses de la scène courante : attribuées automatiquement en la quittant
     // (avant le contrôle de montée de niveau, pour que l'XP gagnée compte).
     grantSceneRewardsFromDOM(ses, adv);
-    const found = findScene(adv, sceneId);
+    let found = findScene(adv, sceneId);
     if (!found) return;
+    // Entrée dans un chapitre Donjon depuis un AUTRE chapitre : on arrive par la
+    // salle d'entrée (structuré) ou la 1re salle de l'ordre tiré (aléatoire).
+    const cur = findScene(adv, ses.currentSceneId);
+    if (!cur || cur.chapter.id !== found.chapter.id) {
+      const corrected = chapterEntryTarget(ses, adv, found.chapter, sceneId);
+      if (corrected !== sceneId) {
+        sceneId = corrected;
+        found = findScene(adv, sceneId);
+        if (!found) return;
+      }
+    }
     // Montée de niveau en attente : on affiche l'écran « Niveau Supérieur ! »
     // AVANT de poursuivre vers la scène suivante (un niveau à la fois).
     ensureLevelData(ses);
@@ -977,6 +1149,10 @@
         : 'grid-template-columns:1fr auto 1fr;grid-template-rows:1fr auto 1fr;');
     const preview = '<div class="combat-preview zc-' + nZones + '" style="' + gridStyle + '">' + zonesHtml + '</div>';
 
+    // Donjons : « Passer (victoire) » reste possible sans scène de suite — la salle
+    // est alors marquée nettoyée et l'on reste dedans (sorties débloquées).
+    const chF = findScene(adv, scene.id);
+    const dMode = chapterMode(chF ? chF.chapter : null);
     const sec = appendSection(box);
     sec.innerHTML =
       '<div class="ses-combat-block">' +
@@ -984,7 +1160,7 @@
         preview +
         '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">' +
           '<button class="primary" id="ses-start-combat">⚔ Lancer le combat</button>' +
-          (scene.outcomeSceneId
+          ((scene.outcomeSceneId || dMode !== 'linear')
             ? '<button class="ghost" id="ses-skip-victory">Passer (victoire)</button>' : '') +
           (scene.defeatSceneId
             ? '<button class="danger" id="ses-skip-defeat">Passer (défaite)</button>' : '') +
@@ -997,7 +1173,13 @@
     const sv = sec.querySelector('#ses-skip-victory');
     if (sv) sv.addEventListener('click', function () {
       if (!confirm('Passer le Combat (victoire) ? Vous ne gagnerez aucune récompense ni XP de ce combat.')) return;
-      navigateTo(ses, adv, scene.outcomeSceneId);
+      if (dMode !== 'linear') {
+        if (!ses.clearedScenes) ses.clearedScenes = {};
+        ses.clearedScenes[scene.id] = true;
+        save();
+      }
+      if (scene.outcomeSceneId) navigateTo(ses, adv, scene.outcomeSceneId);
+      else render();
     });
     const sd = sec.querySelector('#ses-skip-defeat');
     if (sd) sd.addEventListener('click', function () {
@@ -1147,6 +1329,12 @@
         ses.heroStates[hid] = Object.assign({}, ses.heroStates[hid], { pv: h.pv });
       }
     });
+    // Victoire : la salle est « nettoyée » (donjons : le combat ne se relance pas
+    // lors des visites suivantes, et les sorties de la salle se débloquent).
+    if (detail.outcome === 'victory' || detail.outcome === 'minor') {
+      if (!ses.clearedScenes) ses.clearedScenes = {};
+      if (ses.currentSceneId) ses.clearedScenes[ses.currentSceneId] = true;
+    }
     // XP du combat attribuée à la session (décorrélée de l'XP du mode Admin)
     if (detail.xp) ses.party.xp = (ses.party.xp || 0) + detail.xp;
     // Butin de combat : attribué à l'aventurier qui a achevé l'adversaire (à défaut au premier)
@@ -1420,7 +1608,9 @@
     };
     // Initialise les gains (talents de niveau 1 + équipement par défaut) de chaque engagé
     heroIds.forEach(function (hid) { heroGains(ses, hid); });
-    sessions.push(ses); save();
+    sessions.push(ses);
+    initChapterEntry(ses, adv);  // 1er chapitre en donjon : démarre sur l'entrée / l'ordre tiré
+    save();
     activeSession = ses;
     setupSel = {};
     // Lancement direct de la première scène (plus d'écran « L'Aventure commence »).
