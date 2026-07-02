@@ -445,6 +445,15 @@
         case 'dephasage':
           // Action pure : rend l'aventurier intouchable au prochain tour adverse.
           return Object.assign(common, { dephasage: true, targets: 'self', useOwnDamage: false, dice: D.emptyPool() });
+        case 'assaut':
+          // Action pure : tous les alliés de la zone attaquent gratuitement (moteur).
+          return Object.assign(common, { assaut: true, targets: 'self', useOwnDamage: false, dice: D.emptyPool() });
+        case 'eclipse':
+          // Téléportation dans la zone de la cible (franchit tout) puis 1 attaque.
+          return Object.assign(common, { range: 'contact', eclipse: true });
+        case 'bousculade':
+          // Attaque au contact puis pousse la cible (moteur).
+          return Object.assign(common, { range: 'contact', bousculade: true });
         case 'tir_charge':
           return Object.assign(common, { range: 'distance', bonusDmg: t.val || 0 });
         default:

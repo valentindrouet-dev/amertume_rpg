@@ -611,6 +611,12 @@
       desc: 'Vous pouvez effectuer 2 Actions lors de votre tour.' },
     { effect: 'a_bout_portant', name: 'À bout portant', kind: 'upgrade', hasVal: false,
       desc: 'Vous ne subissez pas de dégâts d\'opportunité en effectuant une attaque à distance dans la zone d\'un adversaire.' },
+    { effect: 'assaut', name: 'Assaut', kind: 'action', hasVal: false,
+      desc: 'Action : tous les aventuriers de votre zone (vous compris) effectuent immédiatement une attaque gratuite.' },
+    { effect: 'eclipse', name: 'Éclipse', kind: 'action', hasVal: false,
+      desc: 'Action : téléportez-vous dans une autre zone (vous franchissez toutes les barrières, même MURS et INFRANCHISSABLES) et effectuez 1 attaque.' },
+    { effect: 'bousculade', name: 'Bousculade', kind: 'action', hasVal: false,
+      desc: 'Action : 1 attaque au contact, puis vous forcez la cible à se déplacer dans une autre zone ; elle subit les attaques d\'opportunité des aventuriers de votre zone.' },
   ];
   function talentEffects() { return JSON.parse(JSON.stringify(TALENT_EFFECTS)); }
   function talentEffectMap() {

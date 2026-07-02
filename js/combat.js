@@ -845,6 +845,22 @@
   // Attaque d'opportunité d'un adversaire (sauf affaibli/coma).
   // reason : 'distance' (le héros tire à distance dans la zone) ou 'move'
   // (le héros quitte une zone occupée).
+  // Attaque d'opportunité d'un AVENTURIER contre un adversaire qui quitte sa zone
+  // (Bousculade) : inflige son bonus de dégâts, absorbé par un éventuel Blindage.
+  function heroOpportunity(hero, monster) {
+    if (!hero || hero.status !== 'active' || hero.states.affaibli) return;
+    const dmg = hero.damage || 0;
+    if (dmg <= 0 || monster.status !== 'active') return;
+    if (absorbBlindage(monster, 'l\'attaque d\'opportunité')) return;
+    const before = monster.pv;
+    monster.pv = Math.max(0, monster.pv - dmg);
+    monster.dmgTaken += dmg; hero.dmgDealt += dmg;
+    pushFx({ type: 'hit', iid: monster.iid, amount: dmg, fromPct: pct(before, monster.maxPv), toPct: pct(monster.pv, monster.maxPv) });
+    log('<b class="lopp">Attaque d\'Opportunité</b> : ' + cname(hero) + ' inflige ' + amt(dmg, 'dmg') + ' à ' + cname(monster) + ' (Bousculade).', 'dchoc');
+    if (monster.pv <= 0 && !monster.killedBy) monster.killedBy = hero.iid;
+    checkMonsterTalents(monster, dmg); checkComa(monster);
+  }
+
   function dchocFrom(monster, hero, reason) {
     if (monster.status !== 'active' || monster.states.affaibli) return 0;
     if (isDephased(hero)) return 0; // Déphasage : aucune attaque d'opportunité ne l'atteint
@@ -3406,7 +3422,9 @@
       if (attacker && attacker.side !== c.side) {
         const patk = attacker.attacks[pendingAttack.atkIndex];
         // BARRIÈRES : une cible derrière un mur/infranchissable n'est pas sélectionnable.
-        const reachOk = (patk && patk.range === 'contact')
+        // ÉCLIPSE : la téléportation permet de viser n'importe quelle zone.
+        const reachOk = (patk && patk.eclipse) ? true
+          : (patk && patk.range === 'contact')
           ? (c.zone === attacker.zone || moveBarrier(attacker.zone, c.zone).type !== 'block')
           : !shootBlocked(attacker.zone, c.zone);
         if (pendingAttack.multi) {
@@ -3500,6 +3518,14 @@
       if (!atk.freeAction) useAction(attacker);
       return;
     }
+    // ASSAUT : tous les aventuriers de la zone (vous compris) attaquent gratuitement.
+    if (atk.assaut) {
+      const zone = attacker.zone;
+      log('<b class="lreact">Assaut !</b> les aventuriers de la zone attaquent gratuitement.', 'state');
+      activeOf('hero').filter(function (h) { return h.zone === zone; }).forEach(function (h) { enqueueAllyFreeAttack(h, 'Assaut'); });
+      if (!atk.freeAction) useAction(attacker);
+      return;
+    }
     let deflagZone = null;
     // DÉFLAGRATION : lance tous les Orbes Mystiques restants (dés bleus) d'un coup.
     if (atk.deflagration) {
@@ -3546,6 +3572,25 @@
     if (atk.grantBlindageSelf && attacker.status === 'active') {
       attacker.states.blindage = true; pushFx({ type: 'state', iid: attacker.iid });
       log(cname(attacker) + ' gagne <span class="lstate">Blindage</span>.', 'state');
+    }
+    // BOUSCULADE : pousse la cible dans une autre zone ; elle subit les attaques
+    // d'opportunité des aventuriers de la zone de départ (celle de l'attaquant).
+    if (atk.bousculade && target && target.status === 'active' && target.zone === attacker.zone) {
+      const fromZone = target.zone;
+      const dest = zones().findIndex(function (z, zi) {
+        return zi !== fromZone && moveBarrier(fromZone, zi).type !== 'block';
+      });
+      if (dest >= 0) {
+        activeOf('hero').filter(function (h) { return h.zone === fromZone && h.iid !== target.iid; })
+          .forEach(function (h) { if (target.status === 'active') heroOpportunity(h, target); });
+        if (target.status === 'active') {
+          target.zone = dest; pushFx({ type: 'move', iid: target.iid });
+          log('<b class="lopp">Bousculade !</b> ' + cname(attacker) + ' repousse ' + cname(target) +
+            ' <span class="lstate">' + esc(zname(dest)) + '</span>.', 'state');
+          epinesOnArrival(target);
+        }
+        checkComa(target);
+      }
     }
     // COOPÉRATION : un allié GARDÉ de la zone attaque gratuitement (choix du joueur).
     if (atk.cooperation && attacker.status === 'active') triggerCooperation(attacker);
@@ -3817,6 +3862,15 @@
           const attacker = byId(pendingAttack.iid);
           if (!attacker) return;
           const atk = attacker.attacks[pendingAttack.atkIndex];
+          // ÉCLIPSE : téléportation (franchit toutes les barrières) dans la zone de
+          // la cible, sans dégâts d'opportunité, puis attaque.
+          if (atk && atk.eclipse && attacker.zone !== c.zone) {
+            movePrefix = { iid: attacker.iid, zone: zname(c.zone) };
+            attacker.zone = c.zone; pushFx({ type: 'move', iid: attacker.iid });
+            log(cname(attacker) + ' <span class="lstate">se téléporte</span> ' + esc(zname(c.zone)) + ' (Éclipse).', 'state');
+            execHeroAttack(attacker, pendingAttack.atkIndex, c);
+            return;
+          }
           // Assaut Mobile (freeMove) : le déplacement est gratuit (ne consomme pas le mouvement)
           // et peut s'enchaîner même si le mouvement a déjà été utilisé ce tour.
           if (atk && atk.range === 'contact' && attacker.zone !== c.zone) {
@@ -3919,8 +3973,8 @@
           pendingDesignate = null;
           // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
           if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
-          // DÉPHASAGE (auto-ciblé sur soi) : se résout immédiatement, sans ciblage.
-          if (atk.dephasage) { execHeroAttack(c, i, null); return; }
+          // DÉPHASAGE / ASSAUT (auto-ciblés) : se résolvent immédiatement, sans ciblage.
+          if (atk.dephasage || atk.assaut) { execHeroAttack(c, i, null); return; }
           // ORBES PARTAGÉS : on arme le ciblage des ALLIÉS (clic sur leurs vignettes),
           // sans pop-up. Re-clic = annuler.
           if (atk.orbeShare) {
