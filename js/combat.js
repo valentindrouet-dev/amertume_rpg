@@ -189,13 +189,19 @@
     const attacks = Combatants.monsterCombatAttacks(m);
     // BLINDAGE X : charges de blindage initiales (ignore X sources de dégâts)
     const armorT = (m.talents || []).find(function (t) { return t.trigger === 'armor_charges'; });
+    // FUSION : effets d'aventurier attribués à l'adversaire (appliqués par le moteur).
+    const advTalents = Combatants.resolveMonsterAdvTalents ? Combatants.resolveMonsterAdvTalents(m) : [];
+    const hasEsquiveEff = advTalents.some(function (t) { return t.effect === 'esquive_innee' || t.effect === 'esquive_6'; });
+    // RENFORCEMENT : le maximum de PV augmente du bonus de dégâts.
+    const renfort = advTalents.some(function (t) { return t.effect === 'renforcement'; }) ? (m.damage || 0) : 0;
     return {
       iid: 'M' + i + '-' + m.id.slice(-4),
       side: 'monster', templateId: m.id, name: m.name, imageUrl: m.imageUrl || null,
-      maxPv: m.pv, pv: m.pv,
+      maxPv: m.pv + renfort, pv: m.pv + renfort,
       def: Combatants.monsterTotalDef(m), damage: m.damage, xp: m.xp, type: m.type,
-      menace: m.menace, esquive: !!m.esquive, rapide: !!m.rapide, socle: m.socle,
+      menace: m.menace, esquive: !!m.esquive || hasEsquiveEff, rapide: !!m.rapide, socle: m.socle,
       attacks: attacks, attackUses: initUses(attacks),
+      talents: advTalents,
       talentLabels: Combatants.monsterTalentLabels(m),
       states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 },
       blindageCharges: armorT ? (armorT.charges || 0) : 0,
@@ -614,8 +620,10 @@
   // Franchit les terrains difficiles sans test : talent Pieds Sûrs (aventurier) /
   // AGILE (adversaire).
   function canSkipDifficult(c) {
+    // Pieds Sûrs (effet, side-neutre) OU AGILE (talent d'adversaire par déclencheur).
+    if (heroHasTalent(c, 'franchissement_libre')) return true;
     if (c.side === 'monster') return !!monsterTalent(c, 'cross_difficult_free');
-    return heroHasTalent(c, 'franchissement_libre');
+    return false;
   }
   // Test d'Agilité pour franchir une barrière Difficile (1d6 + Agilité, 4+ = réussite, 6 explosif).
   const BARRIER_NEED = { facile: 1, moyen: 2, difficile: 3 };
@@ -638,7 +646,7 @@
   function crossCheck(c, zi) {
     const mb = moveBarrier(c.zone, zi);
     // TÉLÉPORTATION (amélioration) : l'aventurier franchit toutes les barrières.
-    if (c.side === 'hero' && heroHasTalent(c, 'teleportation')) {
+    if (heroHasTalent(c, 'teleportation')) {
       if (mb.type) log(cname(c) + ' <span class="lstate">se téléporte</span> à travers la barrière.', 'state');
       return 'ok';
     }
@@ -671,7 +679,7 @@
     if (atk && atk.range === 'contact') return attacker.zone === target.zone;
     // CAMOUFLAGE (passif) : une cible aventurier ne peut être visée à distance
     // depuis une AUTRE zone.
-    if (target && target.side === 'hero' && attacker.zone !== target.zone && heroHasTalent(target, 'camouflage')) return false;
+    if (target && attacker.zone !== target.zone && heroHasTalent(target, 'camouflage')) return false;
     return !shootBlocked(attacker.zone, target.zone);
   }
   // Adversaires actifs présents dans la zone de l'attaquant (pour les dégâts-choc)
@@ -895,8 +903,8 @@
     }
     const poisonVal = atk.effects.poison || 0;
     if (poisonVal > 0) toApply.push('poison');
-    // IMMUNITÉ (amélioration) : la cible ne subit jamais l'état choisi.
-    if (target.side === 'hero' && Array.isArray(target.talents)) {
+    // IMMUNITÉ (amélioration) : la cible ne subit jamais l'état choisi (side-neutre).
+    if (Array.isArray(target.talents)) {
       const immune = {};
       target.talents.forEach(function (t) { if (t.effect === 'immun_etat' && t.choice) immune[t.choice] = true; });
       for (let i = toApply.length - 1; i >= 0; i--) {
@@ -952,7 +960,7 @@
     }
     // FORCE BLINDÉE : +1 dé rouge (Lourd) tant que l'attaquant a Blindage (dynamique).
     // (COUP DE BOUCLIER est ajouté statiquement aux dés de l'attaque — visible sur le bouton.)
-    if (attacker.side === 'hero' && heroHasTalent(attacker, 'force_blindee') && hasBlindage(attacker)) {
+    if (heroHasTalent(attacker, 'force_blindee') && hasBlindage(attacker)) {
       pool.red = (pool.red || 0) + 1;
     }
     // COMBUSTION : +1 dé bleu contre un adversaire affecté par FEU.
@@ -994,10 +1002,10 @@
     const noFumble = target.states.auSol && attacker.side === 'hero' && heroHasTalent(attacker, 'pas_echec_ausol');
     // DESTRUCTEUR (maîtrise) : critique sur tout double. BOUCLIER MYSTIQUE : la cible
     // aventurier ignore les dégâts des dés bleus.
-    const destructeur = attacker.side === 'hero' && heroHasTalent(attacker, 'critique_destructeur');
-    const ignoreBlue = target.side === 'hero' && heroHasTalent(target, 'bouclier_mystique');
+    const destructeur = heroHasTalent(attacker, 'critique_destructeur');
+    const ignoreBlue = heroHasTalent(target, 'bouclier_mystique');
     // SOLIDITÉ (amélioration) : la DEF de l'aventurier bloque aussi les dés rouges.
-    const defBlocksRed = target.side === 'hero' && heroHasTalent(target, 'solidite');
+    const defBlocksRed = heroHasTalent(target, 'solidite');
     // ORBE : par défaut un Orbe ne réalise pas de critique (sauf Orbe Critique).
     const noCrit = attacker.side === 'hero' && atk.orbNoCrit;
     const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue, defBlocksRed: defBlocksRed, noCrit: noCrit });
@@ -1058,9 +1066,9 @@
       return;
     }
 
-    // CUIRASSE (talent passif) : réduit les dégâts subis par l'aventurier.
+    // CUIRASSE (talent passif) : réduit les dégâts subis (side-neutre).
     let cuir = 0;
-    if (res.pvLost > 0 && target.side === 'hero') {
+    if (res.pvLost > 0) {
       cuir = heroTalentVal(target, 'cuirasse');
       if (cuir > 0) {
         const before = res.pvLost;
@@ -1076,7 +1084,7 @@
     }
     // ACCENTUATION (passif) : un critique inflige le double du bonus de dégâts
     // (on ajoute une seconde fois le bonus déjà compté).
-    if (res.critique && res.pvLost > 0 && attacker.side === 'hero' && heroHasTalent(attacker, 'accentuation') && (attacker.damage || 0) > 0) {
+    if (res.critique && res.pvLost > 0 && heroHasTalent(attacker, 'accentuation') && (attacker.damage || 0) > 0) {
       res.pvLost += attacker.damage;
       log(cname(attacker) + ' <span class="lstate">Accentuation</span> : +' + amt(attacker.damage, 'dmg') + ' dégâts (critique).', 'state');
     }
@@ -1560,7 +1568,7 @@
   // ASSASSINAT : retourne 'bonus' | 'attaque' | null selon le choix du talent et
   // si la cible remplit la condition (seul dans sa zone / solitaire / alpha / boss).
   function assassinatEffect(attacker, target) {
-    if (attacker.side !== 'hero' || !target || target.side !== 'monster') return null;
+    if (!attacker || !target || attacker.side === target.side) return null;
     if (!Array.isArray(attacker.talents)) return null;
     const t = attacker.talents.find(function (x) { return x.effect === 'assassinat'; });
     if (!t || !t.choice) return null;
@@ -1568,8 +1576,9 @@
     const what = ch.indexOf('attaque') >= 0 ? 'attaque' : 'bonus';
     let ok = false;
     if (ch.indexOf('seul') >= 0) {
+      // « Seul dans sa zone » : la cible n'a aucun allié dans sa zone.
       ok = combat().combatants.filter(function (m) {
-        return m.side === 'monster' && m.status === 'active' && m.zone === target.zone;
+        return m.side === target.side && m.status === 'active' && m.zone === target.zone;
       }).length <= 1;
     } else if (ch.indexOf('solitaire') >= 0) { ok = target.type === 'solitaire'; }
     else if (ch.indexOf('alpha') >= 0) { ok = target.type === 'alpha'; }
@@ -1589,7 +1598,7 @@
         case 'tueur_affaibli': if (target.states.affaibli) bonus += t.val || 0; break;
         case 'meute': {
           const allies = combat().combatants.filter(function (c) {
-            return c.side === 'hero' && c.status === 'active' && c.iid !== attacker.iid && c.zone === target.zone;
+            return c.side === attacker.side && c.status === 'active' && c.iid !== attacker.iid && c.zone === target.zone;
           }).length;
           bonus += allies * (t.val || 1);
           break;
@@ -1599,9 +1608,10 @@
     return bonus;
   }
 
-  // Un aventurier possède-t-il un talent d'effet donné ?
+  // Un combattant possède-t-il un talent d'effet donné ? (side-neutre : s'applique
+  // aussi aux adversaires porteurs d'effets d'aventurier — fusion des talents.)
   function heroHasTalent(c, effect) {
-    return c && c.side === 'hero' && Array.isArray(c.talents) &&
+    return c && Array.isArray(c.talents) &&
       c.talents.some(function (t) { return t.effect === effect; });
   }
   // Consomme l'Action d'un combattant. SURVITAMINÉ (amélioration) : l'aventurier
@@ -1657,12 +1667,12 @@
     return t ? (t.scope || 'count') : 'count';
   }
 
-  // Retourne le bonus de dégâts (talents de l'attaquant + soutien de zone)
+  // Retourne le bonus de dégâts (talents de l'attaquant + soutien de zone).
+  // Les effets passifs (c.talents) s'appliquent aux DEUX camps (fusion).
   function getTalentDmgBonus(attacker, target, atk) {
-    if (attacker.side === 'hero') return getHeroTalentDmgBonus(attacker, target, atk);
-    if (attacker.side !== 'monster') return 0;
+    let bonus = getHeroTalentDmgBonus(attacker, target, atk);
+    if (attacker.side !== 'monster') return bonus;
     const tpl = Store.state.monsters.find(function (m) { return m.id === attacker.templateId; });
-    let bonus = 0;
     // SOUTIEN : chaque adversaire « soutien » présent dans la zone de l'attaquant ajoute +X.
     combat().combatants.forEach(function (c) {
       if (c.side !== 'monster' || c.status !== 'active' || c.zone !== attacker.zone) return;

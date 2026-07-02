@@ -125,6 +125,13 @@ button { font-family: inherit; }
 }
 /* Étiquette de chapitre (organisation du bestiaire). */
 .tag.tag-chapter { background: rgba(122,90,168,.16); color: #7a5aa8; border-color: rgba(122,90,168,.4); }
+/* Sélecteur d'effets d'aventurier pour un adversaire (fusion des talents). */
+.adv-talents-picker { display: flex; flex-direction: column; gap: .6rem; }
+.adv-eff-group-title { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .25rem; }
+.adv-eff-row { display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; padding: .18rem .1rem; border-bottom: 1px solid rgba(120,120,120,.12); }
+.adv-eff-row input[type="checkbox"] { flex: 0 0 auto; }
+.adv-eff-name { font-weight: 700; flex: 0 0 auto; }
+.adv-eff-desc { color: var(--muted); font-size: .8rem; flex: 1 1 12rem; min-width: 0; }
 /* Sélection multiple du bestiaire. */
 .roster-card.mon-selected { outline: 2px solid var(--accent-2); outline-offset: 1px; }
 .mon-check { width: 17px; height: 17px; margin-right: .1rem; flex: 0 0 auto; cursor: pointer; }

@@ -310,6 +310,22 @@
   // Résout les talents d'un aventurier en objets complets (fusion avec la
   // bibliothèque des effets : kind, val). chosenIds = liste choisie aux montées
   // de niveau ; null (mode Admin) → tous les talents jusqu'au niveau du groupe.
+  // FUSION : résout les effets d'aventurier attribués à un adversaire (m.advTalents
+  // = [{effect, val, choice}]) au même format que les talents d'aventurier résolus.
+  function resolveMonsterAdvTalents(m) {
+    const cat = Store.talentEffectMap();
+    return (m && Array.isArray(m.advTalents) ? m.advTalents : [])
+      .filter(function (t) { return t && t.effect && cat[t.effect]; })
+      .map(function (t) {
+        const c = cat[t.effect];
+        return {
+          id: 'madv_' + t.effect, name: c.name, effect: t.effect, kind: c.kind,
+          val: (typeof t.val === 'number') ? t.val : (c.defaultVal || 0),
+          choice: t.choice || (c.hasChoice && c.choices ? c.choices[0] : null),
+          description: c.desc || '', scope: 'count',
+        };
+      });
+  }
   function resolveHeroTalents(chosenIds) {
     const cat = Store.talentEffectMap();
     const out = [];
@@ -1338,6 +1354,46 @@
   // ================= MONSTRES =================
   let monsterAttacks = [];
   let monsterTalents = [];
+  let monsterAdvTalents = []; // effets d'aventurier attribués à l'adversaire (fusion)
+
+  // Effets d'aventurier applicables automatiquement à un adversaire (pris en charge
+  // par le moteur côté-neutre). Groupés pour l'éditeur.
+  const ADV_EFFECT_GROUPS = [
+    { title: 'Bonus de dégâts', effects: ['frappe_lourde', 'maitre_distance', 'tueur_au_sol', 'tueur_affaibli', 'meute', 'assassinat', 'accentuation'] },
+    { title: 'Critique', effects: ['critique_destructeur'] },
+    { title: 'Défense', effects: ['cuirasse', 'solidite', 'bouclier_mystique', 'garde_imprenable', 'immun_etat', 'esquive_innee', 'esquive_6', 'renforcement'] },
+    { title: 'Attaque / Déplacement', effects: ['force_blindee', 'camouflage', 'teleportation', 'franchissement_libre'] },
+  ];
+  function findAdvEff(effect) { return monsterAdvTalents.find(function (t) { return t.effect === effect; }); }
+  function buildAdvTalentsPicker(container) {
+    if (!container) return;
+    const cat = Store.talentEffectMap();
+    container.innerHTML = ADV_EFFECT_GROUPS.map(function (g) {
+      const rows = g.effects.filter(function (e) { return cat[e]; }).map(function (e) {
+        const m = cat[e]; const sel = findAdvEff(e); const on = !!sel;
+        let extra = '';
+        if (on && m.hasVal) extra += ' <input type="number" class="adv-val" data-eff="' + e + '" value="' + (sel.val != null ? sel.val : (m.defaultVal || 0)) + '" style="width:52px" title="' + esc(m.valLabel || 'X') + '" />';
+        if (on && m.hasChoice) extra += ' <select class="adv-choice" data-eff="' + e + '">' + (m.choices || []).map(function (c) { return '<option value="' + esc(c) + '"' + (sel.choice === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select>';
+        return '<label class="adv-eff-row"><input type="checkbox" class="adv-check" data-eff="' + e + '"' + (on ? ' checked' : '') + ' /> ' +
+          '<span class="adv-eff-name">' + esc(m.name) + '</span> <span class="adv-eff-desc">' + esc(m.desc || '') + '</span>' + extra + '</label>';
+      }).join('');
+      return '<div class="adv-eff-group"><div class="adv-eff-group-title">' + esc(g.title) + '</div>' + rows + '</div>';
+    }).join('');
+    container.querySelectorAll('.adv-check').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        const e = cb.getAttribute('data-eff'); const m = cat[e];
+        if (cb.checked) { if (!findAdvEff(e)) monsterAdvTalents.push({ effect: e, val: (m.hasVal ? (m.defaultVal || 0) : 0), choice: (m.hasChoice && m.choices ? m.choices[0] : null) }); }
+        else { monsterAdvTalents = monsterAdvTalents.filter(function (t) { return t.effect !== e; }); }
+        buildAdvTalentsPicker(container);
+      });
+    });
+    container.querySelectorAll('.adv-val').forEach(function (inp) {
+      inp.addEventListener('input', function () { const t = findAdvEff(inp.getAttribute('data-eff')); if (t) t.val = parseInt(inp.value, 10) || 0; });
+    });
+    container.querySelectorAll('.adv-choice').forEach(function (s) {
+      s.addEventListener('change', function () { const t = findAdvEff(s.getAttribute('data-eff')); if (t) t.choice = s.value; });
+    });
+  }
   let monsterEquip = [];   // [{ itemId, loot }]  armes/armures équipées
   let monsterLoot = [];    // [{ itemId, loot, qty }]  butin du groupe
 
@@ -1789,6 +1845,8 @@
     buildLootEditor($('#m-loot'), monsterLoot, { withQty: true });
     monsterTalents = isEdit ? JSON.parse(JSON.stringify(m.talents || [])) : [];
     buildTalentsEditor($('#m-talents'), monsterTalents);
+    monsterAdvTalents = isEdit ? JSON.parse(JSON.stringify(m.advTalents || [])) : [];
+    buildAdvTalentsPicker($('#m-adv-talents'));
     $('#btn-delete-monster').hidden = !isEdit;
     $('#monster-modal').hidden = false;
     $('#m-name').focus();
@@ -1817,6 +1875,7 @@
       equipment: monsterEquip.filter(function (r) { return r.itemId; }),
       loot: monsterLoot.filter(function (r) { return r.itemId; }),
       talents: monsterTalents,
+      advTalents: monsterAdvTalents.filter(function (t) { return t.effect; }),
     };
     if (existing) Object.assign(existing, data);
     else Store.state.monsters.push(data);
@@ -1950,6 +2009,7 @@
     heroDef: heroDef,
     heroCombatAttacks: heroCombatAttacks,
     resolveHeroTalents: resolveHeroTalents,
+    resolveMonsterAdvTalents: resolveMonsterAdvTalents,
     attacksSummary: attacksSummary,
     heroCardHtml: heroCardHtml,
     TYPE_LABEL: TYPE_LABEL,
