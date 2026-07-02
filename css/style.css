@@ -2208,9 +2208,9 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   .combat-card.fx-heal, .combat-card.fx-state, .combat-card.fx-move,
   .combat-card.on-fire, .fx-shake,
   .ab-atk:not(:disabled), .ab-orbes:not(:disabled), .ab-talent.ab-gardien-btn { animation: none; }
-  /* Sans animation : un contour clair marque les talents cliquables. */
+  /* Sans animation : le liseré interne clair reste bien visible. */
   .ab-atk:not(:disabled), .ab-orbes:not(:disabled), .ab-talent.ab-gardien-btn {
-    box-shadow: 0 0 0 1px rgba(255,236,180,.9);
+    box-shadow: inset 0 0 0 2px rgba(255,232,170,.95), 0 0 8px 2px rgba(255,214,120,.7);
   }
 }
 
@@ -2430,29 +2430,33 @@ img.ab-atk-name {
   background: rgba(226,151,74,.08); pointer-events: none; z-index: 1;
 }
 .combat-card { cursor: pointer; }
-/* Aventurier SÉLECTIONNÉ : fond aux couleurs de sa classe. Le filter:saturate(2)
-   déjà appliqué à .selected les rend « 2× plus vives » → repérage immédiat. */
-.combat-card.side-hero.selected.klass-apothicaire { background: #dcefd0; }
-.combat-card.side-hero.selected.klass-artificier  { background: #f3e6c6; }
-.combat-card.side-hero.selected.klass-chasseur    { background: #d8f0cf; }
-.combat-card.side-hero.selected.klass-destructeur { background: #f6d9d2; }
-.combat-card.side-hero.selected.klass-deviant     { background: #e6def4; }
-.combat-card.side-hero.selected.klass-gardien     { background: #d7e3f1; }
-.combat-card.side-hero.selected.klass-lamevent    { background: #d2f0e9; }
-.combat-card.side-hero.selected.klass-pyromane    { background: #f6ddc6; }
-/* Repli si l'aventurier n'a pas de classe : or clair, très identifiable. */
-.combat-card.side-hero.selected { background: #f6e2a8; }
+/* Aventurier SÉLECTIONNÉ : fond aux couleurs VIVES de sa classe (nettement plus
+   saturées que le pastel des vignettes non sélectionnées → repérage immédiat). */
+.combat-card.side-hero.selected { filter: none; }
+.combat-card.side-hero.selected .roster-name { color: #1b1408; text-shadow: 0 1px 1px rgba(255,255,255,.35); }
+.combat-card.side-hero.selected.klass-apothicaire { background: #86c96f !important; }
+.combat-card.side-hero.selected.klass-artificier  { background: #e2ba55 !important; }
+.combat-card.side-hero.selected.klass-chasseur    { background: #7fc668 !important; }
+.combat-card.side-hero.selected.klass-destructeur { background: #e0836b !important; }
+.combat-card.side-hero.selected.klass-deviant     { background: #ac8fd2 !important; }
+.combat-card.side-hero.selected.klass-gardien     { background: #7fabe0 !important; }
+.combat-card.side-hero.selected.klass-lamevent    { background: #6ac9b8 !important; }
+.combat-card.side-hero.selected.klass-pyromane    { background: #eca06a !important; }
+/* Repli si l'aventurier n'a pas de classe : or vif, très identifiable. */
+.combat-card.side-hero.selected { background: #f4cf5e !important; }
 
-/* Talents / actions CLIQUABLES du bandeau : léger rayonnement pulsé pour lever
-   tout doute sur ce qui est activable (désactivé sous prefers-reduced-motion). */
+/* Talents / actions CLIQUABLES du bandeau : liseré interne clair TOUJOURS visible
+   (jamais rogné par un conteneur, ni par prefers-reduced-motion) + halo externe
+   pulsé. Aucun doute possible sur ce qui est activable. */
 @keyframes ab-usable-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
-  50%      { box-shadow: 0 0 7px 1px rgba(255,236,180,.85); }
+  0%, 100% { box-shadow: inset 0 0 0 2px rgba(255,224,150,.8), 0 0 6px 1px rgba(255,214,120,.5); }
+  50%      { box-shadow: inset 0 0 0 2px rgba(255,240,200,1), 0 0 13px 3px rgba(255,214,120,.9); }
 }
 .ab-atk:not(:disabled),
 .ab-orbes:not(:disabled),
 .ab-talent.ab-gardien-btn {
-  animation: ab-usable-glow 1.6s ease-in-out infinite;
+  box-shadow: inset 0 0 0 2px rgba(255,224,150,.85), 0 0 7px 1px rgba(255,214,120,.6);
+  animation: ab-usable-glow 1.5s ease-in-out infinite;
 }
 .ab-atk:not(:disabled):hover,
 .ab-orbes:not(:disabled):hover,
