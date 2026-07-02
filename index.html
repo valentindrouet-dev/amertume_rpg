@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertüme Solo RPG</title>
-  <link rel="stylesheet" href="css/style.css?v=2.2.92" />
+  <link rel="stylesheet" href="css/style.css?v=2.2.93" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -105,12 +105,23 @@
           <select id="monster-filter-family">
             <option value="">Toutes familles</option>
           </select>
+          <select id="monster-filter-chapter">
+            <option value="">Tous chapitres</option>
+          </select>
           <select id="monster-sort">
             <option value="danger">Tri : danger ↓</option>
             <option value="name">Tri : nom</option>
             <option value="type">Tri : type</option>
             <option value="family">Tri : famille</option>
+            <option value="chapter">Tri : chapitre</option>
           </select>
+          <button id="monster-select-toggle" class="ghost small">☑ Sélectionner</button>
+        </div>
+        <div id="monster-bulk" class="filters" hidden>
+          <span class="io-label"><b id="monster-bulk-count">0</b> sélectionné(s) — appliquer un chapitre :</span>
+          <select id="monster-bulk-chapter"><option value="">— Chapitre —</option></select>
+          <button id="monster-bulk-apply" class="primary small">Appliquer</button>
+          <button id="monster-bulk-clear" class="ghost small">Tout désélectionner</button>
         </div>
         <div id="monster-list" class="roster-list"></div>
       </div>
@@ -464,6 +475,9 @@
           <label>Nom <input type="text" id="m-name" required placeholder="Nom du monstre" /></label>
           <label>Famille <input type="text" id="m-family" list="family-list" placeholder="Mort-vivant, Bête…" /></label>
         </div>
+        <div class="form-row">
+          <label>Chapitre (organisation) <select id="m-chapter"><option value="">— Aucun —</option></select></label>
+        </div>
         <datalist id="family-list"></datalist>
         <div class="stat-grid">
           <label>PV <input type="number" id="m-pv" min="1" value="6" /></label>
@@ -677,18 +691,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.2.92"></script>
-  <script src="js/store.js?v=2.2.92"></script>
-  <script src="js/inventory.js?v=2.2.92"></script>
-  <script src="js/combatants.js?v=2.2.92"></script>
-  <script src="js/combat.js?v=2.2.92"></script>
-  <script src="js/classes.js?v=2.2.92"></script>
-  <script src="js/tutorial.js?v=2.2.92"></script>
-  <script src="js/adventure.js?v=2.2.92"></script>
-  <script src="js/session.js?v=2.2.92"></script>
-  <script src="js/dataio.js?v=2.2.92"></script>
-  <script src="js/share.js?v=2.2.92"></script>
-  <script src="js/shell.js?v=2.2.92"></script>
-  <script src="js/main.js?v=2.2.92"></script>
+  <script src="js/dice.js?v=2.2.93"></script>
+  <script src="js/store.js?v=2.2.93"></script>
+  <script src="js/inventory.js?v=2.2.93"></script>
+  <script src="js/combatants.js?v=2.2.93"></script>
+  <script src="js/combat.js?v=2.2.93"></script>
+  <script src="js/classes.js?v=2.2.93"></script>
+  <script src="js/tutorial.js?v=2.2.93"></script>
+  <script src="js/adventure.js?v=2.2.93"></script>
+  <script src="js/session.js?v=2.2.93"></script>
+  <script src="js/dataio.js?v=2.2.93"></script>
+  <script src="js/share.js?v=2.2.93"></script>
+  <script src="js/shell.js?v=2.2.93"></script>
+  <script src="js/main.js?v=2.2.93"></script>
 </body>
 </html>

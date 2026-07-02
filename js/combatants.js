@@ -1628,16 +1628,54 @@
 
   function addMonsterTalentToCatalog() { openTalentAdvModal(null); }
 
+  // Chapitres d'aventure (organisation du bestiaire).
+  function allChapters() {
+    const out = [];
+    (Store.loadAdventures() || []).forEach(function (a) {
+      (a.chapters || []).forEach(function (c) {
+        out.push({ id: c.id, label: (a.title || 'Aventure') + ' / ' + (c.title || 'Chapitre') });
+      });
+    });
+    return out;
+  }
+  function chapterLabelById(id) {
+    if (!id) return '';
+    const c = allChapters().find(function (x) { return x.id === id; });
+    return c ? c.label : '';
+  }
+  function fillChapterSelect(sel, current, placeholder) {
+    if (!sel) return;
+    sel.innerHTML = '<option value="">' + placeholder + '</option>' +
+      allChapters().map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.label) + '</option>'; }).join('');
+    sel.value = current || '';
+  }
+  // Sélection multiple du bestiaire (application groupée d'un champ).
+  let monSelectMode = false;
+  const monSelected = {};
+  function updateBulkBar() {
+    const bar = $('#monster-bulk');
+    if (bar) bar.hidden = !monSelectMode;
+    const n = Object.keys(monSelected).filter(function (k) { return monSelected[k]; }).length;
+    const c = $('#monster-bulk-count');
+    if (c) c.textContent = n;
+    const tog = $('#monster-select-toggle');
+    if (tog) tog.classList.toggle('active', monSelectMode);
+  }
+
   function renderMonsters() {
     const list = $('#monster-list');
     refreshFamilyControls();
+    fillChapterSelect($('#monster-filter-chapter'), ($('#monster-filter-chapter') || {}).value || '', 'Tous chapitres');
+    fillChapterSelect($('#monster-bulk-chapter'), ($('#monster-bulk-chapter') || {}).value || '', '— Chapitre —');
     const term = ($('#monster-search').value || '').toLowerCase().trim();
     const type = $('#monster-filter-type').value;
     const family = ($('#monster-filter-family') || {}).value || '';
     const sort = ($('#monster-sort') || {}).value || 'danger';
+    const chapFilter = ($('#monster-filter-chapter') || {}).value || '';
     const monsters = Store.state.monsters.filter(function (m) {
       if (type && m.type !== type) return false;
       if (family && (m.family || '') !== family) return false;
+      if (chapFilter && (m.chapterId || '') !== chapFilter) return false;
       if (term && m.name.toLowerCase().indexOf(term) === -1) return false;
       return true;
     });
@@ -1645,6 +1683,7 @@
       if (sort === 'name') return a.name.localeCompare(b.name);
       if (sort === 'type') return (TYPE_RANK[b.type] || 0) - (TYPE_RANK[a.type] || 0) || a.name.localeCompare(b.name);
       if (sort === 'family') return (a.family || '~').localeCompare(b.family || '~') || a.name.localeCompare(b.name);
+      if (sort === 'chapter') return (chapterLabelById(a.chapterId) || '~~~').localeCompare(chapterLabelById(b.chapterId) || '~~~') || a.name.localeCompare(b.name);
       return (b.xp || 0) - (a.xp || 0); // danger : par XP décroissante
     });
     if (!monsters.length) {
@@ -1652,10 +1691,13 @@
       return;
     }
     list.innerHTML = monsters.map(function (m) {
-      return '<div class="roster-card type-' + m.type + '">' +
+      const chLabel = chapterLabelById(m.chapterId);
+      return '<div class="roster-card type-' + m.type + (monSelected[m.id] ? ' mon-selected' : '') + '">' +
         '<div class="roster-head">' +
+          (monSelectMode ? '<input type="checkbox" class="mon-check" data-mon="' + m.id + '"' + (monSelected[m.id] ? ' checked' : '') + ' />' : '') +
           '<span class="roster-name">' + esc(m.name) + '</span>' +
           '<span class="tag type">' + (TYPE_LABEL[m.type] || m.type) + '</span>' +
+          (chLabel ? '<span class="tag tag-chapter">📖 ' + esc(chLabel) + '</span>' : '') +
           (m.family ? '<span class="tag">' + esc(m.family) + '</span>' : '') +
           (m.rapide ? '<span class="tag">Rapide</span>' : '') +
           (m.esquive ? '<span class="tag">Esq. 6+</span>' : '') +
@@ -1690,6 +1732,14 @@
         }
       });
     });
+    list.querySelectorAll('.mon-check[data-mon]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        monSelected[cb.getAttribute('data-mon')] = cb.checked;
+        cb.closest('.roster-card').classList.toggle('mon-selected', cb.checked);
+        updateBulkBar();
+      });
+    });
+    updateBulkBar();
   }
 
   // Met à jour la liste des familles (filtre + datalist) selon le bestiaire
@@ -1717,6 +1767,7 @@
     $('#m-id').value = isEdit ? m.id : '';
     $('#m-name').value = isEdit ? m.name : '';
     $('#m-family').value = isEdit ? (m.family || '') : '';
+    fillChapterSelect($('#m-chapter'), isEdit ? (m.chapterId || '') : '', '— Aucun —');
     refreshFamilyControls();
     $('#m-pv').value = isEdit ? m.pv : 6;
     $('#m-def').value = isEdit ? m.def : 3;
@@ -1749,6 +1800,7 @@
     const data = {
       id: id, name: $('#m-name').value.trim() || 'Monstre',
       family: $('#m-family').value.trim(),
+      chapterId: ($('#m-chapter') && $('#m-chapter').value) || '',
       pv: parseInt($('#m-pv').value, 10) || 1,
       def: parseInt($('#m-def').value, 10) || 0,
       damage: parseInt($('#m-damage').value, 10) || 0,
@@ -1824,7 +1876,30 @@
     $('#monster-search').addEventListener('input', renderMonsters);
     $('#monster-filter-type').addEventListener('change', renderMonsters);
     $('#monster-filter-family').addEventListener('change', renderMonsters);
+    $('#monster-filter-chapter').addEventListener('change', renderMonsters);
     $('#monster-sort').addEventListener('change', renderMonsters);
+    // Sélection multiple + application groupée d'un chapitre.
+    $('#monster-select-toggle').addEventListener('click', function () {
+      monSelectMode = !monSelectMode;
+      if (!monSelectMode) Object.keys(monSelected).forEach(function (k) { delete monSelected[k]; });
+      renderMonsters();
+    });
+    $('#monster-bulk-clear').addEventListener('click', function () {
+      Object.keys(monSelected).forEach(function (k) { delete monSelected[k]; });
+      renderMonsters();
+    });
+    $('#monster-bulk-apply').addEventListener('click', function () {
+      const chId = $('#monster-bulk-chapter').value;
+      const ids = Object.keys(monSelected).filter(function (k) { return monSelected[k]; });
+      if (!ids.length) { alert('Sélectionne au moins un adversaire.'); return; }
+      ids.forEach(function (id) {
+        const m = Store.state.monsters.find(function (x) { return x.id === id; });
+        if (m) m.chapterId = chId || '';
+      });
+      Store.save();
+      alert(ids.length + ' adversaire(s) affilié(s) à : ' + (chapterLabelById(chId) || '— Aucun —'));
+      renderMonsters();
+    });
     $('#btn-delete-monster').addEventListener('click', function () {
       const id = $('#m-id').value;
       if (id && confirm('Supprimer ce monstre ?')) {
