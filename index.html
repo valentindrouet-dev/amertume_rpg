@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertüme Solo RPG</title>
-  <link rel="stylesheet" href="css/style.css?v=2.2.95" />
+  <link rel="stylesheet" href="css/style.css?v=2.2.96" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -502,9 +502,13 @@
           <label>Menace
             <select id="m-menace">
               <option value="closest">Plus proche</option>
-              <option value="pvLow">PV bas</option>
-              <option value="pvHigh">PV haut</option>
-              <option value="defLow">DEF basse</option>
+              <option value="pvLow">PV les plus bas</option>
+              <option value="pvHigh">PV les plus hauts</option>
+              <option value="defLow">DEF la plus basse</option>
+              <option value="defHigh">DEF la plus haute</option>
+              <option value="dmgHigh">Dégâts les plus hauts</option>
+              <option value="ranged">Attaque à distance</option>
+              <option value="isolated">Isolé (seul en zone)</option>
             </select>
           </label>
           <label class="checkbox inline"><input type="checkbox" id="m-esquive" /> Esquive 6+</label>
@@ -691,18 +695,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.2.95"></script>
-  <script src="js/store.js?v=2.2.95"></script>
-  <script src="js/inventory.js?v=2.2.95"></script>
-  <script src="js/combatants.js?v=2.2.95"></script>
-  <script src="js/combat.js?v=2.2.95"></script>
-  <script src="js/classes.js?v=2.2.95"></script>
-  <script src="js/tutorial.js?v=2.2.95"></script>
-  <script src="js/adventure.js?v=2.2.95"></script>
-  <script src="js/session.js?v=2.2.95"></script>
-  <script src="js/dataio.js?v=2.2.95"></script>
-  <script src="js/share.js?v=2.2.95"></script>
-  <script src="js/shell.js?v=2.2.95"></script>
-  <script src="js/main.js?v=2.2.95"></script>
+  <script src="js/dice.js?v=2.2.96"></script>
+  <script src="js/store.js?v=2.2.96"></script>
+  <script src="js/inventory.js?v=2.2.96"></script>
+  <script src="js/combatants.js?v=2.2.96"></script>
+  <script src="js/combat.js?v=2.2.96"></script>
+  <script src="js/classes.js?v=2.2.96"></script>
+  <script src="js/tutorial.js?v=2.2.96"></script>
+  <script src="js/adventure.js?v=2.2.96"></script>
+  <script src="js/session.js?v=2.2.96"></script>
+  <script src="js/dataio.js?v=2.2.96"></script>
+  <script src="js/share.js?v=2.2.96"></script>
+  <script src="js/shell.js?v=2.2.96"></script>
+  <script src="js/main.js?v=2.2.96"></script>
 </body>
 </html>

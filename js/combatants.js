@@ -10,7 +10,8 @@
   const esc = function (s) { return Inventory.escapeHtml(s); };
 
   const RANGE_LABEL = { contact: 'Contact', distance: 'Distance' };
-  const MENACE_LABEL = { closest: 'Plus proche', pvLow: 'PV bas', pvHigh: 'PV haut', defLow: 'DEF basse' };
+  const MENACE_LABEL = { closest: 'Plus proche', pvLow: 'PV bas', pvHigh: 'PV haut', defLow: 'DEF basse',
+    defHigh: 'DEF haute', dmgHigh: 'Dégâts hauts', ranged: 'À distance', isolated: 'Isolé' };
   const TYPE_LABEL = { standard: 'Sbire', solitaire: 'Solitaire', alpha: 'Alpha', boss: 'Boss' };
   const CLASSES = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
     'Gardien', 'Lamevent', 'Pyromane'];
@@ -1399,12 +1400,16 @@
     { key: 'yellow', label: 'Jaune (Phase)' },
     { key: 'black',  label: 'Noir (Mortel)' },
   ];
-  // Critères de désignation de la cible pour le talent « Proie ».
+  // Critères de désignation de la cible pour le talent « Proie » (et priorités
+  // de ciblage en général). Mêmes clés que les priorités de focus des adversaires.
   const MARK_TARGET_MODES = [
     { key: 'most_pv',   label: 'Le plus de PV' },
     { key: 'least_pv',  label: 'Le moins de PV' },
     { key: 'least_def', label: 'La plus faible DEF' },
     { key: 'most_def',  label: 'La plus forte DEF' },
+    { key: 'dmgHigh',   label: 'Les plus gros dégâts' },
+    { key: 'ranged',    label: 'Attaque à distance' },
+    { key: 'isolated',  label: 'Isolé (seul en zone)' },
     { key: 'random',    label: 'Aléatoire' },
   ];
   function triggerDef(id) {

@@ -1526,17 +1526,11 @@
     });
     return out;
   }
-  // Sélectionne l'aventurier désigné selon le critère choisi.
+  // Sélectionne l'aventurier désigné selon le critère choisi. Réutilise focusPick
+  // (mêmes priorités que le ciblage d'attaque). Compat. anciens modes PROIE.
+  const MARK_MODE_MAP = { least_pv: 'pvLow', most_pv: 'pvHigh', least_def: 'defLow', most_def: 'defHigh' };
   function pickMarkTarget(heroes, mode) {
-    const list = heroes.slice();
-    switch (mode) {
-      case 'least_pv':  return list.sort(function (a, b) { return a.pv - b.pv; })[0];
-      case 'least_def': return list.sort(function (a, b) { return a.def - b.def; })[0];
-      case 'most_def':  return list.sort(function (a, b) { return b.def - a.def; })[0];
-      case 'random':    return list[Math.floor(Math.random() * list.length)];
-      case 'most_pv':
-      default:          return list.sort(function (a, b) { return b.pv - a.pv; })[0];
-    }
+    return focusPick(heroes, MARK_MODE_MAP[mode] || mode || 'pvHigh');
   }
   function designateMarkedHero() {
     const c = combat();
@@ -1921,14 +1915,45 @@
     return (t.choice === 'elite') ? isElite : (m.type === 'standard');
   }
   // Sélection d'une cible selon la menace, parmi un ensemble de candidats
+  // Un aventurier possède-t-il une attaque à distance ?
+  function heroHasRangedAttack(h) {
+    return Array.isArray(h.attacks) && h.attacks.some(function (a) { return a && a.range === 'distance'; });
+  }
+  // Nombre d'aventuriers actifs dans la zone d'un aventurier (pour « isolé »).
+  function zoneHeroCount(zone) {
+    return activeOf('hero').filter(function (h) { return h.zone === zone; }).length;
+  }
+  // Sélection d'un aventurier-cible selon une priorité de focus (partagée par le
+  // ciblage d'attaque des adversaires et la désignation PROIE).
+  function focusPick(list, mode) {
+    if (!list || !list.length) return null;
+    const a = list.slice();
+    switch (mode) {
+      case 'pvLow':   return minBy(a, function (h) { return h.pv; });
+      case 'pvHigh':  return maxBy(a, function (h) { return h.pv; });
+      case 'defLow':  return minBy(a, function (h) { return h.def; });
+      case 'defHigh': return maxBy(a, function (h) { return h.def; });
+      case 'dmgHigh': return maxBy(a, function (h) { return h.damage || 0; });
+      case 'ranged': {
+        const r = a.filter(heroHasRangedAttack);
+        return (r.length ? r : a)[0];
+      }
+      case 'isolated': {
+        const iso = a.filter(function (h) { return zoneHeroCount(h.zone) === 1; });
+        // Parmi les isolés (ou à défaut tous), on privilégie les PV les plus bas.
+        return minBy((iso.length ? iso : a), function (h) { return h.pv; });
+      }
+      case 'random':  return a[Math.floor(Math.random() * a.length)];
+      case 'closest':
+      default:        return a[0];
+    }
+  }
   function chooseFrom(monster, candidates) {
     if (!candidates || !candidates.length) return null;
+    // MENACE (talent d'aventurier) : un aventurier peut forcer l'adversaire à le viser.
     const taunters = candidates.filter(function (h) { return heroMenaces(h, monster); });
     const pool = taunters.length ? taunters : candidates;
-    if (monster.menace === 'pvLow') return minBy(pool, function (h) { return h.pv; });
-    if (monster.menace === 'pvHigh') return maxBy(pool, function (h) { return h.pv; });
-    if (monster.menace === 'defLow') return minBy(pool, function (h) { return h.def; });
-    return pool[0];
+    return focusPick(pool, monster.menace) || pool[0];
   }
 
   function minBy(arr, f) { return arr.reduce(function (a, b) { return f(b) < f(a) ? b : a; }); }
