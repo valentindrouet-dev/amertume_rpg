@@ -535,6 +535,37 @@
     return !!(bar && bar.type === 'mur');
   }
 
+  // Routage entre zones : renvoie la PROCHAINE zone vers laquelle avancer d'un pas
+  // pour rejoindre `toZone` (plus court chemin, BFS), en contournant les barrières
+  // infranchissables (mur/infranchissable). Les barrières Difficiles restent des
+  // arêtes praticables (franchies via un test au moment de s'y engager). Renvoie
+  // `toZone` si l'accès est direct, ou -1 si aucune route n'existe. C'est ce qui
+  // permet à un adversaire de contact de contourner un ravin par une zone libre au
+  // lieu de rester bloqué face à lui.
+  function zoneStep(fromZone, toZone) {
+    if (fromZone === toZone) return toZone;
+    // Accès direct (aucune barrière bloquante) : on y va tout de suite.
+    if (moveBarrier(fromZone, toZone).type !== 'block') return toZone;
+    const n = zoneCount();
+    const prev = {}; const seen = {};
+    seen[fromZone] = true;
+    let queue = [fromZone];
+    while (queue.length) {
+      const z = queue.shift();
+      for (let k = 0; k < n; k++) {
+        if (seen[k] || k === z) continue;
+        if (moveBarrier(z, k).type === 'block') continue; // barrière infranchissable
+        seen[k] = true; prev[k] = z; queue.push(k);
+        if (k === toZone) {
+          let cur = k; // remonte jusqu'au premier pas depuis fromZone
+          while (prev[cur] !== fromZone) cur = prev[cur];
+          return cur;
+        }
+      }
+    }
+    return -1; // aucune route (cible totalement isolée par des murs)
+  }
+
   // ----- Disposition des zones (carré 2x2) et séparateurs de barrière -----
   // Position [ligne, colonne] de chaque zone dans une grille 3x3 (les pistes
   // « auto » 2 et 2 servent de gouttières où l'on place les séparateurs).
@@ -1755,10 +1786,11 @@
       }
     }
     const sameZone = heroes.filter(function (h) { return h.zone === m.zone; });
-    const otherZone = heroes.filter(function (h) { return h.zone !== m.zone; });
     // BARRIÈRES : cibles atteignables au tir (pas d'Obstruante) et au déplacement (pas de blocage).
     const shootable = heroes.filter(function (h) { return !shootBlocked(m.zone, h.zone); });
-    const reachable = heroes.filter(function (h) { return h.zone === m.zone || moveBarrier(m.zone, h.zone).type !== 'block'; });
+    // Cibles vers lesquelles une route de déplacement existe (directe OU en
+    // contournant les murs par une zone libre — cf. zoneStep).
+    const routable = heroes.filter(function (h) { return h.zone === m.zone || zoneStep(m.zone, h.zone) >= 0; });
     const distIdx = usableAttackIdx(m, 'distance');
     const contactIdx = usableAttackIdx(m, 'contact');
 
@@ -1769,33 +1801,42 @@
     } else if (distIdx >= 0 && shootable.length) {
       const distTargets = shootable.filter(function (h) { return h.zone !== m.zone; });
       applyAttack(m, distIdx, chooseFrom(m, distTargets.length ? distTargets : shootable));
-    // 3) Seulement du contact, personne dans la zone → se déplace vers une cible accessible puis frappe
+    // 3) Seulement du contact, personne dans la zone → avance vers une cible
+    //    accessible (en contournant les barrières infranchissables si nécessaire),
+    //    puis frappe si l'on parvient dans sa zone ce tour-ci.
     } else if (contactIdx >= 0) {
-      const target = chooseFrom(m, reachable.length ? reachable : heroes);
+      const target = chooseFrom(m, routable.length ? routable : heroes);
       let moved = false;
       if (target && !m.used.move && target.zone !== m.zone) {
-        // BARRIÈRES : infranchissable/mur bloque ; Difficile exige un test d'Agilité
-        // (échec → mouvement perdu, pas d'attaque ce tour).
-        const cross = crossCheck(m, target.zone);
-        if (cross === 'ok') {
-          m.zone = target.zone; m.used.move = true; moved = true;
-          pushFx({ type: 'move', iid: m.iid });
-          epinesOnArrival(m); // ÉPINES : dégâts en arrivant dans la zone d'un aventurier
+        // Pas suivant sur la route vers la cible : zone voisine directe si accès
+        // libre, sinon zone-relais qui rapproche de la cible.
+        const step = zoneStep(m.zone, target.zone);
+        if (step >= 0 && step !== m.zone) {
+          // BARRIÈRES : infranchissable/mur bloque ; Difficile exige un test d'Agilité
+          // (échec → mouvement perdu, pas d'attaque ce tour).
+          const cross = crossCheck(m, step);
+          if (cross === 'ok') {
+            m.zone = step; m.used.move = true; moved = true;
+            pushFx({ type: 'move', iid: m.iid });
+            epinesOnArrival(m); // ÉPINES : dégâts en arrivant dans la zone d'un aventurier
+          } else {
+            m.used.move = true; // tentative ratée ou zone bloquée : le mouvement est consommé
+          }
         } else {
-          m.used.move = true; // tentative ratée ou zone bloquée : le mouvement est consommé
+          m.used.move = true; // aucune route vers la cible : mouvement consommé
         }
-      } else if (target && target.zone === m.zone) {
-        // déjà dans la zone : pas de déplacement nécessaire
       }
       // LENT : un adversaire qui s'est déplacé ne peut plus attaquer ce tour.
       if (moved && monsterTalent(m, 'slow')) {
         log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span> mais est <span class="lstate">Lent</span> : pas d\'attaque.', 'state');
       } else if (target && target.zone === m.zone) {
-        // Fusionne déplacement + attaque sur une seule ligne du journal.
+        // Parvenu dans la zone de la cible : fusionne déplacement + attaque sur une
+        // seule ligne du journal.
         if (moved) movePrefix = { iid: m.iid, zone: zname(m.zone) };
         applyAttack(m, contactIdx, target);
       } else if (moved) {
-        log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
+        // Déplacement d'approche (relais) : se rapproche sans encore atteindre la cible.
+        log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span> pour se rapprocher.', 'move');
       }
     }
   }
