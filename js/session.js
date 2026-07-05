@@ -1078,12 +1078,12 @@
       const out = {};
       if (Array.isArray(raw)) {
         raw.forEach(function (b, i) {
-          if (b && b.type && b.type !== 'none') out[i + '-' + (i + 1)] = { type: b.type === 'obstruante' ? 'mur' : b.type };
+          if (b && b.type && b.type !== 'none') out[i + '-' + (i + 1)] = { type: b.type === 'obstruante' ? 'mur' : b.type, name: b.name || '' };
         });
       } else if (raw && typeof raw === 'object') {
         Object.keys(raw).forEach(function (k) {
           const b = raw[k];
-          if (b && b.type && b.type !== 'none') out[k] = { type: b.type === 'obstruante' ? 'mur' : b.type };
+          if (b && b.type && b.type !== 'none') out[k] = { type: b.type === 'obstruante' ? 'mur' : b.type, name: b.name || '' };
         });
       }
       return out;
@@ -1097,6 +1097,8 @@
     }
     const B_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile' };
     const B_NAME = { infranchissable: 'INFRANCHISSABLE', mur: 'MUR', difficile: 'DIFFICILE' };
+    // Nom affiché sur la barrière : nom personnalisé du MJ, sinon libellé du type.
+    const barName = function (bar) { return (bar && bar.name && bar.name.trim()) ? bar.name.trim() : (B_NAME[bar && bar.type] || ''); };
     const Z_POS = { 1: [[1, 1]], 2: [[1, 1], [1, 3]], 3: [[1, 1], [1, 3], [3, 1]], 4: [[1, 1], [1, 3], [3, 1], [3, 3]] };
     const Z_SEPS = [
       { pair: [0, 1], row: 1, col: 2, dir: 'v' }, { pair: [2, 3], row: 3, col: 2, dir: 'v' },
@@ -1131,7 +1133,7 @@
       if (!bar) return;
       zonesHtml += '<div class="zone-sep zone-sep-' + e.dir + ' barrier-' + bar.type + '"' +
         ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';" title="' + (B_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
-        '<span class="zone-sep-lbl">' + (B_NAME[bar.type] || '') + '</span></div>';
+        '<span class="zone-sep-lbl">' + esc(barName(bar)) + '</span></div>';
     });
     // Séparateurs diagonaux (paires 1-4 et 2-3) au centre de la grille.
     let zDiagHtml = '';
@@ -1141,7 +1143,7 @@
       if (!bar) return;
       zDiagHtml += '<div class="zone-sep-diag ' + d.dir + ' barrier-' + bar.type + '"' +
         ' title="' + (B_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
-        '<span class="zone-sep-lbl">' + (B_NAME[bar.type] || '') + '</span></div>';
+        '<span class="zone-sep-lbl">' + esc(barName(bar)) + '</span></div>';
     });
     if (zDiagHtml) zonesHtml += '<div class="zone-sep-diag-wrap" style="grid-row:2;grid-column:2;">' + zDiagHtml + '</div>';
     const gridStyle = nZones <= 1 ? 'grid-template-columns:1fr;'

@@ -152,6 +152,15 @@
     save(); renderChapters(a);
   }
 
+  // Réordonne les chapitres d'une aventure (dir = -1 monter, +1 descendre).
+  function moveChapter(a, chId, dir) {
+    const i = a.chapters.findIndex(function (c) { return c.id === chId; });
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= a.chapters.length) return;
+    const tmp = a.chapters[i]; a.chapters[i] = a.chapters[j]; a.chapters[j] = tmp;
+    save(); renderChapters(a);
+  }
+
   function moveScene(a, chId, sceneId, dir) {
     const ch = a.chapters.find(function (c) { return c.id === chId; });
     if (!ch) return;
@@ -328,14 +337,20 @@
       box.innerHTML = '<p class="empty">Aucune aventure. Crée-en une pour commencer.</p>';
       return;
     }
-    box.innerHTML = adventures.map(function (a) {
+    const n = adventures.length;
+    box.innerHTML = adventures.map(function (a, i) {
       const chCount = a.chapters.length;
       const scCount = a.chapters.reduce(function (n, ch) { return n + ch.scenes.length; }, 0);
       return '<div class="adv-card roster-card">' +
         '<div class="roster-head">' +
+          '<span class="org-arrows">' +
+            '<button class="icon-btn adv-up" data-id="' + a.id + '"' + (i === 0 ? ' disabled' : '') + ' title="Monter">↑</button>' +
+            '<button class="icon-btn adv-down" data-id="' + a.id + '"' + (i === n - 1 ? ' disabled' : '') + ' title="Descendre">↓</button>' +
+          '</span>' +
           '<span class="roster-name">' + esc(a.title) + '</span>' +
           '<span class="tag">' + chCount + ' ch. · ' + scCount + ' sc.</span>' +
           '<button class="ghost small adv-edit" data-id="' + a.id + '">Éditer</button>' +
+          '<button class="ghost small adv-dup" data-id="' + a.id + '" title="Dupliquer cette aventure">⧉ Dupliquer</button>' +
           '<button class="icon-btn adv-del" data-id="' + a.id + '" title="Supprimer">✕</button>' +
         '</div>' +
       '</div>';
@@ -343,6 +358,15 @@
 
     box.querySelectorAll('.adv-edit').forEach(function (b) {
       b.addEventListener('click', function () { openEditor(b.getAttribute('data-id')); });
+    });
+    box.querySelectorAll('.adv-dup').forEach(function (b) {
+      b.addEventListener('click', function () { duplicateAdventure(b.getAttribute('data-id')); });
+    });
+    box.querySelectorAll('.adv-up').forEach(function (b) {
+      b.addEventListener('click', function () { moveAdventure(b.getAttribute('data-id'), -1); });
+    });
+    box.querySelectorAll('.adv-down').forEach(function (b) {
+      b.addEventListener('click', function () { moveAdventure(b.getAttribute('data-id'), 1); });
     });
     box.querySelectorAll('.adv-del').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -355,6 +379,54 @@
         save(); saveOrg(); renderList(); renderHomeOrg();
       });
     });
+  }
+
+  // Réordonne la liste des aventures éditables (dir = -1 monter, +1 descendre).
+  function moveAdventure(id, dir) {
+    const i = adventures.findIndex(function (a) { return a.id === id; });
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= adventures.length) return;
+    const tmp = adventures[i]; adventures[i] = adventures[j]; adventures[j] = tmp;
+    save(); renderList();
+  }
+
+  // Duplique une aventure entière (nouveaux identifiants pour l'aventure, ses
+  // chapitres, scènes, blocs, choix et connecteurs de donjon), insérée juste après.
+  function duplicateAdventure(id) {
+    const idx = adventures.findIndex(function (a) { return a.id === id; });
+    if (idx < 0) return;
+    const copy = JSON.parse(JSON.stringify(adventures[idx]));
+    copy.id = Store.uid();
+    copy.title = incrementSceneTitle(adventures[idx].title || 'Aventure');
+    (copy.chapters || []).forEach(function (ch) {
+      const map = {}; // ancien id de scène → nouvel id (pour recâbler les liens internes)
+      ch.id = Store.uid();
+      (ch.scenes || []).forEach(function (s) {
+        const nid = Store.uid(); map[s.id] = nid; s.id = nid;
+        if (Array.isArray(s.blocks)) s.blocks.forEach(function (b) { b.id = Store.uid(); });
+        if (Array.isArray(s.choices)) s.choices.forEach(function (c) { c.id = Store.uid(); });
+      });
+      // Recâble les cibles de navigation (choix, suite, combat) sur les nouveaux ids.
+      (ch.scenes || []).forEach(function (s) {
+        if (s.nextSceneId && map[s.nextSceneId]) s.nextSceneId = map[s.nextSceneId];
+        if (s.outcomeSceneId && map[s.outcomeSceneId]) s.outcomeSceneId = map[s.outcomeSceneId];
+        if (s.defeatSceneId && map[s.defeatSceneId]) s.defeatSceneId = map[s.defeatSceneId];
+        (s.choices || []).forEach(function (c) {
+          if (c.targetSceneId && map[c.targetSceneId]) c.targetSceneId = map[c.targetSceneId];
+          if (c.successSceneId && map[c.successSceneId]) c.successSceneId = map[c.successSceneId];
+          if (c.failSceneId && map[c.failSceneId]) c.failSceneId = map[c.failSceneId];
+        });
+      });
+      // Recâble l'entrée et les connecteurs d'un donjon structuré.
+      if (ch.entryId && map[ch.entryId]) ch.entryId = map[ch.entryId];
+      if (Array.isArray(ch.links)) ch.links.forEach(function (l) {
+        l.id = Store.uid();
+        if (map[l.from]) l.from = map[l.from];
+        if (map[l.to]) l.to = map[l.to];
+      });
+    });
+    adventures.splice(idx + 1, 0, copy);
+    save(); renderList();
   }
 
   // ---------- Éditeur d'aventure ----------
@@ -442,6 +514,10 @@
       return '<div class="adv-chapter adv-chapter-' + mode + (collapsed ? ' collapsed' : '') + '" data-ch="' + ch.id + '">' +
         '<div class="adv-ch-head">' +
           '<button type="button" class="icon-btn adv-ch-toggle" data-ch="' + ch.id + '" title="' + (collapsed ? 'Dérouler' : 'Enrouler') + '">' + (collapsed ? '▸' : '▾') + '</button>' +
+          '<span class="org-arrows">' +
+            '<button type="button" class="icon-btn adv-ch-up" data-ch="' + ch.id + '"' + (ci === 0 ? ' disabled' : '') + ' title="Monter le chapitre">↑</button>' +
+            '<button type="button" class="icon-btn adv-ch-down" data-ch="' + ch.id + '"' + (ci === a.chapters.length - 1 ? ' disabled' : '') + ' title="Descendre le chapitre">↓</button>' +
+          '</span>' +
           '<span class="adv-ch-num">Chapitre ' + (ci + 1) + '</span>' +
           '<input type="text" class="adv-ch-title" data-ch="' + ch.id + '" value="' + esc(ch.title) + '" placeholder="Titre du chapitre" />' +
           '<select class="adv-ch-mode" data-ch="' + ch.id + '" title="Type de chapitre">' + modeOpts + '</select>' +
@@ -452,6 +528,12 @@
       '</div>';
     }).join('');
 
+    box.querySelectorAll('.adv-ch-up').forEach(function (b) {
+      b.addEventListener('click', function () { moveChapter(a, b.getAttribute('data-ch'), -1); });
+    });
+    box.querySelectorAll('.adv-ch-down').forEach(function (b) {
+      b.addEventListener('click', function () { moveChapter(a, b.getAttribute('data-ch'), 1); });
+    });
     box.querySelectorAll('.adv-ch-toggle').forEach(function (b) {
       b.addEventListener('click', function () {
         const id = b.getAttribute('data-ch');
