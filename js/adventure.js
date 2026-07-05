@@ -189,6 +189,10 @@
     } else if (scene.type !== 'fin') {
       if (scene.nextSceneId) links.push({ label: 'suite', targetId: scene.nextSceneId });
     }
+    // Passage débloqué par un test de fouille réussi.
+    if (scene.searchTest && scene.searchTest.enabled && scene.searchTest.targetSceneId) {
+      links.push({ label: '🔍 fouille ✓', targetId: scene.searchTest.targetSceneId });
+    }
     return links;
   }
 
@@ -416,6 +420,9 @@
           if (c.successSceneId && map[c.successSceneId]) c.successSceneId = map[c.successSceneId];
           if (c.failSceneId && map[c.failSceneId]) c.failSceneId = map[c.failSceneId];
         });
+        if (s.searchTest && s.searchTest.targetSceneId && map[s.searchTest.targetSceneId]) {
+          s.searchTest.targetSceneId = map[s.searchTest.targetSceneId];
+        }
       });
       // Recâble l'entrée et les connecteurs d'un donjon structuré.
       if (ch.entryId && map[ch.entryId]) ch.entryId = map[ch.entryId];
@@ -1013,7 +1020,10 @@
     // Récompense
     document.getElementById('sm-xp').value = scene.xpReward || 0;
     document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
-    renderItemRewards(scene, items);
+    renderItemRewards(scene);
+
+    // Test de compétence (fouille)
+    renderSearchTest(scene, adv);
   }
 
   function renderBlocksEditor(scene) {
@@ -1343,9 +1353,15 @@
     return items.filter(function (it) { return itemRewardType(it) === type; });
   }
 
-  function renderItemRewards(scene, items) {
-    const box = document.getElementById('sm-item-rewards');
-    box.innerHTML = (scene.itemRewards || []).map(function (ref, i) {
+  // Éditeur générique d'une liste de récompenses-objets, réutilisable (récompense
+  // de scène ET test de fouille). `boxId` = conteneur, `list` = tableau muté sur
+  // place, `addId` = id du bouton d'ajout.
+  function renderItemRewardsList(boxId, list, addId) {
+    const items = Store.state.items;
+    const box = document.getElementById(boxId);
+    if (!box) return;
+    const rerender = function () { renderItemRewardsList(boxId, list, addId); };
+    box.innerHTML = (list || []).map(function (ref, i) {
       const cur = ref.itemId ? items.find(function (x) { return x.id === ref.itemId; }) : null;
       const type = ref.type || (cur ? itemRewardType(cur) : 'weapon');
       const typeOpts = REWARD_TYPES.map(function (t) {
@@ -1361,28 +1377,74 @@
         '<button type="button" class="icon-btn ir-del">✕</button>' +
       '</div>';
     }).join('') +
-    '<button type="button" class="ghost small" id="sm-add-ir">+ Objet</button>';
+    '<button type="button" class="ghost small" id="' + addId + '">+ Objet</button>';
 
     box.querySelectorAll('.ir-type').forEach(function (sel, i) {
-      sel.onchange = function () {
-        scene.itemRewards[i].type = this.value;
-        scene.itemRewards[i].itemId = ''; // change de type → réinitialise l'objet choisi
-        renderItemRewards(scene, Store.state.items);
-      };
+      sel.onchange = function () { list[i].type = this.value; list[i].itemId = ''; rerender(); };
     });
     box.querySelectorAll('.ir-item').forEach(function (sel, i) {
-      sel.onchange = function () { scene.itemRewards[i].itemId = this.value; };
+      sel.onchange = function () { list[i].itemId = this.value; };
     });
     box.querySelectorAll('.ir-qty').forEach(function (inp, i) {
-      inp.oninput = function () { scene.itemRewards[i].qty = Math.max(1, parseInt(this.value, 10) || 1); };
+      inp.oninput = function () { list[i].qty = Math.max(1, parseInt(this.value, 10) || 1); };
     });
     box.querySelectorAll('.ir-del').forEach(function (b, i) {
-      b.onclick = function () { scene.itemRewards.splice(i, 1); renderItemRewards(scene, Store.state.items); };
+      b.onclick = function () { list.splice(i, 1); rerender(); };
     });
-    const addBtn = document.getElementById('sm-add-ir');
-    if (addBtn) addBtn.onclick = function () {
-      scene.itemRewards.push({ itemId: '', qty: 1, type: 'weapon' });
-      renderItemRewards(scene, Store.state.items);
+    const addBtn = document.getElementById(addId);
+    if (addBtn) addBtn.onclick = function () { list.push({ itemId: '', qty: 1, type: 'weapon' }); rerender(); };
+  }
+  function renderItemRewards(scene) {
+    if (!Array.isArray(scene.itemRewards)) scene.itemRewards = [];
+    renderItemRewardsList('sm-item-rewards', scene.itemRewards, 'sm-add-ir');
+  }
+
+  // Test de compétence « de fouille » : test facultatif tenté une seule fois dans
+  // la scène, accordant une récompense (objet/XP) et/ou un passage en cas de réussite.
+  function ensureSearchTest(scene) {
+    if (!scene.searchTest || typeof scene.searchTest !== 'object') {
+      scene.searchTest = { enabled: false, label: '', skill: 'Perception', difficulty: 'moyen',
+        successText: '', failText: '', xpReward: 0, itemRewards: [], targetSceneId: null };
+    }
+    const st = scene.searchTest;
+    if (typeof st.enabled !== 'boolean') st.enabled = false;
+    if (!Array.isArray(st.itemRewards)) st.itemRewards = [];
+    if (!st.skill) st.skill = 'Perception';
+    if (!st.difficulty) st.difficulty = 'moyen';
+    return st;
+  }
+  function renderSearchTest(scene, adv) {
+    const st = ensureSearchTest(scene);
+    const enabledCb = document.getElementById('sm-st-enabled');
+    const body = document.getElementById('sm-st-body');
+    if (!enabledCb || !body) return;
+    enabledCb.checked = !!st.enabled;
+    body.hidden = !st.enabled;
+    enabledCb.onchange = function () { st.enabled = this.checked; body.hidden = !this.checked; save(); renderChapters(adv); };
+
+    document.getElementById('sm-st-label').value = st.label || '';
+    document.getElementById('sm-st-label').oninput = function () { st.label = this.value; };
+    document.getElementById('sm-st-skill').innerHTML = SKILLS.map(function (s) {
+      return '<option value="' + s + '"' + (st.skill === s ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+    document.getElementById('sm-st-skill').onchange = function () { st.skill = this.value; };
+    document.getElementById('sm-st-diff').innerHTML = [['facile', 'Facile (1)'], ['moyen', 'Moyen (2)'], ['difficile', 'Difficile (3)']].map(function (d) {
+      return '<option value="' + d[0] + '"' + (st.difficulty === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
+    }).join('');
+    document.getElementById('sm-st-diff').onchange = function () { st.difficulty = this.value; };
+    document.getElementById('sm-st-success').value = st.successText || '';
+    document.getElementById('sm-st-success').oninput = function () { st.successText = this.value; };
+    document.getElementById('sm-st-fail').value = st.failText || '';
+    document.getElementById('sm-st-fail').oninput = function () { st.failText = this.value; };
+    document.getElementById('sm-st-xp').value = st.xpReward || 0;
+    document.getElementById('sm-st-xp').onchange = function () { st.xpReward = Math.max(0, parseInt(this.value, 10) || 0); };
+    renderItemRewardsList('sm-st-item-rewards', st.itemRewards, 'sm-add-st-ir');
+
+    const curCh = chapterOfScene(adv, scene.id);
+    const allScenes = buildAllScenes(adv, curCh ? curCh.id : null);
+    document.getElementById('sm-st-target').innerHTML = sceneTargetOptions(allScenes, st.targetSceneId, adv);
+    document.getElementById('sm-st-target').onchange = function () {
+      if (handleTargetSelect(this.value, scene, adv, function (id) { st.targetSceneId = id; })) renderSearchTest(scene, adv);
     };
   }
 

@@ -554,6 +554,8 @@
     else if (hasCombat && cleared && mode !== 'linear') {
       appendSection(box).innerHTML = '<p class="hint ses-room-cleared">⚔ Salle déjà nettoyée — les adversaires ont été vaincus.</p>';
     }
+    // Test de fouille (compétence facultative propre à la scène).
+    if (scene.searchTest && scene.searchTest.enabled) renderSearchTest(box, scene, adv, ses);
     const hasChoices = scene.choices && scene.choices.length;
     if (hasChoices) renderChoicesPlay(box, scene, adv, ses);
     else if (scene.nextSceneId) renderNextButton(box, scene, adv, ses);
@@ -675,6 +677,134 @@
         ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent, targetSceneId: targetId });
         navigateTo(ses, adv, targetId);
       });
+    });
+  }
+
+  // ----- Test de fouille (compétence facultative, tenté une seule fois) -----
+  const ST_DIFF_LABEL = { facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile' };
+  function renderSearchTest(box, scene, adv, ses) {
+    const st = scene.searchTest;
+    if (!ses.searchTests) ses.searchTests = {};
+    const state = ses.searchTests[scene.id];
+    const sec = appendSection(box);
+    if (!state) {
+      // Pas encore tenté : bouton + cartouche du meilleur aventurier pour la compétence.
+      const bh = bestHeroForSkill(ses, st.skill);
+      const dice = 1 + (bh.bonus || 0);
+      const helper = bh.hero
+        ? '<div class="ses-skill-pill">' +
+            '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
+            '<span class="ssk-skill skill-' + slug(st.skill || '') + '">' + esc(st.skill || '') + ' ' + dice + ' 🎲</span>' +
+            (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
+            '<span class="ssk-diff ssk-diff-' + (st.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[st.difficulty] || 'Moyen') + '</span>' +
+          '</div>'
+        : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+      sec.innerHTML = '<div class="ses-searchtest">' +
+        '<div class="ses-st-title">🔍 ' + esc(st.label || 'Test de compétence') + '</div>' +
+        '<button class="ses-choice-btn skill-test choice-type-enquete" id="ses-st-go">' +
+          esc(st.label || 'Tenter le test') + ' <span class="ssk-skill skill-' + slug(st.skill || '') + '">' + esc(st.skill || '') + '</span></button>' +
+        helper +
+      '</div>';
+      sec.querySelector('#ses-st-go').addEventListener('click', function () { runSearchTest(ses, adv, scene); });
+      return;
+    }
+    renderSearchTestResult(sec, scene, adv, ses, state);
+  }
+
+  function runSearchTest(ses, adv, scene) {
+    const st = scene.searchTest;
+    const bh = bestHeroForSkill(ses, st.skill);
+    const res = rollSkill(bh.bonus);
+    const need = SKILL_DIFF[st.difficulty] || 2;
+    const total = res.successes + (bh.talentSucc || 0);
+    const passed = total >= need;
+    if (!ses.searchTests) ses.searchTests = {};
+    ses.searchTests[scene.id] = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need, hero: bh.hero ? bh.hero.name : '' };
+    // XP accordée immédiatement en cas de réussite (déclenche l'écran de niveau via render()).
+    if (passed && (st.xpReward || 0) > 0) ses.party.xp = (ses.party.xp || 0) + st.xpReward;
+    save();
+    render();
+  }
+
+  // Attribue les objets d'un test de fouille réussi aux aventuriers désignés.
+  function grantSearchItems(ses, scene) {
+    const st = scene.searchTest;
+    if (!st) return;
+    const assign = {};
+    document.querySelectorAll('#ses-actions .stp-hero').forEach(function (sel) {
+      assign[parseInt(sel.getAttribute('data-idx'), 10)] = sel.value;
+    });
+    if (!ses.acquiredItems) ses.acquiredItems = {};
+    if (!ses.heroOwned) ses.heroOwned = {};
+    const fallback = (ses.heroIds && ses.heroIds[0]) || null;
+    (st.itemRewards || []).forEach(function (r, idx) {
+      if (!r.itemId) return;
+      const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
+      if (!it) return;
+      const q = r.qty || 1;
+      it.qty = (it.qty || 0) + q;
+      ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
+      const rec = assign[idx] || fallback;
+      if (rec) addToHeroOwned(ses, rec, r.itemId, q);
+    });
+    Store.save();
+    if ((st.itemRewards || []).some(function (r) { return r.itemId; })) {
+      document.dispatchEvent(new CustomEvent('inventory-new-item'));
+    }
+  }
+
+  function renderSearchTestResult(sec, scene, adv, ses, state) {
+    const st = scene.searchTest;
+    if (!state.success) {
+      sec.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-fail-box">' +
+        '<div class="ses-st-title">🔍 ' + esc(st.label || 'Test de compétence') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
+        (st.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(st.failText) + '</div>' : '') +
+        '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>' +
+      '</div>';
+      return;
+    }
+    const heroes = engagedHeroes(ses);
+    const lines = (st.itemRewards || []).filter(function (r) { return r.itemId; });
+    const needClaim = lines.length && !state.claimed;
+    const heroOpts = heroes.map(function (h) { return '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>'; }).join('');
+    let rewardHtml = '';
+    if ((st.xpReward || 0) > 0) {
+      rewardHtml += '<div class="ses-reward-block ses-reward-xp"><div class="ses-reward-title">✦ Expérience <strong>+' + st.xpReward + ' XP</strong></div></div>';
+    }
+    if (lines.length) {
+      const rows = lines.map(function (r) {
+        const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
+        const strip = (it && global.Inventory && Inventory.itemStripHtml) ? Inventory.itemStripHtml(it) :
+          '<span class="inv-strip-name">' + esc(it ? it.name : '?') + '</span>';
+        const realIdx = (st.itemRewards || []).indexOf(r);
+        return '<div class="rp-line">' +
+          '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
+            '<div class="inv-strip">' + strip + '</div>' +
+            (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '') +
+          '</div>' +
+          (state.claimed ? '<span class="tag">Récupéré</span>' : (heroes.length ? '<select class="stp-hero" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '')) +
+        '</div>';
+      }).join('');
+      rewardHtml += '<div class="ses-reward-block ses-reward-items"><div class="ses-reward-title">🎁 Découverte</div><div class="rp-list">' + rows + '</div></div>';
+    }
+    sec.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-success-box">' +
+      '<div class="ses-st-title">🔍 ' + esc(st.label || 'Test de compétence') + ' — <span class="ses-st-verdict success">Réussite</span></div>' +
+      (st.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(st.successText) + '</div>' : '') +
+      rewardHtml +
+      '<div class="ses-st-actions">' +
+        (needClaim ? '<button class="primary" id="ses-st-claim">Récupérer la récompense</button>' : '') +
+        (st.targetSceneId ? '<button class="primary" id="ses-st-pass">Emprunter le passage →</button>' : '') +
+      '</div>' +
+    '</div>';
+    const claimBtn = sec.querySelector('#ses-st-claim');
+    if (claimBtn) claimBtn.addEventListener('click', function () {
+      grantSearchItems(ses, scene); state.claimed = true; save(); render();
+    });
+    const passBtn = sec.querySelector('#ses-st-pass');
+    if (passBtn) passBtn.addEventListener('click', function () {
+      if (needClaim) grantSearchItems(ses, scene); // récupère d'abord les objets choisis
+      state.claimed = true; save();
+      navigateTo(ses, adv, st.targetSceneId);
     });
   }
 

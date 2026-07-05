@@ -3566,3 +3566,20 @@ body.mode-player #item-list.roster-list { display: block; }
 .ses-exit-btn.ses-exit-visited { border-left-color: #6aab6a; }
 .ses-rand-count { font-weight: 600; opacity: .85; font-size: .85em; }
 .ses-room-tag { white-space: nowrap; }
+
+/* ============ Test de fouille (compétence facultative de scène) ============ */
+.ses-searchtest { margin-top: .9rem; border: 1px solid rgba(120,120,120,.28); border-radius: 11px; padding: .75rem .85rem; background: rgba(120,120,120,.06); }
+.ses-st-title { font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: .5rem; }
+.ses-searchtest .ses-choice-btn { margin-bottom: .4rem; }
+.ses-st-verdict { padding: .05rem .4rem; border-radius: 6px; font-weight: 800; }
+.ses-st-verdict.success { color: #2f6b33; background: rgba(111,174,111,.28); }
+.ses-st-verdict.fail    { color: #9a3b2c; background: rgba(214,92,64,.22); }
+.ses-st-success-box { border-left: 4px solid var(--good, #6fae6f); }
+.ses-st-fail-box    { border-left: 4px solid #d65c40; }
+.ses-st-rolls { margin-top: .4rem; }
+.ses-st-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+.ses-searchtest .rp-line { display: flex; align-items: center; gap: .5rem; margin: .25rem 0; flex-wrap: wrap; }
+.ses-searchtest .stp-hero { flex: 0 0 auto; }
+/* Éditeur : encadré du test de fouille */
+.sm-st-enable { display: block; margin: .3rem 0; font-weight: 700; }
+#sm-st-body { border-left: 3px solid rgba(120,120,120,.35); padding-left: .7rem; margin-top: .3rem; }
