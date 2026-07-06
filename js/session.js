@@ -720,6 +720,22 @@
       return (z.monsterRefs || []).some(function (r) { return r.monsterId; });
     });
   }
+  // Un combat IMPOSÉ par l'issue d'un test est en attente pour cette scène :
+  // tant qu'il n'est pas remporté, la scène est verrouillée (pas de sorties).
+  function forcedCombatPending(ses, scene) {
+    return !!(scene && ses.forcedCombat && ses.forcedCombat.sceneId === scene.id
+      && Array.isArray(ses.forcedCombat.zones)
+      && ses.forcedCombat.zones.some(function (z) { return (z.monsterRefs || []).some(function (r) { return r.monsterId; }); }));
+  }
+  // Déclenche un combat imposé (issue de test) : mémorisé sur la session pour être
+  // affiché et lancé, non contournable.
+  function triggerForcedCombat(ses, sceneId, cfg) {
+    const zones = cfg && Array.isArray(cfg.combatZones) ? cfg.combatZones : null;
+    if (!sceneId || !zones || !zones.some(function (z) { return (z.monsterRefs || []).some(function (r) { return r.monsterId; }); })) return false;
+    ses.forcedCombat = { sceneId: sceneId, zones: zones, barriers: (cfg.barriers || {}) };
+    save();
+    return true;
+  }
   // Une scène donne une récompense si elle accorde de l'XP ou au moins un objet
   function sceneHasReward(scene) {
     return (scene.xpReward && scene.xpReward > 0) || !!scene.prepareReward ||
@@ -741,7 +757,8 @@
     const fx = (o && o.winEffect) || (o && o.prepareReward ? { kind: 'prepare' } : null);
     if (!fx || !fx.kind || fx.kind === 'none') return '';
     let inner = '';
-    if (fx.kind === 'prepare') inner = '⚡ Le groupe est <strong>Préparé</strong> pour le prochain combat <span class="ses-reward-note">(+1 Action ou +1 Mouvement au 1er Tour)</span>';
+    if (fx.kind === 'combat') inner = '⚔️ <strong>Un combat se déclenche !</strong>';
+    else if (fx.kind === 'prepare') inner = '⚡ Le groupe est <strong>Préparé</strong> pour le prochain combat <span class="ses-reward-note">(+1 Action ou +1 Mouvement au 1er Tour)</span>';
     else if (fx.kind === 'pv') inner = '❤️ Soin <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' PV</strong> pour le groupe';
     else if (fx.kind === 'vie') inner = '❤️ Gain <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' VIE</strong> pour le groupe';
     else if (fx.kind === 'state') inner = '🛡️ Groupe gagne <strong>' + esc(WIN_STATE_LABEL[fx.state] || fx.state || 'Blindage') + '</strong> au prochain combat';
@@ -753,6 +770,7 @@
   function applyWinEffect(ses, o) {
     const fx = (o && o.winEffect) || (o && o.prepareReward ? { kind: 'prepare' } : null);
     if (!fx || !fx.kind || fx.kind === 'none') return '';
+    if (fx.kind === 'combat') { triggerForcedCombat(ses, ses.currentSceneId, fx.combat); return '⚔️ Un combat se déclenche !'; }
     if (fx.kind === 'prepare') { prepareParty(ses); return 'Le groupe est Préparé pour le prochain combat (+1 Action ou +1 Mouvement au 1er Tour).'; }
     const n = Math.max(1, Store.rollAmount(fx.val == null ? 2 : fx.val));
     if (!ses.heroStates) ses.heroStates = {};
@@ -800,6 +818,10 @@
     const mode = chapterMode(ch);
     const cleared = !!(ses.clearedScenes && ses.clearedScenes[scene.id]);
     const hasCombat = sceneHasCombat(scene);
+
+    // Combat IMPOSÉ par un test : verrouille la scène (aucune sortie tant qu'il
+    // n'est pas remporté). Rien d'autre n'est affiché.
+    if (forcedCombatPending(ses, scene)) { renderForcedCombat(box, scene, adv, ses); return; }
 
     if (sceneHasReward(scene)) renderRewardScene(box, scene, adv, ses);
     if (hasCombat && (mode === 'linear' || !cleared)) renderCombatScene(box, scene, adv, ses);
@@ -1210,6 +1232,12 @@
   function applyTestFailEffect(ses, scene, block, hero) {
     const fx = block.failEffect;
     if (!fx || !fx.kind || fx.kind === 'none') return '';
+    // DÉMARRER UN COMBAT : conséquence collective (indépendante d'un aventurier).
+    if (fx.kind === 'combat') {
+      const already = ses.forcedCombat && ses.forcedCombat.sceneId === scene.id;
+      triggerForcedCombat(ses, scene.id, fx.combat);
+      return already ? '' : '⚔️ Un combat se déclenche !';
+    }
     const hid = hero ? hero.id : ((ses.heroIds && ses.heroIds[0]) || null);
     const h = Store.state.heroes.find(function (x) { return x.id === hid; });
     if (!h) return '';
@@ -1413,8 +1441,9 @@
     }
     rewardHtml += winEffectHtml(block);
     // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
+    // Un combat imposé par ce test verrouille toute sortie : pas de bouton passage.
     let passHtml = '';
-    if (block.targetSceneId) {
+    if (block.targetSceneId && !forcedCombatPending(ses, scene)) {
       const tf = findScene(adv, block.targetSceneId);
       const visited = (ses.visitedSceneIds || []).indexOf(block.targetSceneId) >= 0;
       const dest = visited && tf ? (tf.scene.title || 'Salle') : '???';
@@ -2114,6 +2143,56 @@
     Combat.startInSession(fighters, { combatZones: zones, barriers: scene.barriers || [] }, ctx, '#session-combat-root', ses.levelGains);
   }
 
+  // Combat IMPOSÉ (issue de test) : bloc verrouillant + lancement (aucun « Passer »).
+  function renderForcedCombat(box, scene, adv, ses) {
+    const zones = (ses.forcedCombat && ses.forcedCombat.zones) || [];
+    const foes = [];
+    zones.forEach(function (z) {
+      (z.monsterRefs || []).forEach(function (r) {
+        if (!r.monsterId) return;
+        const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
+        foes.push((m ? m.name : '?') + (r.count > 1 ? ' ×' + r.count : ''));
+      });
+    });
+    const sec = appendSection(box);
+    sec.innerHTML =
+      '<div class="ses-combat-block ses-forced-combat">' +
+        '<div class="ses-forced-combat-head">⚔️ Combat imposé</div>' +
+        '<p class="hint">Le test déclenche un combat que vous ne pouvez pas éviter.' +
+          (foes.length ? ' Adversaires : <b>' + esc(foes.join(', ')) + '</b>.' : '') + '</p>' +
+        '<button class="primary" id="ses-start-forced">⚔ Lancer le combat</button>' +
+      '</div>';
+    sec.querySelector('#ses-start-forced').addEventListener('click', function () { launchForcedCombat(scene, adv, ses); });
+  }
+
+  function launchForcedCombat(scene, adv, ses) {
+    const fc = ses.forcedCombat || {};
+    const zones = fc.zones || [];
+    const monsterCount = zones.reduce(function (n, z) {
+      return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).reduce(function (s, r) { return s + (r.count || 1); }, 0);
+    }, 0);
+    if (!monsterCount) { alert('Aucun monstre défini pour ce combat.'); delete ses.forcedCombat; save(); render(); return; }
+    const fighters = (ses.heroIds || []).filter(function (hid) {
+      return !(ses.heroStates && ses.heroStates[hid] && ses.heroStates[hid].dead);
+    });
+    if (!fighters.length) { alert('Aucun aventurier vivant pour ce combat.'); return; }
+    fighters.forEach(function (hid) {
+      const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      if (h && ses.heroStates[hid] && typeof ses.heroStates[hid].pv === 'number') h.pv = ses.heroStates[hid].pv;
+    });
+    Store.save();
+    if (ses.pendingStates && Object.keys(ses.pendingStates).length) {
+      Store.state.pendingCombatStates = ses.pendingStates;
+      ses.pendingStates = null; save();
+    }
+    const ctx = { sessionId: ses.id, adventureId: adv.id, sceneId: scene.id,
+      outcomeSceneId: null, defeatSceneId: scene.defeatSceneId || null, forced: true };
+    const root = $('#session-root');
+    root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
+    ensureLevelData(ses);
+    Combat.startInSession(fighters, { combatZones: zones, barriers: fc.barriers || {} }, ctx, '#session-combat-root', ses.levelGains);
+  }
+
   // Récompense de scène affichée EN LIGNE : XP (auto au Continue) + objets avec une
   // liste de sélection d'aventurier à côté de chacun. L'attribution se fait au Continue.
   function renderRewardScene(box, scene, adv, ses) {
@@ -2224,9 +2303,15 @@
         ses.heroStates[hid] = Object.assign({}, ses.heroStates[hid], { pv: h.pv });
       }
     });
+    // Combat IMPOSÉ par un test : à la victoire il est levé (déverrouille la scène) ;
+    // il ne « nettoie » PAS la scène (un éventuel combat propre à la salle demeure).
+    const wasForced = !!(ses.forcedCombat && ses.forcedCombat.sceneId === ses.currentSceneId);
+    if (wasForced && (detail.outcome === 'victory' || detail.outcome === 'minor')) {
+      delete ses.forcedCombat;
+    }
     // Victoire : la salle est « nettoyée » (donjons : le combat ne se relance pas
     // lors des visites suivantes, et les sorties de la salle se débloquent).
-    if (detail.outcome === 'victory' || detail.outcome === 'minor') {
+    if ((detail.outcome === 'victory' || detail.outcome === 'minor') && !wasForced) {
       if (!ses.clearedScenes) ses.clearedScenes = {};
       if (ses.currentSceneId) ses.clearedScenes[ses.currentSceneId] = true;
     }
@@ -2246,9 +2331,13 @@
     save();
 
     let targetId = null;
-    if (scene) {
+    if (scene && !wasForced) {
       if (detail.outcome === 'defeat') targetId = scene.defeatSceneId;
       else if (detail.outcome === 'victory' || detail.outcome === 'minor') targetId = scene.outcomeSceneId;
+    } else if (scene && wasForced && detail.outcome === 'defeat') {
+      // Défaite d'un combat imposé : on suit la scène de défaite si définie, sinon
+      // on réaffiche la scène (le combat imposé reste à retenter).
+      targetId = scene.defeatSceneId;
     }
 
     // Avance vers la scène de suite si elle existe réellement ; sinon on réaffiche

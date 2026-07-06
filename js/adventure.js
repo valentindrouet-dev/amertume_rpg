@@ -1287,7 +1287,7 @@
     document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
     const winBox = document.getElementById('sm-win-fx');
     if (winBox) {
-      winBox.innerHTML = winFxControlsHtml(scene, 'sm-wfx-kind', 'sm-wfx-val', 'sm-wfx-state', '');
+      winBox.innerHTML = winFxControlsHtml(scene, 'sm-wfx-kind', 'sm-wfx-val', 'sm-wfx-state', '', false);
       const k = winBox.querySelector('.sm-wfx-kind');
       if (k) k.onchange = function () { ensureWinFx(scene).kind = this.value; scene.prepareReward = false; refreshSceneModalSections(scene, adv); };
       const v = winBox.querySelector('.sm-wfx-val');
@@ -1309,6 +1309,7 @@
     { kind: 'vie',   label: 'Perte de VIE' },
     { kind: 'death', label: 'Mort de l\'aventurier' },
     { kind: 'deed',  label: 'Subit un Haut Fait' },
+    { kind: 'combat', label: '⚔️ Démarrer un Combat' },
   ];
   const FX_STATES = [['affaibli', 'Affaibli'], ['auSol', 'Au sol'], ['feu', 'Feu'], ['poison', 'Poison'], ['brise', 'Brisé'], ['faille', 'Faille']];
   const FX_SLOTS = [['mainG', 'Main gauche'], ['mainD', 'Main droite'], ['randhand', '1 main aléatoire'], ['armor', 'Armure'], ['object', 'Objet équipé']];
@@ -1319,8 +1320,14 @@
     { kind: 'pv',      label: '❤️ Soin de PV' },
     { kind: 'vie',     label: '❤️ Gain de VIE' },
     { kind: 'state',   label: '🛡️ Gagne un état (prochain combat)' },
+    { kind: 'combat',  label: '⚔️ Démarrer un Combat' },
   ];
   const WIN_FX_STATES = [['blindage', 'Blindage'], ['onde', 'Onde']];
+  // Config de combat portée par un effet de test (réussite/échec) : zones + barrières.
+  function ensureFxCombat(fx) {
+    if (!fx.combat || typeof fx.combat !== 'object') fx.combat = { combatZones: [], barriers: {} };
+    return fx.combat;
+  }
   function ensureWinFx(o) {
     if (!o.winEffect || typeof o.winEffect !== 'object') {
       // Migration : l'ancienne case « Préparé » devient un effet de réussite.
@@ -1330,10 +1337,11 @@
   }
   // Contrôles HTML du menu « Effet en cas de réussite » (partagés test + scène).
   // kindCls / valCls / stateCls : classes CSS pour le câblage des événements.
-  function winFxControlsHtml(o, kindCls, valCls, stateCls, dataAttr) {
+  function winFxControlsHtml(o, kindCls, valCls, stateCls, dataAttr, allowCombat) {
     const fx = ensureWinFx(o);
     const da = dataAttr || '';
-    const opts = TEST_WIN_FX.map(function (f) {
+    const list = (allowCombat === false) ? TEST_WIN_FX.filter(function (f) { return f.kind !== 'combat'; }) : TEST_WIN_FX;
+    const opts = list.map(function (f) {
       return '<option value="' + f.kind + '"' + (fx.kind === f.kind ? ' selected' : '') + '>' + f.label + '</option>';
     }).join('');
     let fields = '';
@@ -1472,9 +1480,11 @@
                   '<select class="tb-fx-kind" data-bi="' + i + '">' + kindOpts + '</select>' + fields + '</span>';
               })() +
             '</div>' +
+            (ensureFailFx(blk).kind === 'combat' ? '<div class="tb-fx-combat" id="tb-failcbt-' + blk.id + '"></div>' : '') +
             '<div id="sm-blk-ir-' + blk.id + '"></div>' +
             '<label class="tb-deed-lbl">🏆 Haut Fait gagné en cas de réussite <input type="text" class="tb-deed" data-bi="' + i + '" value="' + esc(blk.deedReward || '') + '" placeholder="Ex : A vaincu le gardien du seuil (ajouté aux Hauts Faits)" /></label>' +
             '<div class="tb-win-row">' + winFxControlsHtml(blk, 'tb-wfx-kind', 'tb-wfx-val', 'tb-wfx-state', 'data-bi="' + i + '"') + '</div>' +
+            (ensureWinFx(blk).kind === 'combat' ? '<div class="tb-fx-combat" id="tb-wincbt-' + blk.id + '"></div>' : '') +
             '<label>Passage débloqué en cas de réussite <select class="tb-target" data-bi="' + i + '">' + sceneTargetOptions(allScenes, blk.targetSceneId, adv) + '</select></label>' +
             // Tests enchaînés : un AUTRE bloc de test de la scène, révélé selon le
             // résultat (ex. rater l'Agilité fait apparaître un test de Force).
@@ -1605,6 +1615,16 @@
     });
     box.querySelectorAll('.tb-wfx-state').forEach(function (el) {
       el.onchange = function () { ensureWinFx(scene.blocks[biOf(this)]).state = this.value; };
+    });
+    // Éditeurs de zones de combat des effets « Démarrer un Combat » (réussite/échec).
+    scene.blocks.forEach(function (blk) {
+      if (blk.type !== 'test') return;
+      if (blk.failEffect && blk.failEffect.kind === 'combat') {
+        renderCombatEditor(document.getElementById('tb-failcbt-' + blk.id), ensureFxCombat(blk.failEffect), Store.state.monsters, 'failzone-' + blk.id);
+      }
+      if (blk.winEffect && blk.winEffect.kind === 'combat') {
+        renderCombatEditor(document.getElementById('tb-wincbt-' + blk.id), ensureFxCombat(blk.winEffect), Store.state.monsters, 'winzone-' + blk.id);
+      }
     });
     box.querySelectorAll('.tb-target').forEach(function (el) {
       el.onchange = function () {
@@ -1834,9 +1854,15 @@
     });
   }
   function renderMonsterRefs(scene, monsters) {
+    renderCombatEditor(document.getElementById('sm-monster-refs'), scene, monsters, 'adv-hero-zone');
+  }
+  // Éditeur de zones de combat RÉUTILISABLE : `box` = conteneur DOM, `scene` =
+  // objet portant combatZones/barriers (scène OU effet de test), `radioName` =
+  // nom du groupe radio « départ des aventuriers » (unique par éditeur affiché).
+  function renderCombatEditor(box, scene, monsters, radioName) {
+    if (!box) return;
     ensureZones(scene);
     ensureBarriers(scene);
-    const box = document.getElementById('sm-monster-refs');
     const zones = scene.combatZones;
     function barrierRowFor(a, b) {
       const key = barrierKeyOf(a, b);
@@ -1870,7 +1896,7 @@
       const zoneHtml = '<div class="adv-zone" data-zi="' + zi + '">' +
         '<div class="adv-zone-head">' +
           '<input type="text" class="zone-name-input" value="' + esc(z.name || ('Zone ' + (zi + 1))) + '" placeholder="Nom de la zone" />' +
-          '<label class="zone-start"><input type="radio" name="adv-hero-zone"' + (z.heroStart ? ' checked' : '') + '> Départ des aventuriers</label>' +
+          '<label class="zone-start"><input type="radio" name="' + radioName + '"' + (z.heroStart ? ' checked' : '') + '> Départ des aventuriers</label>' +
           (zones.length > 1 ? '<button type="button" class="icon-btn zone-del" title="Supprimer la zone">✕</button>' : '') +
         '</div>' +
         rows +
@@ -1885,7 +1911,7 @@
       for (let a = 0; a < zones.length; a++) for (let b = a + 1; b < zones.length; b++) rows += barrierRowFor(a, b);
       return '<div class="adv-barriers-box"><div class="adv-barriers-title">⛓ Barrières entre zones</div>' + rows + '</div>';
     })() +
-    (zones.length < 4 ? '<button type="button" class="ghost small" id="sm-add-zone">+ Zone</button>' : '');
+    (zones.length < 4 ? '<button type="button" class="ghost small cbt-add-zone">+ Zone</button>' : '');
 
     box.querySelectorAll('.adv-barrier').forEach(function (bEl) {
       const key = bEl.getAttribute('data-bkey');
@@ -1906,7 +1932,7 @@
       if (nameInp) nameInp.oninput = function () { if (scene.barriers[key]) { scene.barriers[key].name = this.value; save(); } };
     });
 
-    function refresh() { save(); renderMonsterRefs(scene, Store.state.monsters); }
+    function refresh() { save(); renderCombatEditor(box, scene, Store.state.monsters, radioName); }
 
     box.querySelectorAll('.adv-zone').forEach(function (zEl) {
       const zi = parseInt(zEl.getAttribute('data-zi'), 10);
@@ -1933,7 +1959,7 @@
         b.onclick = function () { z.monsterRefs.splice(mi, 1); refresh(); };
       });
     });
-    const addZone = document.getElementById('sm-add-zone');
+    const addZone = box.querySelector('.cbt-add-zone');
     if (addZone) addZone.onclick = function () {
       zones.push({ name: 'Zone ' + (zones.length + 1), monsterRefs: [], heroStart: false });
       refresh();
