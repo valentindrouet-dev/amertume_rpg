@@ -164,7 +164,7 @@
     });
     // États en attente (conséquence d'un test de scène raté) : appliqués au
     // démarrage du combat, posés par session.js dans Store.state.pendingCombatStates.
-    const initStates = { affaibli: false, auSol: false, feu: false, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0 };
+    const initStates = { affaibli: false, auSol: false, feu: false, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0, prepare: hasTalent('prepare_initial') };
     const pendStates = (Store.state.pendingCombatStates && Store.state.pendingCombatStates[h.id]) || [];
     pendStates.forEach(function (k) {
       if (k === 'poison') initStates.poison = (initStates.poison || 0) + 1;
@@ -208,7 +208,7 @@
       attacks: attacks, attackUses: initUses(attacks),
       talents: advTalents,
       talentLabels: Combatants.monsterTalentLabels(m),
-      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 },
+      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0, prepare: advTalents.some(function (t) { return t.effect === 'prepare_initial'; }) },
       blindageCharges: 0,
       used: { action: false, move: false, object: false },
       zone: 0, status: 'active', analyzed: false,
@@ -275,6 +275,7 @@
       });
     });
     pendingAttack = null; pendingMove = null; stateMenuFor = null;
+    armPrepared(combatants); // PRÉPARÉ au tour 1 (talent Vivacité / états de scène en attente)
     setCombat({ turn: 1, phase: 'heroes', bonusXp: 0, analyzeXp: 0, noDmgXp: 0, zones: zones,
       barriers: normalizeBarriers(cfg.barriers),
       combatants: combatants, log: [], outcome: null });
@@ -1629,6 +1630,9 @@
   // dispose de 2 Actions ; la 1ʳᵉ n'épuise pas encore son tour.
   function useAction(c) {
     if (!c) return;
+    // PRÉPARÉ : la 1re Action du tour est GRATUITE (ne consomme pas l'action) —
+    // même principe que SURVITAMINÉ. Offre donc +1 Action ce tour.
+    if (c.prepActionReady) { c.prepActionReady = false; return; }
     if (c.side === 'hero' && heroHasTalent(c, 'survitamine') && !c.actedOnce) {
       c.actedOnce = true;
     } else {
@@ -1732,7 +1736,21 @@
   }
 
   // ---------- Tour de combat ----------
+  // PRÉPARÉ : au début du tour d'un combattant Préparé, il gagne 1 Action bonus
+  // (prepActionReady) pour ce tour ; l'effet expire à la fin de ce tour.
+  function armPrepared(list) {
+    (list || []).forEach(function (c) {
+      if (c.prepArmed) {            // armé au tour précédent → l'effet expire maintenant
+        c.prepArmed = false; c.prepActionReady = false;
+      }
+      if (c.states && c.states.prepare) {  // fraîchement Préparé → armé pour ce tour
+        c.prepActionReady = true; c.prepArmed = true; c.states.prepare = false;
+      }
+    });
+  }
+
   function resetActivations() {
+    armPrepared(combat().combatants);
     combat().combatants.forEach(function (c) {
       c.used = { action: false, move: false, object: false };
       c.freeMoves = 0; c.rebondUsed = false; // REBOND : compteurs remis à zéro chaque tour
@@ -1871,6 +1889,10 @@
   function monstersActCore() {
     clearHeroReactionMarks();
     activationOrder().forEach(actOneMonster);
+    // PRÉPARÉ : les adversaires armés rejouent une Action bonus.
+    activationOrder().forEach(function (m) {
+      if (m.prepArmed && !m.used.action && m.status === 'active') actOneMonster(m);
+    });
     checkOutcome();
   }
 
@@ -1880,7 +1902,8 @@
   const AI_STEP_MS = 550;
   function monstersActSequential(onDone) {
     clearHeroReactionMarks();
-    const order = activationOrder();
+    // PRÉPARÉ : un adversaire armé est activé une seconde fois (Action bonus).
+    const order = activationOrder().concat(activationOrder().filter(function (m) { return m.prepArmed; }));
     const myToken = aiToken; // si le combat change, cette séquence est abandonnée
     let i = 0;
     aiRunning = true;
@@ -2251,7 +2274,7 @@
     affaibli: { l: 'Affaibli', neg: true }, auSol: { l: 'Au sol', neg: true }, feu: { l: 'Feu', neg: true },
     blindage: { l: 'Blindage', neg: false }, onde: { l: 'Onde', neg: false }, ciblage: { l: 'Ciblage', neg: false },
     brise: { l: 'Brisé', neg: true }, faille: { l: 'Faille', neg: true }, poison: { l: 'Poison', neg: true },
-    garde: { l: 'Gardé', neg: false },
+    garde: { l: 'Gardé', neg: false }, prepare: { l: 'Préparé', neg: false },
   };
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
   // Blindage actif : état ponctuel (states.blindage) OU charges restantes (blindageCharges).
@@ -3284,7 +3307,10 @@
 
   function statesBadges(c) {
     return Object.keys(STATE_META).filter(function (s) {
-      return s === 'poison' ? (c.states.poison > 0) : c.states[s];
+      if (s === 'poison') return c.states.poison > 0;
+      // PRÉPARÉ : badge visible tant que l'état est en attente OU armé pour le tour.
+      if (s === 'prepare') return c.states.prepare || c.prepArmed;
+      return c.states[s];
     }).map(function (s) {
       const lbl = s === 'poison' ? ('Poison ' + c.states.poison) : stateLabel(s);
       return '<span class="state-badge ' + (STATE_META[s].neg ? 'neg' : 'pos') + '" data-state="' + s + '" data-iid="' + c.iid + '">' +

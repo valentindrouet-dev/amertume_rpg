@@ -508,6 +508,8 @@
       desc: 'Vous pouvez utiliser Riposte contre les attaques à distance.' },
     { effect: 'blindage_initial', name: 'Blindage Initial', kind: 'upgrade', hasVal: false,
       desc: 'Vous débutez chaque combat avec Blindage.' },
+    { effect: 'prepare_initial', name: 'Vivacité', kind: 'upgrade', hasVal: false,
+      desc: 'Vous débutez chaque combat <b>Préparé</b> : +1 Action au premier tour.' },
     // --- Améliorations de Pyromancie ---
     { effect: 'orbe_feu', name: 'Orbe de Feu', kind: 'upgrade', hasVal: false,
       desc: 'Vos Orbes Mystiques deviennent des Orbes de Feu et infligent FEU.' },
@@ -647,7 +649,7 @@
     regeneration: 4, arme_enflammee: 4, arme_affaiblissante: 5, esquive_innee: 3,
     garde_imprenable: 5, contre_attaque: 4, reanimation: 5,
     devance_rapides: 3, perce_blindage: 3, bourreau_rapides: 4, franchissement_libre: 2,
-    pas_leger: 2, charge_devastatrice: 4,
+    pas_leger: 2, charge_devastatrice: 4, prepare_initial: 3,
     critique_destructeur: 5, attaque_furieuse: 3, execution: 3,
     mvt_critique: 2, epuisement: 3, accentuation: 4, allie_critique: 4,
     critique_explosif: 4, bain_de_sang: 5, cri_de_rage: 3,

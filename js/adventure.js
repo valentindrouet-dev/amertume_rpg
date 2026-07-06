@@ -1285,6 +1285,8 @@
     // Récompense
     document.getElementById('sm-xp').value = scene.xpReward || 0;
     document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
+    const prepCb = document.getElementById('sm-prepare-reward');
+    if (prepCb) { prepCb.checked = !!scene.prepareReward; prepCb.onchange = function () { scene.prepareReward = this.checked; }; }
     renderItemRewards(scene);
   }
 
@@ -1428,6 +1430,7 @@
             '</div>' +
             '<div id="sm-blk-ir-' + blk.id + '"></div>' +
             '<label class="tb-deed-lbl">🏆 Haut Fait gagné en cas de réussite <input type="text" class="tb-deed" data-bi="' + i + '" value="' + esc(blk.deedReward || '') + '" placeholder="Ex : A vaincu le gardien du seuil (ajouté aux Hauts Faits)" /></label>' +
+            '<label class="checkbox inline" title="Les aventuriers débutent le prochain combat Préparés (+1 Action au tour 1)."><input type="checkbox" class="tb-prepare" data-bi="' + i + '"' + (blk.prepareReward ? ' checked' : '') + ' /> ⚡ Rend les aventuriers <b>Préparés</b> pour le prochain combat</label>' +
             '<label>Passage débloqué en cas de réussite <select class="tb-target" data-bi="' + i + '">' + sceneTargetOptions(allScenes, blk.targetSceneId, adv) + '</select></label>' +
             // Tests enchaînés : un AUTRE bloc de test de la scène, révélé selon le
             // résultat (ex. rater l'Agilité fait apparaître un test de Force).
@@ -1541,6 +1544,9 @@
     });
     box.querySelectorAll('.tb-deed').forEach(function (el) {
       el.oninput = function () { scene.blocks[biOf(this)].deedReward = this.value; };
+    });
+    box.querySelectorAll('.tb-prepare').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].prepareReward = this.checked; };
     });
     box.querySelectorAll('.tb-target').forEach(function (el) {
       el.onchange = function () {

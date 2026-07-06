@@ -576,7 +576,7 @@
       var st = scene.searchTest;
       blocks.push({ id: scene.id, type: 'test', _fromSearch: true, label: st.label, skill: st.skill,
         difficulty: st.difficulty, successText: st.successText, failText: st.failText, xpReward: st.xpReward,
-        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', groupMode: st.groupMode || 'majority', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
+        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', prepareReward: !!st.prepareReward, groupMode: st.groupMode || 'majority', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
     }
     return blocks;
   }
@@ -707,8 +707,17 @@
   }
   // Une scène donne une récompense si elle accorde de l'XP ou au moins un objet
   function sceneHasReward(scene) {
-    return (scene.xpReward && scene.xpReward > 0) ||
+    return (scene.xpReward && scene.xpReward > 0) || !!scene.prepareReward ||
       (Array.isArray(scene.itemRewards) && scene.itemRewards.some(function (r) { return r.itemId; }));
+  }
+  // PRÉPARÉ : marque tous les aventuriers engagés comme Préparés pour le prochain
+  // combat (état posé dans pendingStates, appliqué au démarrage du combat).
+  function prepareParty(ses) {
+    if (!ses.pendingStates) ses.pendingStates = {};
+    engagedHeroes(ses).forEach(function (h) {
+      const arr = (ses.pendingStates[h.id] = ses.pendingStates[h.id] || []);
+      if (arr.indexOf('prepare') < 0) arr.push('prepare');
+    });
   }
   function appendSection(box) {
     const d = document.createElement('div');
@@ -1086,6 +1095,7 @@
         const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
+        if (block.prepareReward) prepareParty(ses);
       }
     } else {
       // Exclusions (mode « avec un autre aventurier ») : les aventuriers ayant
@@ -1103,6 +1113,7 @@
         const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
+        if (block.prepareReward) prepareParty(ses);
       }
       // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
       if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
@@ -1335,6 +1346,9 @@
     }
     if ((block.deedReward || '').trim()) {
       rewardHtml += '<div class="ses-reward-block ses-reward-deed"><div class="ses-reward-title">🏆 Haut Fait <strong>' + esc(block.deedReward.trim()) + '</strong></div></div>';
+    }
+    if (block.prepareReward) {
+      rewardHtml += '<div class="ses-reward-block ses-reward-prepare"><div class="ses-reward-title">⚡ Groupe <strong>Préparé</strong> pour le prochain combat</div></div>';
     }
     // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
     let passHtml = '';
@@ -2054,6 +2068,11 @@
         '<p class="hint">Choisis le destinataire de chaque objet ; l\'attribution se fait en cliquant sur « Continuer ».</p>' +
       '</div>';
     }
+    if (scene.prepareReward) {
+      html += '<div class="ses-reward-block ses-reward-prepare">' +
+        '<div class="ses-reward-title">⚡ Groupe <strong>Préparé</strong> pour le prochain combat</div>' +
+      '</div>';
+    }
     sec.innerHTML = html;
   }
 
@@ -2084,6 +2103,7 @@
       const recipient = (assign[idx]) || fallback;
       if (recipient) addToHeroOwned(ses, recipient, r.itemId, q); // armes plafonnées à 2
     });
+    if (scene.prepareReward) prepareParty(ses);
     if (!ses.claimedRewards) ses.claimedRewards = {};
     ses.claimedRewards[scene.id] = true;
     Store.save();
