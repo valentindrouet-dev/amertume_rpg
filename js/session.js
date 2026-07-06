@@ -595,6 +595,10 @@
   // résultat déclencheur (ex. rater l'Agilité révèle un test de Force).
   function testChainHidden(scene, blk, ses) {
     if (!blk || blk.type !== 'test') return false;
+    // Un test déjà tenté (résultat enregistré) reste TOUJOURS visible : sinon,
+    // valider rétroactivement le parent le ferait disparaître avec ses jets.
+    var self = ses && ses.searchTests ? ses.searchTests[blk.id] : null;
+    if (self && self.done) return false;
     var blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
     var isChained = false, triggered = false;
     blocks.forEach(function (p) {
@@ -1111,8 +1115,13 @@
     if (state.success && block.validatesParent) {
       const par = chainParentOf(scene, block);
       if (par && ses.searchTests[par.block.id]) {
-        ses.searchTests[par.block.id].success = true;
-        ses.searchTests[par.block.id].validated = true;
+        const pst = ses.searchTests[par.block.id];
+        // Mémorise l'issue d'origine (souvent un échec) AVANT de débloquer, pour
+        // continuer d'afficher le récit d'échec du parent, distinct du rattrapage.
+        if (pst.wasFail == null) pst.wasFail = !pst.success;
+        pst.success = true;        // débloque le passage / connecteur du parent
+        pst.validated = true;      // marque « rattrapé »
+        pst.validatedBy = block.label || 'un test enchaîné';
       }
     }
     save();
@@ -1339,9 +1348,22 @@
         '<span class="ses-exit-lbl">🔓 Emprunter le passage</span>' +
         '<span class="ses-exit-to"><span class="ses-exit-dir">' + arrow + '</span> ' + esc(dest) + '</span></button>';
     }
-    slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-success-box">' +
-      '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict success">Réussite</span></div>' +
-      (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '') +
+    // Parent « rattrapé » par un test enchaîné : il avait échoué, mais un test
+    // ultérieur l'a débloqué. On garde son récit d'échec + un bandeau distinct.
+    const rescued = state.validated && state.wasFail;
+    const verdict = rescued
+      ? '<span class="ses-st-verdict rescued">↩ Rattrapé</span>'
+      : '<span class="ses-st-verdict success">Réussite</span>';
+    const narrative = rescued
+      ? (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '')
+      : (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '');
+    const rescueBanner = rescued
+      ? '<div class="ses-st-rescue">↳ Situation débloquée grâce au test « ' + esc(state.validatedBy || 'enchaîné') + ' ».</div>'
+      : '';
+    slot.innerHTML = '<div class="ses-searchtest ses-st-done ' + (rescued ? 'ses-st-rescued-box' : 'ses-st-success-box') + '">' +
+      '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — ' + verdict + '</div>' +
+      narrative +
+      rescueBanner +
       groupResultsHtml(state) +
       fxMsgsHtml(state) +
       // Détail des jets, affiché AUSSI en cas de réussite (test individuel).

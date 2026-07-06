@@ -1026,12 +1026,18 @@ main { padding: 1.5rem 1.25rem 3rem; }
 
 /* ---- Blocs de texte typés (affichage session) ---- */
 .ses-scene-blocks { display: flex; flex-direction: column; gap: .5rem; margin: .65rem 0 .6rem; }
-/* Test découlant d'un test préalable : léger décalage à droite + flèche ↳. */
-.ses-test-slot.ses-test-chained { margin-left: 1.7rem; position: relative; }
+/* Test découlant d'un test préalable : décalage à droite + flèche ↳ + trait de
+   liaison, pour bien le distinguer comme sous-test enchaîné. */
+.ses-test-slot.ses-test-chained { margin-left: 1.9rem; position: relative; }
 .ses-test-slot.ses-test-chained::before {
-  content: "↳"; position: absolute; left: -1.35rem; top: .55rem;
-  font-size: 1.1rem; color: var(--muted); font-weight: 700;
+  content: "↳"; position: absolute; left: -1.5rem; top: .5rem;
+  font-size: 1.15rem; color: var(--accent-2, #e2974a); font-weight: 800;
 }
+.ses-test-slot.ses-test-chained::after {
+  content: ""; position: absolute; left: -1rem; top: 1.4rem; bottom: .3rem;
+  border-left: 2px dashed rgba(226,151,74,.35);
+}
+.ses-test-slot.ses-test-chained .ses-searchtest { background: rgba(226,151,74,.06); }
 .scene-block { line-height: 1.7; font-size: .97rem; }
 .scene-block-narrative { font-style: italic; color: var(--text); }
 .scene-block-technical  { color: var(--text); }
@@ -3589,6 +3595,9 @@ body.mode-player #item-list.roster-list { display: block; }
 .ses-st-verdict.fail    { color: #9a3b2c; background: rgba(214,92,64,.22); }
 .ses-st-success-box { border-left: 4px solid var(--good, #6fae6f); }
 .ses-st-fail-box    { border-left: 4px solid #d65c40; }
+.ses-st-rescued-box { border-left: 4px solid #c49a20; }
+.ses-st-verdict.rescued { color: #8a6a12; background: rgba(196,154,32,.24); }
+.ses-st-rescue { margin: .35rem 0 .1rem; font-size: .85rem; font-weight: 700; color: #b48a2e; }
 .ses-st-rolls { margin-top: .3rem; margin-bottom: .5rem; }
 .ses-st-rolls:last-child { margin-bottom: 0; }
 .ses-st-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .35rem; }
