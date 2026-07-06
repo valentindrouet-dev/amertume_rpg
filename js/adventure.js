@@ -1285,6 +1285,8 @@
     // Récompense
     document.getElementById('sm-xp').value = scene.xpReward || 0;
     document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
+    const rac = document.getElementById('sm-reward-after-combat');
+    if (rac) { rac.checked = !!scene.rewardAfterCombat; rac.onchange = function () { scene.rewardAfterCombat = this.checked; }; }
     const winBox = document.getElementById('sm-win-fx');
     if (winBox) {
       winBox.innerHTML = winFxControlsHtml(scene, 'sm-wfx-kind', 'sm-wfx-val', 'sm-wfx-state', '', false);

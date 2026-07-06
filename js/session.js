@@ -825,7 +825,10 @@
     // n'est pas remporté). Rien d'autre n'est affiché.
     if (forcedCombatPending(ses, scene)) { renderForcedCombat(box, scene, adv, ses); return; }
 
-    if (sceneHasReward(scene)) renderRewardScene(box, scene, adv, ses);
+    // Récompense « Gagné à l'issue du combat » : masquée tant que le combat de la
+    // scène n'est pas remporté (cleared). Sans combat, le drapeau est ignoré.
+    const rewardGated = scene.rewardAfterCombat && hasCombat && !cleared;
+    if (sceneHasReward(scene) && !rewardGated) renderRewardScene(box, scene, adv, ses);
     if (hasCombat && (mode === 'linear' || !cleared)) renderCombatScene(box, scene, adv, ses);
     else if (hasCombat && cleared && mode !== 'linear') {
       appendSection(box).innerHTML = '<p class="hint ses-room-cleared">⚔ Salle déjà nettoyée — les adversaires ont été vaincus.</p>';
@@ -2284,6 +2287,8 @@
     const scene = found ? found.scene : null;
     if (!scene || !sceneHasReward(scene)) return;
     if (ses.claimedRewards && ses.claimedRewards[scene.id]) return;
+    // « Gagné à l'issue du combat » : rien n'est remis si le combat n'est pas remporté.
+    if (scene.rewardAfterCombat && sceneHasCombat(scene) && !(ses.clearedScenes && ses.clearedScenes[scene.id])) return;
     const assign = {};
     document.querySelectorAll('#ses-actions .rp-hero').forEach(function (sel) {
       assign[parseInt(sel.getAttribute('data-idx'), 10)] = sel.value;
