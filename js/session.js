@@ -720,21 +720,27 @@
       const f = findScene(adv, id);
       return f ? (f.scene.title || 'Salle') : 'Salle';
     };
+    // Tri des sorties selon leur direction sur la carte : Gauche, Haut, Droite,
+    // Bas (les diagonales s'intercalent entre les points cardinaux voisins).
+    const DIR_ORDER = { '⬅': 0, '↖': 1, '⬆': 2, '↗': 3, '➡': 4, '↘': 5, '⬇': 6, '↙': 7, '→': 8 };
+    const exits = links.map(function (l) {
+      const other = l.from === scene.id ? l.to : l.from;
+      const f = findScene(adv, other);
+      return { l: l, other: other, f: f, arrow: sceneDirArrow(scene, f ? f.scene : null) };
+    }).sort(function (a, b) { return (DIR_ORDER[a.arrow] || 0) - (DIR_ORDER[b.arrow] || 0); });
     sec.innerHTML = '<div class="ses-exits">' +
       '<div class="ses-exits-title">🚪 Sorties &amp; accès</div>' +
-      '<div class="ses-exits-list">' +
-      links.map(function (l) {
-        const other = l.from === scene.id ? l.to : l.from;
-        const visited = (ses.visitedSceneIds || []).indexOf(other) >= 0;
-        const f = findScene(adv, other);
+      '<div class="ses-exits-list ses-exits-inline">' +
+      exits.map(function (e) {
+        const visited = (ses.visitedSceneIds || []).indexOf(e.other) >= 0;
         // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
         // (pas d'indice sur les salles inconnues).
-        const danger = visited && f && sceneHasCombat(f.scene) && !(ses.clearedScenes && ses.clearedScenes[other]);
-        // La flèche suit la direction réelle du passage sur la carte du donjon.
-        const arrow = sceneDirArrow(scene, f ? f.scene : null);
-        return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + '" data-to="' + esc(other) + '">' +
-          '<span class="ses-exit-lbl">' + esc(l.label || 'Passage') + '</span>' +
-          '<span class="ses-exit-to"><span class="ses-exit-dir">' + arrow + '</span> ' + (visited ? esc(titleOf(other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
+        const danger = visited && e.f && sceneHasCombat(e.f.scene) && !(ses.clearedScenes && ses.clearedScenes[e.other]);
+        // Pas de libellé générique « Passage » : la flèche + le nom suffisent.
+        // Un connecteur nommé par le MJ (porte, escalier…) reste affiché.
+        return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + '" data-to="' + esc(e.other) + '">' +
+          (e.l.label ? '<span class="ses-exit-lbl">' + esc(e.l.label) + '</span>' : '') +
+          '<span class="ses-exit-to"><span class="ses-exit-dir">' + e.arrow + '</span> ' + (visited ? esc(titleOf(e.other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
         '</button>';
       }).join('') +
       '</div></div>';
