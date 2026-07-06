@@ -422,7 +422,7 @@
             xpProgressHtml(ses) +
           '</div>' +
           '<div class="ses-deeds">' +
-            '<h3>Faits accomplis</h3>' +
+            '<h3>Hauts Faits</h3>' +
             deedsHtml(ses) +
           '</div>' +
           // Mini-carte du donjon structuré : clic → carte entière en fenêtre flottante.
@@ -473,7 +473,7 @@
 
   function deedsHtml(ses) {
     const deeds = ses.deeds || [];
-    if (!deeds.length) return '<p class="empty">Aucun fait pour l\'instant.</p>';
+    if (!deeds.length) return '<p class="empty">Aucun Haut Fait pour l\'instant.</p>';
     return '<ul class="deeds-list">' +
       deeds.map(function (d) { return '<li>' + esc(d.text) + '</li>'; }).join('') +
     '</ul>';
@@ -576,7 +576,7 @@
       var st = scene.searchTest;
       blocks.push({ id: scene.id, type: 'test', _fromSearch: true, label: st.label, skill: st.skill,
         difficulty: st.difficulty, successText: st.successText, failText: st.failText, xpReward: st.xpReward,
-        itemRewards: st.itemRewards || [], targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
+        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
     }
     return blocks;
   }
@@ -1079,6 +1079,7 @@
       if (gr.passed) {
         const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+        grantDeedReward(ses, scene, block);
       }
     } else {
       // Exclusions (mode « avec un autre aventurier ») : les aventuriers ayant
@@ -1095,6 +1096,7 @@
       if (passed) {
         const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+        grantDeedReward(ses, scene, block);
       }
       // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
       if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
@@ -1188,10 +1190,21 @@
         if (!ses.deeds.some(function (d) { return d.sceneId === key; })) {
           ses.deeds.push({ sceneId: key, text: text });
         }
-        return name + ' subit un Fait : « ' + text + ' » (ajouté au journal).';
+        return name + ' subit un Haut Fait : « ' + text + ' » (ajouté au journal).';
       }
     }
     return '';
+  }
+
+  // Enregistre le Haut Fait gagné lors de la réussite d'un test (une seule fois).
+  function grantDeedReward(ses, scene, block) {
+    const text = (block.deedReward || '').trim();
+    if (!text) return;
+    if (!Array.isArray(ses.deeds)) ses.deeds = [];
+    const key = scene.id + '#' + block.id + '#win';
+    if (!ses.deeds.some(function (d) { return d.sceneId === key; })) {
+      ses.deeds.push({ sceneId: key, text: text });
+    }
   }
 
   // Attribue les objets d'un bloc de test réussi aux aventuriers désignés.
@@ -1308,6 +1321,9 @@
         '</div>';
       }).join('');
       rewardHtml += '<div class="ses-reward-block ses-reward-items"><div class="ses-reward-title">🎁 Découverte</div><div class="rp-list">' + rows + '</div></div>';
+    }
+    if ((block.deedReward || '').trim()) {
+      rewardHtml += '<div class="ses-reward-block ses-reward-deed"><div class="ses-reward-title">🏆 Haut Fait <strong>' + esc(block.deedReward.trim()) + '</strong></div></div>';
     }
     // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
     let passHtml = '';

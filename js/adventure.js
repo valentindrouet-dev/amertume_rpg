@@ -1298,7 +1298,7 @@
     { kind: 'item',  label: 'Perte d\'un objet équipé' },
     { kind: 'vie',   label: 'Perte de VIE' },
     { kind: 'death', label: 'Mort de l\'aventurier' },
-    { kind: 'deed',  label: 'Subit un Fait' },
+    { kind: 'deed',  label: 'Subit un Haut Fait' },
   ];
   const FX_STATES = [['affaibli', 'Affaibli'], ['auSol', 'Au sol'], ['feu', 'Feu'], ['poison', 'Poison'], ['brise', 'Brisé'], ['faille', 'Faille']];
   const FX_SLOTS = [['mainG', 'Main gauche'], ['mainD', 'Main droite'], ['randhand', '1 main aléatoire'], ['armor', 'Armure'], ['object', 'Objet équipé']];
@@ -1412,13 +1412,14 @@
                     return '<option value="' + s[0] + '"' + ((fx.slot || 'randhand') === s[0] ? ' selected' : '') + '>' + s[1] + '</option>';
                   }).join('') + '</select>';
                 } else if (fx.kind === 'deed') {
-                  fields = '<input type="text" class="tb-fx-text" data-bi="' + i + '" placeholder="Texte du Fait subi (journal)" value="' + esc(fx.text || '') + '" />';
+                  fields = '<input type="text" class="tb-fx-text" data-bi="' + i + '" placeholder="Texte du Haut Fait subi (journal)" value="' + esc(fx.text || '') + '" />';
                 }
                 return '<span class="tb-fx-wrap"><span class="tb-fx-lbl">⚠ Échec :</span>' +
                   '<select class="tb-fx-kind" data-bi="' + i + '">' + kindOpts + '</select>' + fields + '</span>';
               })() +
             '</div>' +
             '<div id="sm-blk-ir-' + blk.id + '"></div>' +
+            '<label class="tb-deed-lbl">🏆 Haut Fait gagné en cas de réussite <input type="text" class="tb-deed" data-bi="' + i + '" value="' + esc(blk.deedReward || '') + '" placeholder="Ex : A vaincu le gardien du seuil (ajouté aux Hauts Faits)" /></label>' +
             '<label>Passage débloqué en cas de réussite <select class="tb-target" data-bi="' + i + '">' + sceneTargetOptions(allScenes, blk.targetSceneId, adv) + '</select></label>' +
             // Tests enchaînés : un AUTRE bloc de test de la scène, révélé selon le
             // résultat (ex. rater l'Agilité fait apparaître un test de Force).
@@ -1528,6 +1529,9 @@
         const v = this.value.trim();
         scene.blocks[biOf(this)].xpReward = Store.isDiceExpr(v) ? v : Math.max(0, parseInt(v, 10) || 0);
       };
+    });
+    box.querySelectorAll('.tb-deed').forEach(function (el) {
+      el.oninput = function () { scene.blocks[biOf(this)].deedReward = this.value; };
     });
     box.querySelectorAll('.tb-target').forEach(function (el) {
       el.onchange = function () {
