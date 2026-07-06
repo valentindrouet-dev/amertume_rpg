@@ -1052,7 +1052,7 @@
             '</span>' +
           '</div>' +
         '</div>' +
-        (t.description ? '<div class="lvl-tal-desc" hidden>' + esc(Store.fillTalentTags(t.description, wizTagCtx)) + '</div>' : '');
+        (t.description ? '<div class="lvl-tal-desc" hidden>' + Store.fillTalentTagsHtml(t.description, wizTagCtx) + '</div>' : '');
       }
       const choiceRemaining = 1 - selCount;
       body.innerHTML = '<p class="hint">Le Talent de Maîtrise est automatiquement ajouté. Choisis <b>1 talent</b> supplémentaire. ' +

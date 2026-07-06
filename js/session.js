@@ -406,6 +406,15 @@
             '<h3>Faits accomplis</h3>' +
             deedsHtml(ses) +
           '</div>' +
+          // Mini-carte du donjon structuré : clic → carte entière en fenêtre flottante.
+          (chMode_ === 'dungeon'
+            ? '<div class="ses-minimap-box"><h3>Carte du donjon</h3>' +
+                '<div id="ses-minimap" class="ses-minimap" title="Cliquer pour agrandir la carte">' +
+                  dungeonMapHtml(chapter, ses, { cw: 58, ch: 44, bw: 48, bh: 32, pad: 8, titles: false }) +
+                '</div>' +
+                '<p class="hint ses-minimap-hint">Cliquer pour agrandir</p>' +
+              '</div>'
+            : '') +
         '</div>' +
       '</div>';
 
@@ -426,6 +435,10 @@
     // Blocs de test interactifs, insérés dans le fil du texte de la scène.
     wireTestBlocks(scene, adv, ses);
 
+    // Mini-carte cliquable (donjon structuré).
+    const mmap = document.getElementById('ses-minimap');
+    if (mmap) mmap.addEventListener('click', function () { openDungeonMapModal(chapter, ses); });
+
     renderSceneActions(scene, adv, ses, chapter);
   }
 
@@ -445,6 +458,74 @@
     return '<ul class="deeds-list">' +
       deeds.map(function (d) { return '<li>' + esc(d.text) + '</li>'; }).join('') +
     '</ul>';
+  }
+
+  // ---------- Carte du donjon structuré (mini-carte + vue plein écran) ----------
+  // Reprend la structure de l'éditeur : salles positionnées sur la grille
+  // (mapX/mapY), connecteurs en SVG. Les salles non visitées sont « ??? »,
+  // la salle courante est mise en évidence.
+  function dungeonMapHtml(chapter, ses, opts) {
+    const CW = opts.cw, CH = opts.ch, BW = opts.bw, BH = opts.bh, PAD = opts.pad;
+    // Positions : celles de l'éditeur, avec repli automatique pour les salles
+    // sans coordonnées (sans rien persister côté joueur).
+    const pos = {}; const used = {}; let cursor = 0;
+    (chapter.scenes || []).forEach(function (s) {
+      if (typeof s.mapX === 'number' && typeof s.mapY === 'number' && s.mapX >= 0 && !used[s.mapX + ',' + s.mapY]) {
+        pos[s.id] = [s.mapX, s.mapY]; used[s.mapX + ',' + s.mapY] = true;
+      }
+    });
+    (chapter.scenes || []).forEach(function (s) {
+      if (pos[s.id]) return;
+      while (used[(cursor % 4) + ',' + Math.floor(cursor / 4)]) cursor++;
+      pos[s.id] = [cursor % 4, Math.floor(cursor / 4)];
+      used[pos[s.id][0] + ',' + pos[s.id][1]] = true;
+    });
+    const maxX = (chapter.scenes || []).reduce(function (m, s) { return Math.max(m, pos[s.id][0]); }, 0);
+    const maxY = (chapter.scenes || []).reduce(function (m, s) { return Math.max(m, pos[s.id][1]); }, 0);
+    const W = (maxX + 1) * CW + BW / 3 + PAD * 2, H = (maxY + 1) * CH + PAD;
+    const cx = function (id) { return pos[id][0] * CW + PAD + BW / 2; };
+    const cy = function (id) { return pos[id][1] * CH + PAD + BH / 2; };
+    const visited = function (id) { return (ses.visitedSceneIds || []).indexOf(id) >= 0; };
+    const lines = (chapter.links || []).map(function (l) {
+      if (!pos[l.from] || !pos[l.to]) return '';
+      return '<line x1="' + cx(l.from) + '" y1="' + cy(l.from) + '" x2="' + cx(l.to) + '" y2="' + cy(l.to) + '"' +
+        ' class="mmap-line' + (visited(l.from) || visited(l.to) ? '' : ' mmap-line-unknown') + '"></line>';
+    }).join('');
+    const rooms = (chapter.scenes || []).map(function (s) {
+      const isCur = ses.currentSceneId === s.id;
+      const isEntry = chapter.entryId === s.id;
+      const known = visited(s.id);
+      const title = known ? (s.title || 'Salle') : '???';
+      return '<div class="mmap-room' + (isCur ? ' mmap-current' : '') + (known ? '' : ' mmap-unknown') + '"' +
+        ' style="left:' + (pos[s.id][0] * CW + PAD) + 'px;top:' + (pos[s.id][1] * CH + PAD) + 'px;width:' + BW + 'px;height:' + BH + 'px"' +
+        ' title="' + esc(title) + '">' +
+        (opts.titles ? '<span class="mmap-room-title">' + (isEntry ? '🚪 ' : '') + esc(title) + '</span>' : (isEntry ? '🚪' : '')) +
+      '</div>';
+    }).join('');
+    return '<div class="mmap-canvas" style="width:' + W + 'px;height:' + H + 'px">' +
+      '<svg class="mmap-svg" width="' + W + '" height="' + H + '">' + lines + '</svg>' + rooms + '</div>';
+  }
+
+  // Fenêtre flottante avec la carte entière du donjon.
+  function openDungeonMapModal(chapter, ses) {
+    let m = document.getElementById('dmap-view-modal');
+    if (!m) {
+      m = document.createElement('div');
+      m.id = 'dmap-view-modal';
+      m.className = 'modal';
+      document.body.appendChild(m);
+    }
+    m.innerHTML = '<div class="modal-box" style="max-width:920px">' +
+      '<div class="modal-head"><h2>🗺️ ' + esc(chapter.title || 'Carte du donjon') + '</h2>' +
+        '<button type="button" id="dmap-view-close" class="icon-btn">✕</button></div>' +
+      '<div class="dmap-view-scroll">' +
+        dungeonMapHtml(chapter, ses, { cw: 168, ch: 116, bw: 148, bh: 92, pad: 12, titles: true }) +
+      '</div>' +
+      '<p class="hint">🚪 entrée du donjon · salle encadrée = position actuelle · « ??? » = salle non explorée.</p>' +
+    '</div>';
+    m.hidden = false;
+    document.getElementById('dmap-view-close').onclick = function () { m.hidden = true; };
+    m.onclick = function (ev) { if (ev.target === m) m.hidden = true; };
   }
 
   // Construit le HTML du contenu textuel d'une scène.
@@ -544,6 +625,13 @@
     return '<div class="ses-hero-list">' + heroes.map(function (h) {
       const eh = effectiveHero(ses, h);
       const state = ses.heroStates[h.id] || {};
+      // Aventurier mort (conséquence de scène) : affiché grisé avec ☠.
+      if (state.dead) {
+        return '<div class="ses-hero-row ses-hero-dead">' +
+          '<span class="ses-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '" data-hero="' + h.id + '" title="Voir la fiche">☠ ' + esc(h.name) + '</span>' +
+          '<span class="tag dead">Mort</span>' +
+        '</div>';
+      }
       const curPv = typeof state.pv === 'number' ? state.pv : Combatants.heroCurPv(eh);
       const maxPv = Combatants.heroPv(eh);
       const pct = Math.round((curPv / maxPv) * 100);
@@ -751,10 +839,91 @@
     const total = res.successes + (bh.talentSucc || 0);
     const passed = total >= need;
     if (!ses.searchTests) ses.searchTests = {};
-    ses.searchTests[block.id] = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need, hero: bh.hero ? bh.hero.name : '' };
+    const state = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need,
+      hero: bh.hero ? bh.hero.name : '', heroId: bh.hero ? bh.hero.id : null };
     if (passed && (block.xpReward || 0) > 0) ses.party.xp = (ses.party.xp || 0) + block.xpReward;
+    // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
+    if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
+    ses.searchTests[block.id] = state;
     save();
     render();
+  }
+
+  // Applique la conséquence d'un échec au test (block.failEffect) et renvoie le
+  // message à afficher dans l'encadré d'échec.
+  const FX_STATE_LABEL = { affaibli: 'Affaibli', auSol: 'Au sol', feu: 'Feu', poison: 'Poison', brise: 'Brisé', faille: 'Faille' };
+  const FX_SLOT_LABEL = { mainG: 'main gauche', mainD: 'main droite', randhand: 'main', armor: 'armure', object: 'objet équipé' };
+  function applyTestFailEffect(ses, scene, block, hero) {
+    const fx = block.failEffect;
+    if (!fx || !fx.kind || fx.kind === 'none') return '';
+    const hid = hero ? hero.id : ((ses.heroIds && ses.heroIds[0]) || null);
+    const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+    if (!h) return '';
+    const name = h.name;
+    if (!ses.heroStates) ses.heroStates = {};
+    const st = ses.heroStates[hid] || (ses.heroStates[hid] = { pv: Combatants.heroPv(h) });
+    const n = Math.max(1, fx.val || 1);
+    switch (fx.kind) {
+      case 'pv': {
+        // Plancher à 1 PV : seule la conséquence « Mort » tue un aventurier.
+        st.pv = Math.max(1, (typeof st.pv === 'number' ? st.pv : Combatants.heroPv(h)) - n);
+        return name + ' perd ' + n + ' PV.';
+      }
+      case 'state': {
+        const key = fx.state || 'affaibli';
+        if (!ses.pendingStates) ses.pendingStates = {};
+        (ses.pendingStates[hid] = ses.pendingStates[hid] || []).push(key);
+        return name + ' subira l\'état « ' + (FX_STATE_LABEL[key] || key) + ' » au prochain combat.';
+      }
+      case 'xp': {
+        ses.party.xp = Math.max(0, (ses.party.xp || 0) - n);
+        return 'Le groupe perd ' + n + ' XP.';
+      }
+      case 'item': {
+        const eq = Combatants.normalizeEquip ? Combatants.normalizeEquip(h.equipment || {}) : (h.equipment || {});
+        let slotKey = fx.slot || 'randhand';
+        if (slotKey === 'randhand') {
+          const hands = [eq.mainG ? 'mainG' : null, eq.mainD ? 'mainD' : null].filter(Boolean);
+          slotKey = hands.length ? hands[Math.floor(Math.random() * hands.length)] : 'mainD';
+        }
+        const field = slotKey === 'armor' ? 'armorId' : slotKey === 'object' ? 'objectId' : slotKey;
+        const itemId = eq[field];
+        if (!itemId) return name + ' n\'avait rien à perdre (' + (FX_SLOT_LABEL[fx.slot] || fx.slot) + ' vide).';
+        const it = Store.state.items.find(function (x) { return x.id === itemId; });
+        eq[field] = null;
+        h.equipment = eq;
+        // L'objet quitte aussi l'inventaire personnel de l'aventurier.
+        if (ses.heroOwned && ses.heroOwned[hid] && ses.heroOwned[hid][itemId]) {
+          const left = (Number(ses.heroOwned[hid][itemId]) || 1) - 1;
+          if (left > 0) ses.heroOwned[hid][itemId] = left; else delete ses.heroOwned[hid][itemId];
+        }
+        Store.save();
+        return name + ' perd « ' + (it ? it.name : 'un objet') + ' » (' + (FX_SLOT_LABEL[slotKey] || slotKey) + ').';
+      }
+      case 'vie': {
+        st.viePenalty = (st.viePenalty || 0) - n;
+        // Le maximum de PV baisse : les PV courants sont plafonnés dessus.
+        const maxPv = Math.max(1, Combatants.heroPv(effectiveHero(ses, h)));
+        if (typeof st.pv === 'number') st.pv = Math.max(1, Math.min(st.pv, maxPv));
+        return name + ' perd ' + n + ' VIE.';
+      }
+      case 'death': {
+        st.pv = 0;
+        st.dead = true;
+        return '☠ ' + name + ' meurt !';
+      }
+      case 'deed': {
+        const text = (fx.text || '').trim();
+        if (!text) return '';
+        if (!Array.isArray(ses.deeds)) ses.deeds = [];
+        const key = scene.id + '#' + block.id;
+        if (!ses.deeds.some(function (d) { return d.sceneId === key; })) {
+          ses.deeds.push({ sceneId: key, text: text });
+        }
+        return name + ' subit un Fait : « ' + text + ' » (ajouté au journal).';
+      }
+    }
+    return '';
   }
 
   // Attribue les objets d'un bloc de test réussi aux aventuriers désignés.
@@ -787,8 +956,15 @@
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-fail-box">' +
         '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
         (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '') +
+        (state.fxMsg ? '<div class="ses-st-fx">⚠ ' + esc(state.fxMsg) + '</div>' : '') +
         '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>' +
+        (block.retry ? '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter le test</button></div>' : '') +
       '</div>';
+      const retryBtn = slot.querySelector('.ses-tb-retry');
+      if (retryBtn) retryBtn.addEventListener('click', function () {
+        delete ses.searchTests[block.id];
+        save(); render();
+      });
       return;
     }
     const heroes = engagedHeroes(ses);
@@ -815,13 +991,23 @@
       }).join('');
       rewardHtml += '<div class="ses-reward-block ses-reward-items"><div class="ses-reward-title">🎁 Découverte</div><div class="rp-list">' + rows + '</div></div>';
     }
+    // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
+    let passHtml = '';
+    if (block.targetSceneId) {
+      const tf = findScene(adv, block.targetSceneId);
+      const visited = (ses.visitedSceneIds || []).indexOf(block.targetSceneId) >= 0;
+      const dest = visited && tf ? (tf.scene.title || 'Salle') : '???';
+      passHtml = '<button class="ses-exit-btn ses-exit-visited ses-tb-pass">' +
+        '<span class="ses-exit-lbl">🔓 Emprunter le passage</span>' +
+        '<span class="ses-exit-to">→ ' + esc(dest) + '</span></button>';
+    }
     slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-success-box">' +
       '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + ' — <span class="ses-st-verdict success">Réussite</span></div>' +
       (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '') +
       rewardHtml +
       '<div class="ses-st-actions">' +
         (needClaim ? '<button class="primary ses-tb-claim">Récupérer la récompense</button>' : '') +
-        (block.targetSceneId ? '<button class="primary ses-tb-pass">Emprunter le passage →</button>' : '') +
+        passHtml +
       '</div>' +
     '</div>';
     const claimBtn = slot.querySelector('.ses-tb-claim');
@@ -892,6 +1078,8 @@
     (ses.heroIds || []).forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (!h) return;
+      // Un aventurier mort (conséquence de scène) ne participe plus aux tests.
+      if (ses.heroStates && ses.heroStates[hid] && ses.heroStates[hid].dead) return;
       const g = ses.levelGains ? ses.levelGains[hid] : null;
       const sessSkill = (g && g.skills && g.skills[skill]) || 0; // points gagnés en montée de niveau
       const v = ((h.skills && h.skills[skill]) || 0) + sessSkill;
@@ -1047,6 +1235,13 @@
         statRow('endu', 'ENDURANCE', curEndu, '+2 · +' + pvFromEndu2 + ' PV') +
         statRow('vie', 'VIE', curVie, '+1 · +' + curEndu + ' PV');
 
+      // Contexte des balises dynamiques (<ENDU>, <PV>…) au nouveau niveau.
+      const ehLvl = effectiveHero(ses, h);
+      const lvlTagCtx = {
+        endu: curEndu, damage: curDmg, vie: curVie,
+        pv: Combatants.heroPv(ehLvl), niveau: newLevel,
+        orbes: 2 + Math.floor((Math.max(1, newLevel) - 1) / 2),
+      };
       function talentRows(list) {
         return list.map(function (t) {
           return '<div class="lvl-tal-wrap">' +
@@ -1058,7 +1253,7 @@
                 '<span class="tpe-lvl">Niv. ' + (t.level || 1) + '</span>' +
               '</span>' +
             '</div>' +
-            (t.description ? '<div class="tpe-desc" hidden>' + esc(t.description) + '</div>' : '') +
+            (t.description ? '<div class="tpe-desc" hidden>' + Store.fillTalentTagsHtml(t.description, lvlTagCtx) + '</div>' : '') +
           '</div>';
         }).join('');
       }
@@ -1355,16 +1550,27 @@
       return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).reduce(function (s, r) { return s + (r.count || 1); }, 0);
     }, 0);
     if (!monsterCount) { alert('Aucun monstre défini pour ce combat.'); return; }
-    if (!ses.heroIds.length) { alert('Aucun héros engagé dans cette aventure.'); return; }
+    // Les aventuriers morts (conséquence de scène) ne participent plus aux combats.
+    const fighters = (ses.heroIds || []).filter(function (hid) {
+      return !(ses.heroStates && ses.heroStates[hid] && ses.heroStates[hid].dead);
+    });
+    if (!fighters.length) { alert('Aucun aventurier vivant pour ce combat.'); return; }
 
     // Synchroniser les PV de session vers les fiches héros (le combat lira h.pv)
-    ses.heroIds.forEach(function (hid) {
+    fighters.forEach(function (hid) {
       const h = Store.state.heroes.find(function (x) { return x.id === hid; });
       if (h && ses.heroStates[hid] && typeof ses.heroStates[hid].pv === 'number') {
         h.pv = ses.heroStates[hid].pv;
       }
     });
     Store.save();
+    // États en attente (conséquences de tests ratés) : transmis au combat qui
+    // les applique au démarrage, puis consommés.
+    if (ses.pendingStates && Object.keys(ses.pendingStates).length) {
+      Store.state.pendingCombatStates = ses.pendingStates;
+      ses.pendingStates = null;
+      save();
+    }
 
     const ctx = {
       sessionId: ses.id,
@@ -1378,7 +1584,7 @@
     const root = $('#session-root');
     root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
     ensureLevelData(ses);
-    Combat.startInSession(ses.heroIds, { combatZones: zones, barriers: scene.barriers || [] }, ctx, '#session-combat-root', ses.levelGains);
+    Combat.startInSession(fighters, { combatZones: zones, barriers: scene.barriers || [] }, ctx, '#session-combat-root', ses.levelGains);
   }
 
   // Récompense de scène affichée EN LIGNE : XP (auto au Continue) + objets avec une
@@ -1975,7 +2181,7 @@
         ? list.map(function (e) {
             const sup = e.superseded;
             const checked = !sup && equipped.indexOf(e.id) >= 0;
-            const desc = Store.fillTalentTags(e.t.description || 'Aucune description.', tagCtx);
+            const desc = Store.fillTalentTagsHtml(e.t.description || 'Aucune description.', tagCtx);
             // Séparateur de type (Maîtrise / Action / Réaction / …) entre les groupes.
             let sepHtml = '';
             if (e.kind && e.kind !== prevKind) {
@@ -1993,7 +2199,7 @@
                   '<span class="tpe-lvl">Niv. ' + (e.t.level || 1) + '</span>' +
                 '</span>' +
               '</div>' +
-              '<div class="tpe-desc" id="tpe-desc-' + esc(e.id) + '-' + h.id + '" hidden>' + esc(desc) + '</div>' +
+              '<div class="tpe-desc" id="tpe-desc-' + esc(e.id) + '-' + h.id + '" hidden>' + desc + '</div>' +
             '</div>';
           }).join('')
         : '<p class="inv-col-empty">Aucun talent débloqué. Montez de niveau pour en gagner.</p>';

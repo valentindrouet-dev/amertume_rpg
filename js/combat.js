@@ -162,6 +162,14 @@
       const it = Store.state.items.find(function (x) { return x.id === id; });
       return !!(it && it.category === 'armor' && it.slot === 'shield');
     });
+    // États en attente (conséquence d'un test de scène raté) : appliqués au
+    // démarrage du combat, posés par session.js dans Store.state.pendingCombatStates.
+    const initStates = { affaibli: false, auSol: false, feu: false, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0 };
+    const pendStates = (Store.state.pendingCombatStates && Store.state.pendingCombatStates[h.id]) || [];
+    pendStates.forEach(function (k) {
+      if (k === 'poison') initStates.poison = (initStates.poison || 0) + 1;
+      else if (k in initStates) initStates[k] = true;
+    });
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
       side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: (hero.endu || 1) + endurHard, imageUrl: h.imageUrl || null,
@@ -176,8 +184,7 @@
       freeMoves: 0,                     // REBOND : compteur de mouvements gratuits supplémentaires
       objectItem: objectItem,           // objet consommable équipé (null si aucun)
       lastBreathUsed: false,            // DERNIER SOUFFLE : ignore le coma 1×/combat
-      // BLINDAGE INITIAL : on commence le combat avec Blindage.
-      states: { affaibli: false, auSol: false, feu: false, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0 },
+      states: initStates,
       used: { action: false, move: false, object: false },
       zone: 0, status: Combatants.heroCurPv(h) > 0 ? 'active' : 'coma',
       dmgDealt: 0, dmgTaken: 0,
@@ -4192,6 +4199,7 @@
     } catch (e) { combatHeroLevel = 1; }
     buildCombat(heroObjs, normalizeZoneConfig(sceneCombat));
     sessionGains = null;  // les instances sont figées : on ne garde pas l'overlay
+    delete Store.state.pendingCombatStates; // états de scène consommés au démarrage
     log('Début du combat — Tour 1.', 'turn');
     designateMarkedHero(); // PROIE : désigne la cible du Tour 1
     if (needsPretour()) startPretour();

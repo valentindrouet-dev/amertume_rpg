@@ -808,9 +808,36 @@
     });
   }
 
+  // Variante HTML : même remplacement, mais les valeurs apparaissent en GRAS et
+  // dans la couleur de la caractéristique concernée (classes .tagv-*). Le texte
+  // est échappé ici — le résultat s'insère en innerHTML sans ré-échappement.
+  const TAG_CLASS = {
+    'ENDU': 'endu', 'DEGATS': 'damage', 'DÉGÂTS': 'damage', 'DEGAT': 'damage',
+    'VIE': 'vie', 'PV': 'pv', 'NIVEAU': 'niveau', 'NIV': 'niveau',
+    'ORBES': 'orbes', 'ORBE': 'orbes',
+  };
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function fillTalentTagsHtml(desc, ctx) {
+    ctx = ctx || {};
+    const map = {
+      'ENDU': ctx.endu, 'DEGATS': ctx.damage, 'DÉGÂTS': ctx.damage, 'DEGAT': ctx.damage,
+      'VIE': ctx.vie, 'PV': ctx.pv, 'NIVEAU': ctx.niveau, 'NIV': ctx.niveau,
+      'ORBES': ctx.orbes, 'ORBE': ctx.orbes,
+    };
+    return escHtml(desc).replace(/&lt;([A-Za-zÀ-ÿ]+)&gt;/g, function (m, tag) {
+      const key = tag.toUpperCase();
+      const v = map[key];
+      if (v == null) return m;
+      return '<b class="tagv tagv-' + (TAG_CLASS[key] || 'niveau') + '">' + String(v) + '</b>';
+    });
+  }
+
   global.Store = {
     uid: uid,
     fillTalentTags: fillTalentTags,
+    fillTalentTagsHtml: fillTalentTagsHtml,
     maxLevel: function () { return MAX_LEVEL; },
     noStates: noStates,
     loadOfficial: loadOfficial,

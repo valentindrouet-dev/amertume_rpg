@@ -783,7 +783,8 @@
     const linking = dmapLinking && dmapLinking.chId === ch.id;
     box.innerHTML =
       '<p class="hint">Chaque cartouche est une <b>salle</b> (scène). Glisse les cartouches pour dessiner la carte, ' +
-        'clique une salle pour l\'éditer, <b>🔗</b> pour tracer un connecteur, <b>🚪</b> pour définir l\'entrée du donjon.</p>' +
+        'clique une salle pour l\'éditer, <b>🔗</b> pour tracer un connecteur (re-tracer le même = le supprimer), ' +
+        '<b>🚪</b> pour définir l\'entrée du donjon.</p>' +
       '<div class="dmap-scroll' + (linking ? ' dmap-linking' : '') + '">' +
         '<div class="dmap-canvas" style="width:' + W + 'px;height:' + H + 'px">' +
           '<svg class="dmap-svg" width="' + W + '" height="' + H + '">' + lines + '</svg>' +
@@ -888,13 +889,17 @@
         if (ev.target.closest('button')) return;
         if (el.classList.contains('dragging')) { el.classList.remove('dragging'); return; }
         // Traçage en cours : ce clic désigne la salle d'arrivée du connecteur.
+        // Si un connecteur existe déjà entre ces deux salles, il est SUPPRIMÉ
+        // (re-tracer un lien = le défaire).
         if (dmapLinking && dmapLinking.chId === ch.id) {
           const from = dmapLinking.from;
           dmapLinking = null;
-          if (from && from !== sid && !ch.links.some(function (l) {
-            return (l.from === from && l.to === sid) || (l.from === sid && l.to === from);
-          })) {
-            ch.links.push({ id: Store.uid(), from: from, to: sid, label: '' });
+          if (from && from !== sid) {
+            const existing = ch.links.findIndex(function (l) {
+              return (l.from === from && l.to === sid) || (l.from === sid && l.to === from);
+            });
+            if (existing >= 0) ch.links.splice(existing, 1);
+            else ch.links.push({ id: Store.uid(), from: from, to: sid, label: '' });
             save();
           }
           renderDungeonEditor(a, ch);
@@ -997,6 +1002,31 @@
     combatBox.style.display = '';
     rewardBox.style.display = '';
 
+    // Connecteurs de la salle (chapitre Donjon structuré) : rappel en lecture
+    // seule — ce sont eux qui deviennent les « Sorties & accès » en jeu, tandis
+    // que « Scène suivante » reste un enchaînement forcé (ex. sortie du donjon).
+    const dlBox = document.getElementById('sm-dungeon-links');
+    if (dlBox) {
+      if (curCh && (curCh.mode === 'dungeon') && Array.isArray(curCh.links)) {
+        const titles = sceneTitleMap(adv);
+        const mine = curCh.links.filter(function (l) { return l.from === scene.id || l.to === scene.id; });
+        dlBox.hidden = false;
+        dlBox.innerHTML = '<div class="attacks-head"><h3>Connecteurs de la salle</h3></div>' +
+          (mine.length
+            ? mine.map(function (l) {
+                const other = l.from === scene.id ? l.to : l.from;
+                return '<div class="sm-dl-row">⟷ <b>' + esc(titles[other] || '(salle)') + '</b>' +
+                  (l.label ? ' <span class="sm-dl-lbl">« ' + esc(l.label) + ' »</span>' : '') + '</div>';
+              }).join('')
+            : '<p class="hint">Aucun connecteur — trace-les avec 🔗 sur la carte du donjon.</p>') +
+          '<p class="hint">Les connecteurs sont les <b>Sorties &amp; accès</b> de la salle en jeu ; ils se gèrent sur la carte. ' +
+            '« Scène suivante » sert aux enchaînements forcés (ex. quitter le donjon).</p>';
+      } else {
+        dlBox.hidden = true;
+        dlBox.innerHTML = '';
+      }
+    }
+
     // Scène suivante (auto)
     document.getElementById('sm-next').innerHTML = sceneTargetOptions(allScenes, scene.nextSceneId, adv);
     document.getElementById('sm-next').onchange = function () {
@@ -1030,9 +1060,29 @@
   }
 
   // ---- Blocs de contenu : texte typé OU test de compétence, ordonnés ensemble ----
+  // Conséquences possibles d'un échec au test (appliquées à l'aventurier testeur).
+  const TEST_FAIL_FX = [
+    { kind: 'none',  label: '— Aucune —' },
+    { kind: 'pv',    label: 'Perte de PV' },
+    { kind: 'state', label: 'Subir un état' },
+    { kind: 'xp',    label: 'Perte d\'XP' },
+    { kind: 'item',  label: 'Perte d\'un objet équipé' },
+    { kind: 'vie',   label: 'Perte de VIE' },
+    { kind: 'death', label: 'Mort de l\'aventurier' },
+    { kind: 'deed',  label: 'Subit un Fait' },
+  ];
+  const FX_STATES = [['affaibli', 'Affaibli'], ['auSol', 'Au sol'], ['feu', 'Feu'], ['poison', 'Poison'], ['brise', 'Brisé'], ['faille', 'Faille']];
+  const FX_SLOTS = [['mainG', 'Main gauche'], ['mainD', 'Main droite'], ['randhand', '1 main aléatoire'], ['armor', 'Armure'], ['object', 'Objet équipé']];
+  function ensureFailFx(blk) {
+    if (!blk.failEffect || typeof blk.failEffect !== 'object') {
+      blk.failEffect = { kind: 'none', val: 1, state: 'affaibli', slot: 'randhand', text: '' };
+    }
+    return blk.failEffect;
+  }
   function newTestBlock() {
     return { id: Store.uid(), type: 'test', label: '', skill: 'Perception', difficulty: 'moyen',
-      successText: '', failText: '', xpReward: 0, itemRewards: [], targetSceneId: null, reqSkill: '', reqVal: 0 };
+      successText: '', failText: '', xpReward: 0, itemRewards: [], targetSceneId: null, reqSkill: '', reqVal: 0,
+      retry: false, failEffect: { kind: 'none', val: 1, state: 'affaibli', slot: 'randhand', text: '' } };
   }
   // Migration : ancien `text` → bloc narratif ; ancien `searchTest` (v2.3.04) → bloc de test.
   function migrateSceneBlocks(scene) {
@@ -1098,10 +1148,35 @@
             '</div>' +
             '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="Texte de réussite">' + esc(blk.successText || '') + '</textarea>' +
             '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="Texte d\'échec">' + esc(blk.failText || '') + '</textarea>' +
-            '<div class="tb-reward-head">Récompense en cas de réussite</div>' +
-            '<label class="tb-xp-lbl">XP <input type="number" class="tb-xp" data-bi="' + i + '" min="0" value="' + (blk.xpReward || 0) + '" style="width:80px" /></label>' +
+            '<div class="tb-reward-head">Récompense en cas de réussite · Conséquence de l\'échec</div>' +
+            '<div class="tb-rf-row">' +
+              '<label class="tb-xp-lbl">XP <input type="number" class="tb-xp" data-bi="' + i + '" min="0" value="' + (blk.xpReward || 0) + '" style="width:70px" /></label>' +
+              (function () {
+                const fx = ensureFailFx(blk);
+                const kindOpts = TEST_FAIL_FX.map(function (f) {
+                  return '<option value="' + f.kind + '"' + (fx.kind === f.kind ? ' selected' : '') + '>' + esc(f.label) + '</option>';
+                }).join('');
+                let fields = '';
+                if (fx.kind === 'pv' || fx.kind === 'xp' || fx.kind === 'vie') {
+                  fields = '<input type="number" class="tb-fx-val" data-bi="' + i + '" min="1" value="' + (fx.val || 1) + '" style="width:60px" title="Valeur" />';
+                } else if (fx.kind === 'state') {
+                  fields = '<select class="tb-fx-state" data-bi="' + i + '">' + FX_STATES.map(function (s) {
+                    return '<option value="' + s[0] + '"' + (fx.state === s[0] ? ' selected' : '') + '>' + s[1] + '</option>';
+                  }).join('') + '</select>';
+                } else if (fx.kind === 'item') {
+                  fields = '<select class="tb-fx-slot" data-bi="' + i + '">' + FX_SLOTS.map(function (s) {
+                    return '<option value="' + s[0] + '"' + ((fx.slot || 'randhand') === s[0] ? ' selected' : '') + '>' + s[1] + '</option>';
+                  }).join('') + '</select>';
+                } else if (fx.kind === 'deed') {
+                  fields = '<input type="text" class="tb-fx-text" data-bi="' + i + '" placeholder="Texte du Fait subi (journal)" value="' + esc(fx.text || '') + '" />';
+                }
+                return '<span class="tb-fx-wrap"><span class="tb-fx-lbl">⚠ Échec :</span>' +
+                  '<select class="tb-fx-kind" data-bi="' + i + '">' + kindOpts + '</select>' + fields + '</span>';
+              })() +
+            '</div>' +
             '<div id="sm-blk-ir-' + blk.id + '"></div>' +
             '<label>Passage débloqué en cas de réussite <select class="tb-target" data-bi="' + i + '">' + sceneTargetOptions(allScenes, blk.targetSceneId, adv) + '</select></label>' +
+            '<label class="tb-retry-lbl"><input type="checkbox" class="tb-retry" data-bi="' + i + '"' + (blk.retry ? ' checked' : '') + ' /> 🔁 Peut être retenté (autant de fois que nécessaire jusqu\'à la réussite)</label>' +
             reqHtml +
           '</div>';
         }
@@ -1149,6 +1224,25 @@
         const bi = biOf(this);
         if (handleTargetSelect(this.value, scene, adv, function (id) { scene.blocks[bi].targetSceneId = id; })) renderBlocksEditor(scene, adv);
       };
+    });
+    box.querySelectorAll('.tb-retry').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].retry = this.checked; };
+    });
+    // Conséquence de l'échec (menu + champs dynamiques selon le type choisi)
+    box.querySelectorAll('.tb-fx-kind').forEach(function (el) {
+      el.onchange = function () { ensureFailFx(scene.blocks[biOf(this)]).kind = this.value; renderBlocksEditor(scene, adv); };
+    });
+    box.querySelectorAll('.tb-fx-val').forEach(function (el) {
+      el.oninput = function () { ensureFailFx(scene.blocks[biOf(this)]).val = Math.max(1, parseInt(this.value, 10) || 1); };
+    });
+    box.querySelectorAll('.tb-fx-state').forEach(function (el) {
+      el.onchange = function () { ensureFailFx(scene.blocks[biOf(this)]).state = this.value; };
+    });
+    box.querySelectorAll('.tb-fx-slot').forEach(function (el) {
+      el.onchange = function () { ensureFailFx(scene.blocks[biOf(this)]).slot = this.value; };
+    });
+    box.querySelectorAll('.tb-fx-text').forEach(function (el) {
+      el.oninput = function () { ensureFailFx(scene.blocks[biOf(this)]).text = this.value; };
     });
     // Condition (compétence requise) — commune
     box.querySelectorAll('.block-reqskill').forEach(function (sel) {

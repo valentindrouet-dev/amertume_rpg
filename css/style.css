@@ -3596,3 +3596,51 @@ body.mode-player #item-list.roster-list { display: block; }
 .adv-block-req .block-reqskill { font-size: .82rem; }
 .adv-block-req .block-reqval { width: 56px; }
 .adv-block-req-mini { font-size: .78rem; color: var(--muted); }
+
+/* ============ Balises dynamiques des descriptions de talents (valeurs colorées) ============ */
+.tagv { font-weight: 800; }
+.tagv-endu   { color: #5bbfa0; }  /* ENDURANCE (turquoise, cf. création) */
+.tagv-damage { color: #e08585; }  /* DÉGÂTS (rouge) */
+.tagv-vie    { color: #c48fe0; }  /* VIE (violet) */
+.tagv-pv     { color: #74c274; }  /* PV (vert des jauges) */
+.tagv-niveau { color: #d4af5a; }  /* NIVEAU (or) */
+.tagv-orbes  { color: #f0a262; }  /* ORBES (orange Pyromane) */
+
+/* ============ v2.3.06 : uniformisation boutons de test / conséquences / retry ============ */
+/* Le bouton de test a les mêmes dimensions que les boutons « Sorties & accès ». */
+.ses-searchtest .ses-choice-btn { padding: .6rem .9rem; font-size: .98rem; margin-bottom: .4rem; }
+.ses-searchtest .ses-exit-btn { margin-top: .2rem; }
+.ses-st-fx { margin: .4rem 0; font-weight: 700; color: #d65c40; }
+.ses-tb-retry { margin-top: .2rem; }
+.ses-hero-dead { opacity: .6; }
+/* Éditeur : ligne récompense/conséquence + case retenter */
+.tb-rf-row { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.tb-fx-wrap { display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.tb-fx-lbl { font-size: .8rem; font-weight: 700; color: #d65c40; }
+.tb-fx-wrap .tb-fx-text { min-width: 16rem; }
+.tb-retry-lbl { display: block; font-size: .85rem; margin-top: .3rem; }
+
+/* ============ Carte du donjon en mode Aventure (mini + fenêtre flottante) ============ */
+.ses-minimap-box { margin-top: 1rem; }
+.ses-minimap-box h3 { margin-bottom: .4rem; }
+.ses-minimap { overflow: auto; max-height: 220px; border: 1px solid rgba(120,120,120,.28); border-radius: 10px; cursor: zoom-in; background: rgba(120,120,120,.05); }
+.ses-minimap-hint { margin-top: .25rem; font-size: .74rem; text-align: center; }
+.mmap-canvas { position: relative; }
+.mmap-svg { position: absolute; inset: 0; pointer-events: none; }
+.mmap-line { stroke: rgba(170,145,115,.8); stroke-width: 2.5; stroke-linecap: round; }
+.mmap-line-unknown { stroke: rgba(140,140,140,.35); stroke-dasharray: 4 4; }
+.mmap-room {
+  position: absolute; box-sizing: border-box; border: 2px solid rgba(160,140,110,.8); border-radius: 6px;
+  background: var(--card, #2a251d); overflow: hidden; display: flex; align-items: center; justify-content: center;
+  font-size: .68rem; text-align: center; padding: .1rem;
+}
+.mmap-room.mmap-unknown { border-style: dashed; border-color: rgba(140,140,140,.45); color: var(--muted); opacity: .65; }
+.mmap-room.mmap-current { border-color: var(--accent-2, #e2974a); box-shadow: 0 0 0 2px rgba(226,151,74,.45); z-index: 2; }
+.mmap-room-title {
+  font-weight: 700; font-size: .72rem; line-height: 1.12;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+}
+.dmap-view-scroll { overflow: auto; max-height: 70vh; border: 1px solid rgba(120,120,120,.25); border-radius: 10px; background: rgba(120,120,120,.05); }
+/* Éditeur : rappel des connecteurs dans la modale de scène */
+.sm-dl-row { padding: .15rem 0; font-size: .9rem; }
+.sm-dl-lbl { color: var(--muted); }
