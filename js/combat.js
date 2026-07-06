@@ -237,6 +237,8 @@
       }),
       barriers: normalizeBarriers(src && src.barriers),
       heroStartZone: hsi,
+      // Placement par aventurier (ex. testeurs ayant échoué dans une autre zone).
+      heroStartMap: (src && src.heroStartMap) || null,
     };
   }
 
@@ -246,8 +248,14 @@
     if (!zones.length) zones.push({ name: 'Zone 1' });
     zones.forEach(function (z, i) { if (!z.name) z.name = 'Zone ' + (i + 1); });
     const heroZone = Math.min(Math.max(0, cfg.heroStartZone || 0), zones.length - 1);
+    const clampZone = function (z) { return Math.min(Math.max(0, z || 0), zones.length - 1); };
+    const startMap = cfg.heroStartMap || null;
     const combatants = [];
-    heroObjs.forEach(function (h, i) { const inst = instFromHero(h, i); inst.zone = heroZone; combatants.push(inst); });
+    heroObjs.forEach(function (h, i) {
+      const inst = instFromHero(h, i);
+      inst.zone = (startMap && startMap[h.id] != null) ? clampZone(startMap[h.id]) : heroZone;
+      combatants.push(inst);
+    });
     // Numérotation globale par template : on compte d'abord le total d'exemplaires
     // de chaque adversaire sur tout le combat (toutes zones confondues), puis on
     // numérote en continu — sans « # » et indépendamment de la zone, car un

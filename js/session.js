@@ -732,7 +732,9 @@
   function triggerForcedCombat(ses, sceneId, cfg) {
     const zones = cfg && Array.isArray(cfg.combatZones) ? cfg.combatZones : null;
     if (!sceneId || !zones || !zones.some(function (z) { return (z.monsterRefs || []).some(function (r) { return r.monsterId; }); })) return false;
-    ses.forcedCombat = { sceneId: sceneId, zones: zones, barriers: (cfg.barriers || {}) };
+    // Déjà armé pour cette scène (appels multiples d'un test de groupe) : on conserve.
+    if (ses.forcedCombat && ses.forcedCombat.sceneId === sceneId) return true;
+    ses.forcedCombat = { sceneId: sceneId, zones: zones, barriers: (cfg.barriers || {}), failedHeroIds: [] };
     save();
     return true;
   }
@@ -1236,6 +1238,11 @@
     if (fx.kind === 'combat') {
       const already = ses.forcedCombat && ses.forcedCombat.sceneId === scene.id;
       triggerForcedCombat(ses, scene.id, fx.combat);
+      // Mémorise les aventuriers AYANT ÉCHOUÉ (placement de départ dédié possible).
+      if (ses.forcedCombat && hero) {
+        if (!Array.isArray(ses.forcedCombat.failedHeroIds)) ses.forcedCombat.failedHeroIds = [];
+        if (ses.forcedCombat.failedHeroIds.indexOf(hero.id) < 0) { ses.forcedCombat.failedHeroIds.push(hero.id); save(); }
+      }
       return already ? '' : '⚔️ Un combat se déclenche !';
     }
     const hid = hero ? hero.id : ((ses.heroIds && ses.heroIds[0]) || null);
@@ -1363,6 +1370,19 @@
   }
 
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
+    // Retour dans une salle déjà quittée : résultat de test en version COMPACTE
+    // (titre + verdict), sans récompenses, jets ni narration — pour désencombrer.
+    if (ses.leftScenes && ses.leftScenes[scene.id]) {
+      const ok = !!state.success;
+      const verdict = (state.validated && state.wasFail)
+        ? '<span class="ses-st-verdict rescued">↩ Rattrapé</span>'
+        : (ok ? '<span class="ses-st-verdict success">Réussite</span>' : '<span class="ses-st-verdict fail">Échec</span>');
+      slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-compact ' +
+        (ok || state.validated ? 'ses-st-success-box' : 'ses-st-fail-box') + '">' +
+        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + ' — ' + verdict + '</div>' +
+      '</div>';
+      return;
+    }
     if (!state.success) {
       // Nouvelle tentative selon le mode du bloc : à volonté, avec un autre
       // aventurier (1× chacun), ou après une montée de niveau du groupe.
@@ -1685,6 +1705,12 @@
 
   function navigateTo(ses, adv, sceneId) {
     if (!sceneId) return;
+    // Mémorise que l'on QUITTE la scène courante : à un retour ultérieur, ses
+    // résultats de tests (XP, Hauts Faits, jets) s'affichent en version compacte.
+    if (ses.currentSceneId && ses.currentSceneId !== sceneId) {
+      if (!ses.leftScenes) ses.leftScenes = {};
+      ses.leftScenes[ses.currentSceneId] = true;
+    }
     // Récompenses de la scène courante : attribuées automatiquement en la quittant
     // (avant le contrôle de montée de niveau, pour que l'XP gagnée compte).
     grantSceneRewardsFromDOM(ses, adv);
@@ -2187,10 +2213,22 @@
     }
     const ctx = { sessionId: ses.id, adventureId: adv.id, sceneId: scene.id,
       outcomeSceneId: null, defeatSceneId: scene.defeatSceneId || null, forced: true };
+    // Placement de départ dédié : les aventuriers ayant ÉCHOUÉ le test peuvent
+    // commencer dans une zone distincte (« Départ des aventuriers ayant échoué »).
+    const failedZi = zones.findIndex(function (z) { return z.heroStartFailed; });
+    const normalZi = zones.findIndex(function (z) { return z.heroStart; });
+    let heroStartMap = null;
+    const failed = (fc.failedHeroIds || []);
+    if (failedZi >= 0 && failed.length) {
+      heroStartMap = {};
+      fighters.forEach(function (hid) {
+        heroStartMap[hid] = (failed.indexOf(hid) >= 0) ? failedZi : (normalZi >= 0 ? normalZi : failedZi);
+      });
+    }
     const root = $('#session-root');
     root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
     ensureLevelData(ses);
-    Combat.startInSession(fighters, { combatZones: zones, barriers: fc.barriers || {} }, ctx, '#session-combat-root', ses.levelGains);
+    Combat.startInSession(fighters, { combatZones: zones, barriers: fc.barriers || {}, heroStartMap: heroStartMap }, ctx, '#session-combat-root', ses.levelGains);
   }
 
   // Récompense de scène affichée EN LIGNE : XP (auto au Continue) + objets avec une

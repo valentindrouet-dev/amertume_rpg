@@ -1620,10 +1620,11 @@
     scene.blocks.forEach(function (blk) {
       if (blk.type !== 'test') return;
       if (blk.failEffect && blk.failEffect.kind === 'combat') {
-        renderCombatEditor(document.getElementById('tb-failcbt-' + blk.id), ensureFxCombat(blk.failEffect), Store.state.monsters, 'failzone-' + blk.id);
+        // Placement de départ double (normal / échoués) réservé à l'échec du test.
+        renderCombatEditor(document.getElementById('tb-failcbt-' + blk.id), ensureFxCombat(blk.failEffect), Store.state.monsters, 'failzone-' + blk.id, true);
       }
       if (blk.winEffect && blk.winEffect.kind === 'combat') {
-        renderCombatEditor(document.getElementById('tb-wincbt-' + blk.id), ensureFxCombat(blk.winEffect), Store.state.monsters, 'winzone-' + blk.id);
+        renderCombatEditor(document.getElementById('tb-wincbt-' + blk.id), ensureFxCombat(blk.winEffect), Store.state.monsters, 'winzone-' + blk.id, false);
       }
     });
     box.querySelectorAll('.tb-target').forEach(function (el) {
@@ -1859,7 +1860,7 @@
   // Éditeur de zones de combat RÉUTILISABLE : `box` = conteneur DOM, `scene` =
   // objet portant combatZones/barriers (scène OU effet de test), `radioName` =
   // nom du groupe radio « départ des aventuriers » (unique par éditeur affiché).
-  function renderCombatEditor(box, scene, monsters, radioName) {
+  function renderCombatEditor(box, scene, monsters, radioName, dualStart) {
     if (!box) return;
     ensureZones(scene);
     ensureBarriers(scene);
@@ -1896,7 +1897,10 @@
       const zoneHtml = '<div class="adv-zone" data-zi="' + zi + '">' +
         '<div class="adv-zone-head">' +
           '<input type="text" class="zone-name-input" value="' + esc(z.name || ('Zone ' + (zi + 1))) + '" placeholder="Nom de la zone" />' +
-          '<label class="zone-start"><input type="radio" name="' + radioName + '"' + (z.heroStart ? ' checked' : '') + '> Départ des aventuriers</label>' +
+          (dualStart
+            ? '<label class="zone-start"><input type="checkbox" class="zone-startall"' + (z.heroStart ? ' checked' : '') + '> Départ des aventuriers</label>' +
+              '<label class="zone-start"><input type="checkbox" class="zone-startfail"' + (z.heroStartFailed ? ' checked' : '') + '> Départ des aventuriers ayant échoué</label>'
+            : '<label class="zone-start"><input type="radio" name="' + radioName + '"' + (z.heroStart ? ' checked' : '') + '> Départ des aventuriers</label>') +
           (zones.length > 1 ? '<button type="button" class="icon-btn zone-del" title="Supprimer la zone">✕</button>' : '') +
         '</div>' +
         rows +
@@ -1932,14 +1936,22 @@
       if (nameInp) nameInp.oninput = function () { if (scene.barriers[key]) { scene.barriers[key].name = this.value; save(); } };
     });
 
-    function refresh() { save(); renderCombatEditor(box, scene, Store.state.monsters, radioName); }
+    function refresh() { save(); renderCombatEditor(box, scene, Store.state.monsters, radioName, dualStart); }
 
     box.querySelectorAll('.adv-zone').forEach(function (zEl) {
       const zi = parseInt(zEl.getAttribute('data-zi'), 10);
       const z = zones[zi];
       zEl.querySelector('.zone-name-input').oninput = function () { z.name = this.value; save(); };
-      const radio = zEl.querySelector('input[type="radio"]');
-      radio.onchange = function () { if (this.checked) { zones.forEach(function (zz, k) { zz.heroStart = (k === zi); }); save(); } };
+      if (dualStart) {
+        // Cases (non exclusives) : « départ des aventuriers » et « départ des échoués ».
+        const cbAll = zEl.querySelector('.zone-startall');
+        const cbFail = zEl.querySelector('.zone-startfail');
+        if (cbAll) cbAll.onchange = function () { z.heroStart = this.checked; save(); };
+        if (cbFail) cbFail.onchange = function () { z.heroStartFailed = this.checked; save(); };
+      } else {
+        const radio = zEl.querySelector('input[type="radio"]');
+        if (radio) radio.onchange = function () { if (this.checked) { zones.forEach(function (zz, k) { zz.heroStart = (k === zi); }); save(); } };
+      }
       const del = zEl.querySelector('.zone-del');
       if (del) del.onclick = function () {
         zones.splice(zi, 1);
