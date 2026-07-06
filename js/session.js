@@ -576,7 +576,7 @@
       var st = scene.searchTest;
       blocks.push({ id: scene.id, type: 'test', _fromSearch: true, label: st.label, skill: st.skill,
         difficulty: st.difficulty, successText: st.successText, failText: st.failText, xpReward: st.xpReward,
-        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', prepareReward: !!st.prepareReward, groupMode: st.groupMode || 'majority', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
+        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', prepareReward: !!st.prepareReward, winEffect: st.winEffect || null, groupMode: st.groupMode || 'majority', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
     }
     return blocks;
   }
@@ -708,6 +708,7 @@
   // Une scène donne une récompense si elle accorde de l'XP ou au moins un objet
   function sceneHasReward(scene) {
     return (scene.xpReward && scene.xpReward > 0) || !!scene.prepareReward ||
+      (scene.winEffect && scene.winEffect.kind && scene.winEffect.kind !== 'none') ||
       (Array.isArray(scene.itemRewards) && scene.itemRewards.some(function (r) { return r.itemId; }));
   }
   // PRÉPARÉ : marque tous les aventuriers engagés comme Préparés pour le prochain
@@ -718,6 +719,53 @@
       const arr = (ses.pendingStates[h.id] = ses.pendingStates[h.id] || []);
       if (arr.indexOf('prepare') < 0) arr.push('prepare');
     });
+  }
+  // Libellé d'affichage de l'effet de réussite (encadré de récompense).
+  const WIN_STATE_LABEL = { blindage: 'Blindage', onde: 'Onde', prepare: 'Préparé' };
+  function winEffectHtml(o) {
+    const fx = (o && o.winEffect) || (o && o.prepareReward ? { kind: 'prepare' } : null);
+    if (!fx || !fx.kind || fx.kind === 'none') return '';
+    let inner = '';
+    if (fx.kind === 'prepare') inner = '⚡ Groupe <strong>Préparé</strong> pour le prochain combat';
+    else if (fx.kind === 'pv') inner = '❤️ Soin <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' PV</strong> pour le groupe';
+    else if (fx.kind === 'vie') inner = '❤️ Gain <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' VIE</strong> pour le groupe';
+    else if (fx.kind === 'state') inner = '🛡️ Groupe gagne <strong>' + esc(WIN_STATE_LABEL[fx.state] || fx.state || 'Blindage') + '</strong> au prochain combat';
+    else return '';
+    return '<div class="ses-reward-block ses-reward-prepare"><div class="ses-reward-title">' + inner + '</div></div>';
+  }
+  // Applique l'EFFET DE RÉUSSITE (positif) d'un test ou d'une scène au groupe.
+  // Rétro-compat : l'ancien booléen prepareReward vaut winEffect { kind:'prepare' }.
+  function applyWinEffect(ses, o) {
+    const fx = (o && o.winEffect) || (o && o.prepareReward ? { kind: 'prepare' } : null);
+    if (!fx || !fx.kind || fx.kind === 'none') return '';
+    if (fx.kind === 'prepare') { prepareParty(ses); return 'Le groupe est Préparé pour le prochain combat.'; }
+    const n = Math.max(1, Store.rollAmount(fx.val == null ? 2 : fx.val));
+    if (!ses.heroStates) ses.heroStates = {};
+    if (fx.kind === 'pv') {
+      engagedHeroes(ses).forEach(function (h) {
+        const st = ses.heroStates[h.id] || (ses.heroStates[h.id] = { pv: Combatants.heroPv(h) });
+        const maxPv = Math.max(1, Combatants.heroPv(effectiveHero(ses, h)));
+        st.pv = Math.min(maxPv, (typeof st.pv === 'number' ? st.pv : maxPv) + n);
+      });
+      return 'Le groupe récupère ' + n + ' PV.';
+    }
+    if (fx.kind === 'vie') {
+      engagedHeroes(ses).forEach(function (h) {
+        const st = ses.heroStates[h.id] || (ses.heroStates[h.id] = { pv: Combatants.heroPv(h) });
+        st.viePenalty = (st.viePenalty || 0) + n;
+      });
+      return 'Le groupe gagne ' + n + ' VIE.';
+    }
+    if (fx.kind === 'state') {
+      const key = fx.state || 'blindage';
+      if (!ses.pendingStates) ses.pendingStates = {};
+      engagedHeroes(ses).forEach(function (h) {
+        const arr = (ses.pendingStates[h.id] = ses.pendingStates[h.id] || []);
+        if (arr.indexOf(key) < 0) arr.push(key);
+      });
+      return 'Le groupe gagne « ' + key + ' » au prochain combat.';
+    }
+    return '';
   }
   function appendSection(box) {
     const d = document.createElement('div');
@@ -1095,7 +1143,7 @@
         const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
-        if (block.prepareReward) prepareParty(ses);
+        applyWinEffect(ses, block);
       }
     } else {
       // Exclusions (mode « avec un autre aventurier ») : les aventuriers ayant
@@ -1113,7 +1161,7 @@
         const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
-        if (block.prepareReward) prepareParty(ses);
+        applyWinEffect(ses, block);
       }
       // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
       if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
@@ -1347,9 +1395,7 @@
     if ((block.deedReward || '').trim()) {
       rewardHtml += '<div class="ses-reward-block ses-reward-deed"><div class="ses-reward-title">🏆 Haut Fait <strong>' + esc(block.deedReward.trim()) + '</strong></div></div>';
     }
-    if (block.prepareReward) {
-      rewardHtml += '<div class="ses-reward-block ses-reward-prepare"><div class="ses-reward-title">⚡ Groupe <strong>Préparé</strong> pour le prochain combat</div></div>';
-    }
+    rewardHtml += winEffectHtml(block);
     // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
     let passHtml = '';
     if (block.targetSceneId) {
@@ -2068,11 +2114,7 @@
         '<p class="hint">Choisis le destinataire de chaque objet ; l\'attribution se fait en cliquant sur « Continuer ».</p>' +
       '</div>';
     }
-    if (scene.prepareReward) {
-      html += '<div class="ses-reward-block ses-reward-prepare">' +
-        '<div class="ses-reward-title">⚡ Groupe <strong>Préparé</strong> pour le prochain combat</div>' +
-      '</div>';
-    }
+    html += winEffectHtml(scene);
     sec.innerHTML = html;
   }
 
@@ -2103,7 +2145,7 @@
       const recipient = (assign[idx]) || fallback;
       if (recipient) addToHeroOwned(ses, recipient, r.itemId, q); // armes plafonnées à 2
     });
-    if (scene.prepareReward) prepareParty(ses);
+    applyWinEffect(ses, scene);
     if (!ses.claimedRewards) ses.claimedRewards = {};
     ses.claimedRewards[scene.id] = true;
     Store.save();

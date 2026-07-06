@@ -1285,8 +1285,16 @@
     // Récompense
     document.getElementById('sm-xp').value = scene.xpReward || 0;
     document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
-    const prepCb = document.getElementById('sm-prepare-reward');
-    if (prepCb) { prepCb.checked = !!scene.prepareReward; prepCb.onchange = function () { scene.prepareReward = this.checked; }; }
+    const winBox = document.getElementById('sm-win-fx');
+    if (winBox) {
+      winBox.innerHTML = winFxControlsHtml(scene, 'sm-wfx-kind', 'sm-wfx-val', 'sm-wfx-state', '');
+      const k = winBox.querySelector('.sm-wfx-kind');
+      if (k) k.onchange = function () { ensureWinFx(scene).kind = this.value; scene.prepareReward = false; refreshSceneModalSections(scene, adv); };
+      const v = winBox.querySelector('.sm-wfx-val');
+      if (v) v.onchange = function () { const val = this.value.trim(); ensureWinFx(scene).val = Store.isDiceExpr(val) ? val : Math.max(1, parseInt(val, 10) || 1); };
+      const s = winBox.querySelector('.sm-wfx-state');
+      if (s) s.onchange = function () { ensureWinFx(scene).state = this.value; };
+    }
     renderItemRewards(scene);
   }
 
@@ -1304,6 +1312,41 @@
   ];
   const FX_STATES = [['affaibli', 'Affaibli'], ['auSol', 'Au sol'], ['feu', 'Feu'], ['poison', 'Poison'], ['brise', 'Brisé'], ['faille', 'Faille']];
   const FX_SLOTS = [['mainG', 'Main gauche'], ['mainD', 'Main droite'], ['randhand', '1 main aléatoire'], ['armor', 'Armure'], ['object', 'Objet équipé']];
+  // Effets POSITIFS accordés en cas de réussite (test ou scène).
+  const TEST_WIN_FX = [
+    { kind: 'none',    label: '— Aucun —' },
+    { kind: 'prepare', label: '⚡ Préparé (prochain combat)' },
+    { kind: 'pv',      label: '❤️ Soin de PV' },
+    { kind: 'vie',     label: '❤️ Gain de VIE' },
+    { kind: 'state',   label: '🛡️ Gagne un état (prochain combat)' },
+  ];
+  const WIN_FX_STATES = [['blindage', 'Blindage'], ['onde', 'Onde']];
+  function ensureWinFx(o) {
+    if (!o.winEffect || typeof o.winEffect !== 'object') {
+      // Migration : l'ancienne case « Préparé » devient un effet de réussite.
+      o.winEffect = { kind: o.prepareReward ? 'prepare' : 'none', val: 2, state: 'blindage' };
+    }
+    return o.winEffect;
+  }
+  // Contrôles HTML du menu « Effet en cas de réussite » (partagés test + scène).
+  // kindCls / valCls / stateCls : classes CSS pour le câblage des événements.
+  function winFxControlsHtml(o, kindCls, valCls, stateCls, dataAttr) {
+    const fx = ensureWinFx(o);
+    const da = dataAttr || '';
+    const opts = TEST_WIN_FX.map(function (f) {
+      return '<option value="' + f.kind + '"' + (fx.kind === f.kind ? ' selected' : '') + '>' + f.label + '</option>';
+    }).join('');
+    let fields = '';
+    if (fx.kind === 'pv' || fx.kind === 'vie') {
+      fields = '<input type="text" class="' + valCls + '" ' + da + ' value="' + esc(fx.val == null ? 2 : fx.val) + '" style="width:70px" placeholder="2 ou 1d6" title="Valeur fixe ou tirage de dés (ex : 3, 1d6, 2d6+1)" />';
+    } else if (fx.kind === 'state') {
+      fields = '<select class="' + stateCls + '" ' + da + '>' + WIN_FX_STATES.map(function (s) {
+        return '<option value="' + s[0] + '"' + (fx.state === s[0] ? ' selected' : '') + '>' + s[1] + '</option>';
+      }).join('') + '</select>';
+    }
+    return '<span class="tb-fx-wrap"><span class="tb-fx-lbl tb-win-lbl">✦ Réussite :</span>' +
+      '<select class="' + kindCls + '" ' + da + '>' + opts + '</select>' + fields + '</span>';
+  }
   function ensureFailFx(blk) {
     if (!blk.failEffect || typeof blk.failEffect !== 'object') {
       blk.failEffect = { kind: 'none', val: 1, state: 'affaibli', slot: 'randhand', text: '' };
@@ -1430,7 +1473,7 @@
             '</div>' +
             '<div id="sm-blk-ir-' + blk.id + '"></div>' +
             '<label class="tb-deed-lbl">🏆 Haut Fait gagné en cas de réussite <input type="text" class="tb-deed" data-bi="' + i + '" value="' + esc(blk.deedReward || '') + '" placeholder="Ex : A vaincu le gardien du seuil (ajouté aux Hauts Faits)" /></label>' +
-            '<label class="checkbox inline" title="Les aventuriers débutent le prochain combat Préparés (+1 Action au tour 1)."><input type="checkbox" class="tb-prepare" data-bi="' + i + '"' + (blk.prepareReward ? ' checked' : '') + ' /> ⚡ Rend les aventuriers <b>Préparés</b> pour le prochain combat</label>' +
+            '<div class="tb-win-row">' + winFxControlsHtml(blk, 'tb-wfx-kind', 'tb-wfx-val', 'tb-wfx-state', 'data-bi="' + i + '"') + '</div>' +
             '<label>Passage débloqué en cas de réussite <select class="tb-target" data-bi="' + i + '">' + sceneTargetOptions(allScenes, blk.targetSceneId, adv) + '</select></label>' +
             // Tests enchaînés : un AUTRE bloc de test de la scène, révélé selon le
             // résultat (ex. rater l'Agilité fait apparaître un test de Force).
@@ -1545,8 +1588,22 @@
     box.querySelectorAll('.tb-deed').forEach(function (el) {
       el.oninput = function () { scene.blocks[biOf(this)].deedReward = this.value; };
     });
-    box.querySelectorAll('.tb-prepare').forEach(function (el) {
-      el.onchange = function () { scene.blocks[biOf(this)].prepareReward = this.checked; };
+    box.querySelectorAll('.tb-wfx-kind').forEach(function (el) {
+      el.onchange = function () {
+        const blk = scene.blocks[biOf(this)];
+        ensureWinFx(blk).kind = this.value;
+        blk.prepareReward = false; // remplacé par le menu d'effet de réussite
+        renderBlocksEditor(scene, adv);
+      };
+    });
+    box.querySelectorAll('.tb-wfx-val').forEach(function (el) {
+      el.onchange = function () {
+        const v = this.value.trim();
+        ensureWinFx(scene.blocks[biOf(this)]).val = Store.isDiceExpr(v) ? v : Math.max(1, parseInt(v, 10) || 1);
+      };
+    });
+    box.querySelectorAll('.tb-wfx-state').forEach(function (el) {
+      el.onchange = function () { ensureWinFx(scene.blocks[biOf(this)]).state = this.value; };
     });
     box.querySelectorAll('.tb-target').forEach(function (el) {
       el.onchange = function () {
