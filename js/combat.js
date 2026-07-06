@@ -3727,11 +3727,14 @@
     recordAction(attacker, atk, atkIndex);
     // Attaque de contact : l'aventurier rejoint la zone ciblée (s'il le peut)
     if (atk.range === 'contact' && attacker.zone !== zoneIdx) {
-      if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cette zone.'); return; }
+      // PRÉPARÉ : le déplacement vers la zone ciblée peut puiser dans le bonus.
+      const bonusMove = attacker.used.move && attacker.prepBonus;
+      if (attacker.used.move && !attacker.prepBonus) { alert('Vous ne pouvez pas atteindre cette zone.'); return; }
       const cross = crossCheck(attacker, zoneIdx);
       if (cross === 'block') { alert('Une barrière infranchissable sépare ces zones — attaque impossible.'); return; }
-      if (cross === 'fail') { attacker.used.move = true; return; }
+      if (cross === 'fail') { if (bonusMove) attacker.prepBonus = false; else attacker.used.move = true; return; }
       doMove(attacker, zoneIdx, true);
+      if (bonusMove) attacker.prepBonus = false; // mouvement bonus consommé (déjà déplacé ce tour)
       if (attacker.status !== 'active') return;
       movePrefix = { iid: attacker.iid, zone: zname(zoneIdx) };
     }
@@ -3987,18 +3990,22 @@
           // Assaut Mobile (freeMove) : le déplacement est gratuit (ne consomme pas le mouvement)
           // et peut s'enchaîner même si le mouvement a déjà été utilisé ce tour.
           if (atk && atk.range === 'contact' && attacker.zone !== c.zone) {
-            if (!atk.freeMove && attacker.used.move) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
+            // PRÉPARÉ : le déplacement automatique vers la cible peut puiser dans le
+            // bonus (Mouvement) même si le mouvement du tour est déjà dépensé.
+            const bonusMove = !atk.freeMove && attacker.used.move && attacker.prepBonus;
+            if (!atk.freeMove && attacker.used.move && !attacker.prepBonus) { alert('Vous ne pouvez pas atteindre cet adversaire.'); return; }
             // BARRIÈRES : mur/infranchissable bloque ; Difficile exige un test d'Agilité.
             const cross = crossCheck(attacker, c.zone);
             if (cross === 'block') { alert('Une barrière infranchissable sépare ces zones — attaque au contact impossible.'); return; }
             if (cross === 'fail') {
               // Test raté : le mouvement est perdu, l'attaque (action) est conservée.
-              if (!atk.freeMove) attacker.used.move = true;
+              if (bonusMove) attacker.prepBonus = false; else if (!atk.freeMove) attacker.used.move = true;
               pendingAttack = null; checkOutcome(); Store.save(); render(); return;
             }
             const prevMove = attacker.used.move;
             doMove(attacker, c.zone, true);
             if (atk.freeMove) attacker.used.move = prevMove;
+            else if (bonusMove) attacker.prepBonus = false; // le mouvement bonus est consommé
             if (attacker.status !== 'active') { pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
             movePrefix = { iid: attacker.iid, zone: zname(attacker.zone) };
           }

@@ -1364,6 +1364,7 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
   background: rgba(0,0,0,.05); color: var(--text); white-space: nowrap; }
 .ses-skill-pill .ssk-bonus { font-weight: 800; color: #1a5a45; }
 .ses-skill-pill .ssk-tal { font-weight: 700; color: #7a5c12; }
+.ses-skill-pill .ssk-rand { font-weight: 700; color: #8a5a1e; font-size: .82rem; }
 /* Cartouche de difficulté coloré (vert facile · orange moyen · rouge difficile),
    visible partout : languette ET bouton de test. */
 .ssk-diff { font-weight: 700; color: #fff; border-radius: 7px; padding: 0 .45rem; background: #8a8276; white-space: nowrap; }
@@ -3661,6 +3662,8 @@ body.mode-player #item-list.roster-list { display: block; }
 .mmap-svg { position: absolute; inset: 0; pointer-events: none; }
 .mmap-line { stroke: rgba(170,145,115,.8); stroke-width: 2.5; stroke-linecap: round; }
 .mmap-line-unknown { stroke: rgba(140,140,140,.35); stroke-dasharray: 4 4; }
+/* Moignon vers une salle accessible mais pas encore découverte : direction seule. */
+.mmap-line-stub { stroke: rgba(170,145,115,.55); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 3 3; }
 .mmap-room {
   position: absolute; box-sizing: border-box; border: 2px solid rgba(160,140,110,.8); border-radius: 6px;
   background: var(--card, #2a251d); overflow: hidden; display: flex; align-items: center; justify-content: center;

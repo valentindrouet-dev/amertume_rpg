@@ -506,18 +506,33 @@
     const shown = (chapter.scenes || []).filter(function (s) { return !s.isTransition && visited(s.id); });
     const maxX = shown.reduce(function (m, s) { return Math.max(m, pos[s.id][0]); }, 0);
     const maxY = shown.reduce(function (m, s) { return Math.max(m, pos[s.id][1]); }, 0);
-    const W = (maxX + 1) * CW + BW / 3 + PAD * 2, H = (maxY + 1) * CH + PAD;
+    const STUB = Math.min(CW, CH) * 0.5; // longueur d'un moignon de connecteur vers l'inconnu
+    const W = (maxX + 1) * CW + BW / 3 + PAD * 2 + STUB, H = (maxY + 1) * CH + PAD + STUB;
     const cx = function (id) { return pos[id][0] * CW + PAD + BW / 2; };
     const cy = function (id) { return pos[id][1] * CH + PAD + BH / 2; };
-    // Connecteurs : uniquement entre deux salles explorées, et jamais un passage
-    // secret non encore révélé (son test de révélation n'a pas été réussi).
+    const revealed = function (l) {
+      if (!l.revealTestId) return true;
+      const st = ses.searchTests && ses.searchTests[l.revealTestId];
+      return !!(st && st.success);
+    };
+    // Connecteurs pleins : entre deux salles explorées (passage secret non révélé exclu).
     const lines = (chapter.links || []).map(function (l) {
       if (!pos[l.from] || !pos[l.to] || !visited(l.from) || !visited(l.to)) return '';
-      if (l.revealTestId) {
-        const st = ses.searchTests && ses.searchTests[l.revealTestId];
-        if (!(st && st.success)) return '';
-      }
+      if (!revealed(l)) return '';
       return '<line x1="' + cx(l.from) + '" y1="' + cy(l.from) + '" x2="' + cx(l.to) + '" y2="' + cy(l.to) + '" class="mmap-line"></line>';
+    }).join('');
+    // Moignons : un connecteur d'une salle EXPLORÉE vers une salle ACCESSIBLE mais
+    // pas encore découverte — on montre juste la direction (pas la salle cible).
+    const stubs = (chapter.links || []).map(function (l) {
+      if (!pos[l.from] || !pos[l.to] || !revealed(l)) return '';
+      const fromVis = visited(l.from), toVis = visited(l.to);
+      if (fromVis === toVis) return ''; // 0 ou 2 explorées → pas un moignon
+      const src = fromVis ? l.from : l.to, dst = fromVis ? l.to : l.from;
+      const dx = pos[dst][0] - pos[src][0], dy = pos[dst][1] - pos[src][1];
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const x1 = cx(src), y1 = cy(src);
+      const x2 = x1 + (dx / len) * STUB, y2 = y1 + (dy / len) * STUB;
+      return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" class="mmap-line mmap-line-stub"></line>';
     }).join('');
     const rooms = shown.map(function (s) {
       const isCur = ses.currentSceneId === s.id;
@@ -530,7 +545,7 @@
       '</div>';
     }).join('');
     return '<div class="mmap-canvas" style="width:' + W + 'px;height:' + H + 'px">' +
-      '<svg class="mmap-svg" width="' + W + '" height="' + H + '">' + lines + '</svg>' + rooms + '</div>';
+      '<svg class="mmap-svg" width="' + W + '" height="' + H + '">' + stubs + lines + '</svg>' + rooms + '</div>';
   }
 
   // Fenêtre flottante avec la carte entière du donjon.
@@ -1059,11 +1074,12 @@
             }).join('') + '</div>'
           : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
       } else {
-        const bh = bestHeroForSkill(ses, block.skill);
+        const bh = singleTester(ses, block);
         const dice = 1 + (bh.bonus || 0);
+        const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">🎲 au hasard</span>' : '';
         helper = bh.hero
           ? '<div class="ses-skill-pill">' +
-              '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
+              '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' + randTag +
               '<span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + ' ' + dice + ' 🎲</span>' +
               (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
             '</div>'
@@ -1148,7 +1164,7 @@
     } else {
       // Exclusions (mode « avec un autre aventurier ») : les aventuriers ayant
       // déjà tenté ce test ne sont plus candidats.
-      const bh = bestHeroForSkill(ses, block.skill, null, excludeIds);
+      const bh = singleTester(ses, block, excludeIds);
       const res = rollSkill(bh.bonus);
       const need = SKILL_DIFF[block.difficulty] || 2;
       const total = res.successes + (bh.talentSucc || 0);
@@ -1521,6 +1537,31 @@
     return { hero: pick.hero, bonus: Math.max(0, pick.v), talentSucc: Math.max(0, pick.tal) };
   }
   // Bonus de compétence d'UN aventurier donné (base + gains de niveau + Expertise).
+  // Aventurier tiré AU HASARD pour un test « aléatoire », FIGÉ pour ce bloc (ne
+  // change pas au re-rendu / changement d'onglet). Re-tiré si l'actuel est exclu.
+  function designatedRandomHero(ses, block, excludeIds) {
+    if (!ses.randomTestPick) ses.randomTestPick = {};
+    const alive = aliveEngagedHeroes(ses).filter(function (h) {
+      return !(Array.isArray(excludeIds) && excludeIds.indexOf(h.id) >= 0);
+    });
+    const hid = ses.randomTestPick[block.id];
+    let h = hid ? alive.find(function (x) { return x.id === hid; }) : null;
+    if (!h && alive.length) {
+      h = alive[Math.floor(Math.random() * alive.length)];
+      ses.randomTestPick[block.id] = h.id; save();
+    }
+    return h || null;
+  }
+  // Testeur unique d'un bloc (mode « meilleur » ou « aléatoire »).
+  function singleTester(ses, block, excludeIds) {
+    if (block.who === 'random') {
+      const h = designatedRandomHero(ses, block, excludeIds);
+      if (!h) return { hero: null, bonus: 0, talentSucc: 0 };
+      const info = heroTestInfo(ses, h, block.skill);
+      return { hero: h, bonus: info.bonus, talentSucc: info.talentSucc };
+    }
+    return bestHeroForSkill(ses, block.skill, null, excludeIds);
+  }
   function heroTestInfo(ses, h, skill) {
     const g = ses.levelGains ? ses.levelGains[h.id] : null;
     const sessSkill = (g && g.skills && g.skills[skill]) || 0;
