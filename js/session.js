@@ -1211,6 +1211,9 @@
     }
     // Niveau du groupe au moment de la tentative (re-test « montée de niveau »).
     state.levelAt = sessionLevel(ses);
+    // Marque l'ENTRÉE de scène où le test a été résolu (affichage compact au retour).
+    if (ses.entryId == null) ses.entryId = 1;
+    state.entryId = ses.entryId;
     ses.searchTests[block.id] = state;
     // Rattrapage : réussir ce test « valide » rétroactivement le test parent qui
     // l'a révélé (débloque son passage / connecteur secret).
@@ -1373,10 +1376,11 @@
   }
 
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
-    // Retour dans une salle déjà quittée : résultat de test en version COMPACTE —
-    // on GARDE le titre, le verdict et le TEXTE narratif, mais on masque les
-    // récompenses (XP, objets, Hauts Faits) et les résultats chiffrés (jets).
-    if (ses.leftScenes && ses.leftScenes[scene.id]) {
+    // Résultat obtenu lors d'une ENTRÉE ANTÉRIEURE (on est revenu dans la salle) :
+    // version COMPACTE — on GARDE le titre, le verdict et le TEXTE narratif, mais on
+    // masque les récompenses (XP, objets, Hauts Faits) et les résultats chiffrés.
+    // Un test résolu pendant l'entrée courante reste complet (récompenses visibles).
+    if (state.entryId != null && ses.entryId != null && state.entryId !== ses.entryId) {
       const ok = !!state.success;
       const rescuedC = state.validated && state.wasFail;
       const verdict = rescuedC
@@ -1714,12 +1718,6 @@
 
   function navigateTo(ses, adv, sceneId) {
     if (!sceneId) return;
-    // Mémorise que l'on QUITTE la scène courante : à un retour ultérieur, ses
-    // résultats de tests (XP, Hauts Faits, jets) s'affichent en version compacte.
-    if (ses.currentSceneId && ses.currentSceneId !== sceneId) {
-      if (!ses.leftScenes) ses.leftScenes = {};
-      ses.leftScenes[ses.currentSceneId] = true;
-    }
     // Récompenses de la scène courante : attribuées automatiquement en la quittant
     // (avant le contrôle de montée de niveau, pour que l'XP gagnée compte).
     grantSceneRewardsFromDOM(ses, adv);
@@ -1751,6 +1749,10 @@
     if (ses.transit && sceneId !== ses.transit.sceneId) ses.transit = null;
     ses.currentChapterId = found.chapter.id;
     ses.currentSceneId = sceneId;
+    // Compteur d'ENTRÉES : chaque arrivée dans une scène = un identifiant unique.
+    // Un test résolu lors d'une entrée ANTÉRIEURE s'affichera en version compacte ;
+    // un test résolu pendant l'entrée COURANTE reste complet (récompenses visibles).
+    ses.entryId = (ses.entryId || 0) + 1;
     if (ses.visitedSceneIds.indexOf(sceneId) === -1) ses.visitedSceneIds.push(sceneId);
     save();
     render();
