@@ -1373,16 +1373,22 @@
   }
 
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
-    // Retour dans une salle déjà quittée : résultat de test en version COMPACTE
-    // (titre + verdict), sans récompenses, jets ni narration — pour désencombrer.
+    // Retour dans une salle déjà quittée : résultat de test en version COMPACTE —
+    // on GARDE le titre, le verdict et le TEXTE narratif, mais on masque les
+    // récompenses (XP, objets, Hauts Faits) et les résultats chiffrés (jets).
     if (ses.leftScenes && ses.leftScenes[scene.id]) {
       const ok = !!state.success;
-      const verdict = (state.validated && state.wasFail)
+      const rescuedC = state.validated && state.wasFail;
+      const verdict = rescuedC
         ? '<span class="ses-st-verdict rescued">↩ Rattrapé</span>'
         : (ok ? '<span class="ses-st-verdict success">Réussite</span>' : '<span class="ses-st-verdict fail">Échec</span>');
+      const narr = (rescuedC || !ok)
+        ? (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '')
+        : (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '');
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-compact ' +
         (ok || state.validated ? 'ses-st-success-box' : 'ses-st-fail-box') + '">' +
         '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + ' — ' + verdict + '</div>' +
+        narr +
       '</div>';
       return;
     }
