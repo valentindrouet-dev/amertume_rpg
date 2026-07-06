@@ -691,6 +691,21 @@
     if (scene.type === 'fin') renderFinButton(box, scene, adv, ses);
   }
 
+  // Flèche directionnelle (8 directions) entre deux salles, selon leurs
+  // positions sur la carte du donjon : salle cible placée sous la salle
+  // courante → ⬇, à gauche → ⬅, etc. Repli sur « → » sans coordonnées.
+  const DIR_ARROWS = ['➡', '↘', '⬇', '↙', '⬅', '↖', '⬆', '↗'];
+  function sceneDirArrow(fromScene, toScene) {
+    if (!fromScene || !toScene ||
+        typeof fromScene.mapX !== 'number' || typeof fromScene.mapY !== 'number' ||
+        typeof toScene.mapX !== 'number' || typeof toScene.mapY !== 'number') return '→';
+    const dx = toScene.mapX - fromScene.mapX, dy = toScene.mapY - fromScene.mapY;
+    if (!dx && !dy) return '→';
+    let idx = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+    idx = ((idx % 8) + 8) % 8;
+    return DIR_ARROWS[idx];
+  }
+
   // ----- Donjon structuré : sorties & accès de la salle (connecteurs) -----
   function renderDungeonExits(box, chapter, scene, adv, ses) {
     const links = (chapter && Array.isArray(chapter.links) ? chapter.links : []).filter(function (l) {
@@ -715,9 +730,11 @@
         // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
         // (pas d'indice sur les salles inconnues).
         const danger = visited && f && sceneHasCombat(f.scene) && !(ses.clearedScenes && ses.clearedScenes[other]);
+        // La flèche suit la direction réelle du passage sur la carte du donjon.
+        const arrow = sceneDirArrow(scene, f ? f.scene : null);
         return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + '" data-to="' + esc(other) + '">' +
           '<span class="ses-exit-lbl">' + esc(l.label || 'Passage') + '</span>' +
-          '<span class="ses-exit-to">→ ' + (visited ? esc(titleOf(other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
+          '<span class="ses-exit-to"><span class="ses-exit-dir">' + arrow + '</span> ' + (visited ? esc(titleOf(other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
         '</button>';
       }).join('') +
       '</div></div>';
@@ -1008,9 +1025,11 @@
       const tf = findScene(adv, block.targetSceneId);
       const visited = (ses.visitedSceneIds || []).indexOf(block.targetSceneId) >= 0;
       const dest = visited && tf ? (tf.scene.title || 'Salle') : '???';
+      // Flèche orientée selon la position de la salle cible sur la carte.
+      const arrow = sceneDirArrow(scene, tf ? tf.scene : null);
       passHtml = '<button class="ses-exit-btn ses-exit-visited ses-tb-pass">' +
         '<span class="ses-exit-lbl">🔓 Emprunter le passage</span>' +
-        '<span class="ses-exit-to">→ ' + esc(dest) + '</span></button>';
+        '<span class="ses-exit-to"><span class="ses-exit-dir">' + arrow + '</span> ' + esc(dest) + '</span></button>';
     }
     slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-success-box">' +
       '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + ' — <span class="ses-st-verdict success">Réussite</span></div>' +

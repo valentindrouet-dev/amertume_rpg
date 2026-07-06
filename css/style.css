@@ -3647,3 +3647,5 @@ body.mode-player #item-list.roster-list { display: block; }
 
 /* Flèche directionnelle des connecteurs (suit la géométrie de la carte) */
 .dmap-dir { font-weight: 800; color: var(--accent-2, #e2974a); padding: 0 .15rem; }
+/* Flèche directionnelle sur les sorties en jeu (suit la carte du donjon) */
+.ses-exit-dir { font-weight: 800; }
