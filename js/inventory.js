@@ -243,14 +243,18 @@
       return '<label class="inv-strip-row cat-' + i.category + (checked ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
         '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) + '</div>' +
+        '<button type="button" class="inv-strip-del" data-hero="' + h.id + '" data-item="' + i.id + '" title="Jeter un exemplaire de cet objet">✕</button>' +
       '</label>';
     };
     // Expansion quantité : armes/objets → N languettes ; armures → 1 (dédup).
     // Les `filled` premières copies sont cochées (autant que de slots occupés) :
     // ainsi deux armes identiques peuvent être équipées indépendamment.
     const stripRows = function (h, e, owned, i) {
-      let qty = i.category === 'armor' ? 1 : (Number(owned[i.id]) || 1);
-      if (i.category === 'weapon') qty = Math.min(2, qty); // jamais plus de 2 armes identiques
+      // Armures ET armes à distance (2 mains) : un seul exemplaire affiché (dédup).
+      // Seules les armes de contact (1 main) peuvent apparaître en 2 exemplaires.
+      const single = i.category === 'armor' || (i.category === 'weapon' && i.ranged);
+      let qty = single ? 1 : (Number(owned[i.id]) || 1);
+      if (i.category === 'weapon' && !i.ranged) qty = Math.min(2, qty); // max 2 armes de contact identiques
       const filled = equippedCount(e, i);
       let out = '';
       for (let k = 0; k < qty; k++) out += singleStrip(h, i, k < filled);
@@ -330,6 +334,20 @@
         ev.preventDefault();
         ev.stopPropagation();
         openItemSheet(el.getAttribute('data-info'));
+      });
+    });
+    // ✕ : jeter un exemplaire de l'objet (confirmation).
+    list.querySelectorAll('.inv-strip-del').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (combatActive()) { alert('Vous ne pouvez pas modifier votre équipement pendant un combat.'); return; }
+        const item = byId(btn.getAttribute('data-item'));
+        if (!item) return;
+        if (!confirm('Jeter « ' + item.name +' » de cet inventaire ? (définitif)')) return;
+        if (window.Session && Session.discardItem) Session.discardItem(advId, btn.getAttribute('data-hero'), item.id);
+        document.dispatchEvent(new CustomEvent('equipment-changed'));
+        renderPlayer(advId);
       });
     });
   }

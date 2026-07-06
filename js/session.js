@@ -944,7 +944,7 @@
           }
           // La difficulté est toujours SUR le bouton, à droite de la compétence.
           return '<div class="ses-choice">' +
-            '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '" data-skill-hero="' + (bhBtn && bhBtn.hero ? esc(bhBtn.hero.id) : '') + '">' +
+            '<button class="ses-choice-btn skill-test sktest-' + slug(ch.skill || '') + ' choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '" data-skill-hero="' + (bhBtn && bhBtn.hero ? esc(bhBtn.hero.id) : '') + '">' +
               (ch.groupTest ? '👥 ' : '') + esc(ch.label) +
               ' <span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + '</span>' +
               ' <span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span>' +
@@ -980,10 +980,11 @@
     const state = ses.searchTests[block.id];
     if (!state) {
       let helper;
-      if (block.who === 'group') {
-        // Test de GROUPE : tous les aventuriers vivants sont affichés comme cibles
-        // (vignettes espacées ; la difficulté est portée par le bouton du test).
-        const heroes = aliveEngagedHeroes(ses);
+      const groupLike = block.who === 'group' || block.who === 'concerned';
+      if (groupLike) {
+        // GROUPE (tous) ou CONCERNÉS (sous-ensemble issu d'une chaîne) : chaque
+        // aventurier ciblé est affiché (vignettes espacées ; difficulté sur le bouton).
+        const heroes = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
         helper = heroes.length
           ? '<div class="ses-group-pills">' + heroes.map(function (h) {
               const info = heroTestInfo(ses, h, block.skill);
@@ -1008,7 +1009,7 @@
       // La DIFFICULTÉ est toujours affichée SUR le bouton, à droite de la compétence.
       slot.innerHTML = '<div class="ses-searchtest">' +
         '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (block.who === 'group' ? ' <span class="ses-st-group-tag" title="Tous les aventuriers lancent le test — réussite si la majorité réussit">👥 GROUPE</span>' : '') + '</div>' +
-        '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go">' +
+        '<button class="ses-choice-btn skill-test sktest-' + slug(block.skill || '') + ' choice-type-enquete ses-tb-go">' +
           esc(block.label || 'Tenter le test') +
           ' <span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + '</span>' +
           ' <span class="ssk-diff ssk-diff-' + (block.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[block.difficulty] || 'Moyen') + '</span>' +
@@ -1025,15 +1026,47 @@
   function retryModeOf(block) {
     return block.retryMode || (block.retry ? 'always' : 'none');
   }
+  // Test « parent » qui a révélé ce bloc (par une chaîne réussite/échec), avec
+  // le sens de la chaîne. Renvoie { block, viaSuccess } ou null.
+  function chainParentOf(scene, block) {
+    const blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
+    for (let i = 0; i < blocks.length; i++) {
+      const p = blocks[i];
+      if (p.type !== 'test' || p.id === block.id) continue;
+      if (p.chainSuccessId === block.id) return { block: p, viaSuccess: true };
+      if (p.chainFailId === block.id) return { block: p, viaSuccess: false };
+    }
+    return null;
+  }
+  // Aventuriers « concernés » par un test enchaîné : ceux qui ont réussi (chaîne
+  // de réussite) ou échoué (chaîne d'échec) le test parent. Renvoie un tableau
+  // d'objets héros (vivants), ou null si le parent n'a pas de résultats exploitables.
+  function concernedHeroes(scene, block, ses) {
+    const par = chainParentOf(scene, block);
+    if (!par) return null;
+    const st = ses.searchTests && ses.searchTests[par.block.id];
+    if (!st || !st.done) return null;
+    let ids = [];
+    if (st.group && Array.isArray(st.results)) {
+      ids = st.results.filter(function (r) { return par.viaSuccess ? r.passed : !r.passed; }).map(function (r) { return r.heroId; });
+    } else if (st.heroId) {
+      // Test parent individuel : l'unique testeur est concerné si le sens colle.
+      if ((par.viaSuccess && st.success) || (!par.viaSuccess && !st.success)) ids = [st.heroId];
+    }
+    const alive = aliveEngagedHeroes(ses);
+    return ids.map(function (id) { return alive.find(function (h) { return h.id === id; }); }).filter(Boolean);
+  }
 
   function runTestBlock(ses, adv, scene, block, excludeIds) {
     if (!ses.searchTests) ses.searchTests = {};
     let state;
-    if (block.who === 'group') {
-      // GROUPE : chaque aventurier vivant lance le test ; réussite globale à la
-      // majorité ; les conséquences d'échec s'appliquent INDIVIDUELLEMENT à
-      // chaque aventurier qui a raté (même si le groupe réussit globalement).
-      const gr = runGroupRolls(ses, block.skill, block.difficulty);
+    const groupLike = block.who === 'group' || block.who === 'concerned';
+    if (groupLike) {
+      // GROUPE (tous) ou CONCERNÉS (sous-ensemble d'une chaîne) : chacun lance le
+      // test ; réussite globale à la majorité ; les conséquences d'échec
+      // s'appliquent INDIVIDUELLEMENT à chaque aventurier qui a raté.
+      const heroList = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
+      const gr = runGroupRolls(ses, block.skill, block.difficulty, heroList);
       state = { done: true, success: gr.passed, claimed: false, group: true, results: gr.results, need: gr.need };
       const msgs = [];
       gr.results.forEach(function (r) {
@@ -1069,6 +1102,15 @@
     // Niveau du groupe au moment de la tentative (re-test « montée de niveau »).
     state.levelAt = sessionLevel(ses);
     ses.searchTests[block.id] = state;
+    // Rattrapage : réussir ce test « valide » rétroactivement le test parent qui
+    // l'a révélé (débloque son passage / connecteur secret).
+    if (state.success && block.validatesParent) {
+      const par = chainParentOf(scene, block);
+      if (par && ses.searchTests[par.block.id]) {
+        ses.searchTests[par.block.id].success = true;
+        ses.searchTests[par.block.id].validated = true;
+      }
+    }
     save();
     render();
   }
@@ -1284,6 +1326,8 @@
       (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '') +
       groupResultsHtml(state) +
       fxMsgsHtml(state) +
+      // Détail des jets, affiché AUSSI en cas de réussite (test individuel).
+      (state.group ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
       rewardHtml +
       '<div class="ses-st-actions">' +
         (needClaim ? '<button class="primary ses-tb-claim">Récupérer la récompense</button>' : '') +
@@ -1390,11 +1434,12 @@
       return !(ses.heroStates && ses.heroStates[h.id] && ses.heroStates[h.id].dead);
     });
   }
-  // Test de GROUPE : chaque aventurier vivant lance le test. Renvoie les
+  // Test de GROUPE : chaque aventurier d'une liste lance le test. Renvoie les
   // résultats individuels + la réussite globale (majorité : ⌈n/2⌉ réussites).
-  function runGroupRolls(ses, skill, difficulty) {
+  // `heroList` par défaut = tous les aventuriers vivants.
+  function runGroupRolls(ses, skill, difficulty, heroList) {
     const need = SKILL_DIFF[difficulty] || 2;
-    const heroes = aliveEngagedHeroes(ses);
+    const heroes = heroList || aliveEngagedHeroes(ses);
     const results = heroes.map(function (h) {
       const info = heroTestInfo(ses, h, skill);
       const r = rollSkill(info.bonus);
@@ -2627,8 +2672,50 @@
     ownedForHero: ownedForHero,
     engagedHeroIds: engagedHeroIds,
     consumeObject: consumeObject,
+    discardItem: discardItem,
     combatModuleActive: combatModuleActive,
   };
+  // Retire DÉFINITIVEMENT un exemplaire d'un objet de l'inventaire d'un
+  // aventurier (bouton ✕ de l'inventaire Aventure). Déséquipe les copies en
+  // trop et décrémente aussi acquiredItems / le stock global.
+  function discardItem(advId, heroId, itemId) {
+    load();
+    const ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; }) || activeSession;
+    if (!ses) return false;
+    if (activeSession && ses.id === activeSession.id) { /* mute l'instance vivante */ }
+    else { activeSession = ses; }
+    if (!ses.heroOwned) ses.heroOwned = {};
+    const owned = ses.heroOwned[heroId] || (ses.heroOwned[heroId] = {});
+    const cur = Number(owned[itemId]) || 0;
+    if (cur <= 0) return false;
+    const left = cur - 1;
+    if (left > 0) owned[itemId] = left; else delete owned[itemId];
+    // Déséquipe les copies devenues « en trop » sur la fiche du héros.
+    const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
+    if (h && global.Combatants && Combatants.normalizeEquip) {
+      const eq = Combatants.normalizeEquip(h.equipment || {});
+      let equippedCount = ['mainG', 'mainD', 'armorId', 'objectId'].reduce(function (n, k) {
+        return n + (eq[k] === itemId ? 1 : 0);
+      }, 0);
+      while (equippedCount > left) {
+        if (eq.mainD === itemId) eq.mainD = null;
+        else if (eq.mainG === itemId) eq.mainG = null;
+        else if (eq.armorId === itemId) eq.armorId = null;
+        else if (eq.objectId === itemId) eq.objectId = null;
+        equippedCount--;
+      }
+      h.equipment = eq;
+    }
+    // Décrémente le stock global et le suivi d'acquisition (cohérence rollback).
+    const it = Store.state.items.find(function (x) { return x.id === itemId; });
+    if (it) it.qty = Math.max(0, (it.qty || 0) - 1);
+    if (ses.acquiredItems && ses.acquiredItems[itemId]) {
+      ses.acquiredItems[itemId] = Math.max(0, ses.acquiredItems[itemId] - 1);
+    }
+    Store.save();
+    save();
+    return true;
+  }
   // Le MODULE de combat de la partie active est-il réellement en cours ? (combat
   // démarré et non terminé). Faux sur les pages d'aventure de type Combat — qui
   // n'affichent que la disposition — tant que « Lancer le combat » n'a pas été cliqué.
@@ -2648,7 +2735,8 @@
     const it = Store.state.items.find(function (x) { return x.id === itemId; });
     const cur = Number(ses.heroOwned[hid][itemId]) || 0;
     let target = cur + q;
-    if (it && it.category === 'weapon') target = Math.min(2, target); // max 2 armes identiques
+    // Max 2 armes de CONTACT identiques ; armes à distance (2 mains) plafonnées à 1.
+    if (it && it.category === 'weapon') target = Math.min(it.ranged ? 1 : 2, target);
     ses.heroOwned[hid][itemId] = target;
     return target - cur;
   }

@@ -903,8 +903,10 @@
       // rester lisibles (plus de chevauchement de la coche et des boutons).
       const eventCtrls = '<span class="dmap-link-ev">' + kindBadge + (hasEvent
         ? '<button type="button" class="ghost small dmap-link-event" title="Éditer la scène d\'événement de ce passage">⚡ Éditer</button>' +
-          '<label class="dmap-link-repeat-lbl" title="Coché : l\'événement se déclenche À CHAQUE passage (réinitialisé). Décoché : une seule fois.">' +
-            '<input type="checkbox" class="dmap-link-repeat"' + (l.eventRepeat ? ' checked' : '') + ' /> 🔁 chaque passage</label>' +
+          // Bascule compacte « une fois / à chaque passage » : seule l'icône 🔁,
+          // mise en évidence quand elle est active (plus de coche illisible).
+          '<button type="button" class="dmap-repeat-toggle' + (l.eventRepeat ? ' on' : '') + '" ' +
+            'title="' + (l.eventRepeat ? 'Se déclenche À CHAQUE passage (cliquer : une seule fois)' : 'Se déclenche une seule fois (cliquer : à chaque passage)') + '">🔁</button>' +
           '<button type="button" class="icon-btn dmap-link-event-del" title="Supprimer l\'événement de ce passage">⚡✕</button>'
         : '<button type="button" class="ghost small dmap-link-event" title="Ajouter un événement (combat, test, texte…) déclenché en empruntant ce passage">+ ⚡ Événement</button>') +
       '</span>';
@@ -1014,10 +1016,10 @@
         openSceneModal(a, ch.id, l.eventSceneId);
       };
     });
-    box.querySelectorAll('.dmap-link-repeat').forEach(function (cb) {
-      cb.onchange = function () {
-        const i = +cb.closest('.dmap-link-row').getAttribute('data-i');
-        if (ch.links[i]) { ch.links[i].eventRepeat = cb.checked; save(); }
+    box.querySelectorAll('.dmap-repeat-toggle').forEach(function (btn) {
+      btn.onclick = function () {
+        const i = +btn.closest('.dmap-link-row').getAttribute('data-i');
+        if (ch.links[i]) { ch.links[i].eventRepeat = !ch.links[i].eventRepeat; save(); renderDungeonEditor(a, ch); }
       };
     });
     box.querySelectorAll('.dmap-link-event-del').forEach(function (b) {
@@ -1195,6 +1197,17 @@
       const addBtn = document.getElementById('sm-add-combat');
       if (addBtn) addBtn.onclick = function () { sceneCombatOpen = true; refreshSceneModalSections(scene, adv); };
     }
+    // Combat : plier/déplier (état conservé) + coche « OK » (titre en vert).
+    if (showCombat) {
+      const cBody = document.getElementById('sm-combat-body');
+      const cColl = document.getElementById('sm-combat-collapse');
+      const cDone = document.getElementById('sm-combat-done');
+      const cHead = combatBox.querySelector('.sm-combat-head');
+      if (cBody) cBody.hidden = !!scene.combatCollapsed;
+      if (cColl) { cColl.textContent = scene.combatCollapsed ? '▸' : '▾'; cColl.onclick = function () { scene.combatCollapsed = !scene.combatCollapsed; save(); refreshSceneModalSections(scene, adv); }; }
+      if (cHead) cHead.classList.toggle('adv-block-done', !!scene.combatDone);
+      if (cDone) { cDone.checked = !!scene.combatDone; cDone.onchange = function () { scene.combatDone = this.checked; if (cHead) cHead.classList.toggle('adv-block-done', this.checked); save(); }; }
+    }
 
     // Connecteurs de la salle (chapitre Donjon structuré) : rappel en lecture
     // seule — ce sont eux qui deviennent les « Sorties & accès » en jeu, tandis
@@ -1340,10 +1353,17 @@
     } else {
       box.innerHTML = scene.blocks.map(function (blk, i) {
         const last = i === scene.blocks.length - 1;
-        const tools =
+        const collapsed = !!blk.collapsed;
+        const done = !!blk.done;
+        // Plier/déplier (état conservé sur le bloc) + coche « OK » (bloc terminé,
+        // titre en vert), toujours visibles même replié.
+        const collapseBtn = '<button type="button" class="icon-btn block-collapse" data-bi="' + i + '" title="' + (collapsed ? 'Déplier' : 'Replier') + '">' + (collapsed ? '▸' : '▾') + '</button>';
+        const okLabel = '<label class="adv-block-ok" title="Marquer ce bloc comme terminé"><input type="checkbox" class="block-done" data-bi="' + i + '"' + (done ? ' checked' : '') + '> OK</label>';
+        const tools = okLabel +
           '<button type="button" class="icon-btn block-up" data-bi="' + i + '" title="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
           '<button type="button" class="icon-btn block-down" data-bi="' + i + '" title="Descendre"' + (last ? ' disabled' : '') + '>↓</button>' +
           '<button type="button" class="icon-btn block-del" data-bi="' + i + '" title="Supprimer ce bloc">✕</button>';
+        const bodyOpen = '<div class="adv-block-body"' + (collapsed ? ' hidden' : '') + '>';
         // Condition d'affichage (commune à tous les blocs) : compétence requise / valeur mini.
         const reqHtml = '<div class="adv-block-req">' +
           '<span class="adv-block-req-lbl">👁 N\'afficher que si un aventurier a</span>' +
@@ -1353,18 +1373,21 @@
           '<span class="adv-block-req-mini"' + (blk.reqSkill ? '' : ' style="display:none"') + '>ou plus</span>' +
         '</div>';
         if (blk.type === 'test') {
-          return '<div class="adv-block-row adv-block-test" data-bi="' + i + '">' +
+          return '<div class="adv-block-row adv-block-test' + (done ? ' adv-block-done' : '') + (collapsed ? ' collapsed' : '') + '" data-bi="' + i + '">' +
             '<div class="adv-block-row-head">' +
-              '<span class="adv-block-test-tag">🔍 Test de compétence</span>' + tools +
+              collapseBtn +
+              '<span class="adv-block-test-tag">🔍 Test' + (blk.label ? ' · ' + esc(blk.label) : ' de compétence') + '</span>' + tools +
             '</div>' +
+            bodyOpen +
             '<input type="text" class="tb-label" data-bi="' + i + '" placeholder="Intitulé du bouton (ex : Fouiller la zone)" value="' + esc(blk.label || '') + '" />' +
             '<div class="form-row" style="grid-template-columns:1fr 1fr 1fr">' +
               '<label>Compétence <select class="tb-skill" data-bi="' + i + '">' +
                 SKILLS.map(function (s) { return '<option value="' + s + '"' + (blk.skill === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
               '<label>Difficulté <select class="tb-diff" data-bi="' + i + '">' + diffOptsHtml(blk.difficulty) + '</select></label>' +
-              '<label>Testeur <select class="tb-who" data-bi="' + i + '" title="GROUPE : chaque aventurier lance le test ; les conséquences d\'échec s\'appliquent individuellement ; réussite globale si la majorité réussit.">' +
+              '<label>Testeur <select class="tb-who" data-bi="' + i + '" title="GROUPE : chaque aventurier lance le test. CONCERNÉS : uniquement les aventuriers ayant réussi/échoué le test qui a révélé celui-ci (test enchaîné).">' +
                 '<option value="best"' + ((blk.who || 'best') === 'best' ? ' selected' : '') + '>Meilleur aventurier</option>' +
                 '<option value="group"' + (blk.who === 'group' ? ' selected' : '') + '>👥 GROUPE (tous)</option>' +
+                '<option value="concerned"' + (blk.who === 'concerned' ? ' selected' : '') + '>🎯 Aventuriers concernés (chaîne)</option>' +
               '</select></label>' +
             '</div>' +
             '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="Texte de réussite">' + esc(blk.successText || '') + '</textarea>' +
@@ -1412,6 +1435,15 @@
                 '<label>🔗 Test révélé si échec <select class="tb-chain-fail" data-bi="' + i + '">' + opts(blk.chainFailId) + '</select></label>' +
               '</div>';
             })() +
+            // Un test enchaîné peut « rattraper » le test qui l'a révélé : le
+            // réussir valide rétroactivement le précédent (débloque son accès /
+            // connecteur secret).
+            (function () {
+              const isChild = scene.blocks.some(function (b) { return b.type === 'test' && (b.chainSuccessId === blk.id || b.chainFailId === blk.id); });
+              if (!isChild) return '';
+              return '<label class="tb-validate-lbl" title="Utile pour un test de rattrapage après un échec : réussir celui-ci valide le test précédent et débloque ce qu\'il conditionnait (passage secret, etc.).">' +
+                '<input type="checkbox" class="tb-validate" data-bi="' + i + '"' + (blk.validatesParent ? ' checked' : '') + ' /> ✅ Réussir ce test <b>valide le test précédent</b> (débloque son accès)</label>';
+            })() +
             (function () {
               // Mode de nouvelle tentative (rétro-compat : ancien booléen retry → à volonté).
               const rm = blk.retryMode || (blk.retry ? 'always' : 'none');
@@ -1427,18 +1459,23 @@
                 'title="À volonté : retentable sans limite. Autre aventurier : chaque aventurier vivant tente une fois maximum (tests individuels uniquement). Montée de niveau : le test redevient disponible quand le groupe a gagné un niveau.">' + opts + '</select></label>';
             })() +
             reqHtml +
+            '</div>' + // .adv-block-body
           '</div>';
         }
         // Bloc de texte typé
         const typeOpts = BLOCK_TYPES.map(function (t) {
           return '<option value="' + t.value + '"' + (t.value === blk.type ? ' selected' : '') + '>' + esc(t.label) + '</option>';
         }).join('');
-        return '<div class="adv-block-row block-' + (blk.type || 'narrative') + '" data-bi="' + i + '">' +
+        const preview = collapsed && blk.content ? '<span class="adv-block-preview">' + esc(blk.content.replace(/\s+/g, ' ').slice(0, 70)) + '</span>' : '';
+        return '<div class="adv-block-row block-' + (blk.type || 'narrative') + (done ? ' adv-block-done' : '') + (collapsed ? ' collapsed' : '') + '" data-bi="' + i + '">' +
           '<div class="adv-block-row-head">' +
-            '<select class="block-type-sel" data-bi="' + i + '">' + typeOpts + '</select>' + tools +
+            collapseBtn +
+            '<select class="block-type-sel" data-bi="' + i + '">' + typeOpts + '</select>' + preview + tools +
           '</div>' +
-          '<textarea class="block-content" data-bi="' + i + '" rows="3" placeholder="Texte du bloc — **gras** et *italique* possibles">' + esc(blk.content || '') + '</textarea>' +
-          reqHtml +
+          bodyOpen +
+            '<textarea class="block-content" data-bi="' + i + '" rows="3" placeholder="Texte du bloc — **gras** et *italique* possibles">' + esc(blk.content || '') + '</textarea>' +
+            reqHtml +
+          '</div>' +
         '</div>';
       }).join('');
     }
@@ -1452,6 +1489,22 @@
       }
     });
     // Blocs de texte
+    // Plier/déplier (conservé sur le bloc) + coche OK (bloc terminé).
+    box.querySelectorAll('.block-collapse').forEach(function (b) {
+      b.onclick = function () {
+        const blk = scene.blocks[biOf(this)];
+        blk.collapsed = !blk.collapsed;
+        save(); renderBlocksEditor(scene, adv);
+      };
+    });
+    box.querySelectorAll('.block-done').forEach(function (cb) {
+      cb.onchange = function () {
+        scene.blocks[biOf(this)].done = this.checked;
+        const row = this.closest('.adv-block-row');
+        if (row) row.classList.toggle('adv-block-done', this.checked);
+        save();
+      };
+    });
     box.querySelectorAll('.block-type-sel').forEach(function (sel) {
       sel.onchange = function () {
         scene.blocks[biOf(this)].type = this.value;
@@ -1494,6 +1547,9 @@
     });
     box.querySelectorAll('.tb-chain-fail').forEach(function (el) {
       el.onchange = function () { scene.blocks[biOf(this)].chainFailId = this.value || null; };
+    });
+    box.querySelectorAll('.tb-validate').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].validatesParent = this.checked; };
     });
     // Conséquence de l'échec (menu + champs dynamiques selon le type choisi)
     box.querySelectorAll('.tb-fx-kind').forEach(function (el) {

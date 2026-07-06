@@ -1346,10 +1346,12 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
   background: rgba(0,0,0,.05); color: var(--text); white-space: nowrap; }
 .ses-skill-pill .ssk-bonus { font-weight: 800; color: #1a5a45; }
 .ses-skill-pill .ssk-tal { font-weight: 700; color: #7a5c12; }
-.ses-skill-pill .ssk-diff { font-weight: 700; color: #fff; border-radius: 7px; padding: 0 .45rem; background: #8a8276; }
-.ses-skill-pill .ssk-diff-facile { background: #5fa45f; }
-.ses-skill-pill .ssk-diff-moyen { background: #c49a20; }
-.ses-skill-pill .ssk-diff-difficile { background: #c0492f; }
+/* Cartouche de difficulté coloré (vert facile · orange moyen · rouge difficile),
+   visible partout : languette ET bouton de test. */
+.ssk-diff { font-weight: 700; color: #fff; border-radius: 7px; padding: 0 .45rem; background: #8a8276; white-space: nowrap; }
+.ssk-diff-facile { background: #5fa45f; }
+.ssk-diff-moyen { background: #c49a20; }
+.ssk-diff-difficile { background: #c0492f; }
 .ses-skill-pill.ssk-none { color: var(--muted); font-style: italic; }
 /* Sélecteur de type de choix (éditeur) */
 select.ch-type { width: auto; font-weight: 600; }
@@ -3700,13 +3702,15 @@ body.mode-player #item-list.roster-list { display: block; }
 .type-boss     { color: #b02ea8; background: rgba(176,46,168,.14); border: 1px solid rgba(176,46,168,.38); border-radius: 5px; }
 .type-temps    { color: #6272c9; background: rgba(98,114,201,.14); border: 1px solid rgba(98,114,201,.38); border-radius: 5px; }
 .type-vide     { color: #8d8d8d; background: rgba(141,141,141,.14);border: 1px solid rgba(141,141,141,.38);border-radius: 5px; }
-/* Cartouches de la carte de donjon : cadre à la couleur du type. */
-.dmap-room.type-danger   { border-color: rgba(209,59,78,.8); }
-.dmap-room.type-repos    { border-color: rgba(47,158,119,.8); }
-.dmap-room.type-commerce { border-color: rgba(224,149,46,.8); }
-.dmap-room.type-boss     { border-color: rgba(176,46,168,.8); }
-.dmap-room.type-temps    { border-color: rgba(98,114,201,.8); }
-.dmap-room.type-vide     { border-color: rgba(141,141,141,.8); }
+/* Cartouches de la carte de donjon : cadre à la couleur du type, FOND PLEIN
+   (comme les types d'origine). On rétablit le fond de carte car la classe
+   .type-* (badge) portait un fond translucide qui délavait la carte. */
+.dmap-room.type-danger   { border-color: rgba(209,59,78,.9);  background: var(--card, #2a251d); color: var(--text); }
+.dmap-room.type-repos    { border-color: rgba(47,158,119,.9); background: var(--card, #2a251d); color: var(--text); }
+.dmap-room.type-commerce { border-color: rgba(224,149,46,.9); background: var(--card, #2a251d); color: var(--text); }
+.dmap-room.type-boss     { border-color: rgba(176,46,168,.9); background: var(--card, #2a251d); color: var(--text); }
+.dmap-room.type-temps    { border-color: rgba(98,114,201,.9); background: var(--card, #2a251d); color: var(--text); }
+.dmap-room.type-vide     { border-color: rgba(141,141,141,.9);background: var(--card, #2a251d); color: var(--text); }
 
 /* ============ v2.3.13 : connecteurs lisibles + colorés + passages secrets ============ */
 /* Ligne de connecteur : retour à la ligne propre, contrôles d'événement groupés. */
@@ -3726,3 +3730,36 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Sélecteur de révélation (passage secret) dans la modale de scène. */
 .sm-dl-reveal { font-size: .8rem; margin-left: .4rem; max-width: 18rem; }
 .tb-retry-lbl .tb-retrymode { font-size: .85rem; }
+
+/* ============ v2.3.14 : couleurs des tests + inventaire + blocs pliables ============ */
+/* Languette (bouton) de test colorée selon la compétence testée (bord gauche). */
+.ses-choice-btn.skill-test { border-left-width: 6px; }
+.ses-choice-btn.sktest-agilite    { border-left-color: #4f8b4f; }
+.ses-choice-btn.sktest-force      { border-left-color: #b0432b; }
+.ses-choice-btn.sktest-mysticisme { border-left-color: #7c52a8; }
+.ses-choice-btn.sktest-perception { border-left-color: #8a7714; }
+.ses-choice-btn.sktest-robustesse { border-left-color: #8a5e22; }
+.ses-choice-btn.sktest-ruse       { border-left-color: #5a5a5a; }
+.ses-choice-btn.sktest-savoir     { border-left-color: #2c5a93; }
+.ses-choice-btn.sktest-technique  { border-left-color: #1f6b5e; }
+/* Bouton ✕ « jeter » sur les languettes d'inventaire. */
+.inv-strip-del { flex: 0 0 auto; background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: .85rem; padding: 0 .3rem; opacity: .55; }
+.inv-strip-del:hover { color: #c0492f; opacity: 1; }
+/* Bascule compacte « à chaque passage » (connecteurs) : icône seule. */
+.dmap-repeat-toggle { flex: 0 0 auto; border: 1px solid var(--border); border-radius: 7px; background: transparent;
+  cursor: pointer; font-size: .9rem; padding: .1rem .35rem; opacity: .4; filter: grayscale(1); }
+.dmap-repeat-toggle.on { opacity: 1; filter: none; background: rgba(212,175,90,.22); border-color: rgba(212,175,90,.6); }
+
+/* Blocs de l'éditeur de scène : pliage + coche « OK » (titre vert). */
+.adv-block-row-head { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.adv-block-ok { display: inline-flex; align-items: center; gap: .2rem; font-size: .78rem; font-weight: 700; color: var(--muted); white-space: nowrap; margin-left: auto; }
+.adv-block-preview { flex: 1 1 8rem; min-width: 0; color: var(--muted); font-size: .8rem; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adv-block-row.adv-block-done .adv-block-test-tag,
+.adv-block-row.adv-block-done .block-type-sel { color: #4f9a4f; }
+.adv-block-row.adv-block-done { border-left-color: #4f9a4f; }
+.adv-block-body { margin-top: .35rem; }
+.sm-combat-head { display: flex; align-items: center; gap: .5rem; }
+.sm-combat-head.adv-block-done h3 { color: #4f9a4f; }
+.sm-combat-head .adv-block-ok { margin-left: auto; }
+.sm-combat-head h3 { margin: 0; }
