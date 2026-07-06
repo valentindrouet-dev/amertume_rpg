@@ -104,6 +104,7 @@
     adv.chapters.forEach(function (c) {
       const isCurrent = !currentChId || c.id === currentChId;
       c.scenes.forEach(function (s, si) {
+        if (s.isTransition) return;         // scènes d'événement de passage : hors navigation
         if (!isCurrent && si !== 0) return; // autres chapitres : entrée (1re scène) uniquement
         arr.push({ id: s.id, label: (c.title ? c.title + ' / ' : '') + (s.title || s.id.slice(-4)) });
       });
@@ -414,7 +415,15 @@
       ch.id = Store.uid();
       (ch.scenes || []).forEach(function (s) {
         const nid = Store.uid(); map[s.id] = nid; s.id = nid;
-        if (Array.isArray(s.blocks)) s.blocks.forEach(function (b) { b.id = Store.uid(); });
+        if (Array.isArray(s.blocks)) {
+          // Nouveaux ids de blocs, en préservant les chaînes de tests internes.
+          const bmap = {};
+          s.blocks.forEach(function (b) { const nb = Store.uid(); bmap[b.id] = nb; b.id = nb; });
+          s.blocks.forEach(function (b) {
+            if (b.chainSuccessId && bmap[b.chainSuccessId]) b.chainSuccessId = bmap[b.chainSuccessId];
+            if (b.chainFailId && bmap[b.chainFailId]) b.chainFailId = bmap[b.chainFailId];
+          });
+        }
         if (Array.isArray(s.choices)) s.choices.forEach(function (c) { c.id = Store.uid(); });
       });
       // Recâble les cibles de navigation (choix, suite, combat) sur les nouveaux ids.
@@ -440,6 +449,12 @@
         l.id = Store.uid();
         if (map[l.from]) l.from = map[l.from];
         if (map[l.to]) l.to = map[l.to];
+        if (l.eventSceneId && map[l.eventSceneId]) l.eventSceneId = map[l.eventSceneId];
+      });
+      // Recâble les événements de passage d'un donjon aléatoire.
+      if (Array.isArray(ch.transitionEvents)) ch.transitionEvents.forEach(function (e) {
+        e.id = Store.uid();
+        if (e.sceneId && map[e.sceneId]) e.sceneId = map[e.sceneId];
       });
     });
     adventures.splice(idx + 1, 0, copy);
@@ -522,7 +537,8 @@
         } else {
           body = '<div class="adv-scenes" id="scenes-' + ch.id + '">' + renderScenesHTML(ch, a) + '</div>' +
             (mode === 'random'
-              ? '<p class="hint dmap-hint">🎲 L\'ordre des salles est tiré au sort à chaque partie : Entrée(s) d\'abord, salles aléatoires mélangées, Sortie(s) à la fin.</p>'
+              ? '<p class="hint dmap-hint">🎲 L\'ordre des salles est tiré au sort à chaque partie : Entrée(s) d\'abord, salles aléatoires mélangées, Sortie(s) à la fin.</p>' +
+                '<div class="adv-randev" id="randev-' + ch.id + '"></div>'
               : '') +
             '<button class="ghost small adv-add-scene" data-ch="' + ch.id + '" style="margin:.4rem 0 .8rem">' +
               (mode === 'random' ? '+ Salle' : '+ Scène') + '</button>';
@@ -639,14 +655,71 @@
     // Cartes des donjons structurés (rendu + câblage spécifiques).
     a.chapters.forEach(function (ch) {
       if (!collapsedChapters[ch.id] && chMode(ch) === 'dungeon') renderDungeonEditor(a, ch);
+      if (!collapsedChapters[ch.id] && chMode(ch) === 'random') renderRandomEventsEditor(a, ch);
+    });
+  }
+
+  // ---- Donjon aléatoire : événements de passage (entre les salles) ----
+  // Chaque événement est une scène complète (même éditeur), déclenchée UNE fois
+  // au cours de la partie, sur une transition tirée au hasard entre deux salles.
+  function renderRandomEventsEditor(a, ch) {
+    const box = document.getElementById('randev-' + ch.id);
+    if (!box) return;
+    if (!Array.isArray(ch.transitionEvents)) ch.transitionEvents = [];
+    // Purge les entrées orphelines (scène supprimée).
+    ch.transitionEvents = ch.transitionEvents.filter(function (e) {
+      return e && ch.scenes.some(function (s) { return s.id === e.sceneId; });
+    });
+    const rows = ch.transitionEvents.length
+      ? ch.transitionEvents.map(function (e, i) {
+          const s = ch.scenes.find(function (x) { return x.id === e.sceneId; });
+          return '<div class="randev-row" data-i="' + i + '">' +
+            '<span class="randev-name">⚡ ' + esc(s && s.title ? s.title : '(événement)') + '</span>' +
+            '<button type="button" class="ghost small randev-edit">Éditer</button>' +
+            '<button type="button" class="icon-btn randev-del" title="Supprimer cet événement">✕</button>' +
+          '</div>';
+        }).join('')
+      : '<p class="hint">Aucun événement de passage.</p>';
+    box.innerHTML = '<div class="dmap-links-title">⚡ Événements de passage (entre les salles)</div>' +
+      '<p class="hint">Chaque événement (combat, test, texte…) se déclenche <b>une fois par partie</b>, sur une transition entre deux salles tirée au hasard.</p>' +
+      rows +
+      '<button type="button" class="ghost small randev-add">+ ⚡ Événement de passage</button>';
+    box.querySelector('.randev-add').onclick = function () {
+      const ns = newScene();
+      ns.isTransition = true;
+      ns.title = 'Événement de passage';
+      ch.scenes.push(ns);
+      ch.transitionEvents.push({ id: Store.uid(), sceneId: ns.id });
+      save();
+      openSceneModal(a, ch.id, ns.id);
+    };
+    box.querySelectorAll('.randev-edit').forEach(function (b) {
+      b.onclick = function () {
+        const i = +b.closest('.randev-row').getAttribute('data-i');
+        const e = ch.transitionEvents[i];
+        if (e) openSceneModal(a, ch.id, e.sceneId);
+      };
+    });
+    box.querySelectorAll('.randev-del').forEach(function (b) {
+      b.onclick = function () {
+        const i = +b.closest('.randev-row').getAttribute('data-i');
+        const e = ch.transitionEvents[i];
+        if (!e || !confirm('Supprimer cet événement de passage ?')) return;
+        ch.scenes = ch.scenes.filter(function (s) { return s.id !== e.sceneId; });
+        ch.transitionEvents.splice(i, 1);
+        save(); renderRandomEventsEditor(a, ch);
+      };
     });
   }
 
   function renderScenesHTML(ch, adv) {
-    if (!ch.scenes.length) return '<p class="empty" style="padding:.3rem 0">Aucune scène.</p>';
+    // Les scènes d'événement de passage (connecteurs) ne sont pas des salles :
+    // elles s'éditent depuis la liste des connecteurs / événements de passage.
+    const rooms = ch.scenes.filter(function (s) { return !s.isTransition; });
+    if (!rooms.length) return '<p class="empty" style="padding:.3rem 0">Aucune scène.</p>';
     const titles = sceneTitleMap(adv);
     const isRandom = chMode(ch) === 'random';
-    return ch.scenes.map(function (s, si) {
+    return rooms.map(function (s, si) {
       const typeLabel = (SCENE_TYPES.find(function (t) { return t.value === s.type; }) || {}).label || s.type;
       const links = sceneLinks(s);
       const tree = links.length
@@ -663,7 +736,7 @@
               return '<option value="' + r.value + '"' + ((s.roomRole || 'normal') === r.value ? ' selected' : '') + '>' + r.label + '</option>';
             }).join('') + '</select>'
         : '';
-      const last = si === ch.scenes.length - 1;
+      const last = si === rooms.length - 1;
       return '<div class="adv-scene-item">' +
         '<div class="adv-scene-row" data-ch="' + ch.id + '" data-scene="' + s.id + '" title="Cliquer pour éditer">' +
           '<span class="adv-scene-num">' + (si + 1) + '</span>' +
@@ -696,18 +769,21 @@
         ch.scenes.some(function (s) { return s.id === l.from; }) &&
         ch.scenes.some(function (s) { return s.id === l.to; });
     });
-    if (!ch.entryId || !ch.scenes.some(function (s) { return s.id === ch.entryId; })) {
-      ch.entryId = ch.scenes.length ? ch.scenes[0].id : null;
+    // L'entrée du donjon est forcément une vraie salle (pas un événement de passage).
+    const roomsOnly = ch.scenes.filter(function (s) { return !s.isTransition; });
+    if (!ch.entryId || !roomsOnly.some(function (s) { return s.id === ch.entryId; })) {
+      ch.entryId = roomsOnly.length ? roomsOnly[0].id : null;
     }
     // Positionne les salles sans coordonnées (ou en double) sur des cellules libres.
+    // (Les scènes d'événement de passage n'occupent pas de cellule.)
     const used = {};
-    ch.scenes.forEach(function (s) {
+    roomsOnly.forEach(function (s) {
       const ok = typeof s.mapX === 'number' && typeof s.mapY === 'number' && s.mapX >= 0 && s.mapY >= 0;
       if (ok && !used[s.mapX + ',' + s.mapY]) { used[s.mapX + ',' + s.mapY] = true; }
       else { s.mapX = null; s.mapY = null; }
     });
     let cursor = 0;
-    ch.scenes.forEach(function (s) {
+    roomsOnly.forEach(function (s) {
       if (typeof s.mapX === 'number' && s.mapX !== null) return;
       while (used[(cursor % 4) + ',' + Math.floor(cursor / 4)]) cursor++;
       s.mapX = cursor % 4; s.mapY = Math.floor(cursor / 4);
@@ -768,7 +844,7 @@
         (l.label ? '<text x="' + mx + '" y="' + (my - 5) + '" class="dmap-line-lbl" text-anchor="middle">' + esc(l.label) + '</text>' : '');
     }).join('');
 
-    const rooms = ch.scenes.map(function (s) {
+    const rooms = ch.scenes.filter(function (s) { return !s.isTransition; }).map(function (s) {
       const isEntry = ch.entryId === s.id;
       const typeLabel = (SCENE_TYPES.find(function (t) { return t.value === s.type; }) || {}).label || s.type;
       const nLinks = ch.links.filter(function (l) { return l.from === s.id || l.to === s.id; }).length;
@@ -792,9 +868,19 @@
       // La flèche suit la direction du connecteur sur la carte (salle d'arrivée
       // placée sous la salle de départ → ⬇, à droite → ➡, etc.).
       const arrow = dmapDirArrow(byId[l.from], byId[l.to]);
+      // Événement de passage : une scène complète (combat, tests, texte…) qui se
+      // déclenche quand les aventuriers empruntent ce connecteur.
+      const hasEvent = !!(l.eventSceneId && byId[l.eventSceneId]);
+      const eventCtrls = hasEvent
+        ? '<button type="button" class="ghost small dmap-link-event" title="Éditer la scène d\'événement de ce passage">⚡ Éditer l\'événement</button>' +
+          '<label class="dmap-link-repeat-lbl" title="Coché : l\'événement se déclenche À CHAQUE passage (réinitialisé). Décoché : une seule fois.">' +
+            '<input type="checkbox" class="dmap-link-repeat"' + (l.eventRepeat ? ' checked' : '') + ' /> 🔁 chaque passage</label>' +
+          '<button type="button" class="icon-btn dmap-link-event-del" title="Supprimer l\'événement de ce passage">⚡✕</button>'
+        : '<button type="button" class="ghost small dmap-link-event" title="Ajouter un événement (combat, test, texte…) déclenché en empruntant ce passage">+ ⚡ Événement</button>';
       return '<div class="dmap-link-row" data-i="' + i + '">' +
         '<span class="dmap-link-ends">' + esc(titleOf(l.from)) + ' <span class="dmap-dir">' + arrow + '</span> ' + esc(titleOf(l.to)) + '</span>' +
         '<input type="text" class="dmap-link-label" maxlength="60" placeholder="Description du passage (porte, couloir, escalier, passage secret…)" value="' + esc(l.label || '') + '" />' +
+        eventCtrls +
         '<button type="button" class="icon-btn dmap-link-del" title="Supprimer le connecteur">✕</button>' +
       '</div>';
     }).join('') : '<p class="hint">Aucun connecteur. Clique 🔗 sur une salle puis sur la salle d\'arrivée.</p>';
@@ -850,7 +936,10 @@
         e.stopPropagation();
         const sid = b.getAttribute('data-scene');
         if (!confirm('Supprimer cette salle (et ses connecteurs) ?')) return;
-        ch.scenes = ch.scenes.filter(function (s) { return s.id !== sid; });
+        // Supprime la salle, ses connecteurs ET les scènes d'événement de ces connecteurs.
+        const evIds = ch.links.filter(function (l) { return (l.from === sid || l.to === sid) && l.eventSceneId; })
+          .map(function (l) { return l.eventSceneId; });
+        ch.scenes = ch.scenes.filter(function (s) { return s.id !== sid && evIds.indexOf(s.id) < 0; });
         ch.links = ch.links.filter(function (l) { return l.from !== sid && l.to !== sid; });
         if (ch.entryId === sid) ch.entryId = ch.scenes.length ? ch.scenes[0].id : null;
         if (dmapLinking && dmapLinking.from === sid) dmapLinking = null;
@@ -868,7 +957,44 @@
     box.querySelectorAll('.dmap-link-del').forEach(function (b) {
       b.onclick = function () {
         const i = +b.closest('.dmap-link-row').getAttribute('data-i');
+        // Supprime aussi la scène d'événement rattachée à ce connecteur.
+        const ev = ch.links[i] && ch.links[i].eventSceneId;
+        if (ev) ch.scenes = ch.scenes.filter(function (s) { return s.id !== ev; });
         ch.links.splice(i, 1);
+        save(); renderDungeonEditor(a, ch);
+      };
+    });
+    // Événement de passage : créer/éditer (même éditeur de scène que partout),
+    // basculer « à chaque passage », supprimer.
+    box.querySelectorAll('.dmap-link-event').forEach(function (b) {
+      b.onclick = function () {
+        const i = +b.closest('.dmap-link-row').getAttribute('data-i');
+        const l = ch.links[i];
+        if (!l) return;
+        if (!l.eventSceneId || !ch.scenes.some(function (s) { return s.id === l.eventSceneId; })) {
+          const ns = newScene();
+          ns.isTransition = true;
+          ns.title = 'Passage : ' + titleOf(l.from) + ' ⟷ ' + titleOf(l.to);
+          ch.scenes.push(ns);
+          l.eventSceneId = ns.id;
+          save();
+        }
+        openSceneModal(a, ch.id, l.eventSceneId);
+      };
+    });
+    box.querySelectorAll('.dmap-link-repeat').forEach(function (cb) {
+      cb.onchange = function () {
+        const i = +cb.closest('.dmap-link-row').getAttribute('data-i');
+        if (ch.links[i]) { ch.links[i].eventRepeat = cb.checked; save(); }
+      };
+    });
+    box.querySelectorAll('.dmap-link-event-del').forEach(function (b) {
+      b.onclick = function () {
+        const i = +b.closest('.dmap-link-row').getAttribute('data-i');
+        const l = ch.links[i];
+        if (!l || !confirm('Supprimer l\'événement de ce passage ?')) return;
+        ch.scenes = ch.scenes.filter(function (s) { return s.id !== l.eventSceneId; });
+        l.eventSceneId = null; l.eventRepeat = false;
         save(); renderDungeonEditor(a, ch);
       };
     });
@@ -1203,6 +1329,21 @@
             '</div>' +
             '<div id="sm-blk-ir-' + blk.id + '"></div>' +
             '<label>Passage débloqué en cas de réussite <select class="tb-target" data-bi="' + i + '">' + sceneTargetOptions(allScenes, blk.targetSceneId, adv) + '</select></label>' +
+            // Tests enchaînés : un AUTRE bloc de test de la scène, révélé selon le
+            // résultat (ex. rater l'Agilité fait apparaître un test de Force).
+            (function () {
+              const others = scene.blocks.filter(function (b) { return b.type === 'test' && b.id !== blk.id; });
+              if (!others.length) return '';
+              const opts = function (cur) {
+                return '<option value="">— Aucun —</option>' + others.map(function (b, k) {
+                  return '<option value="' + esc(b.id) + '"' + (cur === b.id ? ' selected' : '') + '>' + esc(b.label || ('Test #' + (k + 1))) + '</option>';
+                }).join('');
+              };
+              return '<div class="form-row tb-chain-row" style="grid-template-columns:1fr 1fr" title="Le test choisi n\'apparaît dans la scène qu\'après ce résultat.">' +
+                '<label>🔗 Test révélé si réussite <select class="tb-chain-succ" data-bi="' + i + '">' + opts(blk.chainSuccessId) + '</select></label>' +
+                '<label>🔗 Test révélé si échec <select class="tb-chain-fail" data-bi="' + i + '">' + opts(blk.chainFailId) + '</select></label>' +
+              '</div>';
+            })() +
             '<label class="tb-retry-lbl"><input type="checkbox" class="tb-retry" data-bi="' + i + '"' + (blk.retry ? ' checked' : '') + ' /> 🔁 Peut être retenté (autant de fois que nécessaire jusqu\'à la réussite)</label>' +
             reqHtml +
           '</div>';
@@ -1262,6 +1403,12 @@
     });
     box.querySelectorAll('.tb-retry').forEach(function (el) {
       el.onchange = function () { scene.blocks[biOf(this)].retry = this.checked; };
+    });
+    box.querySelectorAll('.tb-chain-succ').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].chainSuccessId = this.value || null; };
+    });
+    box.querySelectorAll('.tb-chain-fail').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].chainFailId = this.value || null; };
     });
     // Conséquence de l'échec (menu + champs dynamiques selon le type choisi)
     box.querySelectorAll('.tb-fx-kind').forEach(function (el) {

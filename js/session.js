@@ -104,6 +104,7 @@
   function buildRandomOrder(ch) {
     const entries = [], exits = [], mids = [];
     (ch.scenes || []).forEach(function (s) {
+      if (s.isTransition) return; // scènes d'événement de passage : jamais des salles
       const role = s.roomRole || 'normal';
       (role === 'entry' ? entries : role === 'exit' ? exits : mids).push(s.id);
     });
@@ -126,6 +127,23 @@
     }
     order = buildRandomOrder(ch);
     ses.randomOrders[ch.id] = order;
+    // Événements de passage (donjon aléatoire) : chacun est affecté à UNE
+    // transition entre deux salles, tirée au hasard pour cette partie.
+    const evs = (Array.isArray(ch.transitionEvents) ? ch.transitionEvents : []).filter(function (e) {
+      return e && ch.scenes.some(function (s) { return s.id === e.sceneId; });
+    });
+    if (evs.length && order.length > 1) {
+      const gaps = [];
+      for (let g = 0; g < order.length - 1; g++) gaps.push(g);
+      for (let i = gaps.length - 1; i > 0; i--) { // mélange des transitions disponibles
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = gaps[i]; gaps[i] = gaps[j]; gaps[j] = t;
+      }
+      if (!ses.randomEvents) ses.randomEvents = {};
+      const assign = {};
+      evs.forEach(function (e, k) { if (k < gaps.length) assign[gaps[k]] = e.sceneId; });
+      ses.randomEvents[ch.id] = assign;
+    }
     save();
     return order;
   }
@@ -374,8 +392,9 @@
       const ri = order.indexOf(scene.id);
       if (ri >= 0) roomTag = '<span class="tag ses-room-tag">🎲 Salle ' + (ri + 1) + '/' + order.length + '</span>';
     } else if (chMode_ === 'dungeon') {
-      const nVisited = chapter.scenes.filter(function (s) { return (ses.visitedSceneIds || []).indexOf(s.id) >= 0; }).length;
-      roomTag = '<span class="tag ses-room-tag">🗺️ ' + nVisited + '/' + chapter.scenes.length + ' salles</span>';
+      const roomsOnly = chapter.scenes.filter(function (s) { return !s.isTransition; });
+      const nVisited = roomsOnly.filter(function (s) { return (ses.visitedSceneIds || []).indexOf(s.id) >= 0; }).length;
+      roomTag = '<span class="tag ses-room-tag">🗺️ ' + nVisited + '/' + roomsOnly.length + ' salles</span>';
     }
 
     root.innerHTML =
@@ -482,8 +501,9 @@
     });
     const visited = function (id) { return (ses.visitedSceneIds || []).indexOf(id) >= 0; };
     // Seules les salles DÉJÀ EXPLORÉES apparaissent sur la carte des joueurs —
-    // les salles à venir restent totalement invisibles (pas de spoiler).
-    const shown = (chapter.scenes || []).filter(function (s) { return visited(s.id); });
+    // les salles à venir restent totalement invisibles (pas de spoiler). Les
+    // scènes d'événement de passage ne sont jamais des salles.
+    const shown = (chapter.scenes || []).filter(function (s) { return !s.isTransition && visited(s.id); });
     const maxX = shown.reduce(function (m, s) { return Math.max(m, pos[s.id][0]); }, 0);
     const maxY = shown.reduce(function (m, s) { return Math.max(m, pos[s.id][1]); }, 0);
     const W = (maxX + 1) * CW + BW / 3 + PAD * 2, H = (maxY + 1) * CH + PAD;
@@ -565,6 +585,21 @@
       return ((eh.skills && eh.skills[block.reqSkill]) || 0) >= need;
     });
   }
+  // Tests ENCHAÎNÉS : un bloc de test référencé par un autre (chainSuccessId /
+  // chainFailId) reste masqué tant que le test parent n'a pas produit le
+  // résultat déclencheur (ex. rater l'Agilité révèle un test de Force).
+  function testChainHidden(scene, blk, ses) {
+    if (!blk || blk.type !== 'test') return false;
+    var blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
+    var isChained = false, triggered = false;
+    blocks.forEach(function (p) {
+      if (p.type !== 'test' || p.id === blk.id) return;
+      var st = ses && ses.searchTests ? ses.searchTests[p.id] : null;
+      if (p.chainSuccessId === blk.id) { isChained = true; if (st && st.done && st.success) triggered = true; }
+      if (p.chainFailId === blk.id) { isChained = true; if (st && st.done && !st.success) triggered = true; }
+    });
+    return isChained && !triggered;
+  }
   function sceneContentHtml(scene, ses) {
     var parts = [];
     // Champ hérité : affiché comme narratif si non vide
@@ -579,6 +614,8 @@
       // masqué une fois les adversaires vaincus (ou s'il n'y a pas de combat).
       if (blk.type === 'combat' && (combatCleared || !sceneHasCombat(scene))) return;
       if (blk.type === 'test') {
+        // Test enchaîné non encore révélé par son test parent : masqué.
+        if (ses && testChainHidden(scene, blk, ses)) return;
         // Emplacement rempli après le rendu par wireTestBlocks (contenu interactif).
         parts.push('<div class="ses-test-slot" data-tb="' + esc(blk.id) + '"></div>');
       } else {
@@ -592,6 +629,7 @@
   function wireTestBlocks(scene, adv, ses) {
     sceneRenderBlocks(scene).forEach(function (blk) {
       if (blk.type !== 'test' || (ses && !blockVisible(blk, ses))) return;
+      if (ses && testChainHidden(scene, blk, ses)) return;
       const slot = document.querySelector('.ses-test-slot[data-tb="' + (window.CSS && CSS.escape ? CSS.escape(blk.id) : blk.id) + '"]');
       if (slot) renderTestBlock(slot, blk, scene, adv, ses);
     });
@@ -690,8 +728,24 @@
     if (hasChoices) renderChoicesPlay(box, scene, adv, ses);
     else if (scene.nextSceneId) renderNextButton(box, scene, adv, ses);
     const resolved = !hasCombat || cleared;
-    if (mode === 'dungeon' && resolved) renderDungeonExits(box, ch, scene, adv, ses);
-    if (mode === 'random' && resolved && !hasChoices && !scene.nextSceneId) renderRandomNext(box, ch, scene, adv, ses);
+    // Scène d'ÉVÉNEMENT DE PASSAGE : une fois résolue, on poursuit vers la salle
+    // de destination (pas de sorties propres).
+    const inTransit = !!(ses.transit && ses.transit.sceneId === scene.id && scene.isTransition);
+    if (inTransit) {
+      if (resolved) {
+        const destId = ses.transit.destId;
+        const df = findScene(adv, destId);
+        const dest = df ? (df.scene.title || 'Salle') : 'la suite';
+        const sec = appendSection(box);
+        sec.innerHTML = '<button class="primary" id="ses-transit-next">Continuer vers ' + esc(dest) + ' →</button>';
+        sec.querySelector('#ses-transit-next').addEventListener('click', function () {
+          navigateTo(ses, adv, destId);
+        });
+      }
+    } else {
+      if (mode === 'dungeon' && resolved && !scene.isTransition) renderDungeonExits(box, ch, scene, adv, ses);
+      if (mode === 'random' && resolved && !hasChoices && !scene.nextSceneId && !scene.isTransition) renderRandomNext(box, ch, scene, adv, ses);
+    }
     if (scene.type === 'fin') renderFinButton(box, scene, adv, ses);
   }
 
@@ -708,6 +762,38 @@
     let idx = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
     idx = ((idx % 8) + 8) % 8;
     return DIR_ARROWS[idx];
+  }
+
+  // ---- Événements de passage (scènes de transition sur les connecteurs) ----
+  // Réinitialise l'état d'une scène d'événement répétable (combat, tests,
+  // récompenses) pour qu'elle se rejoue entièrement au prochain passage.
+  function resetTransitionScene(ses, eventScene) {
+    if (ses.clearedScenes) delete ses.clearedScenes[eventScene.id];
+    if (ses.claimedRewards) delete ses.claimedRewards[eventScene.id];
+    if (ses.searchTests) {
+      (eventScene.blocks || []).forEach(function (b) {
+        if (b.type === 'test') delete ses.searchTests[b.id];
+      });
+    }
+  }
+  // Déclenche (si nécessaire) l'événement d'un connecteur lors d'un déplacement
+  // vers `destId`. Renvoie true si la navigation est déroutée vers la scène
+  // d'événement (le « Continuer » de celle-ci mènera ensuite à destination).
+  function triggerLinkEvent(ses, adv, chapter, link, destId) {
+    if (!link || !link.eventSceneId) return false;
+    const evScene = chapter.scenes.find(function (s) { return s.id === link.eventSceneId; });
+    if (!evScene) return false;
+    if (!ses.linkEventsDone) ses.linkEventsDone = {};
+    if (link.eventRepeat) {
+      resetTransitionScene(ses, evScene); // rejouable : état remis à neuf à chaque passage
+    } else if (ses.linkEventsDone[link.id]) {
+      return false; // déjà déclenché une fois
+    } else {
+      ses.linkEventsDone[link.id] = true;
+    }
+    ses.transit = { sceneId: evScene.id, destId: destId };
+    navigateTo(ses, adv, evScene.id);
+    return true;
   }
 
   // ----- Donjon structuré : sorties & accès de la salle (connecteurs) -----
@@ -752,6 +838,11 @@
       b.addEventListener('click', function () {
         const to = b.getAttribute('data-to');
         ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent.trim(), targetSceneId: to });
+        // Événement de passage sur ce connecteur : il s'intercale avant l'arrivée.
+        const link = (chapter.links || []).find(function (l) {
+          return (l.from === scene.id && l.to === to) || (l.from === to && l.to === scene.id);
+        });
+        if (triggerLinkEvent(ses, adv, chapter, link, to)) return;
         navigateTo(ses, adv, to);
       });
     });
@@ -767,6 +858,19 @@
       sec.innerHTML = '<button class="primary" id="ses-rand-next">Continuer l\'exploration → ' +
         '<span class="ses-rand-count">(salle ' + (idx + 2) + '/' + order.length + ')</span></button>';
       sec.querySelector('#ses-rand-next').addEventListener('click', function () {
+        // Événement de passage affecté à cette transition (une fois par partie).
+        const assign = ses.randomEvents && ses.randomEvents[chapter.id];
+        const evId = assign && assign[idx];
+        if (evId) {
+          if (!ses.randomEventsDone) ses.randomEventsDone = {};
+          const key = chapter.id + ':' + idx;
+          if (!ses.randomEventsDone[key] && chapter.scenes.some(function (s) { return s.id === evId; })) {
+            ses.randomEventsDone[key] = true;
+            ses.transit = { sceneId: evId, destId: nextId };
+            navigateTo(ses, adv, evId);
+            return;
+          }
+        }
         navigateTo(ses, adv, nextId);
       });
     } else {
@@ -1318,6 +1422,9 @@
       if (root) renderLevelUp(root, ses, adv, (ses.levelDone || 1) + 1);
       return;
     }
+    // Sortie d'un événement de passage : l'état de transit ne survit qu'à la
+    // scène d'événement elle-même (toute autre navigation le dissout).
+    if (ses.transit && sceneId !== ses.transit.sceneId) ses.transit = null;
     ses.currentChapterId = found.chapter.id;
     ses.currentSceneId = sceneId;
     if (ses.visitedSceneIds.indexOf(sceneId) === -1) ses.visitedSceneIds.push(sceneId);
