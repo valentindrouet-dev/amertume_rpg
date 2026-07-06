@@ -1390,6 +1390,14 @@
                 '<option value="concerned"' + (blk.who === 'concerned' ? ' selected' : '') + '>🎯 Aventuriers concernés (chaîne)</option>' +
               '</select></label>' +
             '</div>' +
+            // Seuil de réussite d'un test collectif (groupe / concernés).
+            ((blk.who === 'group' || blk.who === 'concerned')
+              ? '<label class="tb-groupmode-lbl">👥 Le test collectif est réussi si <select class="tb-groupmode" data-bi="' + i + '">' +
+                  '<option value="all"' + ((blk.groupMode || 'majority') === 'all' ? ' selected' : '') + '>tous les aventuriers réussissent (unanimité)</option>' +
+                  '<option value="majority"' + ((blk.groupMode || 'majority') === 'majority' ? ' selected' : '') + '>la majorité réussit</option>' +
+                  '<option value="one"' + (blk.groupMode === 'one' ? ' selected' : '') + '>au moins un aventurier réussit</option>' +
+                '</select></label>'
+              : '') +
             '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="Texte de réussite">' + esc(blk.successText || '') + '</textarea>' +
             '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="Texte d\'échec">' + esc(blk.failText || '') + '</textarea>' +
             '<div class="tb-reward-head">Récompense en cas de réussite · Conséquence de l\'échec <small>(valeurs fixes ou en dés : « 3 », « 2d6 », « 1d6+2 »)</small></div>' +
@@ -1519,7 +1527,8 @@
     box.querySelectorAll('.tb-label').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].label = this.value; }; });
     box.querySelectorAll('.tb-skill').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].skill = this.value; }; });
     box.querySelectorAll('.tb-diff').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].difficulty = this.value; }; });
-    box.querySelectorAll('.tb-who').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].who = this.value; }; });
+    box.querySelectorAll('.tb-who').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].who = this.value; renderBlocksEditor(scene, adv); }; });
+    box.querySelectorAll('.tb-groupmode').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].groupMode = this.value; }; });
     box.querySelectorAll('.tb-success').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].successText = this.value; }; });
     box.querySelectorAll('.tb-fail').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].failText = this.value; }; });
     // XP : valeur fixe OU notation en dés (« 1d6 », « 2d6+1 ») — stockée brute,

@@ -576,7 +576,7 @@
       var st = scene.searchTest;
       blocks.push({ id: scene.id, type: 'test', _fromSearch: true, label: st.label, skill: st.skill,
         difficulty: st.difficulty, successText: st.successText, failText: st.failText, xpReward: st.xpReward,
-        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
+        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', groupMode: st.groupMode || 'majority', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
     }
     return blocks;
   }
@@ -1014,7 +1014,7 @@
       }
       // La DIFFICULTÉ est toujours affichée SUR le bouton, à droite de la compétence.
       slot.innerHTML = '<div class="ses-searchtest">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (block.who === 'group' ? ' <span class="ses-st-group-tag" title="Tous les aventuriers lancent le test — réussite si la majorité réussit">👥 GROUPE</span>' : '') + '</div>' +
+        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (block.who === 'group' ? ' <span class="ses-st-group-tag" title="' + esc(groupModeLabel(block.groupMode)) + '">👥 GROUPE</span>' : '') + '</div>' +
         '<button class="ses-choice-btn skill-test sktest-' + slug(block.skill || '') + ' choice-type-enquete ses-tb-go">' +
           esc(block.label || 'Tenter le test') +
           ' <span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + '</span>' +
@@ -1072,7 +1072,7 @@
       // test ; réussite globale à la majorité ; les conséquences d'échec
       // s'appliquent INDIVIDUELLEMENT à chaque aventurier qui a raté.
       const heroList = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
-      const gr = runGroupRolls(ses, block.skill, block.difficulty, heroList);
+      const gr = runGroupRolls(ses, block.skill, block.difficulty, heroList, block.groupMode);
       state = { done: true, success: gr.passed, claimed: false, group: true, results: gr.results, need: gr.need };
       const msgs = [];
       gr.results.forEach(function (r) {
@@ -1477,7 +1477,13 @@
   // Test de GROUPE : chaque aventurier d'une liste lance le test. Renvoie les
   // résultats individuels + la réussite globale (majorité : ⌈n/2⌉ réussites).
   // `heroList` par défaut = tous les aventuriers vivants.
-  function runGroupRolls(ses, skill, difficulty, heroList) {
+  // Libellé explicatif du seuil de réussite collective (info-bulle du tag GROUPE).
+  function groupModeLabel(mode) {
+    if (mode === 'all') return 'Chaque aventurier lance le test — réussite seulement si TOUS réussissent (unanimité).';
+    if (mode === 'one') return 'Chaque aventurier lance le test — réussite si AU MOINS UN réussit.';
+    return 'Chaque aventurier lance le test — réussite si la MAJORITÉ réussit.';
+  }
+  function runGroupRolls(ses, skill, difficulty, heroList, groupMode) {
     const need = SKILL_DIFF[difficulty] || 2;
     const heroes = heroList || aliveEngagedHeroes(ses);
     const results = heroes.map(function (h) {
@@ -1487,8 +1493,14 @@
       return { heroId: h.id, name: h.name, succ: total, need: need, rolls: r.rolls, passed: total >= need };
     });
     const passedCount = results.filter(function (x) { return x.passed; }).length;
-    return { results: results, need: need, passedCount: passedCount,
-      passed: heroes.length > 0 && passedCount >= Math.ceil(heroes.length / 2) };
+    // Seuil de réussite collective : unanimité, majorité (défaut) ou au moins un.
+    const mode = groupMode || 'majority';
+    let threshold;
+    if (mode === 'all') threshold = heroes.length;
+    else if (mode === 'one') threshold = 1;
+    else threshold = Math.ceil(heroes.length / 2);
+    return { results: results, need: need, passedCount: passedCount, mode: mode,
+      passed: heroes.length > 0 && passedCount >= threshold };
   }
 
   // 1d6 + 1d6 par point de compétence ; réussite = dé à 4+ ; les 6 sont explosifs
