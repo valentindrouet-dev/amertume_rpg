@@ -509,7 +509,7 @@
     { effect: 'blindage_initial', name: 'Blindage Initial', kind: 'upgrade', hasVal: false,
       desc: 'Vous débutez chaque combat avec Blindage.' },
     { effect: 'prepare_initial', name: 'Vivacité', kind: 'upgrade', hasVal: false,
-      desc: 'Vous débutez chaque combat <b>Préparé</b> : +1 Action au premier tour.' },
+      desc: 'Vous débutez chaque combat <b>Préparé</b> : +1 Action OU +1 Mouvement au premier tour.' },
     // --- Améliorations de Pyromancie ---
     { effect: 'orbe_feu', name: 'Orbe de Feu', kind: 'upgrade', hasVal: false,
       desc: 'Vos Orbes Mystiques deviennent des Orbes de Feu et infligent FEU.' },

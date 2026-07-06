@@ -822,8 +822,8 @@
     const c = byId(iid);
     const asAction = moveAsAction; moveAsAction = false;
     if (!c || c.status !== 'active') { pendingMove = null; arrivalTargetIid = null; render(); return; }
-    if (asAction) { if (c.used.action) { pendingMove = null; arrivalTargetIid = null; render(); return; } }
-    else if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0)) { pendingMove = null; arrivalTargetIid = null; render(); return; }
+    if (asAction) { if (actionSpent(c)) { pendingMove = null; arrivalTargetIid = null; render(); return; } }
+    else if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0) && !c.prepBonus) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     // BARRIÈRES : bloque ou exige un test d'Agilité (Difficile) pour franchir.
     const cross = crossCheck(c, zi);
@@ -854,6 +854,10 @@
       // RALLIEMENT : un allié de la zone d'arrivée offre le mouvement (non dépensé).
       c.used.move = prevMove;
       log(cname(c) + ' rejoint la zone sans dépenser son mouvement (<span class="lstate">Ralliement</span>).', 'state');
+    } else if (c.prepBonus && prevMove) {
+      // PRÉPARÉ : ce 2e déplacement du tour puise dans le bonus (Mouvement supplémentaire).
+      c.prepBonus = false;
+      log(cname(c) + ' se déplace une 2e fois grâce à <span class="lstate">Préparé</span>.', 'state');
     }
     pendingMove = null; arrivalTargetIid = null; checkOutcome();
     // PRÉ-TOUR : dès que plus aucun aventurier n'a de talent à jouer, on démarre
@@ -1630,14 +1634,30 @@
   // dispose de 2 Actions ; la 1ʳᵉ n'épuise pas encore son tour.
   function useAction(c) {
     if (!c) return;
-    // PRÉPARÉ : la 1re Action du tour est GRATUITE (ne consomme pas l'action) —
-    // même principe que SURVITAMINÉ. Offre donc +1 Action ce tour.
-    if (c.prepActionReady) { c.prepActionReady = false; return; }
-    if (c.side === 'hero' && heroHasTalent(c, 'survitamine') && !c.actedOnce) {
-      c.actedOnce = true;
-    } else {
-      c.used.action = true;
+    if (!c.used.action) {
+      // SURVITAMINÉ : la 1re Action ne consomme pas le tour (2 actions au total).
+      if (c.side === 'hero' && heroHasTalent(c, 'survitamine') && !c.actedOnce) c.actedOnce = true;
+      else c.used.action = true;
+    } else if (c.prepBonus) {
+      // PRÉPARÉ : l'Action déjà dépensée → on puise dans le bonus (Action OU Mouvement).
+      c.prepBonus = false;
     }
+  }
+  // Action déjà dépensée (bonus PRÉPARÉ inclus) : sert de garde-fou partout.
+  function actionSpent(c) { return c.used.action && !c.prepBonus; }
+  // Interdit d'exécuter DEUX FOIS la même Action dans un tour, sauf l'Attaque de
+  // Base (isBase) qui reste répétable. Le bonus PRÉPARÉ n'y déroge pas.
+  function cannotAct(c, atk, idx) {
+    if (!atk || atk.freeAction) return false;
+    if (actionSpent(c)) return true;
+    if (!atk.isBase && Array.isArray(c.actedAtks) && c.actedAtks.indexOf(idx) >= 0) return true;
+    return false;
+  }
+  // Mémorise l'Action non-basique jouée ce tour (pour la règle « pas 2× la même »).
+  function recordAction(c, atk, idx) {
+    if (!c || !atk || atk.freeAction || atk.isBase) return;
+    if (!Array.isArray(c.actedAtks)) c.actedAtks = [];
+    if (c.actedAtks.indexOf(idx) < 0) c.actedAtks.push(idx);
   }
   // ÉPINES (passif) : un adversaire qui arrive dans la zone d'un aventurier doté du
   // talent subit son bonus de dégâts.
@@ -1736,15 +1756,16 @@
   }
 
   // ---------- Tour de combat ----------
-  // PRÉPARÉ : au début du tour d'un combattant Préparé, il gagne 1 Action bonus
-  // (prepActionReady) pour ce tour ; l'effet expire à la fin de ce tour.
+  // PRÉPARÉ : au début du tour d'un combattant Préparé, il gagne 1 bonus utilisable
+  // au choix comme +1 Action OU +1 Mouvement (prepBonus) ; l'effet expire à la fin
+  // de ce tour.
   function armPrepared(list) {
     (list || []).forEach(function (c) {
       if (c.prepArmed) {            // armé au tour précédent → l'effet expire maintenant
-        c.prepArmed = false; c.prepActionReady = false;
+        c.prepArmed = false; c.prepBonus = false;
       }
       if (c.states && c.states.prepare) {  // fraîchement Préparé → armé pour ce tour
-        c.prepActionReady = true; c.prepArmed = true; c.states.prepare = false;
+        c.prepBonus = true; c.prepArmed = true; c.states.prepare = false;
       }
     });
   }
@@ -1753,6 +1774,8 @@
     armPrepared(combat().combatants);
     combat().combatants.forEach(function (c) {
       c.used = { action: false, move: false, object: false };
+      c.actedAtks = []; // règle « pas 2× la même Action » : compteur par tour
+
       c.freeMoves = 0; c.rebondUsed = false; // REBOND : compteurs remis à zéro chaque tour
       c.counterUsed = false; // RIPOSTE (adversaire) : 1 fois par tour
       // Les usages d'attaque sont « par tour » : on les réarme à chaque tour
@@ -1773,7 +1796,7 @@
     for (let i = 0; i < m.attacks.length; i++) {
       const a = m.attacks[i];
       if (m.attackUses[i] === 0) continue;
-      if (!a.freeAction && m.used.action) continue;
+      if (cannotAct(m, a, i)) continue;
       if (range && a.range !== range) continue;
       return i;
     }
@@ -1785,7 +1808,7 @@
   // Distance : frappe en priorité un héros d'une autre zone.
   // Activation d'un seul adversaire (choix de cible + attaque/déplacement)
   function actOneMonster(m) {
-    if (m.used.action) return;
+    if (actionSpent(m)) return;
     // AU SOL : l'adversaire utilise son mouvement pour se relever, puis attaque
     // normalement — mais sans pouvoir changer de zone (mouvement déjà consommé).
     if (m.states.auSol) {
@@ -1891,7 +1914,7 @@
     activationOrder().forEach(actOneMonster);
     // PRÉPARÉ : les adversaires armés rejouent une Action bonus.
     activationOrder().forEach(function (m) {
-      if (m.prepArmed && !m.used.action && m.status === 'active') actOneMonster(m);
+      if (m.prepArmed && !actionSpent(m) && m.status === 'active') actOneMonster(m);
     });
     checkOutcome();
   }
@@ -1916,7 +1939,7 @@
       const m = order[i++];
       // On n'écarte plus les adversaires Au Sol : actOneMonster gère leur relevée
       // (puis une éventuelle attaque dans leur zone) au lieu de les laisser inertes.
-      if (m.status !== 'active' || m.used.action) { step(); return; }
+      if (m.status !== 'active' || actionSpent(m)) { step(); return; }
       actOneMonster(m);
       checkOutcome();
       Store.save();
@@ -2229,7 +2252,7 @@
         let bestI = -1, best = -1;
         h.attacks.forEach(function (a, i) {
           if (h.attackUses[i] === 0) return;
-          if (!a.freeAction && h.used.action) return;
+          if (cannotAct(h, a, i)) return;
           // ne retient une attaque de contact que s'il existe une cible joignable
           if (a.range === 'contact' && !activeOf('monster').some(function (m) { return m.zone === h.zone; })) return;
           const sc = attackScore(a, h);
@@ -3309,7 +3332,7 @@
     return Object.keys(STATE_META).filter(function (s) {
       if (s === 'poison') return c.states.poison > 0;
       // PRÉPARÉ : badge visible tant que l'état est en attente OU armé pour le tour.
-      if (s === 'prepare') return c.states.prepare || c.prepArmed;
+      if (s === 'prepare') return c.states.prepare || c.prepBonus;
       return c.states[s];
     }).map(function (s) {
       const lbl = s === 'poison' ? ('Poison ' + c.states.poison) : stateLabel(s);
@@ -3406,14 +3429,16 @@
   }
 
   function abAttackBtn(c, a, i, canAct) {
-    const usedA = c.used.action;
+    const usedA = actionSpent(c);
+    // Règle « pas 2× la même Action » : bloque une action non-basique déjà jouée.
+    const sameBlocked = !a.isBase && !a.freeAction && Array.isArray(c.actedAtks) && c.actedAtks.indexOf(i) >= 0;
     const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
     const depleted = uses === 0;
     // PRÉPARATION ARCANIQUE : un Orbe est lançable dès le Pré-Tour 1.
     const orbPretour = a.pyromaneOrb && combat().phase === 'pretour' && combat().turn === 1 &&
       heroHasTalent(c, 'orbe_pretour') && c.status === 'active' && !combat().outcome;
     // AU SOL : aucune attaque ni talent possible tant que le combattant n'est pas relevé
-    const blocked = (!canAct && !orbPretour) || depleted || (!a.freeAction && usedA) || (c.states && c.states.auSol);
+    const blocked = (!canAct && !orbPretour) || depleted || (!a.freeAction && usedA) || sameBlocked || (c.states && c.states.auSol);
     const isThisAtk = pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average;
     const isEnemy = c.side === 'monster';
     const revealed = !isEnemy || c.analyzed;
@@ -3458,8 +3483,8 @@
       ? '<button class="ab-tool standup-chip do-standup" type="button" data-iid="' + c.iid + '"' +
           ((!canAct || usedMv) ? ' disabled' : '') + ' title="Utilise votre mouvement pour vous relever (retire AU SOL)">Se relever</button>'
       : '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
-          ' data-iid="' + c.iid + '"' + ((!canMove || !multi || (usedMv && !hasFreeMove)) ? ' disabled' : '') +
-          ' title="' + (hasFreeMove ? 'Mouvement gratuit disponible' : 'Changer de zone') + '">Mouv.</button>';
+          ' data-iid="' + c.iid + '"' + ((!canMove || !multi || (usedMv && !hasFreeMove && !c.prepBonus)) ? ' disabled' : '') +
+          ' title="' + (hasFreeMove ? 'Mouvement gratuit disponible' : (c.prepBonus && usedMv ? 'Mouvement bonus (Préparé)' : 'Changer de zone')) + '">Mouv.</button>';
     return '<div class="ab-tools">' +
       moveBtn +
       '<button class="ab-tool obj-chip do-object' + (pendingObject === c.iid ? ' selected' : '') + '" type="button" data-iid="' + c.iid + '"' +
@@ -3491,7 +3516,7 @@
     if (c.side === 'monster' && (c.socle === 'large' || c.socle === 'huge')) cls.push('socle-' + c.socle);
     if (dead) cls.push('is-' + c.status);
     if (selectedIid === c.iid) cls.push('selected');
-    if (c.side === 'hero' && !dead && !c.used.action) cls.push('has-action');
+    if (c.side === 'hero' && !dead && (!c.used.action || c.prepBonus)) cls.push('has-action');
     // Brûlure : halo de feu persistant tant que le combattant est en FEU.
     if (VFX.brulure && !dead && c.states && c.states.feu) cls.push('on-fire');
     // PRÉ-TOUR : surligne en jaune les aventuriers ayant encore un talent de pré-tour à jouer.
@@ -3550,7 +3575,7 @@
     // lorsque le combattant est sélectionné.
     // Pastille bleue (coin haut-droit) : aventurier actif n'ayant pas encore
     // utilisé son Action / Attaque ce tour. Disparaît une fois l'action faite.
-    const actionDot = (!isEnemy && !dead && !c.used.action)
+    const actionDot = (!isEnemy && !dead && (!c.used.action || c.prepBonus))
       ? '<span class="action-dot" title="Action / Attaque non utilisée"></span>' : '';
     const initial = (c.name || '?').charAt(0).toUpperCase();
     const avatarStyle = c.imageUrl
@@ -3587,7 +3612,8 @@
     let atk = attacker.attacks[atkIndex];
     if (!atk) return;
     if (attacker.attackUses[atkIndex] === 0) return;
-    if (!atk.freeAction && attacker.used.action) return;
+    if (cannotAct(attacker, atk, atkIndex)) return;
+    recordAction(attacker, atk, atkIndex);
     // ORBES PARTAGÉS : action de buff (ne résout pas d'attaque classique).
     if (atk.orbeShare) { triggerOrbeShare(attacker); if (!atk.freeAction) useAction(attacker); return; }
     // DÉPHASAGE : action pure — l'aventurier devient intouchable au prochain tour adverse.
@@ -3697,7 +3723,8 @@
   function applyMultiAttack(attacker, atkIndex, zoneIdx, iids) {
     const atk = attacker.attacks[atkIndex];
     if (!atk) return;
-    if (!atk.freeAction && attacker.used.action) return;
+    if (cannotAct(attacker, atk, atkIndex)) return;
+    recordAction(attacker, atk, atkIndex);
     // Attaque de contact : l'aventurier rejoint la zone ciblée (s'il le peut)
     if (atk.range === 'contact' && attacker.zone !== zoneIdx) {
       if (attacker.used.move) { alert('Vous ne pouvez pas atteindre cette zone.'); return; }
@@ -3736,7 +3763,8 @@
   function applySelfHeal(c, atkIndex) {
     const atk = c.attacks[atkIndex];
     if (!atk) return;
-    if (!atk.freeAction && c.used.action) return;
+    if (cannotAct(c, atk, atkIndex)) return;
+    recordAction(c, atk, atkIndex);
     // POISON X : inflige X dégâts avant d'utiliser un talent de soin
     applyPoison(c);
     if (c.status !== 'active') return;
@@ -3833,7 +3861,8 @@
     const atk = attacker.attacks[atkIndex];
     if (!atk) return;
     if (attacker.attackUses[atkIndex] === 0) return;
-    if (!atk.freeAction && attacker.used.action) return;
+    if (cannotAct(attacker, atk, atkIndex)) return;
+    recordAction(attacker, atk, atkIndex);
     const enemySide = attacker.side === 'hero' ? 'monster' : 'hero';
     const targets = (atk.targets === 'all')
       ? activeOf(enemySide).filter(function (t) { return canReach(attacker, t, atk); })
@@ -4071,7 +4100,7 @@
           }
           // COURSE (action de déplacement) : arme un mouvement qui consomme l'action.
           if (atk.moveAction) {
-            if (c.used.action) return;
+            if (actionSpent(c)) return;
             moveAsAction = (pendingMove !== c.iid);
             pendingMove = (pendingMove === c.iid) ? null : c.iid;
             pendingAttack = null; pendingAnalyze = null; render(); return;
@@ -4138,7 +4167,7 @@
       // Mouvement : arme le déplacement, puis on clique la zone de destination
       const mv = root.querySelector('.do-move[data-iid="' + c.iid + '"]');
       if (mv) mv.addEventListener('click', function () {
-        if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0)) return;
+        if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0) && !c.prepBonus) return;
         pendingMove = (pendingMove === c.iid) ? null : c.iid;
         pendingAttack = null; pendingAnalyze = null; pendingOrbeShare = null; render();
       });

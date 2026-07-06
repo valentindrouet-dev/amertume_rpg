@@ -1315,7 +1315,7 @@
   // Effets POSITIFS accordés en cas de réussite (test ou scène).
   const TEST_WIN_FX = [
     { kind: 'none',    label: '— Aucun —' },
-    { kind: 'prepare', label: '⚡ Préparé (prochain combat)' },
+    { kind: 'prepare', label: '⚡ Préparé (+1 Action ou +1 Mouvement, prochain combat)' },
     { kind: 'pv',      label: '❤️ Soin de PV' },
     { kind: 'vie',     label: '❤️ Gain de VIE' },
     { kind: 'state',   label: '🛡️ Gagne un état (prochain combat)' },

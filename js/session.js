@@ -726,7 +726,7 @@
     const fx = (o && o.winEffect) || (o && o.prepareReward ? { kind: 'prepare' } : null);
     if (!fx || !fx.kind || fx.kind === 'none') return '';
     let inner = '';
-    if (fx.kind === 'prepare') inner = '⚡ Groupe <strong>Préparé</strong> pour le prochain combat';
+    if (fx.kind === 'prepare') inner = '⚡ Le groupe est <strong>Préparé</strong> pour le prochain combat <span class="ses-reward-note">(+1 Action ou +1 Mouvement au 1er Tour)</span>';
     else if (fx.kind === 'pv') inner = '❤️ Soin <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' PV</strong> pour le groupe';
     else if (fx.kind === 'vie') inner = '❤️ Gain <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' VIE</strong> pour le groupe';
     else if (fx.kind === 'state') inner = '🛡️ Groupe gagne <strong>' + esc(WIN_STATE_LABEL[fx.state] || fx.state || 'Blindage') + '</strong> au prochain combat';
@@ -738,7 +738,7 @@
   function applyWinEffect(ses, o) {
     const fx = (o && o.winEffect) || (o && o.prepareReward ? { kind: 'prepare' } : null);
     if (!fx || !fx.kind || fx.kind === 'none') return '';
-    if (fx.kind === 'prepare') { prepareParty(ses); return 'Le groupe est Préparé pour le prochain combat.'; }
+    if (fx.kind === 'prepare') { prepareParty(ses); return 'Le groupe est Préparé pour le prochain combat (+1 Action ou +1 Mouvement au 1er Tour).'; }
     const n = Math.max(1, Store.rollAmount(fx.val == null ? 2 : fx.val));
     if (!ses.heroStates) ses.heroStates = {};
     if (fx.kind === 'pv') {

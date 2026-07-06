@@ -264,7 +264,7 @@
       ws.forEach(function (w) { (w.traits || []).forEach(function (t) { traits[t] = true; }); });
       atks.push({
         name: ws.map(function (w) { return w.name; }).join(' + '),
-        dice: pool, range: range, targets: 'one', useOwnDamage: true,
+        dice: pool, range: range, targets: 'one', useOwnDamage: true, isBase: true,
         effects: Store.noStates(), vicieuse: !!traits.vicieuse, jetable: !!traits.jetable,
       });
     });
@@ -511,7 +511,7 @@
     let atks = weapon.concat(special);
     if (!atks.length) {
       atks = [{ name: 'Mains nues', dice: Object.assign(D.emptyPool(), { white: 1 }),
-        range: 'contact', targets: 'one', useOwnDamage: true, effects: Store.noStates() }];
+        range: 'contact', targets: 'one', useOwnDamage: true, isBase: true, effects: Store.noStates() }];
     }
     const chosen = Array.isArray(h.chosenTalents) ? h.chosenTalents : null;
     const talents = resolveHeroTalents(chosen);
