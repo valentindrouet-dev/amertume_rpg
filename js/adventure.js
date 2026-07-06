@@ -189,7 +189,11 @@
     } else if (scene.type !== 'fin') {
       if (scene.nextSceneId) links.push({ label: 'suite', targetId: scene.nextSceneId });
     }
-    // Passage débloqué par un test de fouille réussi.
+    // Passages débloqués par un test de compétence réussi (blocs de test).
+    (scene.blocks || []).forEach(function (b) {
+      if (b.type === 'test' && b.targetSceneId) links.push({ label: '🔍 test ✓', targetId: b.targetSceneId });
+    });
+    // Compat. ancien champ searchTest (avant migration en bloc).
     if (scene.searchTest && scene.searchTest.enabled && scene.searchTest.targetSceneId) {
       links.push({ label: '🔍 fouille ✓', targetId: scene.searchTest.targetSceneId });
     }
@@ -419,6 +423,9 @@
           if (c.targetSceneId && map[c.targetSceneId]) c.targetSceneId = map[c.targetSceneId];
           if (c.successSceneId && map[c.successSceneId]) c.successSceneId = map[c.successSceneId];
           if (c.failSceneId && map[c.failSceneId]) c.failSceneId = map[c.failSceneId];
+        });
+        (s.blocks || []).forEach(function (bl) {
+          if (bl.type === 'test' && bl.targetSceneId && map[bl.targetSceneId]) bl.targetSceneId = map[bl.targetSceneId];
         });
         if (s.searchTest && s.searchTest.targetSceneId && map[s.searchTest.targetSceneId]) {
           s.searchTest.targetSceneId = map[s.searchTest.targetSceneId];
@@ -914,14 +921,9 @@
     const typeSelect = document.getElementById('sm-type');
     typeSelect.value = scene.type || 'exploration';
 
-    if (!Array.isArray(scene.blocks)) scene.blocks = [];
-    // Migration douce : l'ancien champ `text` devient un bloc narratif éditable.
-    if (scene.text && scene.text.trim() && !scene.blocks.length) {
-      scene.blocks.push({ id: Store.uid(), type: 'narrative', content: scene.text });
-      scene.text = '';
-    }
+    migrateSceneBlocks(scene);
     refreshSceneModalSections(scene, adv);
-    renderBlocksEditor(scene);
+    renderBlocksEditor(scene, adv);
 
     typeSelect.onchange = function () {
       scene.type = typeSelect.value;
@@ -932,7 +934,11 @@
     if (faitEl) { faitEl.value = scene.fait || ''; faitEl.oninput = function () { scene.fait = this.value; }; }
     document.getElementById('sm-add-block').onclick = function () {
       scene.blocks.push({ id: Store.uid(), type: 'narrative', content: '' });
-      renderBlocksEditor(scene);
+      renderBlocksEditor(scene, adv);
+    };
+    document.getElementById('sm-add-test').onclick = function () {
+      scene.blocks.push(newTestBlock());
+      renderBlocksEditor(scene, adv);
     };
 
     function closeModal() {
@@ -1021,60 +1027,150 @@
     document.getElementById('sm-xp').value = scene.xpReward || 0;
     document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
     renderItemRewards(scene);
-
-    // Test de compétence (fouille)
-    renderSearchTest(scene, adv);
   }
 
-  function renderBlocksEditor(scene) {
+  // ---- Blocs de contenu : texte typé OU test de compétence, ordonnés ensemble ----
+  function newTestBlock() {
+    return { id: Store.uid(), type: 'test', label: '', skill: 'Perception', difficulty: 'moyen',
+      successText: '', failText: '', xpReward: 0, itemRewards: [], targetSceneId: null, reqSkill: '', reqVal: 0 };
+  }
+  // Migration : ancien `text` → bloc narratif ; ancien `searchTest` (v2.3.04) → bloc de test.
+  function migrateSceneBlocks(scene) {
+    if (!Array.isArray(scene.blocks)) scene.blocks = [];
+    if (scene.text && scene.text.trim()) {
+      scene.blocks.unshift({ id: Store.uid(), type: 'narrative', content: scene.text });
+      scene.text = '';
+    }
+    if (scene.searchTest && scene.searchTest.enabled &&
+        !scene.blocks.some(function (b) { return b.type === 'test' && b._fromSearch; })) {
+      const st = scene.searchTest;
+      scene.blocks.push({ id: Store.uid(), type: 'test', _fromSearch: true,
+        label: st.label || '', skill: st.skill || 'Perception', difficulty: st.difficulty || 'moyen',
+        successText: st.successText || '', failText: st.failText || '', xpReward: st.xpReward || 0,
+        itemRewards: Array.isArray(st.itemRewards) ? st.itemRewards : [], targetSceneId: st.targetSceneId || null,
+        reqSkill: '', reqVal: 0 });
+    }
+    if (scene.searchTest) delete scene.searchTest;
+  }
+  function reqSkillOptions(cur) {
+    return '<option value="">— Aucune —</option>' +
+      SKILLS.map(function (s) { return '<option value="' + s + '"' + (cur === s ? ' selected' : '') + '>' + s + '</option>'; }).join('');
+  }
+
+  function renderBlocksEditor(scene, adv) {
     const box = document.getElementById('sm-blocks');
     if (!box) return;
+    if (!Array.isArray(scene.blocks)) scene.blocks = [];
+    const curCh = chapterOfScene(adv, scene.id);
+    const allScenes = buildAllScenes(adv, curCh ? curCh.id : null);
+    const diffOptsHtml = function (cur) {
+      return [['facile', 'Facile (1)'], ['moyen', 'Moyen (2)'], ['difficile', 'Difficile (3)']].map(function (d) {
+        return '<option value="' + d[0] + '"' + ((cur || 'moyen') === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
+      }).join('');
+    };
     if (!scene.blocks.length) {
-      box.innerHTML = '<p class="empty" style="margin:.25rem 0 .35rem">Aucun bloc — clique « + Bloc » pour en ajouter.</p>';
+      box.innerHTML = '<p class="empty" style="margin:.25rem 0 .35rem">Aucun bloc — clique « + Bloc » (texte) ou « + Bloc Test ».</p>';
     } else {
       box.innerHTML = scene.blocks.map(function (blk, i) {
+        const last = i === scene.blocks.length - 1;
+        const tools =
+          '<button type="button" class="icon-btn block-up" data-bi="' + i + '" title="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+          '<button type="button" class="icon-btn block-down" data-bi="' + i + '" title="Descendre"' + (last ? ' disabled' : '') + '>↓</button>' +
+          '<button type="button" class="icon-btn block-del" data-bi="' + i + '" title="Supprimer ce bloc">✕</button>';
+        // Condition d'affichage (commune à tous les blocs) : compétence requise / valeur mini.
+        const reqHtml = '<div class="adv-block-req">' +
+          '<span class="adv-block-req-lbl">👁 N\'afficher que si un aventurier a</span>' +
+          '<select class="block-reqskill" data-bi="' + i + '">' + reqSkillOptions(blk.reqSkill || '') + '</select>' +
+          '<input type="number" class="block-reqval" data-bi="' + i + '" min="1" value="' + (blk.reqVal || 1) + '"' +
+            (blk.reqSkill ? '' : ' style="display:none"') + ' title="Valeur minimale" />' +
+          '<span class="adv-block-req-mini"' + (blk.reqSkill ? '' : ' style="display:none"') + '>ou plus</span>' +
+        '</div>';
+        if (blk.type === 'test') {
+          return '<div class="adv-block-row adv-block-test" data-bi="' + i + '">' +
+            '<div class="adv-block-row-head">' +
+              '<span class="adv-block-test-tag">🔍 Test de compétence</span>' + tools +
+            '</div>' +
+            '<input type="text" class="tb-label" data-bi="' + i + '" placeholder="Intitulé du bouton (ex : Fouiller la zone)" value="' + esc(blk.label || '') + '" />' +
+            '<div class="form-row" style="grid-template-columns:1fr 1fr">' +
+              '<label>Compétence <select class="tb-skill" data-bi="' + i + '">' +
+                SKILLS.map(function (s) { return '<option value="' + s + '"' + (blk.skill === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
+              '<label>Difficulté <select class="tb-diff" data-bi="' + i + '">' + diffOptsHtml(blk.difficulty) + '</select></label>' +
+            '</div>' +
+            '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="Texte de réussite">' + esc(blk.successText || '') + '</textarea>' +
+            '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="Texte d\'échec">' + esc(blk.failText || '') + '</textarea>' +
+            '<div class="tb-reward-head">Récompense en cas de réussite</div>' +
+            '<label class="tb-xp-lbl">XP <input type="number" class="tb-xp" data-bi="' + i + '" min="0" value="' + (blk.xpReward || 0) + '" style="width:80px" /></label>' +
+            '<div id="sm-blk-ir-' + blk.id + '"></div>' +
+            '<label>Passage débloqué en cas de réussite <select class="tb-target" data-bi="' + i + '">' + sceneTargetOptions(allScenes, blk.targetSceneId, adv) + '</select></label>' +
+            reqHtml +
+          '</div>';
+        }
+        // Bloc de texte typé
         const typeOpts = BLOCK_TYPES.map(function (t) {
           return '<option value="' + t.value + '"' + (t.value === blk.type ? ' selected' : '') + '>' + esc(t.label) + '</option>';
         }).join('');
-        const last = i === scene.blocks.length - 1;
-        // Le fond de la ligne reprend la couleur du type de bloc (repère visuel)
-        return '<div class="adv-block-row block-' + (blk.type || 'narrative') + '">' +
+        return '<div class="adv-block-row block-' + (blk.type || 'narrative') + '" data-bi="' + i + '">' +
           '<div class="adv-block-row-head">' +
-            '<select class="block-type-sel">' + typeOpts + '</select>' +
-            '<button type="button" class="icon-btn block-up" title="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
-            '<button type="button" class="icon-btn block-down" title="Descendre"' + (last ? ' disabled' : '') + '>↓</button>' +
-            '<button type="button" class="icon-btn block-del" title="Supprimer ce bloc">✕</button>' +
+            '<select class="block-type-sel" data-bi="' + i + '">' + typeOpts + '</select>' + tools +
           '</div>' +
-          '<textarea class="block-content" rows="3" placeholder="Texte du bloc — **gras** et *italique* possibles">' + esc(blk.content || '') + '</textarea>' +
+          '<textarea class="block-content" data-bi="' + i + '" rows="3" placeholder="Texte du bloc — **gras** et *italique* possibles">' + esc(blk.content || '') + '</textarea>' +
+          reqHtml +
         '</div>';
       }).join('');
     }
-    box.querySelectorAll('.block-type-sel').forEach(function (sel, i) {
+
+    const biOf = function (el) { return +el.getAttribute('data-bi'); };
+    // Récompenses-objets des blocs de test (une liste par bloc).
+    scene.blocks.forEach(function (blk) {
+      if (blk.type === 'test') {
+        if (!Array.isArray(blk.itemRewards)) blk.itemRewards = [];
+        renderItemRewardsList('sm-blk-ir-' + blk.id, blk.itemRewards, 'sm-blk-addir-' + blk.id);
+      }
+    });
+    // Blocs de texte
+    box.querySelectorAll('.block-type-sel').forEach(function (sel) {
       sel.onchange = function () {
-        scene.blocks[i].type = this.value;
-        const row = this.closest('.adv-block-row');
-        if (row) row.className = 'adv-block-row block-' + this.value;
+        scene.blocks[biOf(this)].type = this.value;
+        renderBlocksEditor(scene, adv);
       };
     });
-    box.querySelectorAll('.block-content').forEach(function (ta, i) {
-      ta.oninput = function () { scene.blocks[i].content = this.value; };
+    box.querySelectorAll('.block-content').forEach(function (ta) {
+      ta.oninput = function () { scene.blocks[biOf(this)].content = this.value; };
     });
-    box.querySelectorAll('.block-up').forEach(function (b, i) {
-      b.onclick = function () {
-        if (i <= 0) return;
-        const t = scene.blocks[i - 1]; scene.blocks[i - 1] = scene.blocks[i]; scene.blocks[i] = t;
-        renderBlocksEditor(scene);
+    // Blocs de test
+    box.querySelectorAll('.tb-label').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].label = this.value; }; });
+    box.querySelectorAll('.tb-skill').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].skill = this.value; }; });
+    box.querySelectorAll('.tb-diff').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].difficulty = this.value; }; });
+    box.querySelectorAll('.tb-success').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].successText = this.value; }; });
+    box.querySelectorAll('.tb-fail').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].failText = this.value; }; });
+    box.querySelectorAll('.tb-xp').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].xpReward = Math.max(0, parseInt(this.value, 10) || 0); }; });
+    box.querySelectorAll('.tb-target').forEach(function (el) {
+      el.onchange = function () {
+        const bi = biOf(this);
+        if (handleTargetSelect(this.value, scene, adv, function (id) { scene.blocks[bi].targetSceneId = id; })) renderBlocksEditor(scene, adv);
       };
     });
-    box.querySelectorAll('.block-down').forEach(function (b, i) {
-      b.onclick = function () {
-        if (i >= scene.blocks.length - 1) return;
-        const t = scene.blocks[i + 1]; scene.blocks[i + 1] = scene.blocks[i]; scene.blocks[i] = t;
-        renderBlocksEditor(scene);
+    // Condition (compétence requise) — commune
+    box.querySelectorAll('.block-reqskill').forEach(function (sel) {
+      sel.onchange = function () {
+        const blk = scene.blocks[biOf(this)];
+        blk.reqSkill = this.value;
+        if (blk.reqSkill && !blk.reqVal) blk.reqVal = 1;
+        renderBlocksEditor(scene, adv);
       };
     });
-    box.querySelectorAll('.block-del').forEach(function (b, i) {
-      b.onclick = function () { scene.blocks.splice(i, 1); renderBlocksEditor(scene); };
+    box.querySelectorAll('.block-reqval').forEach(function (inp) {
+      inp.oninput = function () { scene.blocks[biOf(this)].reqVal = Math.max(1, parseInt(this.value, 10) || 1); };
+    });
+    // Réordonnancement / suppression
+    box.querySelectorAll('.block-up').forEach(function (b) {
+      b.onclick = function () { const i = biOf(this); if (i <= 0) return; const t = scene.blocks[i - 1]; scene.blocks[i - 1] = scene.blocks[i]; scene.blocks[i] = t; renderBlocksEditor(scene, adv); };
+    });
+    box.querySelectorAll('.block-down').forEach(function (b) {
+      b.onclick = function () { const i = biOf(this); if (i >= scene.blocks.length - 1) return; const t = scene.blocks[i + 1]; scene.blocks[i + 1] = scene.blocks[i]; scene.blocks[i] = t; renderBlocksEditor(scene, adv); };
+    });
+    box.querySelectorAll('.block-del').forEach(function (b) {
+      b.onclick = function () { scene.blocks.splice(biOf(this), 1); renderBlocksEditor(scene, adv); };
     });
   }
 
@@ -1397,55 +1493,6 @@
   function renderItemRewards(scene) {
     if (!Array.isArray(scene.itemRewards)) scene.itemRewards = [];
     renderItemRewardsList('sm-item-rewards', scene.itemRewards, 'sm-add-ir');
-  }
-
-  // Test de compétence « de fouille » : test facultatif tenté une seule fois dans
-  // la scène, accordant une récompense (objet/XP) et/ou un passage en cas de réussite.
-  function ensureSearchTest(scene) {
-    if (!scene.searchTest || typeof scene.searchTest !== 'object') {
-      scene.searchTest = { enabled: false, label: '', skill: 'Perception', difficulty: 'moyen',
-        successText: '', failText: '', xpReward: 0, itemRewards: [], targetSceneId: null };
-    }
-    const st = scene.searchTest;
-    if (typeof st.enabled !== 'boolean') st.enabled = false;
-    if (!Array.isArray(st.itemRewards)) st.itemRewards = [];
-    if (!st.skill) st.skill = 'Perception';
-    if (!st.difficulty) st.difficulty = 'moyen';
-    return st;
-  }
-  function renderSearchTest(scene, adv) {
-    const st = ensureSearchTest(scene);
-    const enabledCb = document.getElementById('sm-st-enabled');
-    const body = document.getElementById('sm-st-body');
-    if (!enabledCb || !body) return;
-    enabledCb.checked = !!st.enabled;
-    body.hidden = !st.enabled;
-    enabledCb.onchange = function () { st.enabled = this.checked; body.hidden = !this.checked; save(); renderChapters(adv); };
-
-    document.getElementById('sm-st-label').value = st.label || '';
-    document.getElementById('sm-st-label').oninput = function () { st.label = this.value; };
-    document.getElementById('sm-st-skill').innerHTML = SKILLS.map(function (s) {
-      return '<option value="' + s + '"' + (st.skill === s ? ' selected' : '') + '>' + s + '</option>';
-    }).join('');
-    document.getElementById('sm-st-skill').onchange = function () { st.skill = this.value; };
-    document.getElementById('sm-st-diff').innerHTML = [['facile', 'Facile (1)'], ['moyen', 'Moyen (2)'], ['difficile', 'Difficile (3)']].map(function (d) {
-      return '<option value="' + d[0] + '"' + (st.difficulty === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
-    }).join('');
-    document.getElementById('sm-st-diff').onchange = function () { st.difficulty = this.value; };
-    document.getElementById('sm-st-success').value = st.successText || '';
-    document.getElementById('sm-st-success').oninput = function () { st.successText = this.value; };
-    document.getElementById('sm-st-fail').value = st.failText || '';
-    document.getElementById('sm-st-fail').oninput = function () { st.failText = this.value; };
-    document.getElementById('sm-st-xp').value = st.xpReward || 0;
-    document.getElementById('sm-st-xp').onchange = function () { st.xpReward = Math.max(0, parseInt(this.value, 10) || 0); };
-    renderItemRewardsList('sm-st-item-rewards', st.itemRewards, 'sm-add-st-ir');
-
-    const curCh = chapterOfScene(adv, scene.id);
-    const allScenes = buildAllScenes(adv, curCh ? curCh.id : null);
-    document.getElementById('sm-st-target').innerHTML = sceneTargetOptions(allScenes, st.targetSceneId, adv);
-    document.getElementById('sm-st-target').onchange = function () {
-      if (handleTargetSelect(this.value, scene, adv, function (id) { st.targetSceneId = id; })) renderSearchTest(scene, adv);
-    };
   }
 
   function init() { render(); }

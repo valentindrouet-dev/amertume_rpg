@@ -3583,3 +3583,16 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Éditeur : encadré du test de fouille */
 .sm-st-enable { display: block; margin: .3rem 0; font-weight: 700; }
 #sm-st-body { border-left: 3px solid rgba(120,120,120,.35); padding-left: .7rem; margin-top: .3rem; }
+
+/* ============ Éditeur : bloc de test de compétence + condition d'affichage ============ */
+.adv-block-test { border: 1px solid rgba(120,120,120,.3); border-left: 4px solid #7ea6d6; border-radius: 8px; padding: .5rem .6rem; background: rgba(126,166,214,.08); }
+.adv-block-test > * { margin-top: .35rem; }
+.adv-block-test-tag { font-weight: 800; font-size: .8rem; color: #4a8dd6; margin-right: auto; }
+.adv-block-test .tb-label { width: 100%; }
+.tb-reward-head { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.tb-xp-lbl { display: inline-flex; align-items: center; gap: .3rem; }
+.adv-block-req { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-top: .4rem; padding-top: .4rem; border-top: 1px dashed rgba(120,120,120,.28); }
+.adv-block-req-lbl { font-size: .78rem; color: var(--muted); }
+.adv-block-req .block-reqskill { font-size: .82rem; }
+.adv-block-req .block-reqval { width: 56px; }
+.adv-block-req-mini { font-size: .78rem; color: var(--muted); }

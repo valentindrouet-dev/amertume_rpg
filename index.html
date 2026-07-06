@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertüme Solo RPG</title>
-  <link rel="stylesheet" href="css/style.css?v=2.3.04" />
+  <link rel="stylesheet" href="css/style.css?v=2.3.05" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -557,12 +557,15 @@
             </select>
           </label>
         </div>
-        <!-- Blocs de texte typés -->
+        <!-- Blocs de texte typés + blocs de test de compétence (ordonnés ensemble) -->
         <div class="attacks-head">
-          <h3>Blocs de texte</h3>
-          <button type="button" id="sm-add-block" class="ghost small">+ Bloc</button>
+          <h3>Blocs de contenu</h3>
+          <span style="display:flex;gap:.4rem">
+            <button type="button" id="sm-add-block" class="ghost small">+ Bloc</button>
+            <button type="button" id="sm-add-test" class="ghost small">+ Bloc Test</button>
+          </span>
         </div>
-        <p class="hint">Chaque type de bloc a sa propre couleur d'encadré.</p>
+        <p class="hint">Texte typé (couleur d'encadré) ou test de compétence, dans l'ordre voulu. Chaque bloc peut n'apparaître que si un aventurier atteint une compétence minimale.</p>
         <div id="sm-blocks"></div>
 
         <label>Fait accompli (résumé ajouté au journal du joueur quand la scène est atteinte)
@@ -599,27 +602,6 @@
           <label>XP <input type="number" id="sm-xp" min="0" value="0" style="width:80px" /></label>
           <div class="attacks-head" style="margin-top:.35rem"><h3>Objets</h3></div>
           <div id="sm-item-rewards"></div>
-        </div>
-
-        <!-- Test de compétence (fouille) -->
-        <div id="sm-searchtest-section">
-          <div class="attacks-head"><h3>Test de compétence (fouille)</h3></div>
-          <label class="sm-st-enable"><input type="checkbox" id="sm-st-enabled" /> Proposer un test de compétence dans cette scène</label>
-          <div id="sm-st-body" hidden>
-            <p class="hint">Un test facultatif (fouiller une zone, crocheter, déchiffrer…) que le groupe tente <b>une seule fois</b>. En cas de réussite, il accorde une récompense (objet, XP) et/ou ouvre un passage vers une autre scène.</p>
-            <label>Intitulé du bouton <input type="text" id="sm-st-label" placeholder="Ex : Fouiller la zone" /></label>
-            <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <label>Compétence <select id="sm-st-skill"></select></label>
-              <label>Difficulté <select id="sm-st-diff"></select></label>
-            </div>
-            <label>Texte de réussite <textarea id="sm-st-success" rows="2" placeholder="Ce que le groupe découvre en cas de réussite."></textarea></label>
-            <label>Texte d'échec <textarea id="sm-st-fail" rows="2" placeholder="Ce qui se passe en cas d'échec."></textarea></label>
-            <div class="attacks-head" style="margin-top:.35rem"><h3>Récompense en cas de réussite</h3></div>
-            <label>XP <input type="number" id="sm-st-xp" min="0" value="0" style="width:80px" /></label>
-            <div class="attacks-head" style="margin-top:.35rem"><h3>Objets</h3></div>
-            <div id="sm-st-item-rewards"></div>
-            <label>Passage débloqué en cas de réussite <select id="sm-st-target"></select></label>
-          </div>
         </div>
 
         <div class="modal-actions">
@@ -717,18 +699,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.3.04"></script>
-  <script src="js/store.js?v=2.3.04"></script>
-  <script src="js/inventory.js?v=2.3.04"></script>
-  <script src="js/combatants.js?v=2.3.04"></script>
-  <script src="js/combat.js?v=2.3.04"></script>
-  <script src="js/classes.js?v=2.3.04"></script>
-  <script src="js/tutorial.js?v=2.3.04"></script>
-  <script src="js/adventure.js?v=2.3.04"></script>
-  <script src="js/session.js?v=2.3.04"></script>
-  <script src="js/dataio.js?v=2.3.04"></script>
-  <script src="js/share.js?v=2.3.04"></script>
-  <script src="js/shell.js?v=2.3.04"></script>
-  <script src="js/main.js?v=2.3.04"></script>
+  <script src="js/dice.js?v=2.3.05"></script>
+  <script src="js/store.js?v=2.3.05"></script>
+  <script src="js/inventory.js?v=2.3.05"></script>
+  <script src="js/combatants.js?v=2.3.05"></script>
+  <script src="js/combat.js?v=2.3.05"></script>
+  <script src="js/classes.js?v=2.3.05"></script>
+  <script src="js/tutorial.js?v=2.3.05"></script>
+  <script src="js/adventure.js?v=2.3.05"></script>
+  <script src="js/session.js?v=2.3.05"></script>
+  <script src="js/dataio.js?v=2.3.05"></script>
+  <script src="js/share.js?v=2.3.05"></script>
+  <script src="js/shell.js?v=2.3.05"></script>
+  <script src="js/main.js?v=2.3.05"></script>
 </body>
 </html>
