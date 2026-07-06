@@ -730,6 +730,19 @@
     return { x: gx, y: gy };
   }
 
+  // Flèche directionnelle entre deux salles selon leur position sur la carte
+  // (8 directions) : si la salle d'arrivée est SOUS celle de départ → ⬇, etc.
+  const DIR_ARROWS = ['➡', '↘', '⬇', '↙', '⬅', '↖', '⬆', '↗'];
+  function dmapDirArrow(fromScene, toScene) {
+    if (!fromScene || !toScene ||
+        typeof fromScene.mapX !== 'number' || typeof toScene.mapX !== 'number') return '⟷';
+    const dx = toScene.mapX - fromScene.mapX, dy = toScene.mapY - fromScene.mapY;
+    if (!dx && !dy) return '⟷';
+    let idx = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+    idx = ((idx % 8) + 8) % 8;
+    return DIR_ARROWS[idx];
+  }
+
   function renderDungeonEditor(a, ch) {
     const box = document.getElementById('dmap-' + ch.id);
     if (!box) return;
@@ -773,8 +786,11 @@
     }).join('');
 
     const linkRows = ch.links.length ? ch.links.map(function (l, i) {
+      // La flèche suit la direction du connecteur sur la carte (salle d'arrivée
+      // placée sous la salle de départ → ⬇, à droite → ➡, etc.).
+      const arrow = dmapDirArrow(byId[l.from], byId[l.to]);
       return '<div class="dmap-link-row" data-i="' + i + '">' +
-        '<span class="dmap-link-ends">' + esc(titleOf(l.from)) + ' ⟷ ' + esc(titleOf(l.to)) + '</span>' +
+        '<span class="dmap-link-ends">' + esc(titleOf(l.from)) + ' <span class="dmap-dir">' + arrow + '</span> ' + esc(titleOf(l.to)) + '</span>' +
         '<input type="text" class="dmap-link-label" maxlength="60" placeholder="Description du passage (porte, couloir, escalier, passage secret…)" value="' + esc(l.label || '') + '" />' +
         '<button type="button" class="icon-btn dmap-link-del" title="Supprimer le connecteur">✕</button>' +
       '</div>';
@@ -1014,8 +1030,11 @@
         dlBox.innerHTML = '<div class="attacks-head"><h3>Connecteurs de la salle</h3></div>' +
           (mine.length
             ? mine.map(function (l) {
-                const other = l.from === scene.id ? l.to : l.from;
-                return '<div class="sm-dl-row">⟷ <b>' + esc(titles[other] || '(salle)') + '</b>' +
+                const otherId = l.from === scene.id ? l.to : l.from;
+                const other = curCh.scenes.find(function (s) { return s.id === otherId; });
+                // Flèche orientée depuis CETTE salle vers l'autre (direction sur la carte).
+                const arrow = dmapDirArrow(scene, other);
+                return '<div class="sm-dl-row"><span class="dmap-dir">' + arrow + '</span> <b>' + esc(titles[otherId] || '(salle)') + '</b>' +
                   (l.label ? ' <span class="sm-dl-lbl">« ' + esc(l.label) + ' »</span>' : '') + '</div>';
               }).join('')
             : '<p class="hint">Aucun connecteur — trace-les avec 🔗 sur la carte du donjon.</p>') +
@@ -1148,9 +1167,9 @@
             '</div>' +
             '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="Texte de réussite">' + esc(blk.successText || '') + '</textarea>' +
             '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="Texte d\'échec">' + esc(blk.failText || '') + '</textarea>' +
-            '<div class="tb-reward-head">Récompense en cas de réussite · Conséquence de l\'échec</div>' +
+            '<div class="tb-reward-head">Récompense en cas de réussite · Conséquence de l\'échec <small>(valeurs fixes ou en dés : « 3 », « 2d6 », « 1d6+2 »)</small></div>' +
             '<div class="tb-rf-row">' +
-              '<label class="tb-xp-lbl">XP <input type="number" class="tb-xp" data-bi="' + i + '" min="0" value="' + (blk.xpReward || 0) + '" style="width:70px" /></label>' +
+              '<label class="tb-xp-lbl">XP <input type="text" class="tb-xp" data-bi="' + i + '" value="' + esc(blk.xpReward == null ? 0 : blk.xpReward) + '" style="width:70px" placeholder="0 ou 1d6" title="XP fixe ou tirage de dés (ex : 5, 1d6, 2d6+1)" /></label>' +
               (function () {
                 const fx = ensureFailFx(blk);
                 const kindOpts = TEST_FAIL_FX.map(function (f) {
@@ -1158,7 +1177,7 @@
                 }).join('');
                 let fields = '';
                 if (fx.kind === 'pv' || fx.kind === 'xp' || fx.kind === 'vie') {
-                  fields = '<input type="number" class="tb-fx-val" data-bi="' + i + '" min="1" value="' + (fx.val || 1) + '" style="width:60px" title="Valeur" />';
+                  fields = '<input type="text" class="tb-fx-val" data-bi="' + i + '" value="' + esc(fx.val == null ? 1 : fx.val) + '" style="width:70px" placeholder="3 ou 2d6" title="Valeur fixe ou tirage de dés (ex : 3, 2d6, 1d6+2)" />';
                 } else if (fx.kind === 'state') {
                   fields = '<select class="tb-fx-state" data-bi="' + i + '">' + FX_STATES.map(function (s) {
                     return '<option value="' + s[0] + '"' + (fx.state === s[0] ? ' selected' : '') + '>' + s[1] + '</option>';
@@ -1218,7 +1237,14 @@
     box.querySelectorAll('.tb-diff').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].difficulty = this.value; }; });
     box.querySelectorAll('.tb-success').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].successText = this.value; }; });
     box.querySelectorAll('.tb-fail').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].failText = this.value; }; });
-    box.querySelectorAll('.tb-xp').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].xpReward = Math.max(0, parseInt(this.value, 10) || 0); }; });
+    // XP : valeur fixe OU notation en dés (« 1d6 », « 2d6+1 ») — stockée brute,
+    // résolue au moment du gain.
+    box.querySelectorAll('.tb-xp').forEach(function (el) {
+      el.onchange = function () {
+        const v = this.value.trim();
+        scene.blocks[biOf(this)].xpReward = Store.isDiceExpr(v) ? v : Math.max(0, parseInt(v, 10) || 0);
+      };
+    });
     box.querySelectorAll('.tb-target').forEach(function (el) {
       el.onchange = function () {
         const bi = biOf(this);
@@ -1232,8 +1258,12 @@
     box.querySelectorAll('.tb-fx-kind').forEach(function (el) {
       el.onchange = function () { ensureFailFx(scene.blocks[biOf(this)]).kind = this.value; renderBlocksEditor(scene, adv); };
     });
+    // Valeur de conséquence : fixe OU en dés (« 2d6 ») — stockée brute.
     box.querySelectorAll('.tb-fx-val').forEach(function (el) {
-      el.oninput = function () { ensureFailFx(scene.blocks[biOf(this)]).val = Math.max(1, parseInt(this.value, 10) || 1); };
+      el.onchange = function () {
+        const v = this.value.trim();
+        ensureFailFx(scene.blocks[biOf(this)]).val = Store.isDiceExpr(v) ? v : Math.max(1, parseInt(v, 10) || 1);
+      };
     });
     box.querySelectorAll('.tb-fx-state').forEach(function (el) {
       el.onchange = function () { ensureFailFx(scene.blocks[biOf(this)]).state = this.value; };

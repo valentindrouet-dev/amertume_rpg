@@ -834,10 +834,36 @@
     });
   }
 
+  // ---- Valeurs « fixes ou en dés » (ex. « 3 », « 2d6 », « 1d6+2 ») ----
+  // Utilisées dans les champs numériques qui acceptent un tirage aléatoire
+  // (conséquences d'échec de test, XP de récompense de test…).
+  const DICE_RE = /^(\d+)\s*d\s*(\d+)\s*([+-]\s*\d+)?$/i;
+  function isDiceExpr(v) {
+    return typeof v === 'string' && DICE_RE.test(v.trim());
+  }
+  // Résout une valeur : nombre → tel quel ; « XdY(+Z) » → tirage aléatoire.
+  function rollAmount(v) {
+    if (typeof v === 'number') return v;
+    const s = String(v == null ? '' : v).trim();
+    if (!s) return 0;
+    const m = s.match(DICE_RE);
+    if (m) {
+      const n = Math.min(50, Math.max(1, parseInt(m[1], 10) || 1));
+      const faces = Math.max(2, parseInt(m[2], 10) || 6);
+      const mod = m[3] ? parseInt(m[3].replace(/\s+/g, ''), 10) : 0;
+      let total = 0;
+      for (let i = 0; i < n; i++) total += 1 + Math.floor(Math.random() * faces);
+      return total + mod;
+    }
+    return parseInt(s, 10) || 0;
+  }
+
   global.Store = {
     uid: uid,
     fillTalentTags: fillTalentTags,
     fillTalentTagsHtml: fillTalentTagsHtml,
+    rollAmount: rollAmount,
+    isDiceExpr: isDiceExpr,
     maxLevel: function () { return MAX_LEVEL; },
     noStates: noStates,
     loadOfficial: loadOfficial,

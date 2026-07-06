@@ -480,23 +480,25 @@
       pos[s.id] = [cursor % 4, Math.floor(cursor / 4)];
       used[pos[s.id][0] + ',' + pos[s.id][1]] = true;
     });
-    const maxX = (chapter.scenes || []).reduce(function (m, s) { return Math.max(m, pos[s.id][0]); }, 0);
-    const maxY = (chapter.scenes || []).reduce(function (m, s) { return Math.max(m, pos[s.id][1]); }, 0);
+    const visited = function (id) { return (ses.visitedSceneIds || []).indexOf(id) >= 0; };
+    // Seules les salles DÉJÀ EXPLORÉES apparaissent sur la carte des joueurs —
+    // les salles à venir restent totalement invisibles (pas de spoiler).
+    const shown = (chapter.scenes || []).filter(function (s) { return visited(s.id); });
+    const maxX = shown.reduce(function (m, s) { return Math.max(m, pos[s.id][0]); }, 0);
+    const maxY = shown.reduce(function (m, s) { return Math.max(m, pos[s.id][1]); }, 0);
     const W = (maxX + 1) * CW + BW / 3 + PAD * 2, H = (maxY + 1) * CH + PAD;
     const cx = function (id) { return pos[id][0] * CW + PAD + BW / 2; };
     const cy = function (id) { return pos[id][1] * CH + PAD + BH / 2; };
-    const visited = function (id) { return (ses.visitedSceneIds || []).indexOf(id) >= 0; };
+    // Connecteurs : uniquement entre deux salles explorées.
     const lines = (chapter.links || []).map(function (l) {
-      if (!pos[l.from] || !pos[l.to]) return '';
-      return '<line x1="' + cx(l.from) + '" y1="' + cy(l.from) + '" x2="' + cx(l.to) + '" y2="' + cy(l.to) + '"' +
-        ' class="mmap-line' + (visited(l.from) || visited(l.to) ? '' : ' mmap-line-unknown') + '"></line>';
+      if (!pos[l.from] || !pos[l.to] || !visited(l.from) || !visited(l.to)) return '';
+      return '<line x1="' + cx(l.from) + '" y1="' + cy(l.from) + '" x2="' + cx(l.to) + '" y2="' + cy(l.to) + '" class="mmap-line"></line>';
     }).join('');
-    const rooms = (chapter.scenes || []).map(function (s) {
+    const rooms = shown.map(function (s) {
       const isCur = ses.currentSceneId === s.id;
       const isEntry = chapter.entryId === s.id;
-      const known = visited(s.id);
-      const title = known ? (s.title || 'Salle') : '???';
-      return '<div class="mmap-room' + (isCur ? ' mmap-current' : '') + (known ? '' : ' mmap-unknown') + '"' +
+      const title = s.title || 'Salle';
+      return '<div class="mmap-room' + (isCur ? ' mmap-current' : '') + '"' +
         ' style="left:' + (pos[s.id][0] * CW + PAD) + 'px;top:' + (pos[s.id][1] * CH + PAD) + 'px;width:' + BW + 'px;height:' + BH + 'px"' +
         ' title="' + esc(title) + '">' +
         (opts.titles ? '<span class="mmap-room-title">' + (isEntry ? '🚪 ' : '') + esc(title) + '</span>' : (isEntry ? '🚪' : '')) +
@@ -521,7 +523,7 @@
       '<div class="dmap-view-scroll">' +
         dungeonMapHtml(chapter, ses, { cw: 168, ch: 116, bw: 148, bh: 92, pad: 12, titles: true }) +
       '</div>' +
-      '<p class="hint">🚪 entrée du donjon · salle encadrée = position actuelle · « ??? » = salle non explorée.</p>' +
+      '<p class="hint">🚪 entrée du donjon · salle encadrée = position actuelle · seules les salles déjà explorées apparaissent.</p>' +
     '</div>';
     m.hidden = false;
     document.getElementById('dmap-view-close').onclick = function () { m.hidden = true; };
@@ -841,7 +843,11 @@
     if (!ses.searchTests) ses.searchTests = {};
     const state = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need,
       hero: bh.hero ? bh.hero.name : '', heroId: bh.hero ? bh.hero.id : null };
-    if (passed && (block.xpReward || 0) > 0) ses.party.xp = (ses.party.xp || 0) + block.xpReward;
+    // XP de récompense : valeur fixe ou tirage de dés (« 1d6 »), résolu ici.
+    if (passed) {
+      const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
+      if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+    }
     // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
     if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
     ses.searchTests[block.id] = state;
@@ -862,12 +868,14 @@
     const name = h.name;
     if (!ses.heroStates) ses.heroStates = {};
     const st = ses.heroStates[hid] || (ses.heroStates[hid] = { pv: Combatants.heroPv(h) });
-    const n = Math.max(1, fx.val || 1);
+    // Valeur fixe ou tirage de dés (« 2d6 ») ; le tirage est rappelé dans le message.
+    const n = Math.max(1, Store.rollAmount(fx.val == null ? 1 : fx.val));
+    const diceNote = Store.isDiceExpr(fx.val) ? ' (' + String(fx.val).trim() + ')' : '';
     switch (fx.kind) {
       case 'pv': {
         // Plancher à 1 PV : seule la conséquence « Mort » tue un aventurier.
         st.pv = Math.max(1, (typeof st.pv === 'number' ? st.pv : Combatants.heroPv(h)) - n);
-        return name + ' perd ' + n + ' PV.';
+        return name + ' perd ' + n + ' PV' + diceNote + '.';
       }
       case 'state': {
         const key = fx.state || 'affaibli';
@@ -877,7 +885,7 @@
       }
       case 'xp': {
         ses.party.xp = Math.max(0, (ses.party.xp || 0) - n);
-        return 'Le groupe perd ' + n + ' XP.';
+        return 'Le groupe perd ' + n + ' XP' + diceNote + '.';
       }
       case 'item': {
         const eq = Combatants.normalizeEquip ? Combatants.normalizeEquip(h.equipment || {}) : (h.equipment || {});
@@ -905,7 +913,7 @@
         // Le maximum de PV baisse : les PV courants sont plafonnés dessus.
         const maxPv = Math.max(1, Combatants.heroPv(effectiveHero(ses, h)));
         if (typeof st.pv === 'number') st.pv = Math.max(1, Math.min(st.pv, maxPv));
-        return name + ' perd ' + n + ' VIE.';
+        return name + ' perd ' + n + ' VIE' + diceNote + '.';
       }
       case 'death': {
         st.pv = 0;
@@ -972,8 +980,11 @@
     const needClaim = lines.length && !state.claimed;
     const heroOpts = heroes.map(function (h) { return '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>'; }).join('');
     let rewardHtml = '';
-    if ((block.xpReward || 0) > 0) {
-      rewardHtml += '<div class="ses-reward-block ses-reward-xp"><div class="ses-reward-title">✦ Expérience <strong>+' + block.xpReward + ' XP</strong></div></div>';
+    // XP réellement gagnée (valeur tirée si la récompense était en dés).
+    const xpShow = (typeof state.xpGained === 'number') ? state.xpGained : (parseInt(block.xpReward, 10) || 0);
+    if (xpShow > 0) {
+      rewardHtml += '<div class="ses-reward-block ses-reward-xp"><div class="ses-reward-title">✦ Expérience <strong>+' + xpShow + ' XP</strong>' +
+        (Store.isDiceExpr(block.xpReward) ? ' <small>(' + esc(String(block.xpReward).trim()) + ')</small>' : '') + '</div></div>';
     }
     if (lines.length) {
       const rows = lines.map(function (r) {

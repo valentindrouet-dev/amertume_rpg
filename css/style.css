@@ -3644,3 +3644,6 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Éditeur : rappel des connecteurs dans la modale de scène */
 .sm-dl-row { padding: .15rem 0; font-size: .9rem; }
 .sm-dl-lbl { color: var(--muted); }
+
+/* Flèche directionnelle des connecteurs (suit la géométrie de la carte) */
+.dmap-dir { font-weight: 800; color: var(--accent-2, #e2974a); padding: 0 .15rem; }
