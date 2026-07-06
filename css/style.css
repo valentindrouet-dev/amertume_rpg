@@ -3707,3 +3707,22 @@ body.mode-player #item-list.roster-list { display: block; }
 .dmap-room.type-boss     { border-color: rgba(176,46,168,.8); }
 .dmap-room.type-temps    { border-color: rgba(98,114,201,.8); }
 .dmap-room.type-vide     { border-color: rgba(141,141,141,.8); }
+
+/* ============ v2.3.13 : connecteurs lisibles + colorés + passages secrets ============ */
+/* Ligne de connecteur : retour à la ligne propre, contrôles d'événement groupés. */
+.dmap-link-row { flex-wrap: wrap; row-gap: .3rem; }
+.dmap-link-row .dmap-link-label { flex: 1 1 16rem; min-width: 12rem; }
+.dmap-link-ev { display: inline-flex; align-items: center; gap: .5rem; flex: 0 0 auto; white-space: nowrap; }
+.dmap-link-secret { font-size: .85rem; }
+/* Badge du type d'événement du connecteur. */
+.dmap-evkind { font-size: .7rem; font-weight: 800; padding: .08rem .35rem; border-radius: 6px; }
+.dmap-evkind-combat { color: #e88b76; background: rgba(214,92,64,.2); }
+.dmap-evkind-test   { color: #86b4e8; background: rgba(74,141,214,.2); }
+.dmap-evkind-event  { color: #e8cc86; background: rgba(212,175,90,.2); }
+/* Trait du connecteur coloré selon le contenu de son événement. */
+.dmap-line-combat { stroke: rgba(214,92,64,.95); }
+.dmap-line-test   { stroke: rgba(74,141,214,.95); }
+.dmap-line-event  { stroke: rgba(212,175,90,.95); }
+/* Sélecteur de révélation (passage secret) dans la modale de scène. */
+.sm-dl-reveal { font-size: .8rem; margin-left: .4rem; max-width: 18rem; }
+.tb-retry-lbl .tb-retrymode { font-size: .85rem; }

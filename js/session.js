@@ -509,9 +509,14 @@
     const W = (maxX + 1) * CW + BW / 3 + PAD * 2, H = (maxY + 1) * CH + PAD;
     const cx = function (id) { return pos[id][0] * CW + PAD + BW / 2; };
     const cy = function (id) { return pos[id][1] * CH + PAD + BH / 2; };
-    // Connecteurs : uniquement entre deux salles explorées.
+    // Connecteurs : uniquement entre deux salles explorées, et jamais un passage
+    // secret non encore révélé (son test de révélation n'a pas été réussi).
     const lines = (chapter.links || []).map(function (l) {
       if (!pos[l.from] || !pos[l.to] || !visited(l.from) || !visited(l.to)) return '';
+      if (l.revealTestId) {
+        const st = ses.searchTests && ses.searchTests[l.revealTestId];
+        if (!(st && st.success)) return '';
+      }
       return '<line x1="' + cx(l.from) + '" y1="' + cy(l.from) + '" x2="' + cx(l.to) + '" y2="' + cy(l.to) + '" class="mmap-line"></line>';
     }).join('');
     const rooms = shown.map(function (s) {
@@ -727,7 +732,9 @@
     // texte de la scène — cf. wireTestBlocks.)
     const hasChoices = scene.choices && scene.choices.length;
     if (hasChoices) renderChoicesPlay(box, scene, adv, ses);
-    else if (scene.nextSceneId) renderNextButton(box, scene, adv, ses);
+    // « Scène suivante (auto) » n'existe pas dans les salles de donjon structuré
+    // (la navigation passe par les connecteurs).
+    else if (scene.nextSceneId && mode !== 'dungeon') renderNextButton(box, scene, adv, ses);
     const resolved = !hasCombat || cleared;
     // Scène d'ÉVÉNEMENT DE PASSAGE : une fois résolue, on poursuit vers la salle
     // de destination (pas de sorties propres).
@@ -800,7 +807,13 @@
   // ----- Donjon structuré : sorties & accès de la salle (connecteurs) -----
   function renderDungeonExits(box, chapter, scene, adv, ses) {
     const links = (chapter && Array.isArray(chapter.links) ? chapter.links : []).filter(function (l) {
-      return l.from === scene.id || l.to === scene.id;
+      if (l.from !== scene.id && l.to !== scene.id) return false;
+      // Passage secret : invisible tant que son test de révélation n'est pas réussi.
+      if (l.revealTestId) {
+        const st = ses.searchTests && ses.searchTests[l.revealTestId];
+        if (!(st && st.success)) return false;
+      }
+      return true;
     });
     const sec = appendSection(box);
     if (!links.length) {
@@ -1008,7 +1021,12 @@
     renderTestBlockResult(slot, block, scene, adv, ses, state);
   }
 
-  function runTestBlock(ses, adv, scene, block) {
+  // Mode de nouvelle tentative d'un bloc de test (rétro-compat ancien booléen).
+  function retryModeOf(block) {
+    return block.retryMode || (block.retry ? 'always' : 'none');
+  }
+
+  function runTestBlock(ses, adv, scene, block, excludeIds) {
     if (!ses.searchTests) ses.searchTests = {};
     let state;
     if (block.who === 'group') {
@@ -1030,13 +1048,16 @@
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
       }
     } else {
-      const bh = bestHeroForSkill(ses, block.skill);
+      // Exclusions (mode « avec un autre aventurier ») : les aventuriers ayant
+      // déjà tenté ce test ne sont plus candidats.
+      const bh = bestHeroForSkill(ses, block.skill, null, excludeIds);
       const res = rollSkill(bh.bonus);
       const need = SKILL_DIFF[block.difficulty] || 2;
       const total = res.successes + (bh.talentSucc || 0);
       const passed = total >= need;
       state = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need,
-        hero: bh.hero ? bh.hero.name : '', heroId: bh.hero ? bh.hero.id : null };
+        hero: bh.hero ? bh.hero.name : '', heroId: bh.hero ? bh.hero.id : null,
+        attempted: (Array.isArray(excludeIds) ? excludeIds.slice() : []).concat(bh.hero ? [bh.hero.id] : []) };
       // XP de récompense : valeur fixe ou tirage de dés (« 1d6 »), résolu ici.
       if (passed) {
         const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
@@ -1045,6 +1066,8 @@
       // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
       if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
     }
+    // Niveau du groupe au moment de la tentative (re-test « montée de niveau »).
+    state.levelAt = sessionLevel(ses);
     ses.searchTests[block.id] = state;
     save();
     render();
@@ -1172,18 +1195,48 @@
 
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
     if (!state.success) {
+      // Nouvelle tentative selon le mode du bloc : à volonté, avec un autre
+      // aventurier (1× chacun), ou après une montée de niveau du groupe.
+      const mode = retryModeOf(block);
+      let retryHtml = '';
+      let retryAction = null; // 'reset' (efface l'état) | 'other' (relance avec exclusions)
+      if (mode === 'always') {
+        retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter le test</button></div>';
+        retryAction = 'reset';
+      } else if (mode === 'other' && !state.group) {
+        const attempted = Array.isArray(state.attempted) ? state.attempted : (state.heroId ? [state.heroId] : []);
+        const remaining = aliveEngagedHeroes(ses).filter(function (h) { return attempted.indexOf(h.id) < 0; });
+        if (remaining.length) {
+          retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter avec un autre aventurier (' + remaining.length + ' restant' + (remaining.length > 1 ? 's' : '') + ')</button></div>';
+          retryAction = 'other';
+        } else {
+          retryHtml = '<div class="hint">Tous les aventuriers ont tenté leur chance.</div>';
+        }
+      } else if (mode === 'levelup') {
+        if (sessionLevel(ses) > (state.levelAt || 1)) {
+          retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter (nouveau niveau atteint)</button></div>';
+          retryAction = 'reset';
+        } else {
+          retryHtml = '<div class="hint">🔁 Retentable après une montée de niveau du groupe.</div>';
+        }
+      }
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-fail-box">' +
         '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
         (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '') +
         groupResultsHtml(state) +
         fxMsgsHtml(state) +
         (state.group ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
-        (block.retry ? '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter le test</button></div>' : '') +
+        retryHtml +
       '</div>';
       const retryBtn = slot.querySelector('.ses-tb-retry');
       if (retryBtn) retryBtn.addEventListener('click', function () {
-        delete ses.searchTests[block.id];
-        save(); render();
+        if (retryAction === 'other') {
+          const attempted = Array.isArray(state.attempted) ? state.attempted : (state.heroId ? [state.heroId] : []);
+          runTestBlock(ses, adv, scene, block, attempted);
+        } else {
+          delete ses.searchTests[block.id];
+          save(); render();
+        }
       });
       return;
     }
@@ -1299,7 +1352,7 @@
   // En cas d'égalité au sommet, un des ex æquo est choisi aléatoirement.
   // preferHeroId : si fourni et toujours ex æquo, on conserve ce choix (cohérence
   // entre le cartouche affiché et le test réellement lancé).
-  function bestHeroForSkill(ses, skill, preferHeroId) {
+  function bestHeroForSkill(ses, skill, preferHeroId, excludeIds) {
     let bestEff = -1;
     const cands = [];
     (ses.heroIds || []).forEach(function (hid) {
@@ -1307,6 +1360,8 @@
       if (!h) return;
       // Un aventurier mort (conséquence de scène) ne participe plus aux tests.
       if (ses.heroStates && ses.heroStates[hid] && ses.heroStates[hid].dead) return;
+      // Aventuriers exclus (re-test « avec un autre aventurier » : 1× chacun).
+      if (Array.isArray(excludeIds) && excludeIds.indexOf(hid) >= 0) return;
       const g = ses.levelGains ? ses.levelGains[hid] : null;
       const sessSkill = (g && g.skills && g.skills[skill]) || 0; // points gagnés en montée de niveau
       const v = ((h.skills && h.skills[skill]) || 0) + sessSkill;

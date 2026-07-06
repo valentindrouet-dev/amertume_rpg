@@ -417,17 +417,17 @@
     copy.id = Store.uid();
     copy.title = incrementSceneTitle(adventures[idx].title || 'Aventure');
     (copy.chapters || []).forEach(function (ch) {
-      const map = {}; // ancien id de scène → nouvel id (pour recâbler les liens internes)
+      const map = {};      // ancien id de scène → nouvel id (pour recâbler les liens internes)
+      const blockMap = {}; // ancien id de bloc → nouvel id (chaînes de tests, révélation de connecteurs)
       ch.id = Store.uid();
       (ch.scenes || []).forEach(function (s) {
         const nid = Store.uid(); map[s.id] = nid; s.id = nid;
         if (Array.isArray(s.blocks)) {
           // Nouveaux ids de blocs, en préservant les chaînes de tests internes.
-          const bmap = {};
-          s.blocks.forEach(function (b) { const nb = Store.uid(); bmap[b.id] = nb; b.id = nb; });
+          s.blocks.forEach(function (b) { const nb = Store.uid(); blockMap[b.id] = nb; b.id = nb; });
           s.blocks.forEach(function (b) {
-            if (b.chainSuccessId && bmap[b.chainSuccessId]) b.chainSuccessId = bmap[b.chainSuccessId];
-            if (b.chainFailId && bmap[b.chainFailId]) b.chainFailId = bmap[b.chainFailId];
+            if (b.chainSuccessId && blockMap[b.chainSuccessId]) b.chainSuccessId = blockMap[b.chainSuccessId];
+            if (b.chainFailId && blockMap[b.chainFailId]) b.chainFailId = blockMap[b.chainFailId];
           });
         }
         if (Array.isArray(s.choices)) s.choices.forEach(function (c) { c.id = Store.uid(); });
@@ -456,6 +456,7 @@
         if (map[l.from]) l.from = map[l.from];
         if (map[l.to]) l.to = map[l.to];
         if (l.eventSceneId && map[l.eventSceneId]) l.eventSceneId = map[l.eventSceneId];
+        if (l.revealTestId && blockMap[l.revealTestId]) l.revealTestId = blockMap[l.revealTestId];
       });
       // Recâble les événements de passage d'un donjon aléatoire.
       if (Array.isArray(ch.transitionEvents)) ch.transitionEvents.forEach(function (e) {
@@ -828,6 +829,21 @@
     return DIR_ARROWS[idx];
   }
 
+  // Nature de l'événement d'un connecteur : 'combat' si sa scène contient des
+  // adversaires, 'test' si elle contient des blocs de test, 'event' sinon
+  // (texte seul), null si aucun événement. Sert à colorer le trait sur la carte.
+  function linkEventKind(ch, l) {
+    if (!l || !l.eventSceneId) return null;
+    const s = ch.scenes.find(function (x) { return x.id === l.eventSceneId; });
+    if (!s) return null;
+    const hasCombat = (s.combatZones || []).some(function (z) {
+      return (z.monsterRefs || []).some(function (r) { return r.monsterId; });
+    });
+    if (hasCombat) return 'combat';
+    if ((s.blocks || []).some(function (b) { return b.type === 'test'; })) return 'test';
+    return 'event';
+  }
+
   function renderDungeonEditor(a, ch) {
     const box = document.getElementById('dmap-' + ch.id);
     if (!box) return;
@@ -842,11 +858,14 @@
     const cy = function (s) { return s.mapY * DMAP_CELL_H + DMAP_PAD + DMAP_BOX_H / 2; };
 
     // Connecteurs : traits + étiquette au milieu (couloir, porte, passage secret…).
+    // Le trait prend la couleur du contenu de l'événement (combat / test /
+    // événement) ; sans événement, la couleur habituelle est conservée.
     const lines = ch.links.map(function (l) {
       const f = byId[l.from], t = byId[l.to];
       if (!f || !t) return '';
       const mx = (cx(f) + cx(t)) / 2, my = (cy(f) + cy(t)) / 2;
-      return '<line x1="' + cx(f) + '" y1="' + cy(f) + '" x2="' + cx(t) + '" y2="' + cy(t) + '" class="dmap-line"></line>' +
+      const kind = linkEventKind(ch, l);
+      return '<line x1="' + cx(f) + '" y1="' + cy(f) + '" x2="' + cx(t) + '" y2="' + cy(t) + '" class="dmap-line' + (kind ? ' dmap-line-' + kind : '') + '"></line>' +
         (l.label ? '<text x="' + mx + '" y="' + (my - 5) + '" class="dmap-line-lbl" text-anchor="middle">' + esc(l.label) + '</text>' : '');
     }).join('');
 
@@ -877,14 +896,21 @@
       // Événement de passage : une scène complète (combat, tests, texte…) qui se
       // déclenche quand les aventuriers empruntent ce connecteur.
       const hasEvent = !!(l.eventSceneId && byId[l.eventSceneId]);
-      const eventCtrls = hasEvent
-        ? '<button type="button" class="ghost small dmap-link-event" title="Éditer la scène d\'événement de ce passage">⚡ Éditer l\'événement</button>' +
+      const kind = linkEventKind(ch, l);
+      const kindBadge = kind ? '<span class="dmap-evkind dmap-evkind-' + kind + '">' +
+        (kind === 'combat' ? '⚔ Combat' : kind === 'test' ? '🎲 Test' : '⚡ Événement') + '</span>' : '';
+      // Les contrôles d'événement sont regroupés dans un bloc insécable pour
+      // rester lisibles (plus de chevauchement de la coche et des boutons).
+      const eventCtrls = '<span class="dmap-link-ev">' + kindBadge + (hasEvent
+        ? '<button type="button" class="ghost small dmap-link-event" title="Éditer la scène d\'événement de ce passage">⚡ Éditer</button>' +
           '<label class="dmap-link-repeat-lbl" title="Coché : l\'événement se déclenche À CHAQUE passage (réinitialisé). Décoché : une seule fois.">' +
             '<input type="checkbox" class="dmap-link-repeat"' + (l.eventRepeat ? ' checked' : '') + ' /> 🔁 chaque passage</label>' +
           '<button type="button" class="icon-btn dmap-link-event-del" title="Supprimer l\'événement de ce passage">⚡✕</button>'
-        : '<button type="button" class="ghost small dmap-link-event" title="Ajouter un événement (combat, test, texte…) déclenché en empruntant ce passage">+ ⚡ Événement</button>';
+        : '<button type="button" class="ghost small dmap-link-event" title="Ajouter un événement (combat, test, texte…) déclenché en empruntant ce passage">+ ⚡ Événement</button>') +
+      '</span>';
       return '<div class="dmap-link-row" data-i="' + i + '">' +
-        '<span class="dmap-link-ends">' + esc(titleOf(l.from)) + ' <span class="dmap-dir">' + arrow + '</span> ' + esc(titleOf(l.to)) + '</span>' +
+        '<span class="dmap-link-ends">' + esc(titleOf(l.from)) + ' <span class="dmap-dir">' + arrow + '</span> ' + esc(titleOf(l.to)) +
+          (l.revealTestId ? ' <span class="dmap-link-secret" title="Passage secret : visible après la réussite d\'un test">🫥</span>' : '') + '</span>' +
         '<input type="text" class="dmap-link-label" maxlength="60" placeholder="Description du passage (porte, couloir, escalier, passage secret…)" value="' + esc(l.label || '') + '" />' +
         eventCtrls +
         '<button type="button" class="icon-btn dmap-link-del" title="Supprimer le connecteur">✕</button>' +
@@ -1063,6 +1089,7 @@
 
   // ---------- Modale d'édition de scène ----------
   let sceneModal = null;
+  let sceneCombatOpen = false; // section « Zones de combat » dépliée via + ⚔ Combat
 
   function openSceneModal(adv, chId, sceneId) {
     const ch = adv.chapters.find(function (c) { return c.id === chId; });
@@ -1072,6 +1099,7 @@
 
     const modal = document.getElementById('scene-modal');
     modal.removeAttribute('hidden');
+    sceneCombatOpen = false; // la section combat se replie pour chaque nouvelle scène sans combat
 
     document.getElementById('sm-title').value = scene.title || '';
     const typeSelect = document.getElementById('sm-type');
@@ -1145,13 +1173,28 @@
     const combatBox = document.getElementById('sm-combat-section');
     const rewardBox = document.getElementById('sm-reward-section');
     const nextBox = document.getElementById('sm-next-section');
+    const combatCollapsed = document.getElementById('sm-combat-collapsed');
 
-    // Le type de scène n'est qu'un libellé pour se repérer dans l'arbre : TOUTES
-    // les fonctions (suite, choix, combat, récompense) sont disponibles partout.
-    nextBox.style.display = '';
+    // Le type de scène n'est qu'un libellé pour se repérer dans l'arbre.
+    // « Scène suivante (auto) » n'existe pas dans un donjon structuré : la
+    // navigation y passe par les CONNECTEURS — le champ y est donc masqué.
+    nextBox.style.display = (curCh && curCh.mode === 'dungeon') ? 'none' : '';
     choicesBox.style.display = '';
-    combatBox.style.display = '';
     rewardBox.style.display = '';
+    // Zones de combat : repliées derrière un bouton « + ⚔ Combat » tant que la
+    // scène ne contient ni adversaires ni scènes de victoire/défaite. Les
+    // combats déjà installés restent affichés (rien n'est perdu).
+    const hasCombatContent = (scene.combatZones || []).some(function (z) {
+      return (z.monsterRefs || []).some(function (r) { return r.monsterId; });
+    }) || !!scene.outcomeSceneId || !!scene.defeatSceneId ||
+      (scene.monsterRefs || []).some(function (r) { return r.monsterId; });
+    const showCombat = hasCombatContent || sceneCombatOpen;
+    combatBox.style.display = showCombat ? '' : 'none';
+    if (combatCollapsed) {
+      combatCollapsed.hidden = showCombat;
+      const addBtn = document.getElementById('sm-add-combat');
+      if (addBtn) addBtn.onclick = function () { sceneCombatOpen = true; refreshSceneModalSections(scene, adv); };
+    }
 
     // Connecteurs de la salle (chapitre Donjon structuré) : rappel en lecture
     // seule — ce sont eux qui deviennent les « Sorties & accès » en jeu, tandis
@@ -1161,6 +1204,8 @@
       if (curCh && (curCh.mode === 'dungeon') && Array.isArray(curCh.links)) {
         const titles = sceneTitleMap(adv);
         const mine = curCh.links.filter(function (l) { return l.from === scene.id || l.to === scene.id; });
+        // Blocs de test de CETTE salle : candidats pour révéler un passage secret.
+        const testBlocks = (scene.blocks || []).filter(function (b) { return b.type === 'test'; });
         dlBox.hidden = false;
         dlBox.innerHTML = '<div class="attacks-head"><h3>Connecteurs de la salle</h3></div>' +
           (mine.length
@@ -1169,12 +1214,29 @@
                 const other = curCh.scenes.find(function (s) { return s.id === otherId; });
                 // Flèche orientée depuis CETTE salle vers l'autre (direction sur la carte).
                 const arrow = dmapDirArrow(scene, other);
+                // Visibilité : toujours, ou seulement après la réussite d'un test
+                // de la salle (passage secret).
+                let revealOpts = '<option value="">👁 Toujours visible</option>' +
+                  testBlocks.map(function (b, k) {
+                    return '<option value="' + esc(b.id) + '"' + (l.revealTestId === b.id ? ' selected' : '') + '>🫥 Révélé par : ' + esc(b.label || ('Test #' + (k + 1))) + '</option>';
+                  }).join('');
+                if (l.revealTestId && !testBlocks.some(function (b) { return b.id === l.revealTestId; })) {
+                  revealOpts += '<option value="' + esc(l.revealTestId) + '" selected>🫥 (test d\'une autre salle)</option>';
+                }
                 return '<div class="sm-dl-row"><span class="dmap-dir">' + arrow + '</span> <b>' + esc(titles[otherId] || '(salle)') + '</b>' +
-                  (l.label ? ' <span class="sm-dl-lbl">« ' + esc(l.label) + ' »</span>' : '') + '</div>';
+                  (l.label ? ' <span class="sm-dl-lbl">« ' + esc(l.label) + ' »</span>' : '') +
+                  ' <select class="sm-dl-reveal" data-link="' + esc(l.id) + '" title="Passage secret : ce connecteur n\'apparaît en jeu qu\'après la réussite du test choisi.">' + revealOpts + '</select>' +
+                '</div>';
               }).join('')
             : '<p class="hint">Aucun connecteur — trace-les avec 🔗 sur la carte du donjon.</p>') +
           '<p class="hint">Les connecteurs sont les <b>Sorties &amp; accès</b> de la salle en jeu ; ils se gèrent sur la carte. ' +
-            '« Scène suivante » sert aux enchaînements forcés (ex. quitter le donjon).</p>';
+            'Un connecteur « 🫥 Révélé par un test » reste invisible tant que ce test n\'a pas été réussi (passage secret).</p>';
+        dlBox.querySelectorAll('.sm-dl-reveal').forEach(function (sel) {
+          sel.onchange = function () {
+            const l = curCh.links.find(function (x) { return x.id === sel.getAttribute('data-link'); });
+            if (l) { l.revealTestId = sel.value || null; save(); }
+          };
+        });
       } else {
         dlBox.hidden = true;
         dlBox.innerHTML = '';
@@ -1350,7 +1412,20 @@
                 '<label>🔗 Test révélé si échec <select class="tb-chain-fail" data-bi="' + i + '">' + opts(blk.chainFailId) + '</select></label>' +
               '</div>';
             })() +
-            '<label class="tb-retry-lbl"><input type="checkbox" class="tb-retry" data-bi="' + i + '"' + (blk.retry ? ' checked' : '') + ' /> 🔁 Peut être retenté (autant de fois que nécessaire jusqu\'à la réussite)</label>' +
+            (function () {
+              // Mode de nouvelle tentative (rétro-compat : ancien booléen retry → à volonté).
+              const rm = blk.retryMode || (blk.retry ? 'always' : 'none');
+              const opts = [
+                ['none', 'Ne peut pas être retenté'],
+                ['always', 'Peut être retenté à volonté'],
+                ['other', 'Avec un autre aventurier (1× chacun)'],
+                ['levelup', 'Après une montée de niveau du groupe'],
+              ].map(function (o) {
+                return '<option value="' + o[0] + '"' + (rm === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+              }).join('');
+              return '<label class="tb-retry-lbl">🔁 En cas d\'échec : <select class="tb-retrymode" data-bi="' + i + '" ' +
+                'title="À volonté : retentable sans limite. Autre aventurier : chaque aventurier vivant tente une fois maximum (tests individuels uniquement). Montée de niveau : le test redevient disponible quand le groupe a gagné un niveau.">' + opts + '</select></label>';
+            })() +
             reqHtml +
           '</div>';
         }
@@ -1407,8 +1482,12 @@
         if (handleTargetSelect(this.value, scene, adv, function (id) { scene.blocks[bi].targetSceneId = id; })) renderBlocksEditor(scene, adv);
       };
     });
-    box.querySelectorAll('.tb-retry').forEach(function (el) {
-      el.onchange = function () { scene.blocks[biOf(this)].retry = this.checked; };
+    box.querySelectorAll('.tb-retrymode').forEach(function (el) {
+      el.onchange = function () {
+        const blk = scene.blocks[biOf(this)];
+        blk.retryMode = this.value;
+        blk.retry = this.value === 'always'; // rétro-compat de l'ancien booléen
+      };
     });
     box.querySelectorAll('.tb-chain-succ').forEach(function (el) {
       el.onchange = function () { scene.blocks[biOf(this)].chainSuccessId = this.value || null; };
