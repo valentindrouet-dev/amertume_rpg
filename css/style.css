@@ -3677,3 +3677,33 @@ body.mode-player #item-list.roster-list { display: block; }
 .randev-name { font-weight: 700; font-size: .9rem; }
 .adv-randev { border-top: 1px dashed rgba(120,120,120,.3); margin-top: .4rem; padding-top: .4rem; }
 .tb-chain-row select { font-size: .85rem; }
+
+/* ============ v2.3.12 : lisibilité des tests + nouveaux types de scènes ============ */
+/* Éditeur : le bloc de test d'un choix s'organise en deux lignes claires. */
+.adv-choice-test { flex-direction: column; align-items: stretch; gap: .35rem; }
+.adv-ct-row { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.adv-ct-row .ch-mini { display: inline-flex; align-items: center; gap: .3rem; font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.adv-ct-row .ch-skill, .adv-ct-row .ch-diff { flex: 0 0 auto; min-width: 8.5rem; }
+.adv-ct-row .ch-dest { flex: 1 1 240px; }
+.adv-ct-row .ch-dest select { flex: 1; min-width: 0; }
+.ch-group-lbl { display: inline-flex; align-items: center; gap: .25rem; }
+/* Jeu : vignettes des aventuriers d'un test de groupe, légèrement espacées. */
+.ses-group-pills { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .35rem; }
+.ses-group-pills .ses-skill-pill { margin: 0; }
+/* Badge de difficulté porté par le bouton du test. */
+.ses-choice-btn .ssk-diff { margin-left: .3rem; }
+
+/* ----- Nouveaux types de scènes (purement visuels) ----- */
+.type-danger   { color: #d13b4e; background: rgba(209,59,78,.14);  border: 1px solid rgba(209,59,78,.38);  border-radius: 5px; }
+.type-repos    { color: #2f9e77; background: rgba(47,158,119,.14); border: 1px solid rgba(47,158,119,.38); border-radius: 5px; }
+.type-commerce { color: #e0952e; background: rgba(224,149,46,.14); border: 1px solid rgba(224,149,46,.38); border-radius: 5px; }
+.type-boss     { color: #b02ea8; background: rgba(176,46,168,.14); border: 1px solid rgba(176,46,168,.38); border-radius: 5px; }
+.type-temps    { color: #6272c9; background: rgba(98,114,201,.14); border: 1px solid rgba(98,114,201,.38); border-radius: 5px; }
+.type-vide     { color: #8d8d8d; background: rgba(141,141,141,.14);border: 1px solid rgba(141,141,141,.38);border-radius: 5px; }
+/* Cartouches de la carte de donjon : cadre à la couleur du type. */
+.dmap-room.type-danger   { border-color: rgba(209,59,78,.8); }
+.dmap-room.type-repos    { border-color: rgba(47,158,119,.8); }
+.dmap-room.type-commerce { border-color: rgba(224,149,46,.8); }
+.dmap-room.type-boss     { border-color: rgba(176,46,168,.8); }
+.dmap-room.type-temps    { border-color: rgba(98,114,201,.8); }
+.dmap-room.type-vide     { border-color: rgba(141,141,141,.8); }

@@ -636,7 +636,8 @@
   }
 
   function typeLabel(t) {
-    const map = { description: 'Description', exploration: 'Exploration', interaction: 'Interaction', combat: 'Combat', reward: 'Récompense', fin: 'Fin' };
+    const map = { description: 'Description', exploration: 'Exploration', interaction: 'Interaction', combat: 'Combat', reward: 'Récompense',
+      danger: 'Danger', repos: 'Repos', commerce: 'Commerce', boss: 'Boss', temps: 'Temps', vide: 'Vide', fin: 'Fin' };
     return map[t] || t;
   }
 
@@ -902,18 +903,18 @@
           let helper;
           let bhBtn = null; // aventurier affiché ET utilisé pour le test (cohérence cartouche/bouton)
           if (ch.groupTest) {
-            // Test de GROUPE : chaque aventurier vivant est affiché comme cible.
+            // Test de GROUPE : chaque aventurier vivant est affiché comme cible
+            // (vignettes espacées ; la difficulté est portée par le bouton).
             const heroes = aliveEngagedHeroes(ses);
             helper = heroes.length
-              ? heroes.map(function (h) {
+              ? '<div class="ses-group-pills">' + heroes.map(function (h) {
                   const info = heroTestInfo(ses, h, ch.skill);
                   return '<div class="ses-skill-pill">' +
                     '<span class="ssk-hero">' + esc(h.name) + '</span>' +
                     '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
                     (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
                   '</div>';
-                }).join('') +
-                '<div class="ses-skill-pill ssk-groupinfo">👥 Test de groupe — <span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span> · réussite si la majorité réussit</div>'
+                }).join('') + '</div>'
               : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
           } else {
             const bh = bestHeroForSkill(ses, ch.skill);
@@ -925,13 +926,16 @@
                   '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
                   '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + dice + ' 🎲</span>' +
                   (talBonus ? '<span class="ssk-tal">+' + talBonus + ' réussite' + (talBonus > 1 ? 's' : '') + '</span>' : '') +
-                  '<span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span>' +
                 '</div>'
               : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
           }
+          // La difficulté est toujours SUR le bouton, à droite de la compétence.
           return '<div class="ses-choice">' +
             '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '" data-skill-hero="' + (bhBtn && bhBtn.hero ? esc(bhBtn.hero.id) : '') + '">' +
-              (ch.groupTest ? '👥 ' : '') + esc(ch.label) + ' <span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + '</span></button>' +
+              (ch.groupTest ? '👥 ' : '') + esc(ch.label) +
+              ' <span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + '</span>' +
+              ' <span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span>' +
+            '</button>' +
             helper +
             (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
           '</div>';
@@ -964,18 +968,18 @@
     if (!state) {
       let helper;
       if (block.who === 'group') {
-        // Test de GROUPE : tous les aventuriers vivants sont affichés comme cibles.
+        // Test de GROUPE : tous les aventuriers vivants sont affichés comme cibles
+        // (vignettes espacées ; la difficulté est portée par le bouton du test).
         const heroes = aliveEngagedHeroes(ses);
         helper = heroes.length
-          ? heroes.map(function (h) {
+          ? '<div class="ses-group-pills">' + heroes.map(function (h) {
               const info = heroTestInfo(ses, h, block.skill);
               return '<div class="ses-skill-pill">' +
                 '<span class="ssk-hero">' + esc(h.name) + '</span>' +
                 '<span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
                 (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
               '</div>';
-            }).join('') +
-            '<div class="ses-skill-pill ssk-groupinfo">👥 Test de groupe — <span class="ssk-diff ssk-diff-' + (block.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[block.difficulty] || 'Moyen') + '</span> · réussite si la majorité réussit</div>'
+            }).join('') + '</div>'
           : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
       } else {
         const bh = bestHeroForSkill(ses, block.skill);
@@ -985,14 +989,17 @@
               '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
               '<span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + ' ' + dice + ' 🎲</span>' +
               (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
-              '<span class="ssk-diff ssk-diff-' + (block.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[block.difficulty] || 'Moyen') + '</span>' +
             '</div>'
           : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
       }
+      // La DIFFICULTÉ est toujours affichée SUR le bouton, à droite de la compétence.
       slot.innerHTML = '<div class="ses-searchtest">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (block.who === 'group' ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + '</div>' +
+        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (block.who === 'group' ? ' <span class="ses-st-group-tag" title="Tous les aventuriers lancent le test — réussite si la majorité réussit">👥 GROUPE</span>' : '') + '</div>' +
         '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go">' +
-          esc(block.label || 'Tenter le test') + ' <span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + '</span></button>' +
+          esc(block.label || 'Tenter le test') +
+          ' <span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + '</span>' +
+          ' <span class="ssk-diff ssk-diff-' + (block.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[block.difficulty] || 'Moyen') + '</span>' +
+        '</button>' +
         helper +
       '</div>';
       slot.querySelector('.ses-tb-go').addEventListener('click', function () { runTestBlock(ses, adv, scene, block); });

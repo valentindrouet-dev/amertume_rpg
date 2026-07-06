@@ -17,6 +17,12 @@
     { value: 'interaction',  label: 'Interaction'  },
     { value: 'combat',       label: 'Combat'       },
     { value: 'reward',       label: 'Récompense'   },
+    { value: 'danger',       label: 'Danger'       },
+    { value: 'repos',        label: 'Repos'        },
+    { value: 'commerce',     label: 'Commerce'     },
+    { value: 'boss',         label: 'Boss'         },
+    { value: 'temps',        label: 'Temps'        },
+    { value: 'vide',         label: 'Vide'         },
     { value: 'fin',          label: 'Fin'          },
   ];
 
@@ -1479,11 +1485,17 @@
         '</div>' +
         (ch.skillTest
           ? '<div class="adv-choice-test">' +
-              '<select class="ch-skill">' + skillOpts + '</select>' +
-              '<select class="ch-diff">' + diffOpts + '</select>' +
-              '<label class="ch-group-lbl" title="Tous les aventuriers lancent le test ; le groupe réussit si la majorité réussit."><input type="checkbox" class="ch-group"' + (ch.groupTest ? ' checked' : '') + '> 👥 Groupe</label>' +
-              '<label class="ch-mini">Réussite →<select class="ch-success">' + sceneTargetOptions(allScenes, ch.successSceneId, adv) + '</select></label>' +
-              '<label class="ch-mini">Échec →<select class="ch-fail">' + sceneTargetOptions(allScenes, ch.failSceneId, adv) + '</select></label>' +
+              // Ligne 1 : paramètres du test (compétence / difficulté / groupe)
+              '<div class="adv-ct-row">' +
+                '<label class="ch-mini">Compétence <select class="ch-skill">' + skillOpts + '</select></label>' +
+                '<label class="ch-mini">Difficulté <select class="ch-diff">' + diffOpts + '</select></label>' +
+                '<label class="ch-group-lbl" title="Tous les aventuriers lancent le test ; le groupe réussit si la majorité réussit."><input type="checkbox" class="ch-group"' + (ch.groupTest ? ' checked' : '') + '> 👥 Groupe</label>' +
+              '</div>' +
+              // Ligne 2 : destinations (réussite / échec)
+              '<div class="adv-ct-row">' +
+                '<label class="ch-mini ch-dest">Réussite → <select class="ch-success">' + sceneTargetOptions(allScenes, ch.successSceneId, adv) + '</select></label>' +
+                '<label class="ch-mini ch-dest">Échec → <select class="ch-fail">' + sceneTargetOptions(allScenes, ch.failSceneId, adv) + '</select></label>' +
+              '</div>' +
             '</div>'
           : '<select class="ch-target">' + sceneTargetOptions(allScenes, ch.targetSceneId, adv) + '</select>') +
         '<input type="text" class="ch-desc" value="' + esc(ch.description || '') + '" ' +
