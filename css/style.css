@@ -3652,3 +3652,20 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Sorties & accès sur une seule ligne (languettes côte à côte) */
 .ses-exits-inline { flex-direction: row; flex-wrap: wrap; gap: .5rem; }
 .ses-exits-inline .ses-exit-btn { width: auto; flex: 0 1 auto; }
+
+/* ============ v2.3.10 : bloc Combat + tests de groupe ============ */
+/* Bloc de texte « Combat » (visible seulement avant le combat) */
+.scene-block-combat {
+  background: rgba(214,92,64,.12); border-left: 3px solid #d65c40;
+  border-radius: 0 8px 8px 0; padding: .6rem .85rem; color: var(--text); font-weight: 700;
+}
+.adv-block-row.block-combat { background: rgba(214,92,64,.16); border-left: 3px solid #d65c40; }
+/* Tests de groupe */
+.ses-st-group-tag { font-size: .72rem; font-weight: 800; color: #4a8dd6; background: rgba(74,141,214,.15); border-radius: 6px; padding: .05rem .35rem; }
+.ssk-groupinfo { font-style: italic; }
+.ses-st-groupres { margin: .4rem 0; display: flex; flex-direction: column; gap: .15rem; }
+.ses-st-gr { font-size: .88rem; font-weight: 700; }
+.ses-st-gr.ok { color: #6aab6a; }
+.ses-st-gr.ko { color: #d65c40; }
+.ses-st-gr-roll { font-weight: 500; color: var(--muted); font-size: .8rem; }
+.ch-group-lbl { font-size: .82rem; white-space: nowrap; }

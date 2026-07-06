@@ -572,8 +572,12 @@
       parts.push('<div class="scene-block scene-block-narrative">' + fmtSceneText(scene.text) + '</div>');
     }
     // Blocs ordonnés (texte + test), filtrés par leur condition de compétence.
+    const combatCleared = !!(ses && ses.clearedScenes && ses.clearedScenes[scene.id]);
     sceneRenderBlocks(scene).forEach(function (blk) {
       if (ses && !blockVisible(blk, ses)) return;
+      // Bloc « Combat » : visible uniquement AVANT le combat de la scène —
+      // masqué une fois les adversaires vaincus (ou s'il n'y a pas de combat).
+      if (blk.type === 'combat' && (combatCleared || !sceneHasCombat(scene))) return;
       if (blk.type === 'test') {
         // Emplacement rempli après le rendu par wireTestBlocks (contenu interactif).
         parts.push('<div class="ses-test-slot" data-tb="' + esc(blk.id) + '"></div>');
@@ -791,20 +795,39 @@
     sec.innerHTML = '<div class="ses-choices">' +
       scene.choices.map(function (ch, i) {
         if (ch.skillTest) {
-          const bh = bestHeroForSkill(ses, ch.skill);
-          const talBonus = bh.talentSucc || 0;
-          const dice = 1 + (bh.bonus || 0); // somme des dés lancés = 1 + bonus de compétence
-          const helper = bh.hero
-            ? '<div class="ses-skill-pill">' +
-                '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
-                '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + dice + ' 🎲</span>' +
-                (talBonus ? '<span class="ssk-tal">+' + talBonus + ' réussite' + (talBonus > 1 ? 's' : '') + '</span>' : '') +
-                '<span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span>' +
-              '</div>'
-            : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+          let helper;
+          let bhBtn = null; // aventurier affiché ET utilisé pour le test (cohérence cartouche/bouton)
+          if (ch.groupTest) {
+            // Test de GROUPE : chaque aventurier vivant est affiché comme cible.
+            const heroes = aliveEngagedHeroes(ses);
+            helper = heroes.length
+              ? heroes.map(function (h) {
+                  const info = heroTestInfo(ses, h, ch.skill);
+                  return '<div class="ses-skill-pill">' +
+                    '<span class="ssk-hero">' + esc(h.name) + '</span>' +
+                    '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
+                    (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
+                  '</div>';
+                }).join('') +
+                '<div class="ses-skill-pill ssk-groupinfo">👥 Test de groupe — <span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span> · réussite si la majorité réussit</div>'
+              : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+          } else {
+            const bh = bestHeroForSkill(ses, ch.skill);
+            bhBtn = bh;
+            const talBonus = bh.talentSucc || 0;
+            const dice = 1 + (bh.bonus || 0); // somme des dés lancés = 1 + bonus de compétence
+            helper = bh.hero
+              ? '<div class="ses-skill-pill">' +
+                  '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
+                  '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + dice + ' 🎲</span>' +
+                  (talBonus ? '<span class="ssk-tal">+' + talBonus + ' réussite' + (talBonus > 1 ? 's' : '') + '</span>' : '') +
+                  '<span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span>' +
+                '</div>'
+              : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+          }
           return '<div class="ses-choice">' +
-            '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '" data-skill-hero="' + (bh.hero ? esc(bh.hero.id) : '') + '">' +
-              esc(ch.label) + ' <span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + '</span></button>' +
+            '<button class="ses-choice-btn skill-test choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '" data-skill-hero="' + (bhBtn && bhBtn.hero ? esc(bhBtn.hero.id) : '') + '">' +
+              (ch.groupTest ? '👥 ' : '') + esc(ch.label) + ' <span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + '</span></button>' +
             helper +
             (ch.description ? '<div class="ses-choice-desc">' + esc(ch.description) + '</div>' : '') +
           '</div>';
@@ -835,18 +858,35 @@
     if (!ses.searchTests) ses.searchTests = {};
     const state = ses.searchTests[block.id];
     if (!state) {
-      const bh = bestHeroForSkill(ses, block.skill);
-      const dice = 1 + (bh.bonus || 0);
-      const helper = bh.hero
-        ? '<div class="ses-skill-pill">' +
-            '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
-            '<span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + ' ' + dice + ' 🎲</span>' +
-            (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
-            '<span class="ssk-diff ssk-diff-' + (block.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[block.difficulty] || 'Moyen') + '</span>' +
-          '</div>'
-        : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+      let helper;
+      if (block.who === 'group') {
+        // Test de GROUPE : tous les aventuriers vivants sont affichés comme cibles.
+        const heroes = aliveEngagedHeroes(ses);
+        helper = heroes.length
+          ? heroes.map(function (h) {
+              const info = heroTestInfo(ses, h, block.skill);
+              return '<div class="ses-skill-pill">' +
+                '<span class="ssk-hero">' + esc(h.name) + '</span>' +
+                '<span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
+                (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
+              '</div>';
+            }).join('') +
+            '<div class="ses-skill-pill ssk-groupinfo">👥 Test de groupe — <span class="ssk-diff ssk-diff-' + (block.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[block.difficulty] || 'Moyen') + '</span> · réussite si la majorité réussit</div>'
+          : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+      } else {
+        const bh = bestHeroForSkill(ses, block.skill);
+        const dice = 1 + (bh.bonus || 0);
+        helper = bh.hero
+          ? '<div class="ses-skill-pill">' +
+              '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
+              '<span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + ' ' + dice + ' 🎲</span>' +
+              (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
+              '<span class="ssk-diff ssk-diff-' + (block.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[block.difficulty] || 'Moyen') + '</span>' +
+            '</div>'
+          : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+      }
       slot.innerHTML = '<div class="ses-searchtest">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + '</div>' +
+        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (block.who === 'group' ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + '</div>' +
         '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go">' +
           esc(block.label || 'Tenter le test') + ' <span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + '</span></button>' +
         helper +
@@ -858,21 +898,42 @@
   }
 
   function runTestBlock(ses, adv, scene, block) {
-    const bh = bestHeroForSkill(ses, block.skill);
-    const res = rollSkill(bh.bonus);
-    const need = SKILL_DIFF[block.difficulty] || 2;
-    const total = res.successes + (bh.talentSucc || 0);
-    const passed = total >= need;
     if (!ses.searchTests) ses.searchTests = {};
-    const state = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need,
-      hero: bh.hero ? bh.hero.name : '', heroId: bh.hero ? bh.hero.id : null };
-    // XP de récompense : valeur fixe ou tirage de dés (« 1d6 »), résolu ici.
-    if (passed) {
-      const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
-      if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+    let state;
+    if (block.who === 'group') {
+      // GROUPE : chaque aventurier vivant lance le test ; réussite globale à la
+      // majorité ; les conséquences d'échec s'appliquent INDIVIDUELLEMENT à
+      // chaque aventurier qui a raté (même si le groupe réussit globalement).
+      const gr = runGroupRolls(ses, block.skill, block.difficulty);
+      state = { done: true, success: gr.passed, claimed: false, group: true, results: gr.results, need: gr.need };
+      const msgs = [];
+      gr.results.forEach(function (r) {
+        if (r.passed) return;
+        const h = Store.state.heroes.find(function (x) { return x.id === r.heroId; });
+        const m = applyTestFailEffect(ses, scene, block, h);
+        if (m) msgs.push(m);
+      });
+      state.fxMsgs = msgs;
+      if (gr.passed) {
+        const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
+        if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+      }
+    } else {
+      const bh = bestHeroForSkill(ses, block.skill);
+      const res = rollSkill(bh.bonus);
+      const need = SKILL_DIFF[block.difficulty] || 2;
+      const total = res.successes + (bh.talentSucc || 0);
+      const passed = total >= need;
+      state = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need,
+        hero: bh.hero ? bh.hero.name : '', heroId: bh.hero ? bh.hero.id : null };
+      // XP de récompense : valeur fixe ou tirage de dés (« 1d6 »), résolu ici.
+      if (passed) {
+        const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
+        if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+      }
+      // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
+      if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
     }
-    // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
-    if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
     ses.searchTests[block.id] = state;
     save();
     render();
@@ -982,13 +1043,30 @@
     }
   }
 
+  // Résultats individuels d'un test de GROUPE (✓/✗ par aventurier).
+  function groupResultsHtml(state) {
+    if (!state.group || !Array.isArray(state.results)) return '';
+    return '<div class="ses-st-groupres">' + state.results.map(function (r) {
+      return '<div class="ses-st-gr ' + (r.passed ? 'ok' : 'ko') + '">' + (r.passed ? '✓' : '✗') + ' ' +
+        esc(r.name) + ' <span class="ses-st-gr-roll">' + r.succ + '/' + r.need + ' · dés : ' + (r.rolls || []).join(', ') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  // Conséquences individuelles (une ligne ⚠ par aventurier ayant échoué).
+  function fxMsgsHtml(state) {
+    let html = '';
+    if (state.fxMsg) html += '<div class="ses-st-fx">⚠ ' + esc(state.fxMsg) + '</div>';
+    if (Array.isArray(state.fxMsgs)) state.fxMsgs.forEach(function (m) { html += '<div class="ses-st-fx">⚠ ' + esc(m) + '</div>'; });
+    return html;
+  }
+
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
     if (!state.success) {
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-fail-box">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
+        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
         (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '') +
-        (state.fxMsg ? '<div class="ses-st-fx">⚠ ' + esc(state.fxMsg) + '</div>' : '') +
-        '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>' +
+        groupResultsHtml(state) +
+        fxMsgsHtml(state) +
+        (state.group ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
         (block.retry ? '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter le test</button></div>' : '') +
       '</div>';
       const retryBtn = slot.querySelector('.ses-tb-retry');
@@ -1038,8 +1116,10 @@
         '<span class="ses-exit-to"><span class="ses-exit-dir">' + arrow + '</span> ' + esc(dest) + '</span></button>';
     }
     slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-success-box">' +
-      '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + ' — <span class="ses-st-verdict success">Réussite</span></div>' +
+      '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict success">Réussite</span></div>' +
       (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '') +
+      groupResultsHtml(state) +
+      fxMsgsHtml(state) +
       rewardHtml +
       '<div class="ses-st-actions">' +
         (needClaim ? '<button class="primary ses-tb-claim">Récupérer la récompense</button>' : '') +
@@ -1130,6 +1210,36 @@
     if (!pick) return { hero: null, bonus: 0, talentSucc: 0 };
     return { hero: pick.hero, bonus: Math.max(0, pick.v), talentSucc: Math.max(0, pick.tal) };
   }
+  // Bonus de compétence d'UN aventurier donné (base + gains de niveau + Expertise).
+  function heroTestInfo(ses, h, skill) {
+    const g = ses.levelGains ? ses.levelGains[h.id] : null;
+    const sessSkill = (g && g.skills && g.skills[skill]) || 0;
+    const v = ((h.skills && h.skills[skill]) || 0) + sessSkill;
+    const tal = skillTalentBonus(ses, h.id, skill);
+    return { bonus: Math.max(0, v), talentSucc: Math.max(0, tal) };
+  }
+  // Aventuriers engagés et VIVANTS (les morts ne testent plus).
+  function aliveEngagedHeroes(ses) {
+    return engagedHeroes(ses).filter(function (h) {
+      return !(ses.heroStates && ses.heroStates[h.id] && ses.heroStates[h.id].dead);
+    });
+  }
+  // Test de GROUPE : chaque aventurier vivant lance le test. Renvoie les
+  // résultats individuels + la réussite globale (majorité : ⌈n/2⌉ réussites).
+  function runGroupRolls(ses, skill, difficulty) {
+    const need = SKILL_DIFF[difficulty] || 2;
+    const heroes = aliveEngagedHeroes(ses);
+    const results = heroes.map(function (h) {
+      const info = heroTestInfo(ses, h, skill);
+      const r = rollSkill(info.bonus);
+      const total = r.successes + info.talentSucc;
+      return { heroId: h.id, name: h.name, succ: total, need: need, rolls: r.rolls, passed: total >= need };
+    });
+    const passedCount = results.filter(function (x) { return x.passed; }).length;
+    return { results: results, need: need, passedCount: passedCount,
+      passed: heroes.length > 0 && passedCount >= Math.ceil(heroes.length / 2) };
+  }
+
   // 1d6 + 1d6 par point de compétence ; réussite = dé à 4+ ; les 6 sont explosifs
   function rollSkill(bonus) {
     let toRoll = 1 + bonus, successes = 0, rolls = [], guard = 0;
@@ -1150,19 +1260,33 @@
     const skill = ch.skill || 'Force';
     const diff = ch.difficulty || 'moyen';
     const need = SKILL_DIFF[diff] || 2;
-    const bh = bestHeroForSkill(ses, skill, preferHeroId);
-    const res = rollSkill(bh.bonus);
-    const talSucc = bh.talentSucc || 0;
-    const totalSucc = res.successes + talSucc;
-    const passed = totalSucc >= need;
-    const who = bh.hero ? bh.hero.name : 'Le groupe';
-    alert(who + ' effectue un test de ' + skill + ' : ' + totalSucc + ' réussite(s)' +
-      (talSucc > 0 ? ' (' + res.successes + ' aux dés + ' + talSucc + ' Expertise)' : '') +
-      ' = ' + (passed ? 'Réussite' : 'Échec') + '.\n\n' +
-      (passed ? 'Vous avez réussi le test.' : 'Vous avez échoué le test.') +
-      '\n\nDés (' + (1 + bh.bonus) + ' + explosifs) : ' + res.rolls.join(', '));
+    let passed;
+    if (ch.groupTest) {
+      // Test de GROUPE : chaque aventurier vivant lance le test ;
+      // le groupe réussit si la MAJORITÉ (⌈n/2⌉) réussit.
+      const gr = runGroupRolls(ses, skill, diff);
+      passed = gr.passed;
+      alert('👥 Test de groupe — ' + skill + ' (' + need + ' réussite(s) requise(s) par aventurier) :\n\n' +
+        gr.results.map(function (r) {
+          return (r.passed ? '✓ ' : '✗ ') + r.name + ' : ' + r.succ + ' réussite(s) — dés : ' + r.rolls.join(', ');
+        }).join('\n') +
+        '\n\n' + gr.passedCount + '/' + gr.results.length + ' aventurier(s) ont réussi → ' +
+        (passed ? 'RÉUSSITE du groupe.' : 'ÉCHEC du groupe.'));
+    } else {
+      const bh = bestHeroForSkill(ses, skill, preferHeroId);
+      const res = rollSkill(bh.bonus);
+      const talSucc = bh.talentSucc || 0;
+      const totalSucc = res.successes + talSucc;
+      passed = totalSucc >= need;
+      const who = bh.hero ? bh.hero.name : 'Le groupe';
+      alert(who + ' effectue un test de ' + skill + ' : ' + totalSucc + ' réussite(s)' +
+        (talSucc > 0 ? ' (' + res.successes + ' aux dés + ' + talSucc + ' Expertise)' : '') +
+        ' = ' + (passed ? 'Réussite' : 'Échec') + '.\n\n' +
+        (passed ? 'Vous avez réussi le test.' : 'Vous avez échoué le test.') +
+        '\n\nDés (' + (1 + bh.bonus) + ' + explosifs) : ' + res.rolls.join(', '));
+    }
     const target = passed ? ch.successSceneId : ch.failSceneId;
-    ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: ch.label + ' [test ' + skill + ']', targetSceneId: target, success: passed });
+    ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: ch.label + ' [test ' + skill + (ch.groupTest ? ' 👥' : '') + ']', targetSceneId: target, success: passed });
     navigateTo(ses, adv, target);
   }
 

@@ -32,6 +32,9 @@
     { value: 'technical', label: 'Technique (normal)'  },
     { value: 'alert',     label: 'Alerte (gras)'       },
     { value: 'tip',       label: 'Conseil (encadré)'   },
+    // Visible UNIQUEMENT tant que le combat de la scène n'est pas résolu :
+    // une fois la salle nettoyée, ce bloc disparaît (utile en donjon).
+    { value: 'combat',    label: '⚔ Combat (avant le combat uniquement)' },
   ];
 
   // Types de choix : couleur dédiée dans l'interface de jeu
@@ -1100,6 +1103,7 @@
   }
   function newTestBlock() {
     return { id: Store.uid(), type: 'test', label: '', skill: 'Perception', difficulty: 'moyen',
+      who: 'best',  // 'best' = meilleur aventurier ; 'group' = TOUS les aventuriers testent
       successText: '', failText: '', xpReward: 0, itemRewards: [], targetSceneId: null, reqSkill: '', reqVal: 0,
       retry: false, failEffect: { kind: 'none', val: 1, state: 'affaibli', slot: 'randhand', text: '' } };
   }
@@ -1160,10 +1164,14 @@
               '<span class="adv-block-test-tag">🔍 Test de compétence</span>' + tools +
             '</div>' +
             '<input type="text" class="tb-label" data-bi="' + i + '" placeholder="Intitulé du bouton (ex : Fouiller la zone)" value="' + esc(blk.label || '') + '" />' +
-            '<div class="form-row" style="grid-template-columns:1fr 1fr">' +
+            '<div class="form-row" style="grid-template-columns:1fr 1fr 1fr">' +
               '<label>Compétence <select class="tb-skill" data-bi="' + i + '">' +
                 SKILLS.map(function (s) { return '<option value="' + s + '"' + (blk.skill === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
               '<label>Difficulté <select class="tb-diff" data-bi="' + i + '">' + diffOptsHtml(blk.difficulty) + '</select></label>' +
+              '<label>Testeur <select class="tb-who" data-bi="' + i + '" title="GROUPE : chaque aventurier lance le test ; les conséquences d\'échec s\'appliquent individuellement ; réussite globale si la majorité réussit.">' +
+                '<option value="best"' + ((blk.who || 'best') === 'best' ? ' selected' : '') + '>Meilleur aventurier</option>' +
+                '<option value="group"' + (blk.who === 'group' ? ' selected' : '') + '>👥 GROUPE (tous)</option>' +
+              '</select></label>' +
             '</div>' +
             '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="Texte de réussite">' + esc(blk.successText || '') + '</textarea>' +
             '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="Texte d\'échec">' + esc(blk.failText || '') + '</textarea>' +
@@ -1235,6 +1243,7 @@
     box.querySelectorAll('.tb-label').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].label = this.value; }; });
     box.querySelectorAll('.tb-skill').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].skill = this.value; }; });
     box.querySelectorAll('.tb-diff').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].difficulty = this.value; }; });
+    box.querySelectorAll('.tb-who').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].who = this.value; }; });
     box.querySelectorAll('.tb-success').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].successText = this.value; }; });
     box.querySelectorAll('.tb-fail').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].failText = this.value; }; });
     // XP : valeur fixe OU notation en dés (« 1d6 », « 2d6+1 ») — stockée brute,
@@ -1325,6 +1334,7 @@
           ? '<div class="adv-choice-test">' +
               '<select class="ch-skill">' + skillOpts + '</select>' +
               '<select class="ch-diff">' + diffOpts + '</select>' +
+              '<label class="ch-group-lbl" title="Tous les aventuriers lancent le test ; le groupe réussit si la majorité réussit."><input type="checkbox" class="ch-group"' + (ch.groupTest ? ' checked' : '') + '> 👥 Groupe</label>' +
               '<label class="ch-mini">Réussite →<select class="ch-success">' + sceneTargetOptions(allScenes, ch.successSceneId, adv) + '</select></label>' +
               '<label class="ch-mini">Échec →<select class="ch-fail">' + sceneTargetOptions(allScenes, ch.failSceneId, adv) + '</select></label>' +
             '</div>'
@@ -1361,6 +1371,9 @@
     });
     box.querySelectorAll('.ch-diff').forEach(function (sel) {
       sel.onchange = function () { scene.choices[ciOf(this)].difficulty = this.value; };
+    });
+    box.querySelectorAll('.ch-group').forEach(function (cb) {
+      cb.onchange = function () { scene.choices[ciOf(this)].groupTest = this.checked; };
     });
     box.querySelectorAll('.ch-success').forEach(function (sel) {
       sel.onchange = function () {
