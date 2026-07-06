@@ -3705,12 +3705,27 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Cartouches de la carte de donjon : cadre à la couleur du type, FOND PLEIN
    (comme les types d'origine). On rétablit le fond de carte car la classe
    .type-* (badge) portait un fond translucide qui délavait la carte. */
-.dmap-room.type-danger   { border-color: rgba(209,59,78,.9);  background: var(--card, #2a251d); color: var(--text); }
-.dmap-room.type-repos    { border-color: rgba(47,158,119,.9); background: var(--card, #2a251d); color: var(--text); }
-.dmap-room.type-commerce { border-color: rgba(224,149,46,.9); background: var(--card, #2a251d); color: var(--text); }
-.dmap-room.type-boss     { border-color: rgba(176,46,168,.9); background: var(--card, #2a251d); color: var(--text); }
-.dmap-room.type-temps    { border-color: rgba(98,114,201,.9); background: var(--card, #2a251d); color: var(--text); }
-.dmap-room.type-vide     { border-color: rgba(141,141,141,.9);background: var(--card, #2a251d); color: var(--text); }
+.dmap-room.type-danger   { border-color: rgba(209,59,78,.9);  background: var(--card, #2a251d); }
+.dmap-room.type-repos    { border-color: rgba(47,158,119,.9); background: var(--card, #2a251d); }
+.dmap-room.type-commerce { border-color: rgba(224,149,46,.9); background: var(--card, #2a251d); }
+.dmap-room.type-boss     { border-color: rgba(176,46,168,.9); background: var(--card, #2a251d); }
+.dmap-room.type-temps    { border-color: rgba(98,114,201,.9); background: var(--card, #2a251d); }
+.dmap-room.type-vide     { border-color: rgba(141,141,141,.9);background: var(--card, #2a251d); }
+
+/* v2.3.15 : le NOM de la salle prend la couleur de son type (uniformisé pour
+   tous les types, anciens comme nouveaux). */
+.dmap-room.type-description  .dmap-room-title { color: #b07a2e; }
+.dmap-room.type-exploration  .dmap-room-title { color: #4a8dd6; }
+.dmap-room.type-interaction  .dmap-room-title { color: #6aab6a; }
+.dmap-room.type-combat       .dmap-room-title { color: #d65c40; }
+.dmap-room.type-reward       .dmap-room-title { color: #c49a20; }
+.dmap-room.type-fin          .dmap-room-title { color: #9d72c4; }
+.dmap-room.type-danger       .dmap-room-title { color: #d13b4e; }
+.dmap-room.type-repos        .dmap-room-title { color: #2f9e77; }
+.dmap-room.type-commerce     .dmap-room-title { color: #e0952e; }
+.dmap-room.type-boss         .dmap-room-title { color: #b02ea8; }
+.dmap-room.type-temps        .dmap-room-title { color: #6272c9; }
+.dmap-room.type-vide         .dmap-room-title { color: #9a9a9a; }
 
 /* ============ v2.3.13 : connecteurs lisibles + colorés + passages secrets ============ */
 /* Ligne de connecteur : retour à la ligne propre, contrôles d'événement groupés. */
