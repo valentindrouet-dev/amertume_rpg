@@ -622,7 +622,9 @@
         // Test enchaîné non encore révélé par son test parent : masqué.
         if (ses && testChainHidden(scene, blk, ses)) return;
         // Emplacement rempli après le rendu par wireTestBlocks (contenu interactif).
-        parts.push('<div class="ses-test-slot" data-tb="' + esc(blk.id) + '"></div>');
+        // Test découlant d'un test préalable : léger décalage à droite + flèche.
+        var chainedFrom = chainParentOf(scene, blk);
+        parts.push('<div class="ses-test-slot' + (chainedFrom ? ' ses-test-chained' : '') + '" data-tb="' + esc(blk.id) + '"></div>');
       } else {
         parts.push('<div class="scene-block scene-block-' + (blk.type || 'narrative') + '">' + fmtSceneText(blk.content || '') + '</div>');
       }

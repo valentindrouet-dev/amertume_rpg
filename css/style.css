@@ -1025,7 +1025,13 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .ses-combat-wrap { margin-top: .25rem; }
 
 /* ---- Blocs de texte typés (affichage session) ---- */
-.ses-scene-blocks { display: flex; flex-direction: column; gap: .65rem; margin: .75rem 0 1rem; }
+.ses-scene-blocks { display: flex; flex-direction: column; gap: .5rem; margin: .65rem 0 .6rem; }
+/* Test découlant d'un test préalable : léger décalage à droite + flèche ↳. */
+.ses-test-slot.ses-test-chained { margin-left: 1.7rem; position: relative; }
+.ses-test-slot.ses-test-chained::before {
+  content: "↳"; position: absolute; left: -1.35rem; top: .55rem;
+  font-size: 1.1rem; color: var(--muted); font-weight: 700;
+}
 .scene-block { line-height: 1.7; font-size: .97rem; }
 .scene-block-narrative { font-style: italic; color: var(--text); }
 .scene-block-technical  { color: var(--text); }
@@ -3573,16 +3579,20 @@ body.mode-player #item-list.roster-list { display: block; }
 .ses-room-tag { white-space: nowrap; }
 
 /* ============ Test de fouille (compétence facultative de scène) ============ */
-.ses-searchtest { margin-top: .9rem; border: 1px solid rgba(120,120,120,.28); border-radius: 11px; padding: .75rem .85rem; background: rgba(120,120,120,.06); }
-.ses-st-title { font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: .5rem; }
+.ses-searchtest { margin-top: 0; border: 1px solid rgba(120,120,120,.28); border-radius: 11px; padding: .55rem .75rem; background: rgba(120,120,120,.06); }
+.ses-st-title { font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: .35rem; }
+.ses-searchtest .scene-block { margin: .3rem 0; }
+.ses-reward-block:last-child { margin-bottom: 0; }
 .ses-searchtest .ses-choice-btn { margin-bottom: .4rem; }
 .ses-st-verdict { padding: .05rem .4rem; border-radius: 6px; font-weight: 800; }
 .ses-st-verdict.success { color: #2f6b33; background: rgba(111,174,111,.28); }
 .ses-st-verdict.fail    { color: #9a3b2c; background: rgba(214,92,64,.22); }
 .ses-st-success-box { border-left: 4px solid var(--good, #6fae6f); }
 .ses-st-fail-box    { border-left: 4px solid #d65c40; }
-.ses-st-rolls { margin-top: .4rem; margin-bottom: .6rem; }
-.ses-st-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+.ses-st-rolls { margin-top: .3rem; margin-bottom: .5rem; }
+.ses-st-rolls:last-child { margin-bottom: 0; }
+.ses-st-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .35rem; }
+.ses-st-actions:empty { display: none; margin: 0; }
 .ses-searchtest .rp-line { display: flex; align-items: center; gap: .5rem; margin: .25rem 0; flex-wrap: wrap; }
 .ses-searchtest .stp-hero { flex: 0 0 auto; }
 /* Éditeur : encadré du test de fouille */
