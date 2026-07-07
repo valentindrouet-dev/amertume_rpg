@@ -887,7 +887,7 @@
     if (sceneHasReward(scene) && !rewardGated) renderRewardScene(box, scene, adv, ses);
     if (hasCombat && (mode === 'linear' || !cleared)) renderCombatScene(box, scene, adv, ses);
     else if (hasCombat && cleared && mode !== 'linear') {
-      appendSection(box).innerHTML = '<p class="hint ses-room-cleared">⚔ Salle déjà nettoyée — les adversaires ont été vaincus.</p>';
+      appendSection(box).innerHTML = '<p class="ses-done-note ses-done-combat">⚔ Salle déjà nettoyée — les adversaires ont été vaincus.</p>';
     }
     // (Les tests de compétence sont désormais des blocs rendus dans le fil du
     // texte de la scène — cf. wireTestBlocks.)
@@ -1140,11 +1140,15 @@
     if (!ses.searchTests) ses.searchTests = {};
     const state = ses.searchTests[block.id];
     if (!state) {
-      const groupLike = block.who === 'group' || block.who === 'concerned';
+      const isAction = !!block.actionMode;
+      const groupLike = !isAction && (block.who === 'group' || block.who === 'concerned');
       // VARIANTES : compétence principale + éventuelle compétence alternative
       // (2 boutons — le joueur choisit sa méthode, le résultat vaut pour le bloc).
-      const variants = [{ skill: block.skill, difficulty: block.difficulty }];
-      if (block.altSkill) variants.push({ skill: block.altSkill, difficulty: block.altDifficulty || block.difficulty });
+      // Bloc ACTION : 1 ou 2 actions au choix, SANS jet (issue réussite / échec).
+      const variants = isAction
+        ? [{ action: 1, label: block.label }].concat((block.altLabel || '').trim() ? [{ action: 2, label: block.altLabel }] : [])
+        : [{ skill: block.skill, difficulty: block.difficulty }];
+      if (!isAction && block.altSkill) variants.push({ skill: block.altSkill, difficulty: block.altDifficulty || block.difficulty });
       // Vignettes d'aide pour une compétence donnée (testeurs et dés lancés).
       const helperFor = function (skill) {
         if (groupLike) {
@@ -1172,17 +1176,23 @@
           : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
       };
       // La DIFFICULTÉ est toujours affichée SUR le bouton, à droite de la compétence.
-      const btnsHtml = variants.map(function (v, vi) {
-        return '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
-          esc(block.label || 'Tenter le test') +
-          ' <span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +
-          ' <span class="ssk-diff ssk-diff-' + (v.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[v.difficulty] || 'Moyen') + '</span>' +
-        '</button>' + helperFor(v.skill);
-      }).join(variants.length > 1 ? '<div class="ses-tb-or">— ou —</div>' : '');
+      // 2 variantes : les boutons se partagent la MÊME ligne (colonnes côte à côte),
+      // chaque vignette de testeur alignée SOUS son bouton.
+      const btnsHtml = '<div class="ses-tb-variants">' + variants.map(function (v, vi) {
+        const btn = v.action
+          ? '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go ses-tb-action" data-vi="' + vi + '">⚡ ' +
+              esc(v.label || 'Agir') + '</button>'
+          : '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
+              esc(block.label || 'Tenter le test') +
+              ' <span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +
+              ' <span class="ssk-diff ssk-diff-' + (v.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[v.difficulty] || 'Moyen') + '</span>' +
+            '</button>';
+        return '<div class="ses-tb-variant">' + btn + (v.action ? '' : helperFor(v.skill)) + '</div>';
+      }).join(variants.length > 1 ? '<div class="ses-tb-or">ou</div>' : '') + '</div>';
       slot.innerHTML = '<div class="ses-searchtest">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') +
+        '<div class="ses-st-title">' + (isAction ? '⚡ ' : '🔍 ') + esc(block.label || (isAction ? 'Action' : 'Test de compétence')) +
           (block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '') +
-          (block.who === 'group' ? ' <span class="ses-st-group-tag" title="' + esc(groupModeLabel(block.groupMode)) + '">👥 GROUPE</span>' : '') + '</div>' +
+          (!isAction && block.who === 'group' ? ' <span class="ses-st-group-tag" title="' + esc(groupModeLabel(block.groupMode)) + '">👥 GROUPE</span>' : '') + '</div>' +
         btnsHtml +
       '</div>';
       slot.querySelectorAll('.ses-tb-go').forEach(function (b) {
@@ -1237,8 +1247,23 @@
     // sinon celle mémorisée (relance), sinon la principale du bloc.
     const prevSt = ses.searchTests[block.id];
     const v = variant || (prevSt && prevSt.variant) || { skill: block.skill, difficulty: block.difficulty };
-    const groupLike = block.who === 'group' || block.who === 'concerned';
-    if (groupLike) {
+    const groupLike = !block.actionMode && (block.who === 'group' || block.who === 'concerned');
+    if (block.actionMode) {
+      // Bloc ACTION : pas de jet — l'Action 1 applique l'issue « réussite »
+      // (récompenses, effet, passage), l'Action 2 l'issue « échec » (conséquence).
+      const ok = !(v && v.action === 2);
+      state = { done: true, success: ok, claimed: false, action: true };
+      if (ok) {
+        const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
+        if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+        grantDeedReward(ses, scene, block);
+        applyWinEffect(ses, block);
+        grantTreasures(ses, block);
+      } else {
+        const h = aliveEngagedHeroes(ses)[0] || null;
+        state.fxMsg = applyTestFailEffect(ses, scene, block, h) || '';
+      }
+    } else if (groupLike) {
       // GROUPE (tous) ou CONCERNÉS (sous-ensemble d'une chaîne) : chacun lance le
       // test ; réussite globale selon le seuil choisi ; les conséquences d'échec
       // s'appliquent INDIVIDUELLEMENT à chaque aventurier qui a raté.
@@ -1464,6 +1489,8 @@
 
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
     const mTag = block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '';
+    const stIcon = block.actionMode ? '⚡ ' : '🔍 ';
+    const stLabel = block.label || (block.actionMode ? 'Action' : 'Test de compétence');
     // Résultat obtenu lors d'une ENTRÉE ANTÉRIEURE (on est revenu dans la salle) :
     // version COMPACTE — on GARDE le titre, le verdict et le TEXTE narratif, mais on
     // masque les récompenses (XP, objets, Hauts Faits) et les résultats chiffrés.
@@ -1479,7 +1506,7 @@
         : (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '');
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-compact ' +
         (ok || state.validated ? 'ses-st-success-box' : 'ses-st-fail-box') + '">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + mTag + ' — ' + verdict + '</div>' +
+        '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + ' — ' + verdict + '</div>' +
         narr +
       '</div>';
       return;
@@ -1516,11 +1543,11 @@
         }
       }
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-fail-box">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
+        '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
         (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '') +
         groupResultsHtml(state) +
         fxMsgsHtml(state) +
-        (state.group ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
+        (state.group || state.action ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
         retryHtml +
       '</div>';
       const retryBtn = slot.querySelector('.ses-tb-retry');
@@ -1597,13 +1624,13 @@
       ? '<div class="ses-st-rescue">↳ Situation débloquée grâce au test « ' + esc(state.validatedBy || 'enchaîné') + ' ».</div>'
       : '';
     slot.innerHTML = '<div class="ses-searchtest ses-st-done ' + (rescued ? 'ses-st-rescued-box' : 'ses-st-success-box') + '">' +
-      '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — ' + verdict + '</div>' +
+      '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — ' + verdict + '</div>' +
       narrative +
       rescueBanner +
       groupResultsHtml(state) +
       fxMsgsHtml(state) +
       // Détail des jets, affiché AUSSI en cas de réussite (test individuel).
-      (state.group ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
+      (state.group || state.action ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
       rewardHtml +
       '<div class="ses-st-actions">' +
         (needClaim ? '<button class="primary ses-tb-claim">Récupérer la récompense</button>' : '') +
@@ -2359,7 +2386,7 @@
     if (!ses.claimedRewards) ses.claimedRewards = {};
     const claimed = !!ses.claimedRewards[scene.id];
     if (claimed) {
-      sec.innerHTML = '<div class="ses-reward-block"><p class="hint">Récompense déjà récupérée.</p></div>';
+      sec.innerHTML = '<p class="ses-done-note ses-done-reward">✦ Récompense déjà récupérée.</p>';
       return;
     }
     const heroOpts = heroes.map(function (h) { return '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>'; }).join('');

@@ -1128,6 +1128,14 @@
       scene.blocks.push(newTestBlock());
       renderBlocksEditor(scene, adv);
     };
+    const addAct = document.getElementById('sm-add-action');
+    if (addAct) addAct.onclick = function () {
+      // Bloc ACTION : un bloc de test SANS jet — la conséquence s'applique au choix.
+      const b = newTestBlock();
+      b.actionMode = true;
+      scene.blocks.push(b);
+      renderBlocksEditor(scene, adv);
+    };
 
     function closeModal() {
       save();
@@ -1433,13 +1441,20 @@
           '<span class="adv-block-req-mini"' + (blk.reqSkill ? '' : ' style="display:none"') + '>ou plus</span>' +
         '</div>';
         if (blk.type === 'test') {
+          // Bloc ACTION : même bloc, SANS jet de dés — pas de compétence/difficulté/
+          // testeur. Le joueur choisit l'Action 1 (issue « réussite ») ou l'Action 2
+          // (issue « échec », optionnelle).
+          const isAction = !!blk.actionMode;
           return '<div class="adv-block-row adv-block-test' + (done ? ' adv-block-done' : '') + (collapsed ? ' collapsed' : '') + '" data-bi="' + i + '">' +
             '<div class="adv-block-row-head">' +
               collapseBtn +
-              '<span class="adv-block-test-tag">🔍 Test' + (blk.label ? ' · ' + esc(blk.label) : ' de compétence') + '</span>' + tools +
+              '<span class="adv-block-test-tag">' + (isAction
+                ? '⚡ Action' + (blk.label ? ' · ' + esc(blk.label) : '')
+                : '🔍 Test' + (blk.label ? ' · ' + esc(blk.label) : ' de compétence')) + '</span>' + tools +
             '</div>' +
             bodyOpen +
-            '<input type="text" class="tb-label" data-bi="' + i + '" placeholder="Intitulé du bouton (ex : Fouiller la zone)" value="' + esc(blk.label || '') + '" />' +
+            '<input type="text" class="tb-label" data-bi="' + i + '" placeholder="' + (isAction ? 'Intitulé de l\'Action 1 (ex : Boire à la fontaine)' : 'Intitulé du bouton (ex : Fouiller la zone)') + '" value="' + esc(blk.label || '') + '" />' +
+            (isAction ? '' :
             '<div class="form-row" style="grid-template-columns:1fr 1fr 1fr">' +
               '<label>Compétence <select class="tb-skill" data-bi="' + i + '">' +
                 SKILLS.map(function (s) { return '<option value="' + s + '"' + (blk.skill === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
@@ -1450,15 +1465,19 @@
                 '<option value="group"' + (blk.who === 'group' ? ' selected' : '') + '>👥 GROUPE (tous)</option>' +
                 '<option value="concerned"' + (blk.who === 'concerned' ? ' selected' : '') + '>🎯 Aventuriers concernés (chaîne)</option>' +
               '</select></label>' +
-            '</div>' +
+            '</div>') +
             // Compétence ALTERNATIVE : le joueur choisit entre 2 boutons (2 compétences,
             // difficultés indépendantes) — le résultat résout le test dans les 2 cas.
+            // Bloc ACTION : une 2e ACTION optionnelle (issue « échec ») à la place.
             '<div class="form-row tb-alt-row" style="grid-template-columns:1fr 1fr auto">' +
-              '<label>Compétence alternative <select class="tb-altskill" data-bi="' + i + '">' +
-                '<option value="">— Aucune —</option>' +
-                SKILLS.map(function (s) { return '<option value="' + s + '"' + (blk.altSkill === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
-              '<label>Difficulté (alternative) <select class="tb-altdiff" data-bi="' + i + '"' + (blk.altSkill ? '' : ' disabled') + '>' + diffOptsHtml(blk.altDifficulty || blk.difficulty) + '</select></label>' +
-              '<label class="tb-mandatory-lbl" title="Affiche 🔒 Obligatoire en rouge dans le titre du test."><input type="checkbox" class="tb-mandatory" data-bi="' + i + '"' + (blk.mandatory ? ' checked' : '') + ' /> 🔒 Obligatoire</label>' +
+              (isAction
+                ? '<label>Action 2 (optionnelle — applique la « conséquence de l\'échec ») <input type="text" class="tb-altlabel" data-bi="' + i + '" value="' + esc(blk.altLabel || '') + '" placeholder="Ex : Briser la fontaine" /></label>' +
+                  '<span></span>'
+                : '<label>Compétence alternative <select class="tb-altskill" data-bi="' + i + '">' +
+                    '<option value="">— Aucune —</option>' +
+                    SKILLS.map(function (s) { return '<option value="' + s + '"' + (blk.altSkill === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
+                  '<label>Difficulté (alternative) <select class="tb-altdiff" data-bi="' + i + '"' + (blk.altSkill ? '' : ' disabled') + '>' + diffOptsHtml(blk.altDifficulty || blk.difficulty) + '</select></label>') +
+              '<label class="tb-mandatory-lbl" title="Affiche 🔒 Obligatoire en rouge dans le titre."><input type="checkbox" class="tb-mandatory" data-bi="' + i + '"' + (blk.mandatory ? ' checked' : '') + ' /> 🔒 Obligatoire</label>' +
             '</div>' +
             // Seuil de réussite d'un test collectif (groupe / concernés).
             ((blk.who === 'group' || blk.who === 'concerned')
@@ -1468,8 +1487,8 @@
                   '<option value="one"' + (blk.groupMode === 'one' ? ' selected' : '') + '>au moins un aventurier réussit</option>' +
                 '</select></label>'
               : '') +
-            '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="Texte de réussite">' + esc(blk.successText || '') + '</textarea>' +
-            '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="Texte d\'échec">' + esc(blk.failText || '') + '</textarea>' +
+            '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="' + (isAction ? 'Texte affiché après l\'Action 1' : 'Texte de réussite') + '">' + esc(blk.successText || '') + '</textarea>' +
+            '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="' + (isAction ? 'Texte affiché après l\'Action 2' : 'Texte d\'échec') + '">' + esc(blk.failText || '') + '</textarea>' +
             '<div class="tb-reward-head">Récompense en cas de réussite · Conséquence de l\'échec <small>(valeurs fixes ou en dés : « 3 », « 2d6 », « 1d6+2 »)</small></div>' +
             '<div class="tb-rf-row">' +
               '<label class="tb-xp-lbl">XP <input type="text" class="tb-xp" data-bi="' + i + '" value="' + esc(blk.xpReward == null ? 0 : blk.xpReward) + '" style="width:70px" placeholder="0 ou 1d6" title="XP fixe ou tirage de dés (ex : 5, 1d6, 2d6+1)" /></label>' +
@@ -1528,6 +1547,7 @@
                 '<input type="checkbox" class="tb-validate" data-bi="' + i + '"' + (blk.validatesParent ? ' checked' : '') + ' /> ✅ Réussir ce test <b>valide le test précédent</b> (débloque son accès)</label>';
             })() +
             (function () {
+              if (isAction) return ''; // une Action ne se « rate » pas : pas de relance
               // Mode de nouvelle tentative (rétro-compat : ancien booléen retry → à volonté).
               const rm = blk.retryMode || (blk.retry ? 'always' : 'none');
               const opts = [
@@ -1604,6 +1624,9 @@
     box.querySelectorAll('.tb-diff').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].difficulty = this.value; }; });
     box.querySelectorAll('.tb-altskill').forEach(function (el) {
       el.onchange = function () { scene.blocks[biOf(this)].altSkill = this.value; renderBlocksEditor(scene, adv); };
+    });
+    box.querySelectorAll('.tb-altlabel').forEach(function (el) {
+      el.oninput = function () { scene.blocks[biOf(this)].altLabel = this.value; };
     });
     box.querySelectorAll('.tb-altdiff').forEach(function (el) {
       el.onchange = function () { scene.blocks[biOf(this)].altDifficulty = this.value; };
