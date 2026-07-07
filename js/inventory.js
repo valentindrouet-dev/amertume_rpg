@@ -634,8 +634,9 @@
   function fillTalentEffectSelect() {
     const sel = $('#f-obj-talent');
     if (!sel) return;
-    const parch = (window.Store && Store.loadParchTalents) ? Store.loadParchTalents() : [];
-    const effects = (window.Store && Store.talentEffects) ? Store.talentEffects() : [];
+    const byName = function (a, b) { return (a.name || '').localeCompare(b.name || ''); };
+    const parch = ((window.Store && Store.loadParchTalents) ? Store.loadParchTalents() : []).slice().sort(byName);
+    const effects = ((window.Store && Store.talentEffects) ? Store.talentEffects() : []).slice().sort(byName);
     let html = '<option value="">— Choisir un effet —</option>';
     if (parch.length) {
       html += '<optgroup label="📜 Talents de Parchemin (onglet Classes)">' + parch.map(function (t) {

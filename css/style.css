@@ -3363,6 +3363,11 @@ body.mode-player #item-list.roster-list { display: block; }
 .lvl-tal-btn.lvl-tal-critique.selected { border-color: #8c2230; background: rgba(140,34,48,.34); color: #ffd9dd; }
 
 /* ----- Garde (catégorie de talents, bleu marine du Gardien) ----- */
+/* Vignette PARCHEMIN (purement visuelle, pour les talents de parchemin). */
+.tl-kind-parchemin { background: rgba(196,148,90,.32); color: #6e4a1c; }
+.tl-badge.tl-kind-parchemin { background: rgba(196,148,90,.16); color: #ecd4b4; border-color: rgba(196,148,90,.45); }
+.tal-row.tal-kind-parchemin .inv-strip { border-left-color: #c4945a; }
+.tl-eff-row:has(.tl-eff-kind .tl-kind-parchemin) { border-left-color: #c4945a; }
 .tl-kind-garde  { background: rgba(44,90,147,.30); color: #234a73; }
 .tl-badge.tl-kind-garde { background: rgba(44,90,147,.18); color: #bcd6f2; border-color: rgba(44,90,147,.45); }
 .lib-kind-garde > .lib-kind-head { background: rgba(44,90,147,.24); color: #bcd6f2; }
