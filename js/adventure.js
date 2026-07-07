@@ -32,6 +32,8 @@
   let homeOrder = [];    // ordre d'accueil : [{ type:'saga'|'adv', id }]
   let collapsedChapters = {}; // { chapterId: true } — état enroulé dans l'éditeur
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
+  // Niveaux de difficulté des tests (nombre de réussites requises).
+  const DIFF_LEVELS = [['auto', 'Automatique (0)'], ['facile', 'Facile (1)'], ['moyen', 'Moyen (2)'], ['difficile', 'Difficile (3)'], ['tresdifficile', 'Très Difficile (4)'], ['insurmontable', 'Insurmontable (5)'], ['impossible', 'Impossible (6)']];
 
   const BLOCK_TYPES = [
     { value: 'narrative', label: 'Narratif (italique)' },
@@ -1402,7 +1404,7 @@
     const curCh = chapterOfScene(adv, scene.id);
     const allScenes = buildAllScenes(adv, curCh ? curCh.id : null);
     const diffOptsHtml = function (cur) {
-      return [['facile', 'Facile (1)'], ['moyen', 'Moyen (2)'], ['difficile', 'Difficile (3)']].map(function (d) {
+      return DIFF_LEVELS.map(function (d) {
         return '<option value="' + d[0] + '"' + ((cur || 'moyen') === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
       }).join('');
     };
@@ -1729,7 +1731,7 @@
       const skillOpts = SKILLS.map(function (s) {
         return '<option value="' + s + '"' + (ch.skill === s ? ' selected' : '') + '>' + s + '</option>';
       }).join('');
-      const diffOpts = [['facile', 'Facile (1)'], ['moyen', 'Moyen (2)'], ['difficile', 'Difficile (3)']].map(function (d) {
+      const diffOpts = DIFF_LEVELS.map(function (d) {
         return '<option value="' + d[0] + '"' + ((ch.difficulty || 'moyen') === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
       }).join('');
       return '<div class="adv-choice-row" data-ci="' + i + '">' +

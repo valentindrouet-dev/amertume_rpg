@@ -1069,7 +1069,7 @@
     return !!(found && sceneHasCombat(found.scene));
   }
   function renderChoicesPlay(box, scene, adv, ses) {
-    const DIFF = { facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile' };
+    const DIFF = { auto: 'Automatique', facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile', tresdifficile: 'Très Difficile', insurmontable: 'Insurmontable', impossible: 'Impossible' };
     const sec = appendSection(box);
     sec.innerHTML = '<div class="ses-choices">' +
       scene.choices.map(function (ch, i) {
@@ -1135,7 +1135,7 @@
   }
 
   // ----- Blocs de test de compétence (tentés une seule fois, dans le fil du texte) -----
-  const ST_DIFF_LABEL = { facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile' };
+  const ST_DIFF_LABEL = { auto: 'Automatique', facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile', tresdifficile: 'Très Difficile', insurmontable: 'Insurmontable', impossible: 'Impossible' };
   function renderTestBlock(slot, block, scene, adv, ses) {
     if (!ses.searchTests) ses.searchTests = {};
     const state = ses.searchTests[block.id];
@@ -1277,7 +1277,7 @@
       // déjà tenté ce test ne sont plus candidats.
       const bh = singleTester(ses, block, excludeIds, v.skill);
       const res = rollSkill(bh.bonus);
-      const need = SKILL_DIFF[v.difficulty] || 2;
+      const need = diffNeed(v.difficulty);
       const total = res.successes + (bh.talentSucc || 0);
       const passed = total >= need;
       state = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need,
@@ -1648,7 +1648,10 @@
   }
 
   // ----- Tests de compétence -----
-  const SKILL_DIFF = { facile: 1, moyen: 2, difficile: 3 };
+  const SKILL_DIFF = { auto: 0, facile: 1, moyen: 2, difficile: 3, tresdifficile: 4, insurmontable: 5, impossible: 6 };
+  // Réussites requises pour une difficulté (0 = Automatique — le « || 2 » naïf
+  // transformerait 0 en 2, d'où ce helper).
+  function diffNeed(d) { return SKILL_DIFF[d] != null ? SKILL_DIFF[d] : 2; }
   // Réussites bonus accordées par les talents « Expertise » (boost_competence) équipés
   // d'un aventurier pour une compétence donnée.
   function skillTalentBonus(ses, hid, skill) {
@@ -1757,7 +1760,7 @@
     return passedCount >= threshold;
   }
   function runGroupRolls(ses, skill, difficulty, heroList, groupMode) {
-    const need = SKILL_DIFF[difficulty] || 2;
+    const need = diffNeed(difficulty);
     const heroes = heroList || aliveEngagedHeroes(ses);
     const results = heroes.map(function (h) {
       const info = heroTestInfo(ses, h, skill);
@@ -1789,7 +1792,7 @@
     if (!ch) return;
     const skill = ch.skill || 'Force';
     const diff = ch.difficulty || 'moyen';
-    const need = SKILL_DIFF[diff] || 2;
+    const need = diffNeed(diff);
     let passed;
     if (ch.groupTest) {
       // Test de GROUPE : chaque aventurier vivant lance le test ;

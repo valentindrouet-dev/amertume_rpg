@@ -1448,9 +1448,13 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 /* Cartouche de difficulté coloré (vert facile · orange moyen · rouge difficile),
    visible partout : languette ET bouton de test. */
 .ssk-diff { font-weight: 700; color: #fff; border-radius: 7px; padding: 0 .45rem; background: #8a8276; white-space: nowrap; }
+.ssk-diff-auto { background: #7d9c7d; }
 .ssk-diff-facile { background: #5fa45f; }
 .ssk-diff-moyen { background: #c49a20; }
 .ssk-diff-difficile { background: #c0492f; }
+.ssk-diff-tresdifficile { background: #8c2230; }
+.ssk-diff-insurmontable { background: #6a2a8a; }
+.ssk-diff-impossible { background: #1c1c1c; border: 1px solid #777; }
 .ses-skill-pill.ssk-none { color: var(--muted); font-style: italic; }
 /* Sélecteur de type de choix (éditeur) */
 select.ch-type { width: auto; font-weight: 600; }
