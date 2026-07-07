@@ -1739,6 +1739,10 @@
   // Sélection multiple du bestiaire (application groupée d'un champ).
   let monSelectMode = false;
   const monSelected = {};
+  // État replié/déplié des vignettes du bestiaire (par id). Par défaut replié :
+  // une vignette est dépliée seulement si monExpanded[id] === true. L'état persiste
+  // tant que la page vit (donc conservé quand on change d'onglet).
+  const monExpanded = {};
   function updateBulkBar() {
     const bar = $('#monster-bulk');
     if (bar) bar.hidden = !monSelectMode;
@@ -1779,33 +1783,50 @@
     }
     list.innerHTML = monsters.map(function (m) {
       const advLabel = adventureLabelById(m.advId);
-      return '<div class="roster-card type-' + m.type + (monSelected[m.id] ? ' mon-selected' : '') + '">' +
+      const open = monExpanded[m.id] === true;
+      return '<div class="roster-card type-' + m.type + (monSelected[m.id] ? ' mon-selected' : '') + (open ? '' : ' roster-collapsed') + '">' +
         '<div class="roster-head">' +
+          '<button class="roster-toggle" data-toggle-monster="' + m.id + '" title="' + (open ? 'Replier' : 'Déplier') + '" aria-expanded="' + open + '">' + (open ? '▾' : '▸') + '</button>' +
           (monSelectMode ? '<input type="checkbox" class="mon-check" data-mon="' + m.id + '"' + (monSelected[m.id] ? ' checked' : '') + ' />' : '') +
           '<span class="roster-name">' + esc(m.name) + '</span>' +
           '<span class="tag type">' + (TYPE_LABEL[m.type] || m.type) + '</span>' +
-          (advLabel ? '<span class="tag tag-chapter">📖 ' + esc(advLabel) + '</span>' : '') +
-          (m.family ? '<span class="tag">' + esc(m.family) + '</span>' : '') +
-          (m.rapide ? '<span class="tag">Rapide</span>' : '') +
-          (m.esquive ? '<span class="tag">Esq. 6+</span>' : '') +
+          '<span class="roster-head-extra">' +
+            (advLabel ? '<span class="tag tag-chapter">📖 ' + esc(advLabel) + '</span>' : '') +
+            (m.family ? '<span class="tag">' + esc(m.family) + '</span>' : '') +
+            (m.rapide ? '<span class="tag">Rapide</span>' : '') +
+            (m.esquive ? '<span class="tag">Esq. 6+</span>' : '') +
+          '</span>' +
           '<button class="ghost small" data-edit-monster="' + m.id + '">Éditer</button>' +
+          '<button class="ghost small" data-dup-monster="' + m.id + '" title="Dupliquer">⧉</button>' +
           '<button class="ghost small del-btn" data-del-monster="' + m.id + '" title="Supprimer">✕</button>' +
         '</div>' +
-        '<div class="stat-pills">' +
-          '<span class="stat-pill">❤ <b>' + m.pv + '</b></span>' +
-          '<span class="stat-pill">🛡 <b>' + monsterTotalDef(m) + '</b></span>' +
-          '<span class="stat-pill">⚔ <b>' + m.damage + '</b></span>' +
-          '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
-          '<span class="stat-pill">🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</span>' +
+        '<div class="roster-body">' +
+          '<div class="stat-pills">' +
+            '<span class="stat-pill">❤ <b>' + m.pv + '</b></span>' +
+            '<span class="stat-pill">🛡 <b>' + monsterTotalDef(m) + '</b></span>' +
+            '<span class="stat-pill">⚔ <b>' + m.damage + '</b></span>' +
+            '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
+            '<span class="stat-pill">🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</span>' +
+          '</div>' +
+          '<div class="roster-section">' +
+            '<div class="roster-label">Attaques</div>' +
+            '<div class="atk-badges">' + attacksSummary(monsterCombatAttacks(m)) + '</div>' +
+          '</div>' +
+          (advTalentsSummary(m) ? '<div class="roster-section"><div class="roster-label">Talents adverses</div><div class="talent-badges">' + advTalentsSummary(m) + '</div></div>' : '') +
+          (m.notes ? '<div class="roster-notes">' + esc(m.notes) + '</div>' : '') +
         '</div>' +
-        '<div class="roster-section">' +
-          '<div class="roster-label">Attaques</div>' +
-          '<div class="atk-badges">' + attacksSummary(monsterCombatAttacks(m)) + '</div>' +
-        '</div>' +
-        (advTalentsSummary(m) ? '<div class="roster-section"><div class="roster-label">Talents adverses</div><div class="talent-badges">' + advTalentsSummary(m) + '</div></div>' : '') +
-        (m.notes ? '<div class="roster-notes">' + esc(m.notes) + '</div>' : '') +
       '</div>';
     }).join('');
+    list.querySelectorAll('[data-toggle-monster]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const id = b.getAttribute('data-toggle-monster');
+        monExpanded[id] = !(monExpanded[id] === true);
+        renderMonsters();
+      });
+    });
+    list.querySelectorAll('[data-dup-monster]').forEach(function (b) {
+      b.addEventListener('click', function () { duplicateMonster(b.getAttribute('data-dup-monster')); });
+    });
     list.querySelectorAll('[data-edit-monster]').forEach(function (b) {
       b.addEventListener('click', function () { openMonsterModal(b.getAttribute('data-edit-monster')); });
     });
@@ -1827,6 +1848,25 @@
       });
     });
     updateBulkBar();
+  }
+
+  // Duplique un adversaire : copie complète nommée « <Nom> 2 » (ou 3, 4… si déjà pris).
+  function duplicateMonster(id) {
+    const src = Store.state.monsters.find(function (x) { return x.id === id; });
+    if (!src) return;
+    const copy = JSON.parse(JSON.stringify(src));
+    copy.id = Store.uid();
+    // Nom unique : « Nom 2 » puis « Nom 3 »… si un tel nom existe déjà.
+    const base = src.name.replace(/\s+\d+$/, '');
+    let n = 2;
+    const taken = function (name) { return Store.state.monsters.some(function (x) { return x.name === name; }); };
+    while (taken(base + ' ' + n)) n++;
+    copy.name = base + ' ' + n;
+    // Insère juste après l'original dans le bestiaire.
+    const idx = Store.state.monsters.indexOf(src);
+    Store.state.monsters.splice(idx + 1, 0, copy);
+    Store.save();
+    renderMonsters();
   }
 
   // Met à jour la liste des familles (filtre + datalist) selon le bestiaire
