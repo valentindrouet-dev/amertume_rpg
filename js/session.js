@@ -1215,11 +1215,23 @@
     const groupLike = block.who === 'group' || block.who === 'concerned';
     if (groupLike) {
       // GROUPE (tous) ou CONCERNÉS (sous-ensemble d'une chaîne) : chacun lance le
-      // test ; réussite globale à la majorité ; les conséquences d'échec
+      // test ; réussite globale selon le seuil choisi ; les conséquences d'échec
       // s'appliquent INDIVIDUELLEMENT à chaque aventurier qui a raté.
-      const heroList = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
+      let heroList = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
+      // NOUVELLE TENTATIVE d'un test collectif : les RÉUSSITES précédentes sont
+      // ACQUISES (affichées ✓) — seuls les aventuriers ayant échoué relancent.
+      const prev = ses.searchTests[block.id];
+      let keptResults = [];
+      if (prev && prev.group && Array.isArray(prev.results)) {
+        keptResults = prev.results.filter(function (r) { return r.passed; });
+        const passedIds = keptResults.map(function (r) { return r.heroId; });
+        heroList = heroList.filter(function (h) { return passedIds.indexOf(h.id) < 0; });
+      }
       const gr = runGroupRolls(ses, block.skill, block.difficulty, heroList, block.groupMode);
-      state = { done: true, success: gr.passed, claimed: false, group: true, results: gr.results, need: gr.need };
+      // Résultats fusionnés (acquis + nouveaux jets) ; verdict sur l'ensemble.
+      const merged = keptResults.concat(gr.results);
+      const passed = groupVerdict(merged, block.groupMode);
+      state = { done: true, success: passed, claimed: false, group: true, results: merged, need: gr.need };
       const msgs = [];
       gr.results.forEach(function (r) {
         if (r.passed) return;
@@ -1228,7 +1240,7 @@
         if (m) msgs.push(m);
       });
       state.fxMsgs = msgs;
-      if (gr.passed) {
+      if (passed) {
         const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
@@ -1448,11 +1460,16 @@
       // Nouvelle tentative selon le mode du bloc : à volonté, avec un autre
       // aventurier (1× chacun), ou après une montée de niveau du groupe.
       const mode = retryModeOf(block);
+      // Test COLLECTIF : la relance conserve les réussites acquises — seuls les
+      // aventuriers ayant échoué relancent (fusion des résultats dans runTestBlock).
+      const isGroupRes = state.group && Array.isArray(state.results);
       let retryHtml = '';
-      let retryAction = null; // 'reset' (efface l'état) | 'other' (relance avec exclusions)
+      let retryAction = null; // 'reset' (efface l'état) | 'other' (exclusions) | 'group' (relance des seuls échoués)
       if (mode === 'always') {
-        retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter le test</button></div>';
-        retryAction = 'reset';
+        const nFail = isGroupRes ? state.results.filter(function (r) { return !r.passed; }).length : 0;
+        retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter le test' +
+          (isGroupRes && nFail ? ' (' + nFail + ' aventurier' + (nFail > 1 ? 's' : '') + ' concerné' + (nFail > 1 ? 's' : '') + ')' : '') + '</button></div>';
+        retryAction = isGroupRes ? 'group' : 'reset';
       } else if (mode === 'other' && !state.group) {
         const attempted = Array.isArray(state.attempted) ? state.attempted : (state.heroId ? [state.heroId] : []);
         const remaining = aliveEngagedHeroes(ses).filter(function (h) { return attempted.indexOf(h.id) < 0; });
@@ -1465,7 +1482,7 @@
       } else if (mode === 'levelup') {
         if (sessionLevel(ses) > (state.levelAt || 1)) {
           retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter (nouveau niveau atteint)</button></div>';
-          retryAction = 'reset';
+          retryAction = isGroupRes ? 'group' : 'reset';
         } else {
           retryHtml = '<div class="hint">🔁 Retentable après une montée de niveau du groupe.</div>';
         }
@@ -1483,6 +1500,10 @@
         if (retryAction === 'other') {
           const attempted = Array.isArray(state.attempted) ? state.attempted : (state.heroId ? [state.heroId] : []);
           runTestBlock(ses, adv, scene, block, attempted);
+        } else if (retryAction === 'group') {
+          // Relance directe : runTestBlock conserve les réussites précédentes et ne
+          // fait relancer que les aventuriers ayant échoué.
+          runTestBlock(ses, adv, scene, block);
         } else {
           delete ses.searchTests[block.id];
           save(); render();
@@ -1695,6 +1716,16 @@
     if (mode === 'one') return 'Chaque aventurier lance le test — réussite si AU MOINS UN réussit.';
     return 'Chaque aventurier lance le test — réussite si la MAJORITÉ réussit.';
   }
+  // Verdict collectif sur un ensemble de résultats individuels, selon le seuil :
+  // unanimité ('all'), majorité (défaut) ou au moins un ('one').
+  function groupVerdict(results, groupMode) {
+    const n = results.length;
+    if (!n) return false;
+    const passedCount = results.filter(function (x) { return x.passed; }).length;
+    const mode = groupMode || 'majority';
+    const threshold = mode === 'all' ? n : (mode === 'one' ? 1 : Math.ceil(n / 2));
+    return passedCount >= threshold;
+  }
   function runGroupRolls(ses, skill, difficulty, heroList, groupMode) {
     const need = SKILL_DIFF[difficulty] || 2;
     const heroes = heroList || aliveEngagedHeroes(ses);
@@ -1705,14 +1736,8 @@
       return { heroId: h.id, name: h.name, succ: total, need: need, rolls: r.rolls, passed: total >= need };
     });
     const passedCount = results.filter(function (x) { return x.passed; }).length;
-    // Seuil de réussite collective : unanimité, majorité (défaut) ou au moins un.
-    const mode = groupMode || 'majority';
-    let threshold;
-    if (mode === 'all') threshold = heroes.length;
-    else if (mode === 'one') threshold = 1;
-    else threshold = Math.ceil(heroes.length / 2);
-    return { results: results, need: need, passedCount: passedCount, mode: mode,
-      passed: heroes.length > 0 && passedCount >= threshold };
+    return { results: results, need: need, passedCount: passedCount, mode: groupMode || 'majority',
+      passed: groupVerdict(results, groupMode) };
   }
 
   // 1d6 + 1d6 par point de compétence ; réussite = dé à 4+ ; les 6 sont explosifs
