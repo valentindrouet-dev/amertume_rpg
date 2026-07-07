@@ -785,6 +785,21 @@
     try { global.localStorage.setItem(ADVTALENT_KEY, JSON.stringify(Array.isArray(arr) ? arr : [])); } catch (e) {}
   }
 
+  // ---------- Talents de Parchemin ----------
+  // Pool de talents DÉDIÉS aux parchemins (onglet Classes, colonne « Parchemins »).
+  // Accessibles UNIQUEMENT via un objet Parchemin — jamais débloqués par niveau.
+  const PARCHTALENT_KEY = 'amertume_parchtalents_v1';
+  function loadParchTalents() {
+    try {
+      const raw = global.localStorage.getItem(PARCHTALENT_KEY);
+      const arr = raw ? JSON.parse(raw) : null;
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function saveParchTalents(arr) {
+    try { global.localStorage.setItem(PARCHTALENT_KEY, JSON.stringify(Array.isArray(arr) ? arr : [])); } catch (e) {}
+  }
+
   // ---------- Tutoriels / Encyclopédie ----------
   // Entrées pédagogiques affichées aux joueurs (onglet Tutoriel) et éditées
   // par le MJ (onglet Encyclopédie). Chaque entrée : { id, title, content }.
@@ -918,6 +933,8 @@
     saveMonsterTalents: saveMonsterTalents,
     loadAdvTalents: loadAdvTalents,
     saveAdvTalents: saveAdvTalents,
+    loadParchTalents: loadParchTalents,
+    saveParchTalents: saveParchTalents,
     loadTutorials: loadTutorials,
     saveTutorials: saveTutorials,
     loadUnlocked: loadUnlocked,

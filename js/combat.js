@@ -1678,12 +1678,14 @@
   function cannotAct(c, atk, idx) {
     if (!atk || atk.freeAction) return false;
     if (actionSpent(c)) return true;
-    if (!atk.isBase && Array.isArray(c.actedAtks) && c.actedAtks.indexOf(idx) >= 0) return true;
+    // Les actions de parchemin sont limitées par leur usage (1), pas par la règle
+    // « pas 2× la même » (leurs index ne sont pas stables dans le temps).
+    if (!atk.isBase && !atk.fromParchment && Array.isArray(c.actedAtks) && c.actedAtks.indexOf(idx) >= 0) return true;
     return false;
   }
   // Mémorise l'Action non-basique jouée ce tour (pour la règle « pas 2× la même »).
   function recordAction(c, atk, idx) {
-    if (!c || !atk || atk.freeAction || atk.isBase) return;
+    if (!c || !atk || atk.freeAction || atk.isBase || atk.fromParchment) return;
     if (!Array.isArray(c.actedAtks)) c.actedAtks = [];
     if (c.actedAtks.indexOf(idx) < 0) c.actedAtks.push(idx);
   }
@@ -3127,6 +3129,7 @@
     if (!Array.isArray(c.talents)) return [];
     const byId = {}; const order = [];
     c.talents.forEach(function (t) {
+      if (t.fromParchment) return; // les parchemins n'occupent JAMAIS d'emplacement de talent
       if (!byId[t.id]) { byId[t.id] = { id: t.id, name: t.name, kinds: [] }; order.push(t.id); }
       if (byId[t.id].kinds.indexOf(t.kind) < 0) byId[t.id].kinds.push(t.kind);
     });
@@ -3835,6 +3838,56 @@
     checkOutcome(); Store.save(); render();
   }
 
+  // Active une action du bandeau (clic sur un bouton d'attaque/talent) — aussi
+  // déclenchée directement par un PARCHEMIN (l'action se joue sans bouton dédié).
+  function activateHeroAction(c, i) {
+    const atk = c.attacks[i];
+    if (!atk) return;
+    // Cliquer un AUTRE bouton met fin à la répartition des Orbes Partagés / désignation Gardien.
+    if (!atk.orbeShare) pendingOrbeShare = null;
+    pendingDesignate = null;
+    // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
+    if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
+    // DÉPHASAGE / ASSAUT (auto-ciblés) : se résolvent immédiatement, sans ciblage.
+    if (atk.dephasage || atk.assaut) { execHeroAttack(c, i, null); return; }
+    // ORBES PARTAGÉS : on arme le ciblage des ALLIÉS (clic sur leurs vignettes),
+    // sans pop-up. Re-clic = annuler.
+    if (atk.orbeShare) {
+      const pi = c.attacks.findIndex(function (a) { return a.pyromaneOrb; });
+      const orbs = pi >= 0 ? (c.attackUses[pi] || 0) : 0;
+      if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour.'); return; }
+      pendingOrbeShare = (pendingOrbeShare === c.iid) ? null : c.iid;
+      pendingAttack = null; pendingAnalyze = null; pendingMove = null; pendingObject = null; stateMenuFor = null;
+      render(); return;
+    }
+    // COURSE (action de déplacement) : arme un mouvement qui consomme l'action.
+    if (atk.moveAction) {
+      if (actionSpent(c)) return;
+      moveAsAction = (pendingMove !== c.iid);
+      pendingMove = (pendingMove === c.iid) ? null : c.iid;
+      pendingAttack = null; pendingAnalyze = null; render(); return;
+    }
+    // REBOND : octroie 2 mouvements gratuits ce tour, puis on attaque normalement.
+    if (atk.rebondAction) {
+      if (c.rebondUsed) return; // déjà activé ce tour
+      c.rebondUsed = true; c.freeMoves = 2;
+      log(cname(c) + ' utilise <span class="lstate">' + esc(atk.name) + '</span> : 2 mouvements gratuits.', 'state');
+      pendingAttack = null; pendingAnalyze = null; pendingMove = null;
+      Store.save(); render(); return;
+    }
+    if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average) {
+      pendingAttack = null; render(); return; // re-clic = annuler
+    }
+    if (atk.multiTarget) {
+      pendingAttack = { iid: c.iid, atkIndex: i, average: false, multi: atk.multiTarget, picked: [], zone: null };
+      pendingAnalyze = null; pendingMove = null; stateMenuFor = null; render();
+    } else if (atk.targets === 'all' && !atk.zoneOnly) { execHeroAttack(c, i, null); }
+    // Frappe Tournoyante (zoneOnly) : attaque normale — on cible un adversaire,
+    // le déplacement au contact se fait automatiquement, puis TOUS les adversaires
+    // de la zone d'arrivée sont touchés (filtrage zoneOnly dans applyAttack).
+    else { pendingAttack = { iid: c.iid, atkIndex: i, average: false }; pendingAnalyze = null; stateMenuFor = null; render(); }
+  }
+
   // Retire UN exemplaire de l'objet consommé de l'inventaire de la session.
   // Objets CUMULABLES : l'objet reste équipé tant qu'il en reste en stock.
   function consumeObject(user) {
@@ -3862,24 +3915,38 @@
       log(cname(user) + ' encoche <span class="lwpn">' + esc(obj.name) + '</span> : +1 dé ' +
         (AMMO_LABEL[user.ammoLoaded] || user.ammoLoaded) + ' à sa prochaine attaque à distance.', 'state');
     } else if (obj.objEffect === 'talent') {
-      // PARCHEMIN : greffe l'effet de talent au porteur pour CE combat ; si c'est
-      // une action, elle apparaît comme attaque spéciale à 1 usage.
-      const cat = (Store.talentEffectMap ? Store.talentEffectMap() : {})[obj.parchEffect] || {};
-      const t = { id: 'parch-' + obj.id, name: obj.name, effect: obj.parchEffect,
-        kind: cat.kind || 'passive', val: obj.parchVal || cat.defaultVal || 0,
-        dice: null, range: null, choice: null, scope: 'count' };
-      if (!obj.parchEffect) { log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span>… vierge (aucun effet).', 'move'); }
-      else {
-        user.talents = (user.talents || []).concat([t]);
-        if ((t.kind === 'action' || t.effect === 'pyromane') && Combatants.talentActionAttacks) {
+      // PARCHEMIN : ses effets sont greffés au porteur SANS occuper d'emplacement
+      // du bandeau (fromParchment). Une ACTION se déclenche IMMÉDIATEMENT, comme
+      // un clic sur son bouton (ciblage direct) ; passifs/améliorations restent
+      // actifs pour le combat (tracés dans le journal).
+      const tals = parchmentTalents(obj);
+      if (!tals.length) {
+        log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span>… vierge (aucun effet).', 'move');
+      } else {
+        user.talents = (user.talents || []).concat(tals);
+        const actions = tals.filter(function (t) { return t.kind === 'action' || t.effect === 'pyromane'; });
+        const passives = tals.filter(function (t) { return actions.indexOf(t) < 0; });
+        if (passives.length) {
+          log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span> : « ' +
+            esc(passives.map(function (t) { return talentEffectName(t.effect); }).join(' + ')) + ' » actif pour ce combat.', 'state');
+        }
+        if (actions.length && Combatants.talentActionAttacks) {
           const weaponAtks = (user.attacks || []).filter(function (a) { return a.isBase; });
-          const newAtks = Combatants.talentActionAttacks(weaponAtks.length ? weaponAtks : (user.attacks || []), [t]);
-          newAtks.forEach(function (a) { a.uses = 1; a.fromParchment = true; });
+          const newAtks = Combatants.talentActionAttacks(weaponAtks.length ? weaponAtks : (user.attacks || []), actions);
+          newAtks.forEach(function (a) { a.uses = 1; a.fromParchment = true; a.generic = true; });
+          const firstIdx = (user.attacks || []).length;
           user.attacks = (user.attacks || []).concat(newAtks);
           user.attackUses = (user.attackUses || []).concat(newAtks.map(function () { return 1; }));
+          log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span> : l\'action se déclenche !', 'state');
+          // Consommation d'abord, puis déclenchement direct de l'action (ciblage).
+          consumeObject(user);
+          user.used.object = true;
+          pendingObject = null;
+          pushFx({ type: 'state', iid: user.iid });
+          Store.save();
+          activateHeroAction(user, firstIdx);
+          return;
         }
-        log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span> : gagne « ' +
-          esc(cat.name || obj.parchEffect) + ' »' + (t.kind === 'action' ? ' (1 usage)' : ' (ce combat)') + '.', 'state');
       }
     }
     consumeObject(user);
@@ -3887,6 +3954,37 @@
     pendingObject = null;
     pushFx({ type: 'state', iid: user.iid });
     checkOutcome(); Store.save(); render();
+  }
+  // Nom lisible d'un effet de talent (catalogue).
+  function talentEffectName(key) {
+    const e = (Store.talentEffectMap ? Store.talentEffectMap() : {})[key];
+    return e ? e.name : key;
+  }
+  // Résout les effets portés par un parchemin : soit un TALENT DE PARCHEMIN dédié
+  // (onglet Classes, référence « tal:<id> », effets multiples possibles), soit un
+  // effet brut du catalogue. Les entrées sont marquées fromParchment (aucun
+  // emplacement de bandeau occupé).
+  function parchmentTalents(obj) {
+    const cat = Store.talentEffectMap ? Store.talentEffectMap() : {};
+    const key = obj.parchEffect || '';
+    if (!key) return [];
+    if (key.indexOf('tal:') === 0) {
+      const pool = Store.loadParchTalents ? Store.loadParchTalents() : [];
+      const t = pool.find(function (x) { return x.id === key.slice(4); });
+      if (!t) return [];
+      const list = Store.talentEffectList ? Store.talentEffectList(t) : [];
+      return list.map(function (e) {
+        const c = cat[e.effect] || {};
+        return { id: t.id, name: obj.name || t.name, effect: e.effect, kind: c.kind || 'passive',
+          val: (typeof e.val === 'number') ? e.val : (c.defaultVal || 0),
+          dice: e.dice || null, range: e.range || null, choice: e.choice || null,
+          scope: e.scope || 'count', fromParchment: true };
+      });
+    }
+    const c = cat[key] || {};
+    return [{ id: 'parch-' + obj.id, name: obj.name, effect: key, kind: c.kind || 'passive',
+      val: obj.parchVal || c.defaultVal || 0, dice: null, range: null, choice: null,
+      scope: 'count', fromParchment: true }];
   }
 
   // Applique l'effet d'un objet consommable de `user` sur `target`, puis le consomme.
@@ -4169,52 +4267,7 @@
       // Chips d'attaque (dé)
       root.querySelectorAll('.atk-chip[data-iid="' + c.iid + '"]').forEach(function (b) {
         b.addEventListener('click', function () {
-          const i = parseInt(b.getAttribute('data-atk'), 10);
-          const atk = c.attacks[i];
-          if (!atk) return;
-          // Cliquer un AUTRE bouton met fin à la répartition des Orbes Partagés / désignation Gardien.
-          if (!atk.orbeShare) pendingOrbeShare = null;
-          pendingDesignate = null;
-          // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
-          if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
-          // DÉPHASAGE / ASSAUT (auto-ciblés) : se résolvent immédiatement, sans ciblage.
-          if (atk.dephasage || atk.assaut) { execHeroAttack(c, i, null); return; }
-          // ORBES PARTAGÉS : on arme le ciblage des ALLIÉS (clic sur leurs vignettes),
-          // sans pop-up. Re-clic = annuler.
-          if (atk.orbeShare) {
-            const pi = c.attacks.findIndex(function (a) { return a.pyromaneOrb; });
-            const orbs = pi >= 0 ? (c.attackUses[pi] || 0) : 0;
-            if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour.'); return; }
-            pendingOrbeShare = (pendingOrbeShare === c.iid) ? null : c.iid;
-            pendingAttack = null; pendingAnalyze = null; pendingMove = null; pendingObject = null; stateMenuFor = null;
-            render(); return;
-          }
-          // COURSE (action de déplacement) : arme un mouvement qui consomme l'action.
-          if (atk.moveAction) {
-            if (actionSpent(c)) return;
-            moveAsAction = (pendingMove !== c.iid);
-            pendingMove = (pendingMove === c.iid) ? null : c.iid;
-            pendingAttack = null; pendingAnalyze = null; render(); return;
-          }
-          // REBOND : octroie 2 mouvements gratuits ce tour, puis on attaque normalement.
-          if (atk.rebondAction) {
-            if (c.rebondUsed) return; // déjà activé ce tour
-            c.rebondUsed = true; c.freeMoves = 2;
-            log(cname(c) + ' utilise <span class="lstate">' + esc(atk.name) + '</span> : 2 mouvements gratuits.', 'state');
-            pendingAttack = null; pendingAnalyze = null; pendingMove = null;
-            Store.save(); render(); return;
-          }
-          if (pendingAttack && pendingAttack.iid === c.iid && pendingAttack.atkIndex === i && !pendingAttack.average) {
-            pendingAttack = null; render(); return; // re-clic = annuler
-          }
-          if (atk.multiTarget) {
-            pendingAttack = { iid: c.iid, atkIndex: i, average: false, multi: atk.multiTarget, picked: [], zone: null };
-            pendingAnalyze = null; pendingMove = null; stateMenuFor = null; render();
-          } else if (atk.targets === 'all' && !atk.zoneOnly) { execHeroAttack(c, i, null); }
-          // Frappe Tournoyante (zoneOnly) : attaque normale — on cible un adversaire,
-          // le déplacement au contact se fait automatiquement, puis TOUS les adversaires
-          // de la zone d'arrivée sont touchés (filtrage zoneOnly dans applyAttack).
-          else { pendingAttack = { iid: c.iid, atkIndex: i, average: false }; pendingAnalyze = null; stateMenuFor = null; render(); }
+          activateHeroAction(c, parseInt(b.getAttribute('data-atk'), 10));
         });
       });
       // Boutons de réaction (talents violets)

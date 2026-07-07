@@ -33,6 +33,7 @@
   let classes = [];
   let generics = [];
   let advTalents = []; // talents adverses nommés (effet-based)
+  let parchTalents = []; // talents dédiés aux parchemins (accessibles via objets seulement)
   let term = '';
   let groupFilter = '';
 
@@ -55,11 +56,15 @@
       .map(function (name) { return byName[name] || { name: name, talents: [] }; });
     generics = Store.loadGenericTalents();
     advTalents = Store.loadAdvTalents();
+    parchTalents = Store.loadParchTalents ? Store.loadParchTalents() : [];
   }
   // Sauvegarde les classes affichées + les classes cachées (données préservées)
   function save() { Store.saveClasses(classes.concat(hiddenClasses)); }
   function saveGen() { Store.saveGenericTalents(generics); }
-  function persist() { save(); saveGen(); Store.saveAdvTalents(advTalents); }
+  function persist() {
+    save(); saveGen(); Store.saveAdvTalents(advTalents);
+    if (Store.saveParchTalents) Store.saveParchTalents(parchTalents);
+  }
 
   function newTalent() {
     // Par défaut « En combat » : c'est de loin le cas le plus fréquent.
@@ -91,6 +96,9 @@
     classes.forEach(function (c) {
       g.push({ key: 'class', ref: c.name, name: c.name, slug: classSlug(c.name), list: c.talents });
     });
+    // Talents de PARCHEMIN : accessibles uniquement via un objet Parchemin
+    // (jamais débloqués par niveau) — pas de niveau affiché.
+    g.push({ key: 'parchment', ref: 'parchment', name: '📜 Parchemins', slug: 'parchemin', list: parchTalents });
     // Groupe des talents adverses (même pool d'effets, noms propres aux adversaires).
     g.push({ key: 'adversary', ref: 'adversary', name: '⚔️ Adversaires', slug: 'adversaire', list: advTalents });
     return g;
@@ -216,8 +224,10 @@
     const shown = groups().filter(function (g) { return g.ref !== 'adversary' && (!groupFilter || g.ref === groupFilter); });
     box.innerHTML = '<div class="tal-cols">' + shown.map(function (g) {
       const items = sortTalents(g.list.filter(matches));
+      // Colonne Parchemins : pas de niveau (accès via objet uniquement), pas d'œil.
+      const stripOpts = g.ref === 'parchment' ? { hideLevel: true, hideEye: true } : {};
       const strips = items.length
-        ? items.map(function (t) { return talentStrip(t, g.ref); }).join('')
+        ? items.map(function (t) { return talentStrip(t, g.ref, stripOpts); }).join('')
         : '<p class="inv-col-empty">—</p>';
       return '<div class="tal-col">' +
         '<div class="tal-col-hdr klass-' + g.slug + '">' +

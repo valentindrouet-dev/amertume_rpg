@@ -616,19 +616,36 @@
     } else if (eff === 'talent') {
       const key = $('#f-obj-talent').value;
       if (key) {
-        const e = (window.Store && Store.talentEffectMap) ? Store.talentEffectMap()[key] : null;
-        sum.value = 'Parchemin : ' + (e ? e.name : key) + ' (1 usage).';
+        let name = key;
+        if (key.indexOf('tal:') === 0) {
+          const t = (window.Store && Store.loadParchTalents) ? Store.loadParchTalents().find(function (x) { return x.id === key.slice(4); }) : null;
+          if (t) name = t.name;
+        } else {
+          const e = (window.Store && Store.talentEffectMap) ? Store.talentEffectMap()[key] : null;
+          if (e) name = e.name;
+        }
+        sum.value = 'Parchemin : ' + name + ' (1 usage).';
       }
     }
   }
-  // Options du sélecteur d'effet de talent des parchemins (pool complet).
+  // Options du sélecteur des parchemins : d'abord les TALENTS DE PARCHEMIN dédiés
+  // (onglet Classes, colonne 📜 Parchemins — valeur « tal:<id> »), puis les effets
+  // bruts du catalogue. Reconstruit à chaque ouverture (le pool évolue).
   function fillTalentEffectSelect() {
     const sel = $('#f-obj-talent');
-    if (!sel || sel.options.length > 1) return; // déjà rempli
+    if (!sel) return;
+    const parch = (window.Store && Store.loadParchTalents) ? Store.loadParchTalents() : [];
     const effects = (window.Store && Store.talentEffects) ? Store.talentEffects() : [];
-    sel.innerHTML = '<option value="">— Choisir un effet —</option>' + effects.map(function (e) {
+    let html = '<option value="">— Choisir un effet —</option>';
+    if (parch.length) {
+      html += '<optgroup label="📜 Talents de Parchemin (onglet Classes)">' + parch.map(function (t) {
+        return '<option value="tal:' + t.id + '">' + escapeHtml(t.name || '(sans nom)') + '</option>';
+      }).join('') + '</optgroup>';
+    }
+    html += '<optgroup label="Effets du catalogue">' + effects.map(function (e) {
       return '<option value="' + e.effect + '">' + escapeHtml(e.name) + '</option>';
-    }).join('');
+    }).join('') + '</optgroup>';
+    sel.innerHTML = html;
   }
 
   function saveFromForm(e) {
