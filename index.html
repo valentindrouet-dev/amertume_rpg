@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertüme Solo RPG</title>
-  <link rel="stylesheet" href="css/style.css?v=2.3.40" />
+  <link rel="stylesheet" href="css/style.css?v=2.3.41" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -642,7 +642,7 @@
           <label>Texte d'introduction de la récompense (affiché au-dessus du butin ; rien si vide)
             <textarea id="sm-reward-text" rows="2" placeholder="Ex : Dans le coffre éventré, sous une pile de haillons, vous découvrez…"></textarea>
           </label>
-          <label class="checkbox inline" title="Les récompenses (XP + objets) n'apparaissent qu'après avoir remporté le combat de la scène."><input type="checkbox" id="sm-reward-after-combat" /> ⚔ Gagné à l'issue du combat (récompense remise seulement si le combat est remporté)</label>
+          <label class="checkbox inline" title="Les récompenses (XP + objets) n'apparaissent qu'après avoir remporté le combat : le combat de zone de la scène OU un combat déclenché par un test / une action (en réussite ou en échec)."><input type="checkbox" id="sm-reward-after-combat" /> ⚔ Gagné à l'issue du combat (récompense remise seulement si le combat — de la scène ou déclenché par un test/une action — est remporté)</label>
           <label>XP <input type="number" id="sm-xp" min="0" value="0" style="width:80px" /></label>
           <div class="tb-win-row" id="sm-win-fx"></div>
           <div class="attacks-head" style="margin-top:.35rem"><h3>Objets</h3></div>
@@ -746,18 +746,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.3.40"></script>
-  <script src="js/store.js?v=2.3.40"></script>
-  <script src="js/inventory.js?v=2.3.40"></script>
-  <script src="js/combatants.js?v=2.3.40"></script>
-  <script src="js/combat.js?v=2.3.40"></script>
-  <script src="js/classes.js?v=2.3.40"></script>
-  <script src="js/tutorial.js?v=2.3.40"></script>
-  <script src="js/adventure.js?v=2.3.40"></script>
-  <script src="js/session.js?v=2.3.40"></script>
-  <script src="js/dataio.js?v=2.3.40"></script>
-  <script src="js/share.js?v=2.3.40"></script>
-  <script src="js/shell.js?v=2.3.40"></script>
-  <script src="js/main.js?v=2.3.40"></script>
+  <script src="js/dice.js?v=2.3.41"></script>
+  <script src="js/store.js?v=2.3.41"></script>
+  <script src="js/inventory.js?v=2.3.41"></script>
+  <script src="js/combatants.js?v=2.3.41"></script>
+  <script src="js/combat.js?v=2.3.41"></script>
+  <script src="js/classes.js?v=2.3.41"></script>
+  <script src="js/tutorial.js?v=2.3.41"></script>
+  <script src="js/adventure.js?v=2.3.41"></script>
+  <script src="js/session.js?v=2.3.41"></script>
+  <script src="js/dataio.js?v=2.3.41"></script>
+  <script src="js/share.js?v=2.3.41"></script>
+  <script src="js/shell.js?v=2.3.41"></script>
+  <script src="js/main.js?v=2.3.41"></script>
 </body>
 </html>

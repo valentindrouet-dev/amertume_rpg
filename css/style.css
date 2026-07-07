@@ -385,7 +385,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
    apparaître une barre de défilement horizontale au bas du journal — juste
    au-dessus du bandeau d'action — qui clignotait à toute vitesse lorsqu'elle
    entrait en rétroaction avec la barre verticale. */
-.combat-log { display: flex; flex-direction: column; gap: .2rem; max-height: 280px; overflow-y: auto; overflow-x: hidden; }
+/* scrollbar-gutter: stable — réserve en permanence la gouttière de la barre de
+   défilement verticale. Sans cela, quand le contenu oscille autour de la hauteur
+   maximale, la barre apparaît/disparaît, ce qui décale la largeur et fait
+   « trembler » deux liserés sombres en haut et en bas du bandeau de combat
+   (barres de défilement superposées en va-et-vient). */
+.combat-log { display: flex; flex-direction: column; gap: .2rem; max-height: 280px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; overscroll-behavior: contain; }
 /* Journal compact en haut du module : ~3 lignes visibles, scrollable au-delà */
 .combat-log.compact {
   max-height: 5.4rem; gap: 0; margin: .4rem 0;

@@ -727,6 +727,22 @@
       && Array.isArray(ses.forcedCombat.zones)
       && ses.forcedCombat.zones.some(function (z) { return (z.monsterRefs || []).some(function (r) { return r.monsterId; }); }));
   }
+  // Un test OBLIGATOIRE de la scène n'a pas encore été tenté : la scène est
+  // verrouillée (aucune sortie / suite) tant qu'il n'est pas résolu. Les tests
+  // enchaînés non révélés et les blocs dont la condition de compétence n'est pas
+  // remplie sont ignorés. Un test obligatoire qui déclenche un combat en cas
+  // d'échec reste ensuite verrouillé via forcedCombatPending.
+  function mandatoryTestPending(scene, ses) {
+    if (!scene || !ses) return false;
+    const blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
+    return blocks.some(function (blk) {
+      if (blk.type !== 'test' || !blk.mandatory) return false;
+      if (!blockVisible(blk, ses)) return false;          // condition de compétence non remplie
+      if (testChainHidden(scene, blk, ses)) return false; // test enchaîné non encore révélé
+      const st = ses.searchTests && ses.searchTests[blk.id];
+      return !(st && st.done);                            // pas encore tenté → verrou
+    });
+  }
   // Déclenche un combat imposé (issue de test) : mémorisé sur la session pour être
   // affiché et lancé, non contournable.
   function triggerForcedCombat(ses, sceneId, cfg) {
@@ -882,26 +898,39 @@
     if (forcedCombatPending(ses, scene)) { renderForcedCombat(box, scene, adv, ses); return; }
 
     // Récompense « Gagné à l'issue du combat » : masquée tant que le combat de la
-    // scène n'est pas remporté (cleared). Sans combat, le drapeau est ignoré.
-    const rewardGated = scene.rewardAfterCombat && hasCombat && !cleared;
+    // scène n'est pas remporté (cleared), OU tant qu'un combat déclenché par un
+    // test / une action est en attente. Sans combat, le drapeau est ignoré.
+    // (forcedCombatPending a déjà court-circuité le rendu plus haut ; clause de
+    // sécurité conservée.)
+    const rewardGated = scene.rewardAfterCombat && ((hasCombat && !cleared) || forcedCombatPending(ses, scene));
     if (sceneHasReward(scene) && !rewardGated) renderRewardScene(box, scene, adv, ses);
     if (hasCombat && (mode === 'linear' || !cleared)) renderCombatScene(box, scene, adv, ses);
     else if (hasCombat && cleared && mode !== 'linear') {
       appendSection(box).innerHTML = '<p class="ses-done-note ses-done-combat">⚔ Salle déjà nettoyée — les adversaires ont été vaincus.</p>';
     }
+    const resolved = !hasCombat || cleared;
+    // Navigation VERROUILLÉE tant que :
+    //  • le combat de la scène n'est pas remporté (resolved), OU
+    //  • un test OBLIGATOIRE n'a pas été tenté (mandatoryTestPending).
+    // Un test obligatoire qui déclenche un combat en cas d'échec passe ensuite le
+    // relais à forcedCombatPending (qui a déjà court-circuité l'affichage plus haut).
+    // Objectif : impossible d'« Emprunter le passage » / « Continuer » tant que le
+    // combat (ou le test qui le déclenche) n'est pas résolu.
+    const navBlocked = !resolved || mandatoryTestPending(scene, ses);
     // (Les tests de compétence sont désormais des blocs rendus dans le fil du
     // texte de la scène — cf. wireTestBlocks.)
     const hasChoices = scene.choices && scene.choices.length;
-    if (hasChoices) renderChoicesPlay(box, scene, adv, ses);
-    // « Scène suivante (auto) » n'existe pas dans les salles de donjon structuré
-    // (la navigation passe par les connecteurs).
-    else if (scene.nextSceneId && mode !== 'dungeon') renderNextButton(box, scene, adv, ses);
-    const resolved = !hasCombat || cleared;
+    if (!navBlocked) {
+      if (hasChoices) renderChoicesPlay(box, scene, adv, ses);
+      // « Scène suivante (auto) » n'existe pas dans les salles de donjon structuré
+      // (la navigation passe par les connecteurs).
+      else if (scene.nextSceneId && mode !== 'dungeon') renderNextButton(box, scene, adv, ses);
+    }
     // Scène d'ÉVÉNEMENT DE PASSAGE : une fois résolue, on poursuit vers la salle
     // de destination (pas de sorties propres).
     const inTransit = !!(ses.transit && ses.transit.sceneId === scene.id && scene.isTransition);
     if (inTransit) {
-      if (resolved) {
+      if (!navBlocked) {
         const destId = ses.transit.destId;
         const df = findScene(adv, destId);
         const dest = df ? (df.scene.title || 'Salle') : 'la suite';
@@ -912,8 +941,16 @@
         });
       }
     } else {
-      if (mode === 'dungeon' && resolved && !scene.isTransition) renderDungeonExits(box, ch, scene, adv, ses);
-      if (mode === 'random' && resolved && !hasChoices && !scene.nextSceneId && !scene.isTransition) renderRandomNext(box, ch, scene, adv, ses);
+      if (mode === 'dungeon' && !navBlocked && !scene.isTransition) renderDungeonExits(box, ch, scene, adv, ses);
+      if (mode === 'random' && !navBlocked && !hasChoices && !scene.nextSceneId && !scene.isTransition) renderRandomNext(box, ch, scene, adv, ses);
+    }
+    // Message explicatif : on indique pourquoi aucune sortie n'est proposée
+    // (le combat imposé, lui, a son propre écran et a déjà court-circuité le rendu).
+    if (navBlocked && !forcedCombatPending(ses, scene) && scene.type !== 'fin') {
+      const why = !resolved
+        ? '🔒 Terminez le combat de cette salle avant de continuer.'
+        : '🔒 Un test obligatoire doit être tenté avant de continuer.';
+      appendSection(box).innerHTML = '<p class="hint ses-nav-locked">' + why + '</p>';
     }
     if (scene.type === 'fin') renderFinButton(box, scene, adv, ses);
   }
@@ -2457,8 +2494,14 @@
     const scene = found ? found.scene : null;
     if (!scene || !sceneHasReward(scene)) return;
     if (ses.claimedRewards && ses.claimedRewards[scene.id]) return;
-    // « Gagné à l'issue du combat » : rien n'est remis si le combat n'est pas remporté.
-    if (scene.rewardAfterCombat && sceneHasCombat(scene) && !(ses.clearedScenes && ses.clearedScenes[scene.id])) return;
+    // « Gagné à l'issue du combat » : rien n'est remis tant que le combat n'est pas
+    // remporté — qu'il s'agisse du combat de ZONE de la scène OU d'un combat
+    // DÉCLENCHÉ par un test / une action (issue de réussite ou d'échec). Un combat
+    // imposé (forcedCombat) reste « en attente » tant qu'il n'est pas gagné (une
+    // défaite le ré-arme), donc forcedCombatPending suffit à retenir la récompense.
+    if (scene.rewardAfterCombat &&
+        ((sceneHasCombat(scene) && !(ses.clearedScenes && ses.clearedScenes[scene.id]))
+         || forcedCombatPending(ses, scene))) return;
     const assign = {};
     document.querySelectorAll('#ses-actions .rp-hero').forEach(function (sel) {
       assign[parseInt(sel.getAttribute('data-idx'), 10)] = sel.value;
