@@ -759,32 +759,42 @@
     else ses.treasures.push({ id: Store.uid(), name: name, qty: qty, kind: k });
   }
   // Attribue l'Or et les trésors d'une source de récompense (scène ou bloc de test).
+  // Les quantités acceptent une valeur fixe OU une notation en dés (« 2d6 », « 1d3 »),
+  // résolue ici — l'Or est toujours arrondi à l'entier.
   function grantTreasures(ses, o) {
     if (!o) return;
-    const gold = Math.max(0, Math.round(Number(o.goldReward) || 0));
+    const gold = Math.max(0, Math.round(Store.rollAmount(o.goldReward || 0)));
     if (gold > 0) { ensureLoot(ses); ses.gold += gold; }
     (o.treasureRewards || []).forEach(function (r) {
-      if (r && r.name && (r.qty || 0) > 0) addTreasure(ses, r.name, Math.round(r.qty), r.kind);
+      if (!r || !r.name) return;
+      const q = Math.max(0, Math.round(Store.rollAmount(r.qty == null ? 1 : r.qty)));
+      if (q > 0) addTreasure(ses, r.name, q, r.kind);
     });
     if (gold > 0 || (o.treasureRewards || []).some(function (r) { return r && r.name; })) {
       document.dispatchEvent(new CustomEvent('inventory-new-item'));
     }
   }
+  function rewardAmountSet(v) { return Store.isDiceExpr(v) || (Math.round(Number(v) || 0) > 0); }
   function hasTreasureReward(o) {
-    return (Math.round(Number(o.goldReward) || 0) > 0) ||
-      (Array.isArray(o.treasureRewards) && o.treasureRewards.some(function (r) { return r && r.name && (r.qty || 0) > 0; }));
+    return rewardAmountSet(o.goldReward) ||
+      (Array.isArray(o.treasureRewards) && o.treasureRewards.some(function (r) { return r && r.name && rewardAmountSet(r.qty == null ? 1 : r.qty); }));
   }
   // HTML des lignes de récompense Or/Trésors (encadré « Butin » doré et festif).
   function treasureRewardHtml(o) {
     if (!hasTreasureReward(o)) return '';
     let rows = '';
-    const gold = Math.max(0, Math.round(Number(o.goldReward) || 0));
-    if (gold > 0) rows += '<div class="ses-reward-title ses-loot-gold">🪙 <strong>+' + gold + ' Or</strong></div>';
+    // Les quantités en dés (« 2d6 ») sont affichées telles quelles ; le tirage a
+    // lieu à la remise de la récompense.
+    if (rewardAmountSet(o.goldReward)) {
+      rows += '<div class="ses-reward-title ses-loot-gold">🪙 <strong>+' + esc(String(o.goldReward)) + ' Or</strong></div>';
+    }
     (o.treasureRewards || []).forEach(function (r) {
-      if (!r || !r.name || !(r.qty > 0)) return;
+      if (!r || !r.name || !rewardAmountSet(r.qty == null ? 1 : r.qty)) return;
+      const q = r.qty == null ? 1 : r.qty;
+      const qShow = (Store.isDiceExpr(q) || q > 1) ? ' ×' + esc(String(q)) : '';
       rows += r.kind === 'rare'
-        ? '<div class="ses-reward-title ses-loot-rare">🗝️ Objet Rare — <strong>' + esc(r.name) + (r.qty > 1 ? ' ×' + r.qty : '') + '</strong></div>'
-        : '<div class="ses-reward-title ses-loot-treasure">💎 Trésor — <strong>' + esc(r.name) + (r.qty > 1 ? ' ×' + r.qty : '') + '</strong></div>';
+        ? '<div class="ses-reward-title ses-loot-rare">🗝️ Objet Rare — <strong>' + esc(r.name) + qShow + '</strong></div>'
+        : '<div class="ses-reward-title ses-loot-treasure">💎 Trésor — <strong>' + esc(r.name) + qShow + '</strong></div>';
     });
     return '<div class="ses-reward-block ses-reward-gold">' +
       '<div class="ses-loot-head">✨ Butin !</div>' + rows + '</div>';
@@ -1130,45 +1140,56 @@
     if (!ses.searchTests) ses.searchTests = {};
     const state = ses.searchTests[block.id];
     if (!state) {
-      let helper;
       const groupLike = block.who === 'group' || block.who === 'concerned';
-      if (groupLike) {
-        // GROUPE (tous) ou CONCERNÉS (sous-ensemble issu d'une chaîne) : chaque
-        // aventurier ciblé est affiché (vignettes espacées ; difficulté sur le bouton).
-        const heroes = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
-        helper = heroes.length
-          ? '<div class="ses-group-pills">' + heroes.map(function (h) {
-              const info = heroTestInfo(ses, h, block.skill);
-              return '<div class="ses-skill-pill">' +
-                '<span class="ssk-hero">' + esc(h.name) + '</span>' +
-                '<span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
-                (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
-              '</div>';
-            }).join('') + '</div>'
-          : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
-      } else {
-        const bh = singleTester(ses, block);
+      // VARIANTES : compétence principale + éventuelle compétence alternative
+      // (2 boutons — le joueur choisit sa méthode, le résultat vaut pour le bloc).
+      const variants = [{ skill: block.skill, difficulty: block.difficulty }];
+      if (block.altSkill) variants.push({ skill: block.altSkill, difficulty: block.altDifficulty || block.difficulty });
+      // Vignettes d'aide pour une compétence donnée (testeurs et dés lancés).
+      const helperFor = function (skill) {
+        if (groupLike) {
+          const heroes = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
+          return heroes.length
+            ? '<div class="ses-group-pills">' + heroes.map(function (h) {
+                const info = heroTestInfo(ses, h, skill);
+                return '<div class="ses-skill-pill">' +
+                  '<span class="ssk-hero">' + esc(h.name) + '</span>' +
+                  '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
+                  (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
+                '</div>';
+              }).join('') + '</div>'
+            : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+        }
+        const bh = singleTester(ses, block, null, skill);
         const dice = 1 + (bh.bonus || 0);
         const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">🎲 au hasard</span>' : '';
-        helper = bh.hero
+        return bh.hero
           ? '<div class="ses-skill-pill">' +
               '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' + randTag +
-              '<span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + ' ' + dice + ' 🎲</span>' +
+              '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + ' 🎲</span>' +
               (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
             '</div>'
           : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
-      }
+      };
       // La DIFFICULTÉ est toujours affichée SUR le bouton, à droite de la compétence.
-      slot.innerHTML = '<div class="ses-searchtest">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (block.who === 'group' ? ' <span class="ses-st-group-tag" title="' + esc(groupModeLabel(block.groupMode)) + '">👥 GROUPE</span>' : '') + '</div>' +
-        '<button class="ses-choice-btn skill-test sktest-' + slug(block.skill || '') + ' choice-type-enquete ses-tb-go">' +
+      const btnsHtml = variants.map(function (v, vi) {
+        return '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
           esc(block.label || 'Tenter le test') +
-          ' <span class="ssk-skill skill-' + slug(block.skill || '') + '">' + esc(block.skill || '') + '</span>' +
-          ' <span class="ssk-diff ssk-diff-' + (block.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[block.difficulty] || 'Moyen') + '</span>' +
-        '</button>' +
-        helper +
+          ' <span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +
+          ' <span class="ssk-diff ssk-diff-' + (v.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[v.difficulty] || 'Moyen') + '</span>' +
+        '</button>' + helperFor(v.skill);
+      }).join(variants.length > 1 ? '<div class="ses-tb-or">— ou —</div>' : '');
+      slot.innerHTML = '<div class="ses-searchtest">' +
+        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') +
+          (block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '') +
+          (block.who === 'group' ? ' <span class="ses-st-group-tag" title="' + esc(groupModeLabel(block.groupMode)) + '">👥 GROUPE</span>' : '') + '</div>' +
+        btnsHtml +
       '</div>';
-      slot.querySelector('.ses-tb-go').addEventListener('click', function () { runTestBlock(ses, adv, scene, block); });
+      slot.querySelectorAll('.ses-tb-go').forEach(function (b) {
+        b.addEventListener('click', function () {
+          runTestBlock(ses, adv, scene, block, null, variants[parseInt(b.getAttribute('data-vi'), 10) || 0]);
+        });
+      });
       return;
     }
     renderTestBlockResult(slot, block, scene, adv, ses, state);
@@ -1209,9 +1230,13 @@
     return ids.map(function (id) { return alive.find(function (h) { return h.id === id; }); }).filter(Boolean);
   }
 
-  function runTestBlock(ses, adv, scene, block, excludeIds) {
+  function runTestBlock(ses, adv, scene, block, excludeIds, variant) {
     if (!ses.searchTests) ses.searchTests = {};
     let state;
+    // Compétence/difficulté réellement testées : variante choisie (2e bouton),
+    // sinon celle mémorisée (relance), sinon la principale du bloc.
+    const prevSt = ses.searchTests[block.id];
+    const v = variant || (prevSt && prevSt.variant) || { skill: block.skill, difficulty: block.difficulty };
     const groupLike = block.who === 'group' || block.who === 'concerned';
     if (groupLike) {
       // GROUPE (tous) ou CONCERNÉS (sous-ensemble d'une chaîne) : chacun lance le
@@ -1227,7 +1252,7 @@
         const passedIds = keptResults.map(function (r) { return r.heroId; });
         heroList = heroList.filter(function (h) { return passedIds.indexOf(h.id) < 0; });
       }
-      const gr = runGroupRolls(ses, block.skill, block.difficulty, heroList, block.groupMode);
+      const gr = runGroupRolls(ses, v.skill, v.difficulty, heroList, block.groupMode);
       // Résultats fusionnés (acquis + nouveaux jets) ; verdict sur l'ensemble.
       const merged = keptResults.concat(gr.results);
       const passed = groupVerdict(merged, block.groupMode);
@@ -1250,9 +1275,9 @@
     } else {
       // Exclusions (mode « avec un autre aventurier ») : les aventuriers ayant
       // déjà tenté ce test ne sont plus candidats.
-      const bh = singleTester(ses, block, excludeIds);
+      const bh = singleTester(ses, block, excludeIds, v.skill);
       const res = rollSkill(bh.bonus);
-      const need = SKILL_DIFF[block.difficulty] || 2;
+      const need = SKILL_DIFF[v.difficulty] || 2;
       const total = res.successes + (bh.talentSucc || 0);
       const passed = total >= need;
       state = { done: true, success: passed, claimed: false, rolls: res.rolls, succ: total, need: need,
@@ -1269,6 +1294,8 @@
       // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
       if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
     }
+    // Variante utilisée (compétence/difficulté) — réutilisée aux relances.
+    state.variant = v;
     // Niveau du groupe au moment de la tentative (re-test « montée de niveau »).
     state.levelAt = sessionLevel(ses);
     // Marque l'ENTRÉE de scène où le test a été résolu (affichage compact au retour).
@@ -1436,6 +1463,7 @@
   }
 
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
+    const mTag = block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '';
     // Résultat obtenu lors d'une ENTRÉE ANTÉRIEURE (on est revenu dans la salle) :
     // version COMPACTE — on GARDE le titre, le verdict et le TEXTE narratif, mais on
     // masque les récompenses (XP, objets, Hauts Faits) et les résultats chiffrés.
@@ -1451,7 +1479,7 @@
         : (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '');
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-compact ' +
         (ok || state.validated ? 'ses-st-success-box' : 'ses-st-fail-box') + '">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + ' — ' + verdict + '</div>' +
+        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + mTag + ' — ' + verdict + '</div>' +
         narr +
       '</div>';
       return;
@@ -1488,7 +1516,7 @@
         }
       }
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-fail-box">' +
-        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
+        '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
         (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '') +
         groupResultsHtml(state) +
         fxMsgsHtml(state) +
@@ -1569,7 +1597,7 @@
       ? '<div class="ses-st-rescue">↳ Situation débloquée grâce au test « ' + esc(state.validatedBy || 'enchaîné') + ' ».</div>'
       : '';
     slot.innerHTML = '<div class="ses-searchtest ses-st-done ' + (rescued ? 'ses-st-rescued-box' : 'ses-st-success-box') + '">' +
-      '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — ' + verdict + '</div>' +
+      '<div class="ses-st-title">🔍 ' + esc(block.label || 'Test de compétence') + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — ' + verdict + '</div>' +
       narrative +
       rescueBanner +
       groupResultsHtml(state) +
@@ -1684,15 +1712,17 @@
     }
     return h || null;
   }
-  // Testeur unique d'un bloc (mode « meilleur » ou « aléatoire »).
-  function singleTester(ses, block, excludeIds) {
+  // Testeur unique d'un bloc (mode « meilleur » ou « aléatoire »). `skillOverride`
+  // permet de tester une compétence ALTERNATIVE (2e bouton du bloc).
+  function singleTester(ses, block, excludeIds, skillOverride) {
+    const skill = skillOverride || block.skill;
     if (block.who === 'random') {
       const h = designatedRandomHero(ses, block, excludeIds);
       if (!h) return { hero: null, bonus: 0, talentSucc: 0 };
-      const info = heroTestInfo(ses, h, block.skill);
+      const info = heroTestInfo(ses, h, skill);
       return { hero: h, bonus: info.bonus, talentSucc: info.talentSucc };
     }
-    return bestHeroForSkill(ses, block.skill, null, excludeIds);
+    return bestHeroForSkill(ses, skill, null, excludeIds);
   }
   function heroTestInfo(ses, h, skill) {
     const g = ses.levelGains ? ses.levelGains[h.id] : null;
@@ -2345,6 +2375,10 @@
     }).join('');
     // Deux cases distinctes : XP d'un côté, équipement de l'autre.
     let html = '';
+    // Texte d'introduction de la récompense (contexte narratif) — rien si vide.
+    if (scene.rewardText && scene.rewardText.trim()) {
+      html += '<div class="scene-block scene-block-narrative ses-reward-intro">' + fmtSceneText(scene.rewardText) + '</div>';
+    }
     if (xp) {
       html += '<div class="ses-reward-block ses-reward-xp">' +
         '<div class="ses-reward-title">✦ Expérience <strong>+' + xp + ' XP</strong></div>' +

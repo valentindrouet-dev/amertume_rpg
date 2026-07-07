@@ -1287,6 +1287,8 @@
     document.getElementById('sm-xp').onchange = function () { scene.xpReward = parseInt(this.value, 10) || 0; };
     const rac = document.getElementById('sm-reward-after-combat');
     if (rac) { rac.checked = !!scene.rewardAfterCombat; rac.onchange = function () { scene.rewardAfterCombat = this.checked; }; }
+    const rtx = document.getElementById('sm-reward-text');
+    if (rtx) { rtx.value = scene.rewardText || ''; rtx.oninput = function () { scene.rewardText = this.value; }; }
     const winBox = document.getElementById('sm-win-fx');
     if (winBox) {
       winBox.innerHTML = winFxControlsHtml(scene, 'sm-wfx-kind', 'sm-wfx-val', 'sm-wfx-state', '', false);
@@ -1447,6 +1449,15 @@
                 '<option value="concerned"' + (blk.who === 'concerned' ? ' selected' : '') + '>🎯 Aventuriers concernés (chaîne)</option>' +
               '</select></label>' +
             '</div>' +
+            // Compétence ALTERNATIVE : le joueur choisit entre 2 boutons (2 compétences,
+            // difficultés indépendantes) — le résultat résout le test dans les 2 cas.
+            '<div class="form-row tb-alt-row" style="grid-template-columns:1fr 1fr auto">' +
+              '<label>Compétence alternative <select class="tb-altskill" data-bi="' + i + '">' +
+                '<option value="">— Aucune —</option>' +
+                SKILLS.map(function (s) { return '<option value="' + s + '"' + (blk.altSkill === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
+              '<label>Difficulté (alternative) <select class="tb-altdiff" data-bi="' + i + '"' + (blk.altSkill ? '' : ' disabled') + '>' + diffOptsHtml(blk.altDifficulty || blk.difficulty) + '</select></label>' +
+              '<label class="tb-mandatory-lbl" title="Affiche 🔒 Obligatoire en rouge dans le titre du test."><input type="checkbox" class="tb-mandatory" data-bi="' + i + '"' + (blk.mandatory ? ' checked' : '') + ' /> 🔒 Obligatoire</label>' +
+            '</div>' +
             // Seuil de réussite d'un test collectif (groupe / concernés).
             ((blk.who === 'group' || blk.who === 'concerned')
               ? '<label class="tb-groupmode-lbl">👥 Le test collectif est réussi si <select class="tb-groupmode" data-bi="' + i + '">' +
@@ -1589,6 +1600,15 @@
     box.querySelectorAll('.tb-label').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].label = this.value; }; });
     box.querySelectorAll('.tb-skill').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].skill = this.value; }; });
     box.querySelectorAll('.tb-diff').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].difficulty = this.value; }; });
+    box.querySelectorAll('.tb-altskill').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].altSkill = this.value; renderBlocksEditor(scene, adv); };
+    });
+    box.querySelectorAll('.tb-altdiff').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].altDifficulty = this.value; };
+    });
+    box.querySelectorAll('.tb-mandatory').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].mandatory = this.checked; };
+    });
     box.querySelectorAll('.tb-who').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].who = this.value; renderBlocksEditor(scene, adv); }; });
     box.querySelectorAll('.tb-groupmode').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].groupMode = this.value; }; });
     box.querySelectorAll('.tb-success').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].successText = this.value; }; });
@@ -1994,18 +2014,20 @@
       return '<div class="tr-line" data-i="' + i + '">' +
         '<span class="tr-kind">' + (r.kind === 'rare' ? '🗝️' : '💎') + '</span>' +
         '<input type="text" class="tr-name" value="' + esc(r.name || '') + '" placeholder="' + (r.kind === 'rare' ? 'Nom de l\'Objet Rare (ex : Clé du Dragon)' : 'Nom du Trésor (ex : Saphir)') + '" />' +
-        '<label class="tr-qty-lbl">×<input type="number" class="tr-qty" min="1" step="1" value="' + Math.max(1, Math.round(r.qty || 1)) + '" style="width:55px" /></label>' +
+        '<label class="tr-qty-lbl">×<input type="text" class="tr-qty" value="' + esc(r.qty == null ? 1 : r.qty) + '" style="width:60px" title="Quantité fixe ou en dés (ex : 2, 1d3, 2d6)" /></label>' +
         '<button type="button" class="icon-btn tr-del">✕</button>' +
       '</div>';
     }).join('');
     box.innerHTML =
       '<div class="tr-row">' +
-        '<label class="tr-gold-lbl">🪙 Or <input type="number" class="tr-gold" min="0" step="1" value="' + Math.max(0, Math.round(Number(obj.goldReward) || 0)) + '" style="width:80px" /></label>' +
+        '<label class="tr-gold-lbl">🪙 Or <input type="text" class="tr-gold" value="' + esc(obj.goldReward == null ? 0 : obj.goldReward) + '" style="width:80px" title="Quantité fixe ou en dés (ex : 25, 2d6, 3d6+5) — toujours arrondie à l\'entier" /></label>' +
         '<button type="button" class="ghost small tr-add-tre">+ Trésor</button>' +
         '<button type="button" class="ghost small tr-add-rare">+ Objet Rare</button>' +
       '</div>' + rows;
     box.querySelector('.tr-gold').onchange = function () {
-      obj.goldReward = Math.max(0, Math.round(parseInt(this.value, 10) || 0)); // toujours entier
+      const v = this.value.trim();
+      // Valeur fixe (entier) OU notation en dés (« 2d6 », « 1d3+1 ») — stockée brute.
+      obj.goldReward = Store.isDiceExpr(v) ? v : Math.max(0, Math.round(parseInt(v, 10) || 0));
       this.value = obj.goldReward;
     };
     box.querySelector('.tr-add-tre').onclick = function () {
@@ -2020,7 +2042,8 @@
       const i = parseInt(line.getAttribute('data-i'), 10);
       line.querySelector('.tr-name').oninput = function () { obj.treasureRewards[i].name = this.value; };
       line.querySelector('.tr-qty').onchange = function () {
-        obj.treasureRewards[i].qty = Math.max(1, Math.round(parseInt(this.value, 10) || 1));
+        const v = this.value.trim();
+        obj.treasureRewards[i].qty = Store.isDiceExpr(v) ? v : Math.max(1, Math.round(parseInt(v, 10) || 1));
         this.value = obj.treasureRewards[i].qty;
       };
       line.querySelector('.tr-del').onclick = function () {
