@@ -585,13 +585,39 @@
     if (objFields) objFields.style.display = (cat === 'object' || cat === 'misc' || cat === 'ammo') ? '' : 'none';
   }
 
-  // Champs conditionnels de l'effet d'objet (munition / parchemin).
+  // Champs conditionnels de l'effet d'objet : « Cible » et « Nombre de dés » ne
+  // concernent que le SOIN ; munitions et parchemins ont leurs propres champs.
   function toggleObjEffectFields() {
     const eff = $('#f-obj-effect').value;
     const ammoRow = $('#f-obj-ammo-row');
     const talRow = $('#f-obj-talent-row');
     if (ammoRow) ammoRow.style.display = eff === 'ammo' ? '' : 'none';
     if (talRow) talRow.style.display = eff === 'talent' ? '' : 'none';
+    const beneficLbl = $('#f-obj-benefic') && $('#f-obj-benefic').closest('label');
+    const diceLbl = $('#f-obj-dice') && $('#f-obj-dice').closest('label');
+    if (beneficLbl) beneficLbl.style.display = eff === 'heal' ? '' : 'none';
+    if (diceLbl) diceLbl.style.display = eff === 'heal' ? '' : 'none';
+  }
+  // Suggestion de résumé selon l'effet choisi — proposée UNIQUEMENT si le champ
+  // est vide (un résumé effacé par le MJ reste vide, il n'est jamais réimposé).
+  function suggestObjSummary() {
+    const sum = $('#f-obj-summary');
+    if (!sum || sum.value.trim()) return;
+    const eff = $('#f-obj-effect').value;
+    const AMMO_LABEL = { white: 'blanc', bone: 'os', red: 'rouge', blue: 'bleu', black: 'noir' };
+    if (eff === 'heal') {
+      const n = Math.max(0, parseInt($('#f-obj-dice').value, 10) || 0);
+      if (n > 0) sum.value = 'Soigne ' + ($('#f-obj-benefic').value === '1' ? 'un aventurier' : 'une cible') + ' de ' + n + 'd6 PV.';
+    } else if (eff === 'ammo') {
+      const c = $('#f-obj-ammo-color').value || 'white';
+      sum.value = '+1 dé ' + (AMMO_LABEL[c] || c) + ' à la prochaine attaque avec une Arme à Distance.';
+    } else if (eff === 'talent') {
+      const key = $('#f-obj-talent').value;
+      if (key) {
+        const e = (window.Store && Store.talentEffectMap) ? Store.talentEffectMap()[key] : null;
+        sum.value = 'Parchemin : ' + (e ? e.name : key) + ' (1 usage).';
+      }
+    }
   }
   // Options du sélecteur d'effet de talent des parchemins (pool complet).
   function fillTalentEffectSelect() {
@@ -640,18 +666,10 @@
       data.parchEffect = $('#f-obj-talent').value || '';
       data.parchVal = Math.max(0, parseInt($('#f-obj-talent-val').value, 10) || 0);
       data.consumable = true; // munitions, parchemins et consommables se consomment à l'usage
-      // Résumé d'effet rédigé par le MJ (prioritaire) ; sinon auto selon l'effet.
-      const summary = ($('#f-obj-summary').value || '').trim();
-      const AMMO_LABEL = { white: 'blanc', bone: 'os', red: 'rouge', blue: 'bleu', black: 'noir' };
-      if (summary) data.effects = summary;
-      else if (data.objEffect === 'heal' && data.objDice > 0) {
-        data.effects = 'Soigne ' + (data.objBenefic ? 'un aventurier' : 'une cible') + ' de ' + data.objDice + 'd6 PV.';
-      } else if (data.objEffect === 'ammo') {
-        data.effects = '+1 dé ' + (AMMO_LABEL[data.ammoColor] || data.ammoColor) + ' à la prochaine attaque avec une Arme à Distance.';
-      } else if (data.objEffect === 'talent' && data.parchEffect) {
-        const eff = (window.Store && Store.talentEffectMap) ? Store.talentEffectMap()[data.parchEffect] : null;
-        data.effects = 'Parchemin : ' + (eff ? eff.name : data.parchEffect) + ' (1 usage).';
-      }
+      // Résumé d'effet : la valeur du champ fait foi, TELLE QUELLE (même vide).
+      // La suggestion automatique n'est proposée que dans le formulaire, jamais
+      // réimposée à l'enregistrement (un résumé effacé reste effacé).
+      data.effects = ($('#f-obj-summary').value || '').trim();
     }
     if (existing) Object.assign(existing, data);
     else Store.state.items.push(data);
@@ -695,7 +713,11 @@
     $('#btn-delete-item').addEventListener('click', deleteCurrent);
     $('#f-category').addEventListener('change', toggleWeaponFields);
     const objEffSel = $('#f-obj-effect');
-    if (objEffSel) objEffSel.addEventListener('change', toggleObjEffectFields);
+    if (objEffSel) objEffSel.addEventListener('change', function () { toggleObjEffectFields(); suggestObjSummary(); });
+    ['#f-obj-ammo-color', '#f-obj-talent', '#f-obj-dice', '#f-obj-benefic'].forEach(function (sel) {
+      const el = $(sel);
+      if (el) el.addEventListener('change', suggestObjSummary);
+    });
     $('#search').addEventListener('input', renderList);
     $('#filter-cat').addEventListener('change', renderList);
     $('#btn-load-official').addEventListener('click', function () {
