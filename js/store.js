@@ -46,6 +46,17 @@
         traits: [], price: price, effects: effText, notes: 'Officiel v4.s2', official: true,
       };
     }
+    // M(nom, couleur de dé, prix) — Munition : +1 dé à la prochaine attaque à distance.
+    function M(name, color, colorLabel, price) {
+      return {
+        id: uid(), name: name, category: 'object', qty: 1, hands: 1, ranged: false,
+        usesAmmo: false, consumable: true, dice: AmertumeDice.emptyPool(),
+        objEffect: 'ammo', ammoColor: color, objDice: 0, objBenefic: true,
+        traits: [], price: price,
+        effects: '+1 dé ' + colorLabel + ' à la prochaine attaque avec une Arme à Distance.',
+        notes: 'Officiel v4.s2', official: true,
+      };
+    }
     return [
       // Mêlée
       W('Dague', { white: 1 }, 1, false, ['jetable'], 3, 3),
@@ -73,6 +84,12 @@
       O('Petite Potion de Soin', 'heal', 2, true, 15, 'Soigne un aventurier de 2d6 PV.'),
       O('Potion de Soin', 'heal', 4, true, 35, 'Soigne un aventurier de 4d6 PV.'),
       O('Grande Potion de Soin', 'heal', 6, true, 70, 'Soigne un aventurier de 6d6 PV.'),
+      // Munitions (+1 dé à la prochaine attaque avec une Arme à Distance)
+      M('Flèches', 'white', 'blanc', 5),
+      M('Flèches légères', 'bone', 'os', 3),
+      M('Flèches lourdes', 'red', 'rouge', 15),
+      M('Flèches Mystiques', 'blue', 'bleu', 20),
+      M('Flèches Mortelles', 'black', 'noir', 40),
     ];
   }
 

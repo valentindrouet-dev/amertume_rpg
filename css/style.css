@@ -1010,6 +1010,40 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .ses-reward-block.ses-reward-prepare { border-left: 4px solid #e2974a; padding: .4rem .9rem; }
 .ses-reward-block.ses-reward-prepare .ses-reward-title { margin-bottom: 0; }
 .ses-reward-note { font-weight: 400; font-size: .82rem; color: var(--muted); }
+/* Pastille de quantité des objets cumulables (coin supérieur droit). */
+.inv-strip-row { position: relative; }
+.inv-qty-badge {
+  position: absolute; top: -7px; right: 20px; z-index: 2;
+  min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; font-size: .72rem; font-weight: 800;
+  background: #58b368; color: #10240f; border: 2px solid rgba(20,40,18,.55);
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+/* Bloc Or, Trésors et Objets Rares (sous l'inventaire d'équipement). */
+.inv-treasure-box { margin-top: 1rem; }
+.inv-treasure-head { display: flex; align-items: center; gap: .6rem; }
+.inv-gold-pill {
+  font-size: .85rem; font-weight: 800; color: #4d3a06;
+  background: rgba(230,200,120,.92); border-radius: 12px; padding: .12rem .6rem;
+}
+.inv-treasure-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: .35rem .6rem; padding: .4rem 0;
+}
+.inv-strip-row.cat-treasure { border-left: 4px solid #3fa7c4; }
+.inv-strip-row.cat-rare { border-left: 4px solid #b02ea8; }
+.inv-treasure-del {
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  font-size: .85rem; padding: .1rem .3rem;
+}
+.inv-treasure-del:hover { color: #d65c40; }
+/* Éditeur de récompenses Or / Trésors / Objets Rares (scènes + tests). */
+.tr-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: .3rem 0; }
+.tr-gold-lbl { display: inline-flex; align-items: center; gap: .35rem; font-weight: 700; }
+.tr-line { display: flex; align-items: center; gap: .4rem; margin: .25rem 0; }
+.tr-line .tr-name { flex: 1; }
+.cs-chip-gold { background: rgba(230,200,120,.92); color: #4d3a06; font-weight: 800; }
 /* Éditeur de zones de combat porté par un effet de test (réussite/échec). */
 .tb-fx-combat { margin: .4rem 0 .2rem; padding: .5rem; border: 1px dashed rgba(214,92,64,.5); border-radius: 8px; background: rgba(214,92,64,.06); }
 .tb-fx-combat:empty { display: none; }

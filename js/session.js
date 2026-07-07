@@ -591,7 +591,7 @@
       var st = scene.searchTest;
       blocks.push({ id: scene.id, type: 'test', _fromSearch: true, label: st.label, skill: st.skill,
         difficulty: st.difficulty, successText: st.successText, failText: st.failText, xpReward: st.xpReward,
-        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', prepareReward: !!st.prepareReward, winEffect: st.winEffect || null, groupMode: st.groupMode || 'majority', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
+        itemRewards: st.itemRewards || [], deedReward: st.deedReward || '', prepareReward: !!st.prepareReward, winEffect: st.winEffect || null, goldReward: st.goldReward || 0, treasureRewards: st.treasureRewards || [], groupMode: st.groupMode || 'majority', targetSceneId: st.targetSceneId || null, reqSkill: '', reqVal: 0 });
     }
     return blocks;
   }
@@ -742,8 +742,52 @@
   function sceneHasReward(scene) {
     return (scene.xpReward && scene.xpReward > 0) || !!scene.prepareReward ||
       (scene.winEffect && scene.winEffect.kind && scene.winEffect.kind !== 'none') ||
+      hasTreasureReward(scene) ||
       (Array.isArray(scene.itemRewards) && scene.itemRewards.some(function (r) { return r.itemId; }));
   }
+  // ---- Or, Trésors et Objets Rares (butin de groupe, partagé) ----
+  function ensureLoot(ses) {
+    if (typeof ses.gold !== 'number') ses.gold = 0;
+    if (!Array.isArray(ses.treasures)) ses.treasures = [];
+  }
+  // Ajoute un trésor nommé (kind: 'treasure' | 'rare') — cumul par nom+type.
+  function addTreasure(ses, name, qty, kind) {
+    ensureLoot(ses);
+    const k = kind === 'rare' ? 'rare' : 'treasure';
+    const ex = ses.treasures.find(function (t) { return t.name === name && t.kind === k; });
+    if (ex) ex.qty = (ex.qty || 1) + qty;
+    else ses.treasures.push({ id: Store.uid(), name: name, qty: qty, kind: k });
+  }
+  // Attribue l'Or et les trésors d'une source de récompense (scène ou bloc de test).
+  function grantTreasures(ses, o) {
+    if (!o) return;
+    const gold = Math.max(0, Math.round(Number(o.goldReward) || 0));
+    if (gold > 0) { ensureLoot(ses); ses.gold += gold; }
+    (o.treasureRewards || []).forEach(function (r) {
+      if (r && r.name && (r.qty || 0) > 0) addTreasure(ses, r.name, Math.round(r.qty), r.kind);
+    });
+    if (gold > 0 || (o.treasureRewards || []).some(function (r) { return r && r.name; })) {
+      document.dispatchEvent(new CustomEvent('inventory-new-item'));
+    }
+  }
+  function hasTreasureReward(o) {
+    return (Math.round(Number(o.goldReward) || 0) > 0) ||
+      (Array.isArray(o.treasureRewards) && o.treasureRewards.some(function (r) { return r && r.name && (r.qty || 0) > 0; }));
+  }
+  // HTML des lignes de récompense Or/Trésors (encadrés de récompense).
+  function treasureRewardHtml(o) {
+    if (!hasTreasureReward(o)) return '';
+    let rows = '';
+    const gold = Math.max(0, Math.round(Number(o.goldReward) || 0));
+    if (gold > 0) rows += '<div class="ses-reward-title">🪙 Or <strong>+' + gold + '</strong></div>';
+    (o.treasureRewards || []).forEach(function (r) {
+      if (!r || !r.name || !(r.qty > 0)) return;
+      rows += '<div class="ses-reward-title">' + (r.kind === 'rare' ? '🗝️ Objet Rare' : '💎 Trésor') +
+        ' <strong>' + esc(r.name) + (r.qty > 1 ? ' ×' + r.qty : '') + '</strong></div>';
+    });
+    return '<div class="ses-reward-block ses-reward-gold">' + rows + '</div>';
+  }
+
   // PRÉPARÉ : marque tous les aventuriers engagés comme Préparés pour le prochain
   // combat (état posé dans pendingStates, appliqué au démarrage du combat).
   function prepareParty(ses) {
@@ -1187,6 +1231,7 @@
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
         applyWinEffect(ses, block);
+        grantTreasures(ses, block);
       }
     } else {
       // Exclusions (mode « avec un autre aventurier ») : les aventuriers ayant
@@ -1205,6 +1250,7 @@
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
         applyWinEffect(ses, block);
+        grantTreasures(ses, block);
       }
       // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
       if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
@@ -1472,6 +1518,7 @@
     if ((block.deedReward || '').trim()) {
       rewardHtml += '<div class="ses-reward-block ses-reward-deed"><div class="ses-reward-title">🏆 Haut Fait <strong>' + esc(block.deedReward.trim()) + '</strong></div></div>';
     }
+    rewardHtml += treasureRewardHtml(block);
     rewardHtml += winEffectHtml(block);
     // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
     // Un combat imposé par ce test verrouille toute sortie : pas de bouton passage.
@@ -2283,6 +2330,7 @@
         '<p class="hint">Choisis le destinataire de chaque objet ; l\'attribution se fait en cliquant sur « Continuer ».</p>' +
       '</div>';
     }
+    html += treasureRewardHtml(scene);
     html += winEffectHtml(scene);
     sec.innerHTML = html;
   }
@@ -2317,6 +2365,7 @@
       if (recipient) addToHeroOwned(ses, recipient, r.itemId, q); // armes plafonnées à 2
     });
     applyWinEffect(ses, scene);
+    grantTreasures(ses, scene);
     if (!ses.claimedRewards) ses.claimedRewards = {};
     ses.claimedRewards[scene.id] = true;
     Store.save();
@@ -2368,6 +2417,8 @@
     }
     // XP du combat attribuée à la session (décorrélée de l'XP du mode Admin)
     if (detail.xp) ses.party.xp = (ses.party.xp || 0) + detail.xp;
+    // Or lâché par les adversaires vaincus.
+    if (detail.gold > 0) { ensureLoot(ses); ses.gold += Math.round(detail.gold); }
     // Butin de combat : attribué à l'aventurier qui a achevé l'adversaire (à défaut au premier)
     if (detail.loot && detail.loot.length) {
       if (!ses.acquiredItems) ses.acquiredItems = {};
@@ -2967,7 +3018,10 @@
     ownedForHero: ownedForHero,
     engagedHeroIds: engagedHeroIds,
     consumeObject: consumeObject,
+    ownedCount: ownedCount,
     discardItem: discardItem,
+    partyLoot: partyLoot,
+    removeTreasure: removeTreasure,
     combatModuleActive: combatModuleActive,
   };
   // Retire DÉFINITIVEMENT un exemplaire d'un objet de l'inventaire d'un
@@ -3035,6 +3089,12 @@
     ses.heroOwned[hid][itemId] = target;
     return target - cur;
   }
+  // Stock restant d'un objet dans l'inventaire personnel d'un aventurier (session active).
+  function ownedCount(heroId, itemId) {
+    const ses = activeSession || sessions.find(function (s) { return s.status === 'active'; });
+    if (!ses || !ses.heroOwned || !ses.heroOwned[heroId]) return 0;
+    return Number(ses.heroOwned[heroId][itemId]) || 0;
+  }
   function consumeObject(heroId, itemId) {
     // NE PAS recharger (load() remplacerait `sessions` et détacherait activeSession,
     // faisant perdre la mutation au save()). On mute la session vivante.
@@ -3054,5 +3114,26 @@
   // Ids des aventuriers engagés dans la partie active (null si aucune partie lancée)
   function engagedHeroIds() {
     return (activeSession && Array.isArray(activeSession.heroIds)) ? activeSession.heroIds.slice() : null;
+  }
+  // Butin de groupe (Or + trésors) de la partie active d'une aventure — pour
+  // l'affichage du bloc « Or, Trésors et Objets Rares » de l'onglet Inventaire.
+  function partyLoot(advId) {
+    const ses = (activeSession && activeSession.adventureId === advId) ? activeSession
+      : sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; });
+    if (!ses) return null;
+    ensureLoot(ses);
+    return { gold: ses.gold, treasures: ses.treasures.slice() };
+  }
+  // Retire UN exemplaire d'un trésor (bouton ✕ du bloc trésors).
+  function removeTreasure(advId, tid) {
+    const ses = (activeSession && activeSession.adventureId === advId) ? activeSession
+      : sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; });
+    if (!ses || !Array.isArray(ses.treasures)) return false;
+    const t = ses.treasures.find(function (x) { return x.id === tid; });
+    if (!t) return false;
+    t.qty = (t.qty || 1) - 1;
+    if (t.qty <= 0) ses.treasures = ses.treasures.filter(function (x) { return x.id !== tid; });
+    save();
+    return true;
   }
 })(window);

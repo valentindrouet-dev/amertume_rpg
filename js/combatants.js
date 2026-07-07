@@ -1873,6 +1873,8 @@
     buildLootEditor($('#m-equip'), monsterEquip, { cats: ['weapon', 'armor'] });
     monsterLoot = isEdit ? JSON.parse(JSON.stringify(m.loot || [])) : [];
     buildLootEditor($('#m-loot'), monsterLoot, { withQty: true });
+    const gEl = $('#m-gold');
+    if (gEl) gEl.value = isEdit ? (m.goldLoot || 0) : 0;
     monsterTalents = isEdit ? JSON.parse(JSON.stringify(m.talents || [])) : [];
     buildTalentsEditor($('#m-talents'), monsterTalents);
     monsterAdvTalentIds = isEdit ? (Array.isArray(m.advTalentIds) ? m.advTalentIds.slice() : []) : [];
@@ -1904,6 +1906,7 @@
       attacks: monsterAttacks,
       equipment: monsterEquip.filter(function (r) { return r.itemId; }),
       loot: monsterLoot.filter(function (r) { return r.itemId; }),
+      goldLoot: Math.max(0, parseInt(($('#m-gold') && $('#m-gold').value) || 0, 10) || 0),
       talents: monsterTalents,
       advTalentIds: monsterAdvTalentIds.slice(),
     };
@@ -2040,6 +2043,7 @@
     heroRestLong: heroRestLong,
     heroDef: heroDef,
     heroCombatAttacks: heroCombatAttacks,
+    talentActionAttacks: talentActionAttacks,
     resolveHeroTalents: resolveHeroTalents,
     resolveMonsterAdvTalents: resolveMonsterAdvTalents,
     attacksSummary: attacksSummary,

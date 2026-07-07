@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertüme Solo RPG</title>
-  <link rel="stylesheet" href="css/style.css?v=2.3.29" />
+  <link rel="stylesheet" href="css/style.css?v=2.3.30" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -290,6 +290,8 @@
               <select id="f-obj-effect">
                 <option value="none">Aucun</option>
                 <option value="heal">Soin (dés de PV)</option>
+                <option value="ammo">Munition (+1 dé, prochaine attaque à distance)</option>
+                <option value="talent">Parchemin (effet de talent, 1 usage)</option>
               </select>
             </label>
             <label>Cible
@@ -300,6 +302,23 @@
             </label>
             <label>Nombre de dés (d6) <input type="number" id="f-obj-dice" min="0" max="20" value="2" /></label>
             <label>Prix (po) <input type="number" id="f-obj-price" min="0" value="0" /></label>
+          </div>
+          <div class="form-row" id="f-obj-ammo-row" style="display:none">
+            <label>Dé de munition
+              <select id="f-obj-ammo-color">
+                <option value="white">Blanc</option>
+                <option value="bone">Os</option>
+                <option value="red">Rouge</option>
+                <option value="blue">Bleu</option>
+                <option value="black">Noir</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row" id="f-obj-talent-row" style="display:none">
+            <label>Effet de talent
+              <select id="f-obj-talent"></select>
+            </label>
+            <label>Valeur (si applicable) <input type="number" id="f-obj-talent-val" min="0" value="0" /></label>
           </div>
           <label>Résumé de l'effet (affiché au joueur)
             <textarea id="f-obj-summary" rows="2" placeholder="Ex. Soigne un aventurier de 2d6 PV."></textarea>
@@ -523,6 +542,7 @@
         <div class="attacks-head"><h3>Butin du groupe</h3><button type="button" id="m-add-loot" class="ghost small">+ Butin</button></div>
         <p class="hint">Objets gagnés par le groupe (selon le % de loot) à l'écran de récompense après le combat.</p>
         <div id="m-loot" class="loot-editor"></div>
+        <label>🪙 Or lâché (par exemplaire vaincu) <input type="number" id="m-gold" min="0" step="1" value="0" style="width:90px" /></label>
         <div class="attacks-head"><h3>Talents adverses</h3></div>
         <p class="hint">Cochez les talents créés dans l'onglet <b>Talents Adv.</b> : l'adversaire les applique automatiquement en combat, toujours en votre défaveur. Ils apparaissent dans son bandeau de combat (masqués tant que l'aventurier ne l'a pas <b>analysé</b>). (Passifs, améliorations et bonus de dégâts pris en charge ; actions/réactions à venir.)</p>
         <div id="m-adv-talents" class="adv-talents-picker"></div>
@@ -622,6 +642,8 @@
           <div class="tb-win-row" id="sm-win-fx"></div>
           <div class="attacks-head" style="margin-top:.35rem"><h3>Objets</h3></div>
           <div id="sm-item-rewards"></div>
+          <div class="attacks-head" style="margin-top:.35rem"><h3>Or &amp; Trésors</h3></div>
+          <div id="sm-treasure-rewards"></div>
         </div>
 
         <div class="modal-actions">
@@ -719,18 +741,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.3.29"></script>
-  <script src="js/store.js?v=2.3.29"></script>
-  <script src="js/inventory.js?v=2.3.29"></script>
-  <script src="js/combatants.js?v=2.3.29"></script>
-  <script src="js/combat.js?v=2.3.29"></script>
-  <script src="js/classes.js?v=2.3.29"></script>
-  <script src="js/tutorial.js?v=2.3.29"></script>
-  <script src="js/adventure.js?v=2.3.29"></script>
-  <script src="js/session.js?v=2.3.29"></script>
-  <script src="js/dataio.js?v=2.3.29"></script>
-  <script src="js/share.js?v=2.3.29"></script>
-  <script src="js/shell.js?v=2.3.29"></script>
-  <script src="js/main.js?v=2.3.29"></script>
+  <script src="js/dice.js?v=2.3.30"></script>
+  <script src="js/store.js?v=2.3.30"></script>
+  <script src="js/inventory.js?v=2.3.30"></script>
+  <script src="js/combatants.js?v=2.3.30"></script>
+  <script src="js/combat.js?v=2.3.30"></script>
+  <script src="js/classes.js?v=2.3.30"></script>
+  <script src="js/tutorial.js?v=2.3.30"></script>
+  <script src="js/adventure.js?v=2.3.30"></script>
+  <script src="js/session.js?v=2.3.30"></script>
+  <script src="js/dataio.js?v=2.3.30"></script>
+  <script src="js/share.js?v=2.3.30"></script>
+  <script src="js/shell.js?v=2.3.30"></script>
+  <script src="js/main.js?v=2.3.30"></script>
 </body>
 </html>

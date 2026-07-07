@@ -1298,6 +1298,7 @@
       if (s) s.onchange = function () { ensureWinFx(scene).state = this.value; };
     }
     renderItemRewards(scene);
+    renderTreasureRewards('sm-treasure-rewards', scene);
   }
 
   // ---- Blocs de contenu : texte typé OU test de compétence, ordonnés ensemble ----
@@ -1484,6 +1485,7 @@
             '</div>' +
             (ensureFailFx(blk).kind === 'combat' ? '<div class="tb-fx-combat" id="tb-failcbt-' + blk.id + '"></div>' : '') +
             '<div id="sm-blk-ir-' + blk.id + '"></div>' +
+            '<div class="tb-treasure" id="sm-blk-tr-' + blk.id + '"></div>' +
             '<label class="tb-deed-lbl">🏆 Haut Fait gagné en cas de réussite <input type="text" class="tb-deed" data-bi="' + i + '" value="' + esc(blk.deedReward || '') + '" placeholder="Ex : A vaincu le gardien du seuil (ajouté aux Hauts Faits)" /></label>' +
             '<div class="tb-win-row">' + winFxControlsHtml(blk, 'tb-wfx-kind', 'tb-wfx-val', 'tb-wfx-state', 'data-bi="' + i + '"') + '</div>' +
             (ensureWinFx(blk).kind === 'combat' ? '<div class="tb-fx-combat" id="tb-wincbt-' + blk.id + '"></div>' : '') +
@@ -1554,6 +1556,7 @@
       if (blk.type === 'test') {
         if (!Array.isArray(blk.itemRewards)) blk.itemRewards = [];
         renderItemRewardsList('sm-blk-ir-' + blk.id, blk.itemRewards, 'sm-blk-addir-' + blk.id);
+        renderTreasureRewards('sm-blk-tr-' + blk.id, blk);
       }
     });
     // Blocs de texte
@@ -1978,6 +1981,53 @@
       zones.push({ name: 'Zone ' + (zones.length + 1), monsterRefs: [], heroStart: false });
       refresh();
     };
+  }
+
+  // Éditeur RÉUTILISABLE de récompenses Or / Trésors / Objets Rares — mute `obj`
+  // (scène ou bloc de test) : obj.goldReward (entier) + obj.treasureRewards
+  // [{ name, qty, kind: 'treasure'|'rare' }].
+  function renderTreasureRewards(boxId, obj) {
+    const box = document.getElementById(boxId);
+    if (!box) return;
+    if (!Array.isArray(obj.treasureRewards)) obj.treasureRewards = [];
+    const rows = obj.treasureRewards.map(function (r, i) {
+      return '<div class="tr-line" data-i="' + i + '">' +
+        '<span class="tr-kind">' + (r.kind === 'rare' ? '🗝️' : '💎') + '</span>' +
+        '<input type="text" class="tr-name" value="' + esc(r.name || '') + '" placeholder="' + (r.kind === 'rare' ? 'Nom de l\'Objet Rare (ex : Clé du Dragon)' : 'Nom du Trésor (ex : Saphir)') + '" />' +
+        '<label class="tr-qty-lbl">×<input type="number" class="tr-qty" min="1" step="1" value="' + Math.max(1, Math.round(r.qty || 1)) + '" style="width:55px" /></label>' +
+        '<button type="button" class="icon-btn tr-del">✕</button>' +
+      '</div>';
+    }).join('');
+    box.innerHTML =
+      '<div class="tr-row">' +
+        '<label class="tr-gold-lbl">🪙 Or <input type="number" class="tr-gold" min="0" step="1" value="' + Math.max(0, Math.round(Number(obj.goldReward) || 0)) + '" style="width:80px" /></label>' +
+        '<button type="button" class="ghost small tr-add-tre">+ Trésor</button>' +
+        '<button type="button" class="ghost small tr-add-rare">+ Objet Rare</button>' +
+      '</div>' + rows;
+    box.querySelector('.tr-gold').onchange = function () {
+      obj.goldReward = Math.max(0, Math.round(parseInt(this.value, 10) || 0)); // toujours entier
+      this.value = obj.goldReward;
+    };
+    box.querySelector('.tr-add-tre').onclick = function () {
+      obj.treasureRewards.push({ name: '', qty: 1, kind: 'treasure' });
+      renderTreasureRewards(boxId, obj);
+    };
+    box.querySelector('.tr-add-rare').onclick = function () {
+      obj.treasureRewards.push({ name: '', qty: 1, kind: 'rare' });
+      renderTreasureRewards(boxId, obj);
+    };
+    box.querySelectorAll('.tr-line').forEach(function (line) {
+      const i = parseInt(line.getAttribute('data-i'), 10);
+      line.querySelector('.tr-name').oninput = function () { obj.treasureRewards[i].name = this.value; };
+      line.querySelector('.tr-qty').onchange = function () {
+        obj.treasureRewards[i].qty = Math.max(1, Math.round(parseInt(this.value, 10) || 1));
+        this.value = obj.treasureRewards[i].qty;
+      };
+      line.querySelector('.tr-del').onclick = function () {
+        obj.treasureRewards.splice(i, 1);
+        renderTreasureRewards(boxId, obj);
+      };
+    });
   }
 
   // Type d'un objet (pour le filtre des récompenses) : arme / arme à distance / armure / objet.

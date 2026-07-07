@@ -235,29 +235,35 @@
       return (window.Session && Session.ownedForHero) ? Session.ownedForHero(advId, heroId) : {};
     };
     const isEquip = function (i) {
-      return i.category === 'weapon' || i.category === 'armor' || i.category === 'object' || i.category === 'misc';
+      return i.category === 'weapon' || i.category === 'armor' || i.category === 'object' ||
+        i.category === 'misc' || i.category === 'ammo';
     };
 
     // Une seule languette (une copie). `checked` est calculé PAR EXEMPLAIRE.
-    const singleStrip = function (h, i, checked) {
+    // `qtyBadge` (objets cumulables) : pastille de quantité en haut à droite.
+    const singleStrip = function (h, i, checked, qtyBadge) {
       return '<label class="inv-strip-row cat-' + i.category + (checked ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
         '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) + '</div>' +
+        (qtyBadge > 1 ? '<span class="inv-qty-badge" title="' + qtyBadge + ' exemplaires">' + qtyBadge + '</span>' : '') +
         '<button type="button" class="inv-strip-del" data-hero="' + h.id + '" data-item="' + i.id + '" title="Jeter un exemplaire de cet objet">✕</button>' +
       '</label>';
     };
-    // Expansion quantité : armes/objets → N languettes ; armures → 1 (dédup).
-    // Les `filled` premières copies sont cochées (autant que de slots occupés) :
-    // ainsi deux armes identiques peuvent être équipées indépendamment.
+    // Expansion quantité : armes de contact → N languettes (max 2) ; armures et
+    // armes à distance → 1 (dédup) ; OBJETS → 1 languette CUMULÉE avec pastille
+    // de quantité (le stock se consomme en combat, exemplaire par exemplaire).
     const stripRows = function (h, e, owned, i) {
-      // Armures ET armes à distance (2 mains) : un seul exemplaire affiché (dédup).
-      // Seules les armes de contact (1 main) peuvent apparaître en 2 exemplaires.
+      const isObj = i.category === 'object' || i.category === 'misc' || i.category === 'ammo';
+      if (isObj) {
+        const stock = Number(owned[i.id]) || 1;
+        return singleStrip(h, i, equippedCount(e, i) > 0, stock);
+      }
       const single = i.category === 'armor' || (i.category === 'weapon' && i.ranged);
       let qty = single ? 1 : (Number(owned[i.id]) || 1);
       if (i.category === 'weapon' && !i.ranged) qty = Math.min(2, qty); // max 2 armes de contact identiques
       const filled = equippedCount(e, i);
       let out = '';
-      for (let k = 0; k < qty; k++) out += singleStrip(h, i, k < filled);
+      for (let k = 0; k < qty; k++) out += singleStrip(h, i, k < filled, 0);
       return out;
     };
     const colContent = function (h, e, owned, items) {
@@ -288,7 +294,7 @@
       const melee    = mine.filter(function (i) { return i.category === 'weapon' && !i.ranged; });
       const distance = mine.filter(function (i) { return i.category === 'weapon' && i.ranged; });
       const armors   = mine.filter(function (i) { return i.category === 'armor'; });
-      const objects  = mine.filter(function (i) { return i.category === 'object' || i.category === 'misc'; });
+      const objects  = mine.filter(function (i) { return i.category === 'object' || i.category === 'misc' || i.category === 'ammo'; });
       html += '<div class="inv-cols">' +
         '<div class="inv-col inv-col-melee">'    + colContent(h, e, owned, melee)    + '</div>' +
         '<div class="inv-col inv-col-distance">' + colContent(h, e, owned, distance) + '</div>' +
@@ -296,7 +302,35 @@
         '<div class="inv-col inv-col-object">'   + colContent(h, e, owned, objects)  + '</div>' +
       '</div>';
     });
+    // ---- Or, Trésors et Objets Rares (butin de groupe, sous l'équipement) ----
+    const loot = (window.Session && Session.partyLoot) ? Session.partyLoot(advId) : null;
+    if (loot) {
+      const tStrip = function (t) {
+        return '<div class="inv-strip-row cat-' + (t.kind === 'rare' ? 'rare' : 'treasure') + '">' +
+          '<div class="inv-strip"><span class="inv-strip-name">' + (t.kind === 'rare' ? '🗝️ ' : '💎 ') + escapeHtml(t.name) + '</span>' +
+            '<span class="inv-strip-val inv-strip-eff">' + (t.kind === 'rare' ? 'Objet Rare' : 'Trésor') + '</span></div>' +
+          ((t.qty || 1) > 1 ? '<span class="inv-qty-badge" title="' + t.qty + ' exemplaires">' + t.qty + '</span>' : '') +
+          '<button type="button" class="inv-treasure-del" data-tid="' + t.id + '" title="Jeter un exemplaire">✕</button>' +
+        '</div>';
+      };
+      html += '<div class="inv-treasure-box">' +
+        '<div class="inv-hero-sep inv-treasure-head">💰 Or, Trésors et Objets Rares' +
+          '<span class="inv-gold-pill">🪙 ' + (loot.gold || 0) + ' Or</span></div>' +
+        (loot.treasures.length
+          ? '<div class="inv-treasure-list">' + loot.treasures.map(tStrip).join('') + '</div>'
+          : '<p class="empty" style="padding:.2rem 0 .6rem">Aucun trésor pour l\'instant.</p>') +
+      '</div>';
+    }
     list.innerHTML = html;
+    // ✕ d'un trésor : retire un exemplaire (confirmation).
+    list.querySelectorAll('.inv-treasure-del').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        if (!confirm('Jeter un exemplaire de ce trésor ? (définitif)')) return;
+        if (window.Session && Session.removeTreasure) Session.removeTreasure(advId, btn.getAttribute('data-tid'));
+        renderPlayer(advId);
+      });
+    });
 
     list.querySelectorAll('.inv-equip-cb').forEach(function (cb) {
       cb.addEventListener('change', function () {
@@ -527,6 +561,12 @@
     $('#f-obj-dice').value = isEdit && typeof item.objDice === 'number' ? item.objDice : 2;
     $('#f-obj-price').value = isEdit ? (item.price || 0) : 0;
     $('#f-obj-summary').value = isEdit ? (item.effects || '') : '';
+    // Munition : couleur du dé bonus · Parchemin : effet de talent embarqué.
+    $('#f-obj-ammo-color').value = isEdit ? (item.ammoColor || 'white') : 'white';
+    fillTalentEffectSelect();
+    $('#f-obj-talent').value = isEdit ? (item.parchEffect || '') : '';
+    $('#f-obj-talent-val').value = isEdit && typeof item.parchVal === 'number' ? item.parchVal : 0;
+    toggleObjEffectFields();
     weaponDicePool = isEdit ? Object.assign(D.emptyPool(), item.dice) : D.emptyPool();
     buildDiceSteppers($('#weapon-dice'), weaponDicePool);
     $('#btn-delete-item').hidden = !isEdit;
@@ -542,7 +582,25 @@
     $('#weapon-fields').style.display = cat === 'weapon' ? '' : 'none';
     $('#armor-fields').style.display = cat === 'armor' ? '' : 'none';
     const objFields = $('#object-fields');
-    if (objFields) objFields.style.display = (cat === 'object' || cat === 'misc') ? '' : 'none';
+    if (objFields) objFields.style.display = (cat === 'object' || cat === 'misc' || cat === 'ammo') ? '' : 'none';
+  }
+
+  // Champs conditionnels de l'effet d'objet (munition / parchemin).
+  function toggleObjEffectFields() {
+    const eff = $('#f-obj-effect').value;
+    const ammoRow = $('#f-obj-ammo-row');
+    const talRow = $('#f-obj-talent-row');
+    if (ammoRow) ammoRow.style.display = eff === 'ammo' ? '' : 'none';
+    if (talRow) talRow.style.display = eff === 'talent' ? '' : 'none';
+  }
+  // Options du sélecteur d'effet de talent des parchemins (pool complet).
+  function fillTalentEffectSelect() {
+    const sel = $('#f-obj-talent');
+    if (!sel || sel.options.length > 1) return; // déjà rempli
+    const effects = (window.Store && Store.talentEffects) ? Store.talentEffects() : [];
+    sel.innerHTML = '<option value="">— Choisir un effet —</option>' + effects.map(function (e) {
+      return '<option value="' + e.effect + '">' + escapeHtml(e.name) + '</option>';
+    }).join('');
   }
 
   function saveFromForm(e) {
@@ -578,11 +636,21 @@
       data.objEffect = $('#f-obj-effect').value;
       data.objBenefic = $('#f-obj-benefic').value === '1';
       data.objDice = Math.max(0, parseInt($('#f-obj-dice').value, 10) || 0);
-      // Résumé d'effet rédigé par le MJ (prioritaire) ; sinon auto si soin.
+      data.ammoColor = $('#f-obj-ammo-color').value || 'white';
+      data.parchEffect = $('#f-obj-talent').value || '';
+      data.parchVal = Math.max(0, parseInt($('#f-obj-talent-val').value, 10) || 0);
+      data.consumable = true; // munitions, parchemins et consommables se consomment à l'usage
+      // Résumé d'effet rédigé par le MJ (prioritaire) ; sinon auto selon l'effet.
       const summary = ($('#f-obj-summary').value || '').trim();
+      const AMMO_LABEL = { white: 'blanc', bone: 'os', red: 'rouge', blue: 'bleu', black: 'noir' };
       if (summary) data.effects = summary;
       else if (data.objEffect === 'heal' && data.objDice > 0) {
         data.effects = 'Soigne ' + (data.objBenefic ? 'un aventurier' : 'une cible') + ' de ' + data.objDice + 'd6 PV.';
+      } else if (data.objEffect === 'ammo') {
+        data.effects = '+1 dé ' + (AMMO_LABEL[data.ammoColor] || data.ammoColor) + ' à la prochaine attaque avec une Arme à Distance.';
+      } else if (data.objEffect === 'talent' && data.parchEffect) {
+        const eff = (window.Store && Store.talentEffectMap) ? Store.talentEffectMap()[data.parchEffect] : null;
+        data.effects = 'Parchemin : ' + (eff ? eff.name : data.parchEffect) + ' (1 usage).';
       }
     }
     if (existing) Object.assign(existing, data);
@@ -626,6 +694,8 @@
     $('#item-form').addEventListener('submit', saveFromForm);
     $('#btn-delete-item').addEventListener('click', deleteCurrent);
     $('#f-category').addEventListener('change', toggleWeaponFields);
+    const objEffSel = $('#f-obj-effect');
+    if (objEffSel) objEffSel.addEventListener('change', toggleObjEffectFields);
     $('#search').addEventListener('input', renderList);
     $('#filter-cat').addEventListener('change', renderList);
     $('#btn-load-official').addEventListener('click', function () {

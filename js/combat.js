@@ -147,8 +147,9 @@
     // Objet consommable équipé : on en garde une copie légère pour le combat.
     const eq = Combatants.normalizeEquip(h.equipment || {});
     const objTpl = eq.objectId ? Store.state.items.find(function (it) { return it.id === eq.objectId; }) : null;
-    const objectItem = (objTpl && (objTpl.category === 'object' || objTpl.category === 'misc'))
-      ? { id: objTpl.id, name: objTpl.name, objEffect: objTpl.objEffect || 'none', objDice: objTpl.objDice || 0, objBenefic: objTpl.objBenefic !== false }
+    const objectItem = (objTpl && (objTpl.category === 'object' || objTpl.category === 'misc' || objTpl.category === 'ammo'))
+      ? { id: objTpl.id, name: objTpl.name, objEffect: objTpl.objEffect || 'none', objDice: objTpl.objDice || 0, objBenefic: objTpl.objBenefic !== false,
+          ammoColor: objTpl.ammoColor || 'white', parchEffect: objTpl.parchEffect || '', parchVal: objTpl.parchVal || 0 }
       : null;
     // RENFORCEMENT (amélioration) : +bonus de dégâts au maximum (et au courant) de PV.
     const renf = hasTalent('renforcement') ? Math.max(0, hero.damage || 0) : 0;
@@ -391,6 +392,16 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  // Or lâché par les adversaires vaincus (champ goldLoot du bestiaire).
+  function totalGoldLoot(c) {
+    let g = 0;
+    c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; }).forEach(function (m) {
+      const tpl = Store.state.monsters.find(function (t) { return t.id === m.templateId; });
+      if (tpl && tpl.goldLoot > 0) g += tpl.goldLoot;
+    });
+    return g;
+  }
+
   function rollLoot(c) {
     const out = [];
     c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; }).forEach(function (m) {
@@ -443,6 +454,8 @@
       const it = Store.state.items.find(function (x) { return x.id === L.itemId; });
       if (it) it.qty = (it.qty || 0) + L.qty;
     });
+    // Or lâché par les adversaires vaincus (transmis à la session à la victoire).
+    const goldGained = (isSession && c.outcome !== 'defeat') ? totalGoldLoot(c) : 0;
     if (isSession) persistHeroPv();
     setCombat(null);
     if (isSession) Store.state.sessionCombat = null;
@@ -451,7 +464,7 @@
     // de résumé si un rafraîchissement secondaire (roster, progression) échoue.
     if (sessionCtx && sessionCtx.sessionId) {
       window.dispatchEvent(new CustomEvent('adventure-combat-end', {
-        detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained,
+        detail: { sessionId: sessionCtx.sessionId, outcome: outcomeLabel, xp: gained, gold: goldGained,
           loot: loot.map(function (L) { return { itemId: L.itemId, qty: L.qty, toHeroId: L.toHeroId }; }) }
       }));
     } else if (!isSession) {
@@ -1024,6 +1037,13 @@
     if (attacker.side === 'hero' && heroHasTalent(attacker, 'acrobatie') && attacker.acrobatiePrimed) {
       pool.black = (pool.black || 0) + 1;
       attacker.acrobatiePrimed = false;
+    }
+    // MUNITION encochée : +1 dé (couleur) sur la PROCHAINE attaque d'Arme à
+    // Distance (attaque de base uniquement), puis consommée.
+    if (attacker.ammoLoaded && atk.range === 'distance' && atk.isBase) {
+      pool[attacker.ammoLoaded] = (pool[attacker.ammoLoaded] || 0) + 1;
+      log(cname(attacker) + ' tire sa munition : +1 dé ' + (AMMO_LABEL[attacker.ammoLoaded] || attacker.ammoLoaded) + '.', 'state');
+      attacker.ammoLoaded = null;
     }
     const baseDmg = (atk.useOwnDamage !== false && !attacker.states.affaibli) ? (attacker.damage || 0) : 0;
     const talentBonus = getTalentDmgBonus(attacker, target, atk);
@@ -1786,8 +1806,13 @@
 
       c.freeMoves = 0; c.rebondUsed = false; // REBOND : compteurs remis à zéro chaque tour
       c.counterUsed = false; // RIPOSTE (adversaire) : 1 fois par tour
-      // Les usages d'attaque sont « par tour » : on les réarme à chaque tour
-      c.attackUses = initUses(c.attacks);
+      // Les usages d'attaque sont « par tour » : on les réarme à chaque tour —
+      // SAUF les actions de PARCHEMIN (1 usage pour tout le combat, non réarmé).
+      const prevUses = c.attackUses || [];
+      c.attackUses = c.attacks.map(function (a, i) {
+        if (a.fromParchment) return (prevUses[i] != null) ? prevUses[i] : 1;
+        return (a.uses && a.uses > 0) ? a.uses : null;
+      });
     });
   }
 
@@ -2687,6 +2712,12 @@
               '</div>';
             }).join('') + '</div></div>'
         : '') +
+      (function () {
+        // Or lâché par les adversaires vaincus (ajouté au butin du groupe).
+        const g = (combatKey === 'combat' && c.outcome !== 'defeat') ? totalGoldLoot(c) : 0;
+        return g > 0 ? '<div class="cs-group cs-goldg"><div class="cs-glabel">🪙 Or récupéré</div>' +
+          '<div class="cs-chips"><span class="cs-chip cs-chip-gold">+' + g + ' Or</span></div></div>' : '';
+      })() +
       ((c.comaVieEvents && c.comaVieEvents.length)
         ? '<div class="cs-group cs-comag"><div class="cs-glabel">💀 Coma — Perte de VIE <span class="cs-loot-hint">(Votre maximum de PV est réduit. Votre aventurier meurt si vous tombez à 0 VIE.)</span></div><div class="cs-chips">' +
             c.comaVieEvents.map(function (ev) {
@@ -3804,13 +3835,58 @@
     checkOutcome(); Store.save(); render();
   }
 
-  // Retire l'objet consommé de l'inventaire de la session (et de l'instance).
+  // Retire UN exemplaire de l'objet consommé de l'inventaire de la session.
+  // Objets CUMULABLES : l'objet reste équipé tant qu'il en reste en stock.
   function consumeObject(user) {
     const obj = user.objectItem;
-    user.objectItem = null;
-    if (obj && global.Session && Session.consumeObject) {
+    if (!obj) return;
+    if (global.Session && Session.consumeObject) {
       try { Session.consumeObject(user.templateId, obj.id); } catch (e) { console.error('[combat] consumeObject', e); }
     }
+    const left = (global.Session && Session.ownedCount) ? Session.ownedCount(user.templateId, obj.id) : 0;
+    if (left <= 0) user.objectItem = null;
+  }
+
+  // Objets à effet PERSONNEL (sans ciblage) : munitions et parchemins.
+  function isSelfObject(obj) {
+    return !!(obj && (obj.objEffect === 'ammo' || obj.objEffect === 'talent'));
+  }
+  const AMMO_LABEL = { white: 'blanc', bone: 'os', pink: 'rose', green: 'vert', blue: 'bleu', yellow: 'jaune', red: 'rouge', black: 'noir' };
+  // Applique un objet personnel à son porteur, puis le consomme.
+  function applySelfObject(user) {
+    const obj = user.objectItem;
+    if (!obj) return;
+    if (obj.objEffect === 'ammo') {
+      // MUNITION : charge +1 dé (couleur) pour la PROCHAINE attaque à distance.
+      user.ammoLoaded = obj.ammoColor || 'white';
+      log(cname(user) + ' encoche <span class="lwpn">' + esc(obj.name) + '</span> : +1 dé ' +
+        (AMMO_LABEL[user.ammoLoaded] || user.ammoLoaded) + ' à sa prochaine attaque à distance.', 'state');
+    } else if (obj.objEffect === 'talent') {
+      // PARCHEMIN : greffe l'effet de talent au porteur pour CE combat ; si c'est
+      // une action, elle apparaît comme attaque spéciale à 1 usage.
+      const cat = (Store.talentEffectMap ? Store.talentEffectMap() : {})[obj.parchEffect] || {};
+      const t = { id: 'parch-' + obj.id, name: obj.name, effect: obj.parchEffect,
+        kind: cat.kind || 'passive', val: obj.parchVal || cat.defaultVal || 0,
+        dice: null, range: null, choice: null, scope: 'count' };
+      if (!obj.parchEffect) { log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span>… vierge (aucun effet).', 'move'); }
+      else {
+        user.talents = (user.talents || []).concat([t]);
+        if ((t.kind === 'action' || t.effect === 'pyromane') && Combatants.talentActionAttacks) {
+          const weaponAtks = (user.attacks || []).filter(function (a) { return a.isBase; });
+          const newAtks = Combatants.talentActionAttacks(weaponAtks.length ? weaponAtks : (user.attacks || []), [t]);
+          newAtks.forEach(function (a) { a.uses = 1; a.fromParchment = true; });
+          user.attacks = (user.attacks || []).concat(newAtks);
+          user.attackUses = (user.attackUses || []).concat(newAtks.map(function () { return 1; }));
+        }
+        log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span> : gagne « ' +
+          esc(cat.name || obj.parchEffect) + ' »' + (t.kind === 'action' ? ' (1 usage)' : ' (ce combat)') + '.', 'state');
+      }
+    }
+    consumeObject(user);
+    user.used.object = true;
+    pendingObject = null;
+    pushFx({ type: 'state', iid: user.iid });
+    checkOutcome(); Store.save(); render();
   }
 
   // Applique l'effet d'un objet consommable de `user` sur `target`, puis le consomme.
@@ -4165,7 +4241,9 @@
       if (obj) obj.addEventListener('click', function () {
         if (!c.objectItem) return;
         if (pendingObject === c.iid) { pendingObject = null; render(); return; } // re-clic = annuler
-        if (!confirm('Vous allez consommer votre ' + c.objectItem.name + '. Êtes-vous sûr ?\n(Il disparaîtra de votre inventaire.)')) return;
+        if (!confirm('Vous allez consommer votre ' + c.objectItem.name + '. Êtes-vous sûr ?\n(Un exemplaire sera retiré de votre inventaire.)')) return;
+        // Objet PERSONNEL (munition, parchemin) : effet immédiat sur soi, sans ciblage.
+        if (isSelfObject(c.objectItem)) { applySelfObject(c); return; }
         pendingObject = c.iid;
         pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null;
         render();
