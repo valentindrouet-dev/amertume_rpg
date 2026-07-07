@@ -1136,70 +1136,79 @@
 
   // ----- Blocs de test de compétence (tentés une seule fois, dans le fil du texte) -----
   const ST_DIFF_LABEL = { auto: 'Automatique', facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile', tresdifficile: 'Très Difficile', insurmontable: 'Insurmontable', impossible: 'Impossible' };
+  // Variantes jouables d'un bloc : test (compétence principale + alternative) ou
+  // Action (1 ou 2 choix, sans jet).
+  function testVariants(block) {
+    if (block.actionMode) {
+      return [{ action: 1, label: block.label }].concat((block.altLabel || '').trim() ? [{ action: 2, label: block.altLabel }] : []);
+    }
+    const variants = [{ skill: block.skill, difficulty: block.difficulty }];
+    if (block.altSkill) variants.push({ skill: block.altSkill, difficulty: block.altDifficulty || block.difficulty });
+    return variants;
+  }
+  // Vignette(s) de testeur sous un bouton, pour une compétence donnée.
+  function variantHelperFor(ses, block, scene, skill, excludeIds) {
+    const groupLike = !block.actionMode && (block.who === 'group' || block.who === 'concerned');
+    if (groupLike) {
+      const heroes = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
+      return heroes.length
+        ? '<div class="ses-group-pills">' + heroes.map(function (h) {
+            const info = heroTestInfo(ses, h, skill);
+            return '<div class="ses-skill-pill">' +
+              '<span class="ssk-hero">' + esc(h.name) + '</span>' +
+              '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
+              (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
+            '</div>';
+          }).join('') + '</div>'
+        : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+    }
+    const bh = singleTester(ses, block, excludeIds || null, skill);
+    const dice = 1 + (bh.bonus || 0);
+    const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">🎲 au hasard</span>' : '';
+    return bh.hero
+      ? '<div class="ses-skill-pill">' +
+          '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' + randTag +
+          '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + ' 🎲</span>' +
+          (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
+        '</div>'
+      : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+  }
+  // Ligne de boutons de choix (test/actions). Boutons côte à côte, vignette dessous.
+  function variantButtonsHtml(ses, block, scene, excludeIds) {
+    const variants = testVariants(block);
+    return '<div class="ses-tb-variants">' + variants.map(function (v, vi) {
+      const btn = v.action
+        ? '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go ses-tb-action" data-vi="' + vi + '">⚡ ' +
+            esc(v.label || 'Agir') + '</button>'
+        : '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
+            esc(block.label || 'Tenter le test') +
+            ' <span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +
+            ' <span class="ssk-diff ssk-diff-' + (v.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[v.difficulty] || 'Moyen') + '</span>' +
+          '</button>';
+      return '<div class="ses-tb-variant">' + btn + (v.action ? '' : variantHelperFor(ses, block, scene, v.skill, excludeIds)) + '</div>';
+    }).join(variants.length > 1 ? '<div class="ses-tb-or">ou</div>' : '') + '</div>';
+  }
+  // Câble les boutons de choix d'un bloc. excludeIds : re-test « avec un autre ».
+  function wireVariantButtons(slot, ses, adv, scene, block, excludeIds) {
+    const variants = testVariants(block);
+    slot.querySelectorAll('.ses-tb-go').forEach(function (b) {
+      b.addEventListener('click', function () {
+        runTestBlock(ses, adv, scene, block, excludeIds || null, variants[parseInt(b.getAttribute('data-vi'), 10) || 0]);
+      });
+    });
+  }
   function renderTestBlock(slot, block, scene, adv, ses) {
     if (!ses.searchTests) ses.searchTests = {};
     const state = ses.searchTests[block.id];
     if (!state) {
       const isAction = !!block.actionMode;
-      const groupLike = !isAction && (block.who === 'group' || block.who === 'concerned');
-      // VARIANTES : compétence principale + éventuelle compétence alternative
-      // (2 boutons — le joueur choisit sa méthode, le résultat vaut pour le bloc).
-      // Bloc ACTION : 1 ou 2 actions au choix, SANS jet (issue réussite / échec).
-      const variants = isAction
-        ? [{ action: 1, label: block.label }].concat((block.altLabel || '').trim() ? [{ action: 2, label: block.altLabel }] : [])
-        : [{ skill: block.skill, difficulty: block.difficulty }];
-      if (!isAction && block.altSkill) variants.push({ skill: block.altSkill, difficulty: block.altDifficulty || block.difficulty });
-      // Vignettes d'aide pour une compétence donnée (testeurs et dés lancés).
-      const helperFor = function (skill) {
-        if (groupLike) {
-          const heroes = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
-          return heroes.length
-            ? '<div class="ses-group-pills">' + heroes.map(function (h) {
-                const info = heroTestInfo(ses, h, skill);
-                return '<div class="ses-skill-pill">' +
-                  '<span class="ssk-hero">' + esc(h.name) + '</span>' +
-                  '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
-                  (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
-                '</div>';
-              }).join('') + '</div>'
-            : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
-        }
-        const bh = singleTester(ses, block, null, skill);
-        const dice = 1 + (bh.bonus || 0);
-        const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">🎲 au hasard</span>' : '';
-        return bh.hero
-          ? '<div class="ses-skill-pill">' +
-              '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' + randTag +
-              '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + ' 🎲</span>' +
-              (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
-            '</div>'
-          : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
-      };
-      // La DIFFICULTÉ est toujours affichée SUR le bouton, à droite de la compétence.
-      // 2 variantes : les boutons se partagent la MÊME ligne (colonnes côte à côte),
-      // chaque vignette de testeur alignée SOUS son bouton.
-      const btnsHtml = '<div class="ses-tb-variants">' + variants.map(function (v, vi) {
-        const btn = v.action
-          ? '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go ses-tb-action" data-vi="' + vi + '">⚡ ' +
-              esc(v.label || 'Agir') + '</button>'
-          : '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
-              esc(block.label || 'Tenter le test') +
-              ' <span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +
-              ' <span class="ssk-diff ssk-diff-' + (v.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[v.difficulty] || 'Moyen') + '</span>' +
-            '</button>';
-        return '<div class="ses-tb-variant">' + btn + (v.action ? '' : helperFor(v.skill)) + '</div>';
-      }).join(variants.length > 1 ? '<div class="ses-tb-or">ou</div>' : '') + '</div>';
       slot.innerHTML = '<div class="ses-searchtest">' +
         '<div class="ses-st-title">' + (isAction ? '⚡ ' : '🔍 ') + esc(block.label || (isAction ? 'Action' : 'Test de compétence')) +
           (block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '') +
           (!isAction && block.who === 'group' ? ' <span class="ses-st-group-tag" title="' + esc(groupModeLabel(block.groupMode)) + '">👥 GROUPE</span>' : '') + '</div>' +
-        btnsHtml +
+        variantButtonsHtml(ses, block, scene, null) +
       '</div>';
-      slot.querySelectorAll('.ses-tb-go').forEach(function (b) {
-        b.addEventListener('click', function () {
-          runTestBlock(ses, adv, scene, block, null, variants[parseInt(b.getAttribute('data-vi'), 10) || 0]);
-        });
-      });
+      wireVariantButtons(slot, ses, adv, scene, block, null);
       return;
     }
     renderTestBlockResult(slot, block, scene, adv, ses, state);
@@ -1529,8 +1538,17 @@
         const attempted = Array.isArray(state.attempted) ? state.attempted : (state.heroId ? [state.heroId] : []);
         const remaining = aliveEngagedHeroes(ses).filter(function (h) { return attempted.indexOf(h.id) < 0; });
         if (remaining.length) {
-          retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter avec un autre aventurier (' + remaining.length + ' restant' + (remaining.length > 1 ? 's' : '') + ')</button></div>';
-          retryAction = 'other';
+          // Test à plusieurs compétences : la relance « avec un autre aventurier »
+          // ré-affiche les boutons de choix de compétence (excludeIds = déjà tentés),
+          // pour qu'on puisse à nouveau choisir l'une ou l'autre option.
+          if (testVariants(block).length > 1) {
+            retryHtml = '<div class="hint ses-st-retry-hint">🔁 Retenter avec un autre aventurier (' + remaining.length + ' restant' + (remaining.length > 1 ? 's' : '') + ') :</div>' +
+              variantButtonsHtml(ses, block, scene, attempted);
+            retryAction = 'other-variants';
+          } else {
+            retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter avec un autre aventurier (' + remaining.length + ' restant' + (remaining.length > 1 ? 's' : '') + ')</button></div>';
+            retryAction = 'other';
+          }
         } else {
           retryHtml = '<div class="hint">Tous les aventuriers ont tenté leur chance.</div>';
         }
@@ -1550,6 +1568,11 @@
         (state.group || state.action ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
         retryHtml +
       '</div>';
+      if (retryAction === 'other-variants') {
+        // Boutons de choix de compétence pour la relance « avec un autre aventurier ».
+        const attempted = Array.isArray(state.attempted) ? state.attempted : (state.heroId ? [state.heroId] : []);
+        wireVariantButtons(slot, ses, adv, scene, block, attempted);
+      }
       const retryBtn = slot.querySelector('.ses-tb-retry');
       if (retryBtn) retryBtn.addEventListener('click', function () {
         if (retryAction === 'other') {

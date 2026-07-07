@@ -875,15 +875,18 @@
       const isEntry = ch.entryId === s.id;
       const typeLabel = (SCENE_TYPES.find(function (t) { return t.value === s.type; }) || {}).label || s.type;
       const nLinks = ch.links.filter(function (l) { return l.from === s.id || l.to === s.id; }).length;
-      return '<div class="dmap-room type-' + s.type + (isEntry ? ' dmap-entry' : '') + '" data-scene="' + s.id + '"' +
+      const isDone = !!s.mapDone;
+      return '<div class="dmap-room type-' + s.type + (isEntry ? ' dmap-entry' : '') + (isDone ? ' dmap-done' : '') + '" data-scene="' + s.id + '"' +
         ' style="left:' + (s.mapX * DMAP_CELL_W + DMAP_PAD) + 'px;top:' + (s.mapY * DMAP_CELL_H + DMAP_PAD) + 'px">' +
         '<div class="dmap-room-head">' +
           (isEntry ? '<span class="dmap-entry-badge" title="Entrée du donjon">🚪</span>' : '') +
+          (isDone ? '<span class="dmap-done-badge" title="Salle terminée">✅</span>' : '') +
           '<span class="dmap-room-title">' + esc(s.title || '(sans titre)') + '</span>' +
         '</div>' +
         '<span class="adv-scene-type type-' + s.type + '">' + esc(typeLabel) + '</span>' +
         (nLinks ? '<span class="dmap-room-links" title="Connecteurs">' + nLinks + ' ⟷</span>' : '') +
         '<div class="dmap-room-tools">' +
+          '<button type="button" class="icon-btn dmap-done-btn' + (isDone ? ' on' : '') + '" data-scene="' + s.id + '" title="' + (isDone ? 'Salle terminée — décocher' : 'Marquer la salle comme terminée') + '">✅</button>' +
           '<button type="button" class="icon-btn dmap-link-btn" data-scene="' + s.id + '" title="Tracer un connecteur vers une autre salle">🔗</button>' +
           '<button type="button" class="icon-btn dmap-entry-btn" data-scene="' + s.id + '" title="Définir comme entrée du donjon">🚪</button>' +
           '<button type="button" class="icon-btn dmap-del-btn" data-scene="' + s.id + '" title="Supprimer la salle">✕</button>' +
@@ -952,6 +955,16 @@
       if (dmapLinking && dmapLinking.chId === ch.id && !ev.target.closest('.dmap-room')) {
         dmapLinking = null; renderDungeonEditor(a, ch);
       }
+    });
+    box.querySelectorAll('.dmap-done-btn').forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        // Coche « organisation » : sans effet de jeu, juste un repère visuel
+        // pour marquer qu'on a terminé de bâtir/nettoyer une salle.
+        const sid = b.getAttribute('data-scene');
+        const s = ch.scenes.find(function (x) { return x.id === sid; });
+        if (s) { s.mapDone = !s.mapDone; save(); renderDungeonEditor(a, ch); }
+      };
     });
     box.querySelectorAll('.dmap-link-btn').forEach(function (b) {
       b.onclick = function (e) {
@@ -1532,9 +1545,11 @@
                   return '<option value="' + esc(b.id) + '"' + (cur === b.id ? ' selected' : '') + '>' + esc(b.label || ('Test #' + (k + 1))) + '</option>';
                 }).join('');
               };
+              const succLbl = blk.actionMode ? '🔗 Test révélé si Action 1' : '🔗 Test révélé si réussite';
+              const failLbl = blk.actionMode ? '🔗 Test révélé si Action 2' : '🔗 Test révélé si échec';
               return '<div class="form-row tb-chain-row" style="grid-template-columns:1fr 1fr" title="Le test choisi n\'apparaît dans la scène qu\'après ce résultat.">' +
-                '<label>🔗 Test révélé si réussite <select class="tb-chain-succ" data-bi="' + i + '">' + opts(blk.chainSuccessId) + '</select></label>' +
-                '<label>🔗 Test révélé si échec <select class="tb-chain-fail" data-bi="' + i + '">' + opts(blk.chainFailId) + '</select></label>' +
+                '<label>' + succLbl + ' <select class="tb-chain-succ" data-bi="' + i + '">' + opts(blk.chainSuccessId) + '</select></label>' +
+                '<label>' + failLbl + ' <select class="tb-chain-fail" data-bi="' + i + '">' + opts(blk.chainFailId) + '</select></label>' +
               '</div>';
             })() +
             // Un test enchaîné peut « rattraper » le test qui l'a révélé : le

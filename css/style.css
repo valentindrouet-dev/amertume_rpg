@@ -3646,6 +3646,12 @@ body.mode-player #item-list.roster-list { display: block; }
 .dmap-room.type-reward       { border-color: rgba(196,154,32,.8); }
 .dmap-room.type-fin          { border-color: rgba(157,114,196,.8); }
 .dmap-room.dmap-entry { box-shadow: 0 0 0 2px rgba(214,175,70,.55), 0 2px 6px rgba(0,0,0,.3); }
+/* Coche verte « organisation » : la salle est marquée comme terminée (repère perso, aucun effet de jeu). */
+.dmap-room.dmap-done { box-shadow: 0 0 0 2px rgba(74,180,110,.65), 0 2px 6px rgba(0,0,0,.3); }
+.dmap-room.dmap-done.dmap-entry { box-shadow: 0 0 0 2px rgba(214,175,70,.55), 0 0 0 4px rgba(74,180,110,.55), 0 2px 6px rgba(0,0,0,.3); }
+.dmap-done-badge { flex: 0 0 auto; font-size: .8rem; }
+.dmap-room-tools .dmap-done-btn { filter: grayscale(1) opacity(.55); }
+.dmap-room-tools .dmap-done-btn.on { filter: none; }
 .dmap-room-head { display: flex; align-items: center; gap: .25rem; min-height: 1.15rem; }
 .dmap-entry-badge { flex: 0 0 auto; font-size: .85rem; }
 .dmap-room-title {
