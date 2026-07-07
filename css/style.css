@@ -1147,6 +1147,16 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .ses-tb-rare .ses-rare-qty { color: #8a3a86; font-weight: 800; }
 .ses-tb-rare .ses-rare-act { font-size: .78rem; font-weight: 700; color: #8a3a86; }
 .ses-st-rare-note { color: #8a3a86; }
+/* Bloc ÉCRITURE (énigme / mot de passe) : champ de saisie + bouton Valider. */
+.ses-write .ses-write-consigne { font-weight: 700; color: var(--accent-2, #e2974a); margin: .3rem 0 .4rem; }
+.ses-write-row { display: flex; gap: .5rem; align-items: stretch; flex-wrap: wrap; }
+.ses-write-input {
+  flex: 1 1 12rem; min-width: 0; padding: .55rem .7rem; font-size: 1rem;
+  border: 1px solid var(--border); border-radius: 9px; background: rgba(0,0,0,.22); color: var(--text);
+}
+.ses-write-input:focus { border-color: var(--accent-2, #e2974a); outline: none; }
+.ses-write-go { flex: 0 0 auto; }
+.ses-st-write-answer { color: var(--muted); font-style: italic; }
 /* Connecteur VERROUILLÉ : bouton visible avec cadenas, non franchissable. */
 .ses-exit-btn.ses-exit-locked { opacity: .8; cursor: not-allowed; border-style: dashed; }
 .ses-exit-btn.ses-exit-locked:hover { filter: none; }

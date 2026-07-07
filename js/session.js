@@ -16,7 +16,7 @@
   let forceSetup = false;        // force l'écran de création/sélection du groupe
   let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
 
-  function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
   const KIND_LABELS = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT' };
   function KIND_SHORT(k) { return KIND_LABELS[k] || 'TAL'; }
 
@@ -1193,6 +1193,25 @@
 
   // ----- Blocs de test de compétence (tentés une seule fois, dans le fil du texte) -----
   const ST_DIFF_LABEL = { auto: 'Automatique', facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile', tresdifficile: 'Très Difficile', insurmontable: 'Insurmontable', impossible: 'Impossible' };
+  // Normalisation TOLÉRANTE d'un mot pour les blocs Écriture : minuscules, sans
+  // accents, sans espaces/ponctuation, sans « s »/« x » final (pluriel simple).
+  // Ainsi « Étoiles », « étoiLe » et « Etoile » se ramènent tous à « etoile ».
+  function normalizeWord(s) {
+    return String(s == null ? '' : s)
+      .trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '')
+      .replace(/[sx]$/, '');
+  }
+  // Le mot saisi correspond-il à l'un des mots attendus (séparés par , ; ou saut de ligne) ?
+  function writeMatches(block, answer) {
+    const got = normalizeWord(answer);
+    if (!got) return false;
+    return String(block.writeAnswers || '').split(/[,;\n]/)
+      .map(function (a) { return normalizeWord(a); })
+      .filter(Boolean)
+      .indexOf(got) >= 0;
+  }
   // Variantes jouables d'un bloc : test (compétence principale + alternative) ou
   // Action (1 ou 2 choix, sans jet).
   function testVariants(block) {
@@ -1301,10 +1320,34 @@
     const rareBtn = slot.querySelector('.ses-tb-rare');
     if (rareBtn) rareBtn.addEventListener('click', function () { resolveTestWithRare(ses, adv, scene, block); });
   }
+  // Champ de saisie d'un bloc ÉCRITURE (énigme / mot de passe) : description,
+  // consigne, zone de texte + bouton Valider. Tolérance gérée par writeMatches.
+  function renderWriteBlock(slot, block, scene, adv, ses) {
+    slot.innerHTML = '<div class="ses-searchtest ses-write">' +
+      '<div class="ses-st-title">✍️ ' + esc(block.label || 'Écriture') +
+        (block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '') + '</div>' +
+      (block.writeDesc && block.writeDesc.trim() ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.writeDesc) + '</div>' : '') +
+      '<div class="ses-write-consigne">' + esc(block.writeInstruction || 'Écrivez exactement 1 mot') + '</div>' +
+      '<div class="ses-write-row">' +
+        '<input type="text" class="ses-write-input" placeholder="Votre réponse…" autocomplete="off" />' +
+        '<button class="primary ses-write-go">Valider</button>' +
+      '</div>' +
+    '</div>';
+    const input = slot.querySelector('.ses-write-input');
+    const go = slot.querySelector('.ses-write-go');
+    const submit = function () {
+      const val = input ? input.value : '';
+      if (!val.trim()) { if (input) input.focus(); return; }
+      runTestBlock(ses, adv, scene, block, null, { write: true, answer: val });
+    };
+    if (go) go.addEventListener('click', submit);
+    if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+  }
   function renderTestBlock(slot, block, scene, adv, ses) {
     if (!ses.searchTests) ses.searchTests = {};
     const state = ses.searchTests[block.id];
     if (!state) {
+      if (block.writeMode) { renderWriteBlock(slot, block, scene, adv, ses); return; }
       const isAction = !!block.actionMode;
       slot.innerHTML = '<div class="ses-searchtest">' +
         '<div class="ses-st-title">' + (isAction ? '⚡ ' : '🔍 ') + esc(block.label || (isAction ? 'Action' : 'Test de compétence')) +
@@ -1361,7 +1404,21 @@
     const prevSt = ses.searchTests[block.id];
     const v = variant || (prevSt && prevSt.variant) || { skill: block.skill, difficulty: block.difficulty };
     const groupLike = !block.actionMode && (block.who === 'group' || block.who === 'concerned');
-    if (variant && variant.rareAuto) {
+    if (variant && variant.write) {
+      // BLOC ÉCRITURE : la réussite dépend du mot saisi (tolérance : casse, accents,
+      // pluriel). Réussite → récompenses ; échec → conséquence d'échec.
+      const passed = writeMatches(block, variant.answer);
+      state = { done: true, success: passed, claimed: false, write: true, answer: (variant.answer || '').trim() };
+      if (passed) {
+        const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
+        if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+        grantDeedReward(ses, scene, block);
+        applyWinEffect(ses, block);
+        grantTreasures(ses, block);
+      } else {
+        state.fxMsg = applyTestFailEffect(ses, scene, block, aliveEngagedHeroes(ses)[0] || null) || '';
+      }
+    } else if (variant && variant.rareAuto) {
       // RÉSOLUTION PAR UN OBJET RARE : réussite garantie, sans jet. Applique les
       // récompenses de réussite exactement comme une réussite classique.
       state = { done: true, success: true, claimed: false, rareAuto: true, rareName: variant.rareName || '',
@@ -1613,8 +1670,8 @@
 
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
     const mTag = block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '';
-    const stIcon = block.actionMode ? '⚡ ' : '🔍 ';
-    const stLabel = block.label || (block.actionMode ? 'Action' : 'Test de compétence');
+    const stIcon = block.writeMode ? '✍️ ' : block.actionMode ? '⚡ ' : '🔍 ';
+    const stLabel = block.label || (block.writeMode ? 'Écriture' : block.actionMode ? 'Action' : 'Test de compétence');
     // Résultat obtenu lors d'une ENTRÉE ANTÉRIEURE (on est revenu dans la salle) :
     // version COMPACTE — on GARDE le titre, le verdict et le TEXTE narratif, mais on
     // masque les récompenses (XP, objets, Hauts Faits) et les résultats chiffrés.
@@ -1644,7 +1701,11 @@
       const isGroupRes = state.group && Array.isArray(state.results);
       let retryHtml = '';
       let retryAction = null; // 'reset' (efface l'état) | 'other' (exclusions) | 'group' (relance des seuls échoués)
-      if (mode === 'always') {
+      if (block.writeMode) {
+        // Écriture : on peut toujours ressaisir le bon mot.
+        retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">✍️ Réessayer</button></div>';
+        retryAction = 'reset';
+      } else if (mode === 'always') {
         const nFail = isGroupRes ? state.results.filter(function (r) { return !r.passed; }).length : 0;
         retryHtml = '<div class="ses-st-actions"><button class="ghost ses-tb-retry">🔁 Retenter le test' +
           (isGroupRes && nFail ? ' (' + nFail + ' aventurier' + (nFail > 1 ? 's' : '') + ' concerné' + (nFail > 1 ? 's' : '') + ')' : '') + '</button></div>';
@@ -1680,7 +1741,8 @@
         (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '') +
         groupResultsHtml(state) +
         fxMsgsHtml(state) +
-        (state.group || state.action ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
+        (state.write ? '<div class="hint ses-st-write-answer">✍️ Réponse saisie : « ' + esc(state.answer || '') + ' »</div>' : '') +
+        (state.group || state.action || state.write ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
         retryHtml +
       '</div>';
       if (retryAction === 'other-variants') {
@@ -1768,7 +1830,9 @@
       groupResultsHtml(state) +
       fxMsgsHtml(state) +
       // Détail des jets, affiché AUSSI en cas de réussite (test individuel).
-      (state.group || state.action || state.rareAuto ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
+      (state.group || state.action || state.rareAuto || state.write ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
+      // Bonne réponse d'un bloc Écriture.
+      (state.write ? '<div class="hint ses-st-write-answer">✍️ Réponse : « ' + esc(state.answer || '') + ' » ✔</div>' : '') +
       // Réussite obtenue grâce à un Objet Rare (sans jet).
       (state.rareAuto ? '<div class="hint ses-st-rare-note">🗝️ Réussite obtenue grâce à « ' + esc(state.rareName || 'un Objet Rare') + ' »' + (block.rareConsume ? ' (objet consommé)' : '') + '.</div>' : '') +
       rewardHtml +
