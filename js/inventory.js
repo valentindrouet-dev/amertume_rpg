@@ -244,8 +244,9 @@
     const singleStrip = function (h, i, checked, qtyBadge) {
       return '<label class="inv-strip-row cat-' + i.category + (checked ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
-        '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) + '</div>' +
-        (qtyBadge > 1 ? '<span class="inv-qty-badge" title="' + qtyBadge + ' exemplaires">' + qtyBadge + '</span>' : '') +
+        '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) +
+          (qtyBadge > 1 ? '<span class="inv-qty-badge" title="' + qtyBadge + ' exemplaires">' + qtyBadge + '</span>' : '') +
+        '</div>' +
         '<button type="button" class="inv-strip-del" data-hero="' + h.id + '" data-item="' + i.id + '" title="Jeter un exemplaire de cet objet">✕</button>' +
       '</label>';
     };
@@ -308,8 +309,9 @@
       const tStrip = function (t) {
         return '<div class="inv-strip-row cat-' + (t.kind === 'rare' ? 'rare' : 'treasure') + '">' +
           '<div class="inv-strip"><span class="inv-strip-name">' + (t.kind === 'rare' ? '🗝️ ' : '💎 ') + escapeHtml(t.name) + '</span>' +
-            '<span class="inv-strip-val inv-strip-eff">' + (t.kind === 'rare' ? 'Objet Rare' : 'Trésor') + '</span></div>' +
-          ((t.qty || 1) > 1 ? '<span class="inv-qty-badge" title="' + t.qty + ' exemplaires">' + t.qty + '</span>' : '') +
+            '<span class="inv-strip-val inv-strip-eff">' + (t.kind === 'rare' ? 'Objet Rare' : 'Trésor') + '</span>' +
+            ((t.qty || 1) > 1 ? '<span class="inv-qty-badge" title="' + t.qty + ' exemplaires">' + t.qty + '</span>' : '') +
+          '</div>' +
           '<button type="button" class="inv-treasure-del" data-tid="' + t.id + '" title="Jeter un exemplaire">✕</button>' +
         '</div>';
       };

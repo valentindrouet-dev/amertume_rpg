@@ -774,18 +774,20 @@
     return (Math.round(Number(o.goldReward) || 0) > 0) ||
       (Array.isArray(o.treasureRewards) && o.treasureRewards.some(function (r) { return r && r.name && (r.qty || 0) > 0; }));
   }
-  // HTML des lignes de récompense Or/Trésors (encadrés de récompense).
+  // HTML des lignes de récompense Or/Trésors (encadré « Butin » doré et festif).
   function treasureRewardHtml(o) {
     if (!hasTreasureReward(o)) return '';
     let rows = '';
     const gold = Math.max(0, Math.round(Number(o.goldReward) || 0));
-    if (gold > 0) rows += '<div class="ses-reward-title">🪙 Or <strong>+' + gold + '</strong></div>';
+    if (gold > 0) rows += '<div class="ses-reward-title ses-loot-gold">🪙 <strong>+' + gold + ' Or</strong></div>';
     (o.treasureRewards || []).forEach(function (r) {
       if (!r || !r.name || !(r.qty > 0)) return;
-      rows += '<div class="ses-reward-title">' + (r.kind === 'rare' ? '🗝️ Objet Rare' : '💎 Trésor') +
-        ' <strong>' + esc(r.name) + (r.qty > 1 ? ' ×' + r.qty : '') + '</strong></div>';
+      rows += r.kind === 'rare'
+        ? '<div class="ses-reward-title ses-loot-rare">🗝️ Objet Rare — <strong>' + esc(r.name) + (r.qty > 1 ? ' ×' + r.qty : '') + '</strong></div>'
+        : '<div class="ses-reward-title ses-loot-treasure">💎 Trésor — <strong>' + esc(r.name) + (r.qty > 1 ? ' ×' + r.qty : '') + '</strong></div>';
     });
-    return '<div class="ses-reward-block ses-reward-gold">' + rows + '</div>';
+    return '<div class="ses-reward-block ses-reward-gold">' +
+      '<div class="ses-loot-head">✨ Butin !</div>' + rows + '</div>';
   }
 
   // PRÉPARÉ : marque tous les aventuriers engagés comme Préparés pour le prochain

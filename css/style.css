@@ -1010,10 +1010,11 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .ses-reward-block.ses-reward-prepare { border-left: 4px solid #e2974a; padding: .4rem .9rem; }
 .ses-reward-block.ses-reward-prepare .ses-reward-title { margin-bottom: 0; }
 .ses-reward-note { font-weight: 400; font-size: .82rem; color: var(--muted); }
-/* Pastille de quantité des objets cumulables (coin supérieur droit). */
-.inv-strip-row { position: relative; }
+/* Pastille de quantité des objets cumulables — à cheval sur le coin supérieur
+   droit de la languette (sans empiéter sur son contenu). */
+.inv-strip { position: relative; overflow: visible; }
 .inv-qty-badge {
-  position: absolute; top: -7px; right: 20px; z-index: 2;
+  position: absolute; top: -9px; right: -9px; z-index: 2;
   min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 50%; font-size: .72rem; font-weight: 800;
@@ -1024,20 +1025,46 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .inv-treasure-box { margin-top: 1rem; }
 .inv-treasure-head { display: flex; align-items: center; gap: .6rem; }
 .inv-gold-pill {
-  font-size: .85rem; font-weight: 800; color: #4d3a06;
-  background: rgba(230,200,120,.92); border-radius: 12px; padding: .12rem .6rem;
+  font-size: .95rem; font-weight: 800; color: #3a2a05;
+  background: linear-gradient(180deg, #f4d97a, #d9a832);
+  border: 1px solid #8a6a12; border-radius: 14px; padding: .18rem .75rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,245,200,.6);
+  text-shadow: 0 1px 0 rgba(255,240,190,.5);
 }
 .inv-treasure-list {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: .35rem .6rem; padding: .4rem 0;
 }
-.inv-strip-row.cat-treasure { border-left: 4px solid #3fa7c4; }
-.inv-strip-row.cat-rare { border-left: 4px solid #b02ea8; }
+/* Languettes de trésors : même construction que les armes/armures (couleur sur
+   le bord gauche de la languette elle-même, fond dégradé assorti). */
+.inv-strip-row.cat-treasure .inv-strip { border-left-color: #3fa7c4; background: linear-gradient(180deg, #efe4cf, #d6e9f0); }
+.inv-strip-row.cat-rare     .inv-strip { border-left-color: #b02ea8; background: linear-gradient(180deg, #efe4cf, #ecd9ee); }
 .inv-treasure-del {
   background: none; border: none; cursor: pointer; color: var(--muted);
   font-size: .85rem; padding: .1rem .3rem;
 }
 .inv-treasure-del:hover { color: #d65c40; }
+/* Encadré « ✨ Butin ! » : doré, brillant, valorisant — couleur par type de loot. */
+.ses-reward-block.ses-reward-gold {
+  position: relative; overflow: hidden;
+  border: 1px solid rgba(230,190,90,.6); border-left: 4px solid #e6be5a;
+  background: linear-gradient(135deg, rgba(230,190,90,.16), rgba(230,190,90,.04) 45%, rgba(255,236,170,.14));
+  box-shadow: 0 0 14px rgba(230,190,90,.22), inset 0 0 22px rgba(255,220,120,.07);
+}
+.ses-reward-block.ses-reward-gold::after {
+  content: ""; position: absolute; top: -60%; left: -35%; width: 45%; height: 240%;
+  background: linear-gradient(115deg, transparent, rgba(255,240,190,.18), transparent);
+  transform: rotate(10deg); pointer-events: none;
+}
+.ses-loot-head {
+  font-weight: 800; font-size: 1.02rem; letter-spacing: .04em; text-transform: uppercase;
+  color: #f4d97a; text-shadow: 0 0 8px rgba(244,217,122,.45); margin-bottom: .3rem;
+}
+.ses-reward-gold .ses-reward-title { margin-bottom: .15rem; }
+.ses-loot-gold { color: #f4d97a; text-shadow: 0 0 6px rgba(244,217,122,.35); }
+.ses-loot-treasure { color: #7cd0e8; text-shadow: 0 0 6px rgba(124,208,232,.3); }
+.ses-loot-rare { color: #e08ae0; text-shadow: 0 0 6px rgba(224,138,224,.3); }
+.ses-reward-gold .ses-reward-title strong { color: inherit; }
 /* Éditeur de récompenses Or / Trésors / Objets Rares (scènes + tests). */
 .tr-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: .3rem 0; }
 .tr-gold-lbl { display: inline-flex; align-items: center; gap: .35rem; font-weight: 700; }
