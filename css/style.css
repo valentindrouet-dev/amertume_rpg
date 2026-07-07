@@ -551,19 +551,37 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .stat-pill { padding: .22rem .5rem; font-size: .78rem; }
 .stat-pill b { font-size: .85rem; }
 
-/* ---- Bestiaire : cartes compactes, toujours visibles, peu de retours ligne ---- */
-#monster-list.roster-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .7rem; }
-#monster-list .roster-card { padding: .7rem .85rem; }
+/* ---- Bestiaire : vignettes compactes qui s'ajustent à leur contenu ----
+   Disposition en flux (flex-wrap) : chaque vignette prend sa largeur minimale,
+   les vignettes repliées ont une largeur fixe et uniforme (nom tronqué si besoin). */
+#monster-list.roster-list { display: flex; flex-wrap: wrap; grid-template-columns: none; gap: .6rem; align-items: flex-start; }
+#monster-list .roster-card { padding: .55rem .7rem; }
 #monster-list .roster-head { padding-bottom: .45rem; }
-#monster-list .roster-name { font-size: 1rem; }
+#monster-list .roster-name { font-size: .98rem; }
+#monster-list .roster-card.roster-collapsed { padding-bottom: .5rem; }
+/* Vignette repliée : largeur fixe uniforme (≈ celle de « Arbalétrier ») ; le nom
+   trop long est tronqué avec des points de suspension pour garder la taille mini. */
+#monster-list .roster-card.roster-collapsed { flex: 0 0 auto; width: 19rem; max-width: 100%; cursor: pointer; }
+#monster-list .roster-card.roster-collapsed .roster-head { flex-wrap: nowrap; }
+#monster-list .roster-card.roster-collapsed .roster-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto;
+}
+#monster-list .roster-card.roster-collapsed .tag.type { flex: 0 0 auto; }
+/* Vignette dépliée : largeur confortable de lecture. */
+#monster-list .roster-card:not(.roster-collapsed) { flex: 1 1 22rem; max-width: 34rem; }
+/* Boutons d'outils compacts (plume ✎, dupliquer ⧉, supprimer ✕) */
+#monster-list .mon-tool {
+  flex: 0 0 auto; width: 1.7rem; height: 1.7rem; padding: 0; font-size: .9rem;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+}
+#monster-list .mon-tool.del-btn { color: #c0492f; }
 /* Repli/dépli des vignettes du bestiaire */
 .roster-toggle {
   flex: 0 0 auto; background: transparent; border: none; cursor: pointer;
-  color: var(--muted); font-size: .95rem; line-height: 1; padding: .1rem .25rem;
-  border-radius: 5px; width: 1.5rem;
+  color: var(--muted); font-size: .95rem; line-height: 1; padding: .1rem .2rem;
+  border-radius: 5px; width: 1.2rem;
 }
 .roster-toggle:hover { color: var(--accent); background: rgba(255,255,255,.4); }
-#monster-list .roster-card.roster-collapsed { padding-bottom: .5rem; }
 .roster-card.roster-collapsed .roster-head { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
 .roster-card.roster-collapsed .roster-body,
 .roster-card.roster-collapsed .roster-head-extra { display: none; }
@@ -1090,11 +1108,49 @@ main { padding: 1.5rem 1.25rem 3rem; }
 }
 /* 2 méthodes d'un test (ou 2 actions) : boutons CÔTE À CÔTE sur la même ligne,
    chaque vignette de testeur alignée sous son bouton. */
-.ses-tb-variants { display: flex; align-items: flex-start; gap: .5rem; }
-.ses-tb-variant { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
-.ses-tb-variant .ses-choice-btn { width: 100%; }
+.ses-tb-variants { display: flex; flex-direction: column; gap: .3rem; }
+/* Rangée des boutons : le « ou » est centré verticalement entre les deux boutons. */
+.ses-tb-btnrow { display: flex; align-items: center; gap: .5rem; }
+.ses-tb-btnrow .ses-choice-btn { flex: 1 1 0; min-width: 0; width: auto; }
+/* Rangée des vignettes de testeur, alignées sous chaque bouton (un « ou » fantôme
+   réserve la même largeur pour conserver l'alignement des colonnes). */
+.ses-tb-pillrow { display: flex; align-items: flex-start; gap: .5rem; }
+.ses-tb-pillcell { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 .ses-tb-or { flex: 0 0 auto; align-self: center; color: var(--muted); font-weight: 700; font-size: .8rem; padding: 0 .15rem; }
-@media (max-width: 640px) { .ses-tb-variants { flex-direction: column; } .ses-tb-or { align-self: center; } }
+.ses-tb-or-ghost { visibility: hidden; }
+/* Bouton de test : libellé sur la 1re ligne ; cartouches compétence + difficulté
+   regroupés sur la 2e ligne. */
+.ses-tb-btnrow .ses-choice-btn.skill-test.ses-tb-go:not(.ses-tb-action) {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .12rem .3rem;
+}
+.ses-tb-btnrow .ses-choice-btn.skill-test.ses-tb-go:not(.ses-tb-action)::before { flex: 0 0 auto; }
+.ssk-btn-label { flex: 1 1 auto; min-width: 0; }
+.ssk-btn-meta { flex: 1 1 100%; display: inline-flex; align-items: center; gap: .3rem; flex-wrap: nowrap; margin-top: .05rem; }
+@media (max-width: 640px) {
+  .ses-tb-btnrow { flex-direction: column; align-items: stretch; }
+  .ses-tb-pillrow { flex-direction: column; }
+  .ses-tb-or-ghost { display: none; }
+}
+/* Bouton « Objet Rare » : réussite automatique du test si le groupe le possède. */
+.ses-tb-rarewrap { margin-top: .1rem; }
+.ses-tb-rare {
+  display: flex; align-items: center; gap: .55rem; width: 100%; cursor: pointer; text-align: left;
+  border: 1px solid #b06fb0; border-left: 5px solid #b02ea8; border-radius: 9px;
+  padding: .5rem .8rem; background: linear-gradient(180deg, #f3e2f3, #ecd4ee); color: #5a1d55;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0,0,0,.18);
+}
+.ses-tb-rare:hover { filter: brightness(1.04); }
+.ses-tb-rare .ses-rare-ico { font-size: 1.3rem; flex: 0 0 auto; }
+.ses-tb-rare .ses-rare-body { display: flex; flex-direction: column; min-width: 0; }
+.ses-tb-rare .ses-rare-name { font-weight: 800; }
+.ses-tb-rare .ses-rare-qty { color: #8a3a86; font-weight: 800; }
+.ses-tb-rare .ses-rare-act { font-size: .78rem; font-weight: 700; color: #8a3a86; }
+.ses-st-rare-note { color: #8a3a86; }
+/* Connecteur VERROUILLÉ : bouton visible avec cadenas, non franchissable. */
+.ses-exit-btn.ses-exit-locked { opacity: .8; cursor: not-allowed; border-style: dashed; }
+.ses-exit-btn.ses-exit-locked:hover { filter: none; }
+.ses-exit-lock { margin-right: .25rem; }
 /* Bouton d'un bloc ACTION (sans jet). */
 .ses-tb-action { border-left-color: #b07a2e; }
 /* Notes uniformisées : combat résolu (vert) / récompense déjà reçue (doré). */
@@ -1361,6 +1417,9 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 .hero-stat:nth-child(5) { background: #fde8e8; border-color: #e07070; } /* Dégâts : rouge */
 .hero-stat:nth-child(5) .hs-label { color: #a03030; }
 .hero-stat:nth-child(5) .hs-val   { color: #7a1010; }
+/* Défense affichée par le blason de la valeur (assets/DEF N.png), sans texte. */
+.hero-stat.hero-stat-def { justify-content: center; padding: .35rem .3rem; }
+.hero-stat.hero-stat-def .hero-def-img { width: auto; height: 2.6rem; vertical-align: middle; display: block; }
 
 /* ---- Compétences (fiche) ---- */
 .skill-badges { display: flex; flex-wrap: wrap; gap: .35rem; }

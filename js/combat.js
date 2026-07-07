@@ -392,12 +392,16 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  // Or lâché par les adversaires vaincus (champ goldLoot du bestiaire).
+  // Or lâché par les adversaires vaincus (champ goldLoot du bestiaire, valeur fixe
+  // ou en dés). On tire une seule fois par adversaire (cache sur l'instance) pour
+  // que l'affichage du résumé et l'attribution effective coïncident.
   function totalGoldLoot(c) {
     let g = 0;
     c.combatants.filter(function (x) { return x.side === 'monster' && x.status === 'coma'; }).forEach(function (m) {
       const tpl = Store.state.monsters.find(function (t) { return t.id === m.templateId; });
-      if (tpl && tpl.goldLoot > 0) g += tpl.goldLoot;
+      if (!tpl) return;
+      if (typeof m.goldRolled !== 'number') m.goldRolled = Math.max(0, Store.rollAmount(tpl.goldLoot));
+      g += m.goldRolled;
     });
     return g;
   }
@@ -426,7 +430,9 @@
         if (!r.itemId) return;
         if (Math.random() * 100 < (r.loot != null ? r.loot : 0)) {
           const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
-          if (it) { const rc = recipient(r.itemId); out.push({ itemId: r.itemId, name: it.name, qty: r.qty || 1, toName: rc.toName, toHeroId: rc.toHeroId }); }
+          // Quantité fixe OU en dés (« 2d6 ») : résolue au moment du butin.
+          const qty = Math.max(1, Math.round(Store.rollAmount(r.qty == null ? 1 : r.qty)));
+          if (it) { const rc = recipient(r.itemId); out.push({ itemId: r.itemId, name: it.name, qty: qty, toName: rc.toName, toHeroId: rc.toHeroId }); }
         }
       });
     });

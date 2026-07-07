@@ -131,6 +131,27 @@
       return c.scenes.some(function (s) { return s.id === sceneId; });
     }) || null;
   }
+  // Recense tous les noms d'Objets Rares ajoutés en récompense (kind: 'rare') dans
+  // l'aventure — au niveau des scènes ET des blocs de test/action. Sert au champ
+  // « Objet Rare » des blocs (résolution automatique d'un test si le groupe le possède).
+  function adventureRareNames(adv) {
+    const names = [];
+    const scan = function (list) {
+      (list || []).forEach(function (r) {
+        if (r && r.kind === 'rare' && r.name && r.name.trim() && names.indexOf(r.name.trim()) < 0) {
+          names.push(r.name.trim());
+        }
+      });
+    };
+    (adv.chapters || []).forEach(function (c) {
+      (c.scenes || []).forEach(function (s) {
+        scan(s.treasureRewards);
+        (s.blocks || []).forEach(function (b) { scan(b.treasureRewards); });
+      });
+    });
+    names.sort();
+    return names;
+  }
   // Crée une scène liée dans le même chapitre que `fromSceneId` et renvoie son id
   function createLinkedScene(adv, fromSceneId) {
     const ch = chapterOfScene(adv, fromSceneId) || adv.chapters[0];
@@ -1250,23 +1271,42 @@
                 const other = curCh.scenes.find(function (s) { return s.id === otherId; });
                 // Flèche orientée depuis CETTE salle vers l'autre (direction sur la carte).
                 const arrow = dmapDirArrow(scene, other);
-                // Visibilité : toujours, ou seulement après la réussite d'un test
-                // de la salle (passage secret).
-                let revealOpts = '<option value="">👁 Toujours visible</option>' +
+                // Accès : Visible (toujours), Dissimulé (invisible tant que le test
+                // n'est pas réussi) ou Verrouillé (visible avec un cadenas, franchissable
+                // une fois le test réussi). Rétro-compat : revealTestId seul = dissimulé.
+                const gateMode = l.gateMode || (l.revealTestId ? 'hidden' : 'none');
+                const modeOpts =
+                  '<option value="none"' + (gateMode === 'none' ? ' selected' : '') + '>👁 Visible</option>' +
+                  '<option value="hidden"' + (gateMode === 'hidden' ? ' selected' : '') + '>🫥 Dissimulé</option>' +
+                  '<option value="locked"' + (gateMode === 'locked' ? ' selected' : '') + '>🔒 Verrouillé</option>';
+                let revealOpts = '<option value="">— Test qui ouvre —</option>' +
                   testBlocks.map(function (b, k) {
-                    return '<option value="' + esc(b.id) + '"' + (l.revealTestId === b.id ? ' selected' : '') + '>🫥 Révélé par : ' + esc(b.label || ('Test #' + (k + 1))) + '</option>';
+                    return '<option value="' + esc(b.id) + '"' + (l.revealTestId === b.id ? ' selected' : '') + '>' + esc(b.label || ('Test #' + (k + 1))) + '</option>';
                   }).join('');
                 if (l.revealTestId && !testBlocks.some(function (b) { return b.id === l.revealTestId; })) {
-                  revealOpts += '<option value="' + esc(l.revealTestId) + '" selected>🫥 (test d\'une autre salle)</option>';
+                  revealOpts += '<option value="' + esc(l.revealTestId) + '" selected>(test d\'une autre salle)</option>';
                 }
+                const revealHidden = gateMode === 'none' ? ' style="display:none"' : '';
                 return '<div class="sm-dl-row"><span class="dmap-dir">' + arrow + '</span> <b>' + esc(titles[otherId] || '(salle)') + '</b>' +
                   (l.label ? ' <span class="sm-dl-lbl">« ' + esc(l.label) + ' »</span>' : '') +
-                  ' <select class="sm-dl-reveal" data-link="' + esc(l.id) + '" title="Passage secret : ce connecteur n\'apparaît en jeu qu\'après la réussite du test choisi.">' + revealOpts + '</select>' +
+                  ' <select class="sm-dl-mode" data-link="' + esc(l.id) + '" title="Accès du connecteur : visible, dissimulé (invisible tant que le test n\'est pas réussi) ou verrouillé (cadenas visible, ouvert par le test).">' + modeOpts + '</select>' +
+                  ' <select class="sm-dl-reveal" data-link="' + esc(l.id) + '"' + revealHidden + ' title="Test de la salle qui révèle / déverrouille ce connecteur.">' + revealOpts + '</select>' +
                 '</div>';
               }).join('')
             : '<p class="hint">Aucun connecteur — trace-les avec 🔗 sur la carte du donjon.</p>') +
           '<p class="hint">Les connecteurs sont les <b>Sorties &amp; accès</b> de la salle en jeu ; ils se gèrent sur la carte. ' +
-            'Un connecteur « 🫥 Révélé par un test » reste invisible tant que ce test n\'a pas été réussi (passage secret).</p>';
+            '<b>🫥 Dissimulé</b> : invisible tant que le test choisi n\'est pas réussi. ' +
+            '<b>🔒 Verrouillé</b> : le bouton reste visible avec un cadenas et ne s\'ouvre qu\'une fois le test réussi.</p>';
+        dlBox.querySelectorAll('.sm-dl-mode').forEach(function (sel) {
+          sel.onchange = function () {
+            const l = curCh.links.find(function (x) { return x.id === sel.getAttribute('data-link'); });
+            if (!l) return;
+            l.gateMode = sel.value;
+            if (l.gateMode === 'none') l.revealTestId = null; // plus de verrou → pas de test
+            save();
+            refreshSceneModalSections(scene, adv);
+          };
+        });
         dlBox.querySelectorAll('.sm-dl-reveal').forEach(function (sel) {
           sel.onchange = function () {
             const l = curCh.links.find(function (x) { return x.id === sel.getAttribute('data-link'); });
@@ -1576,6 +1616,26 @@
               return '<label class="tb-retry-lbl">🔁 En cas d\'échec : <select class="tb-retrymode" data-bi="' + i + '" ' +
                 'title="À volonté : retentable sans limite. Autre aventurier : chaque aventurier vivant tente une fois maximum (tests individuels uniquement). Montée de niveau : le test redevient disponible quand le groupe a gagné un niveau.">' + opts + '</select></label>';
             })() +
+            // OBJET RARE : si le groupe possède l'Objet Rare choisi (parmi ceux donnés
+            // en récompense dans l'aventure), un bouton apparaît à côté du test pour le
+            // réussir automatiquement — éventuellement en consommant l'objet.
+            (function () {
+              const rareNames = adventureRareNames(adv);
+              let opts = '<option value="">— Aucun —</option>';
+              if (blk.rareKeyName && rareNames.indexOf(blk.rareKeyName) < 0) {
+                opts += '<option value="' + esc(blk.rareKeyName) + '" selected>' + esc(blk.rareKeyName) + ' (hors récompenses)</option>';
+              }
+              opts += rareNames.map(function (n) {
+                return '<option value="' + esc(n) + '"' + (blk.rareKeyName === n ? ' selected' : '') + '>' + esc(n) + '</option>';
+              }).join('');
+              return '<div class="tb-rare-row">' +
+                '<label title="Si le groupe possède cet Objet Rare dans son inventaire, un bouton avec sa vignette apparaît à côté du test et permet de le réussir automatiquement.">' +
+                  '🗝️ Objet Rare qui résout ' + (isAction ? 'l\'action' : 'le test') + ' ' +
+                  '<select class="tb-rarekey" data-bi="' + i + '">' + opts + '</select></label>' +
+                '<label class="tb-rareconsume-lbl"' + (blk.rareKeyName ? '' : ' style="display:none"') + ' title="Si coché, l\'Objet Rare est retiré de l\'inventaire du groupe une fois utilisé pour résoudre ce test / cette action.">' +
+                  '<input type="checkbox" class="tb-rareconsume" data-bi="' + i + '"' + (blk.rareConsume ? ' checked' : '') + ' /> Consommé à l\'usage</label>' +
+              '</div>';
+            })() +
             reqHtml +
             '</div>' + // .adv-block-body
           '</div>';
@@ -1648,6 +1708,17 @@
     });
     box.querySelectorAll('.tb-mandatory').forEach(function (el) {
       el.onchange = function () { scene.blocks[biOf(this)].mandatory = this.checked; };
+    });
+    box.querySelectorAll('.tb-rarekey').forEach(function (el) {
+      el.onchange = function () {
+        const blk = scene.blocks[biOf(this)];
+        blk.rareKeyName = this.value || null;
+        if (!blk.rareKeyName) blk.rareConsume = false;
+        renderBlocksEditor(scene, adv); // affiche/masque la case « Consommé à l'usage »
+      };
+    });
+    box.querySelectorAll('.tb-rareconsume').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].rareConsume = this.checked; };
     });
     box.querySelectorAll('.tb-who').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].who = this.value; renderBlocksEditor(scene, adv); }; });
     box.querySelectorAll('.tb-groupmode').forEach(function (el) { el.onchange = function () { scene.blocks[biOf(this)].groupMode = this.value; }; });
@@ -2130,7 +2201,7 @@
       return '<div class="adv-ref-row">' +
         '<select class="ir-type">' + typeOpts + '</select>' +
         '<select class="ir-item"><option value="">(choisir)</option>' + itemOpts + '</select>' +
-        '<input type="number" class="ir-qty" value="' + (ref.qty || 1) + '" min="1" style="width:55px" />' +
+        '<input type="text" class="ir-qty' + (Store.isDiceExpr(ref.qty) ? ' ir-qty-dice' : '') + '" value="' + esc(String(ref.qty == null ? 1 : ref.qty)) + '" title="Quantité : valeur fixe ou en dés (ex. « 2d6 »)" placeholder="1 · 2d6" style="width:64px" />' +
         '<button type="button" class="icon-btn ir-del">✕</button>' +
       '</div>';
     }).join('') +
@@ -2143,7 +2214,12 @@
       sel.onchange = function () { list[i].itemId = this.value; };
     });
     box.querySelectorAll('.ir-qty').forEach(function (inp, i) {
-      inp.oninput = function () { list[i].qty = Math.max(1, parseInt(this.value, 10) || 1); };
+      // Quantité en dés (« 2d6 ») ou fixe : stockée telle quelle, résolue au don.
+      inp.oninput = function () {
+        const raw = (this.value || '').trim();
+        list[i].qty = Store.isDiceExpr(raw) ? raw : Math.max(1, parseInt(raw, 10) || 1);
+        this.classList.toggle('ir-qty-dice', Store.isDiceExpr(raw));
+      };
     });
     box.querySelectorAll('.ir-del').forEach(function (b, i) {
       b.onclick = function () { list.splice(i, 1); rerender(); };

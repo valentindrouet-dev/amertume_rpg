@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertüme Solo RPG</title>
-  <link rel="stylesheet" href="css/style.css?v=2.3.41" />
+  <link rel="stylesheet" href="css/style.css?v=2.3.42" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -543,7 +543,7 @@
         <div class="attacks-head"><h3>Butin du groupe</h3><button type="button" id="m-add-loot" class="ghost small">+ Butin</button></div>
         <p class="hint">Objets gagnés par le groupe (selon le % de loot) à l'écran de récompense après le combat.</p>
         <div id="m-loot" class="loot-editor"></div>
-        <label>🪙 Or lâché (par exemplaire vaincu) <input type="number" id="m-gold" min="0" step="1" value="0" style="width:90px" /></label>
+        <label>🪙 Or lâché (par exemplaire vaincu) <input type="text" id="m-gold" value="0" placeholder="0 · 2 · 1d6 · 3d12" style="width:120px" /><small class="hint">Valeur fixe ou en dés (ex. « 1d6 », « 3d12 »).</small></label>
         <div class="attacks-head"><h3>Talents adverses</h3></div>
         <p class="hint">Cochez les talents créés dans l'onglet <b>Talents Adv.</b> : l'adversaire les applique automatiquement en combat, toujours en votre défaveur. Ils apparaissent dans son bandeau de combat (masqués tant que l'aventurier ne l'a pas <b>analysé</b>). (Passifs, améliorations et bonus de dégâts pris en charge ; actions/réactions à venir.)</p>
         <div id="m-adv-talents" class="adv-talents-picker"></div>
@@ -746,18 +746,18 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.3.41"></script>
-  <script src="js/store.js?v=2.3.41"></script>
-  <script src="js/inventory.js?v=2.3.41"></script>
-  <script src="js/combatants.js?v=2.3.41"></script>
-  <script src="js/combat.js?v=2.3.41"></script>
-  <script src="js/classes.js?v=2.3.41"></script>
-  <script src="js/tutorial.js?v=2.3.41"></script>
-  <script src="js/adventure.js?v=2.3.41"></script>
-  <script src="js/session.js?v=2.3.41"></script>
-  <script src="js/dataio.js?v=2.3.41"></script>
-  <script src="js/share.js?v=2.3.41"></script>
-  <script src="js/shell.js?v=2.3.41"></script>
-  <script src="js/main.js?v=2.3.41"></script>
+  <script src="js/dice.js?v=2.3.42"></script>
+  <script src="js/store.js?v=2.3.42"></script>
+  <script src="js/inventory.js?v=2.3.42"></script>
+  <script src="js/combatants.js?v=2.3.42"></script>
+  <script src="js/combat.js?v=2.3.42"></script>
+  <script src="js/classes.js?v=2.3.42"></script>
+  <script src="js/tutorial.js?v=2.3.42"></script>
+  <script src="js/adventure.js?v=2.3.42"></script>
+  <script src="js/session.js?v=2.3.42"></script>
+  <script src="js/dataio.js?v=2.3.42"></script>
+  <script src="js/share.js?v=2.3.42"></script>
+  <script src="js/shell.js?v=2.3.42"></script>
+  <script src="js/main.js?v=2.3.42"></script>
 </body>
 </html>

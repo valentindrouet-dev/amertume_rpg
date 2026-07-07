@@ -790,6 +790,11 @@
       document.dispatchEvent(new CustomEvent('inventory-new-item'));
     }
   }
+  // Objet Rare possédé par le groupe (dans ses.treasures, kind 'rare', qty > 0).
+  function ownedRare(ses, name) {
+    if (!name || !ses || !Array.isArray(ses.treasures)) return null;
+    return ses.treasures.find(function (t) { return t.kind === 'rare' && t.name === name && (t.qty || 0) > 0; }) || null;
+  }
   function rewardAmountSet(v) { return Store.isDiceExpr(v) || (Math.round(Number(v) || 0) > 0); }
   function hasTreasureReward(o) {
     return rewardAmountSet(o.goldReward) ||
@@ -1002,15 +1007,26 @@
     return true;
   }
 
+  // État d'un connecteur conditionné par un test :
+  //  • 'none'   : toujours visible et franchissable ;
+  //  • 'hidden' : DISSIMULÉ — invisible tant que son test n'est pas réussi ;
+  //  • 'locked' : VERROUILLÉ — visible avec un cadenas, franchissable une fois le
+  //               test réussi.
+  // Rétro-compat : un ancien connecteur avec revealTestId sans gateMode = dissimulé.
+  function linkGate(l, ses) {
+    const mode = l.gateMode || (l.revealTestId ? 'hidden' : 'none');
+    if (mode === 'none' || !l.revealTestId) return { mode: 'none', unlocked: true };
+    const st = ses.searchTests && ses.searchTests[l.revealTestId];
+    return { mode: mode, unlocked: !!(st && st.success) };
+  }
   // ----- Donjon structuré : sorties & accès de la salle (connecteurs) -----
   function renderDungeonExits(box, chapter, scene, adv, ses) {
     const links = (chapter && Array.isArray(chapter.links) ? chapter.links : []).filter(function (l) {
       if (l.from !== scene.id && l.to !== scene.id) return false;
-      // Passage secret : invisible tant que son test de révélation n'est pas réussi.
-      if (l.revealTestId) {
-        const st = ses.searchTests && ses.searchTests[l.revealTestId];
-        if (!(st && st.success)) return false;
-      }
+      // DISSIMULÉ : invisible tant que son test de révélation n'est pas réussi.
+      // VERROUILLÉ : reste affiché (cadenas), même verrou non levé.
+      const g = linkGate(l, ses);
+      if (g.mode === 'hidden' && !g.unlocked) return false;
       return true;
     });
     const sec = appendSection(box);
@@ -1028,25 +1044,29 @@
     const exits = links.map(function (l) {
       const other = l.from === scene.id ? l.to : l.from;
       const f = findScene(adv, other);
-      return { l: l, other: other, f: f, arrow: sceneDirArrow(scene, f ? f.scene : null) };
+      return { l: l, other: other, f: f, arrow: sceneDirArrow(scene, f ? f.scene : null), gate: linkGate(l, ses) };
     }).sort(function (a, b) { return (DIR_ORDER[a.arrow] || 0) - (DIR_ORDER[b.arrow] || 0); });
     sec.innerHTML = '<div class="ses-exits">' +
       '<div class="ses-exits-title">🚪 Sorties &amp; accès</div>' +
       '<div class="ses-exits-list ses-exits-inline">' +
       exits.map(function (e) {
         const visited = (ses.visitedSceneIds || []).indexOf(e.other) >= 0;
+        // VERROUILLÉ non encore ouvert : bouton visible avec un cadenas, non franchissable.
+        const locked = e.gate.mode === 'locked' && !e.gate.unlocked;
         // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
         // (pas d'indice sur les salles inconnues).
         const danger = visited && e.f && sceneHasCombat(e.f.scene) && !(ses.clearedScenes && ses.clearedScenes[e.other]);
         // Pas de libellé générique « Passage » : la flèche + le nom suffisent.
         // Un connecteur nommé par le MJ (porte, escalier…) reste affiché.
-        return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + '" data-to="' + esc(e.other) + '">' +
+        return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + (locked ? ' ses-exit-locked' : '') + '" data-to="' + esc(e.other) + '"' +
+          (locked ? ' disabled title="Verrouillé — réussissez le test de la salle pour l\'ouvrir."' : '') + '>' +
+          (locked ? '<span class="ses-exit-lock">🔒</span>' : '') +
           (e.l.label ? '<span class="ses-exit-lbl">' + esc(e.l.label) + '</span>' : '') +
           '<span class="ses-exit-to"><span class="ses-exit-dir">' + e.arrow + '</span> ' + (visited ? esc(titleOf(e.other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
         '</button>';
       }).join('') +
       '</div></div>';
-    sec.querySelectorAll('.ses-exit-btn').forEach(function (b) {
+    sec.querySelectorAll('.ses-exit-btn:not([disabled])').forEach(function (b) {
       b.addEventListener('click', function () {
         const to = b.getAttribute('data-to');
         ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent.trim(), targetSceneId: to });
@@ -1210,20 +1230,65 @@
         '</div>'
       : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
   }
-  // Ligne de boutons de choix (test/actions). Boutons côte à côte, vignette dessous.
+  // Ligne de boutons de choix (test/actions). Deux rangées : les boutons côte à
+  // côte (le « ou » centré à mi-hauteur entre eux), puis les vignettes de testeur
+  // alignées dessous. Sur un bouton de test, le libellé occupe la 1re ligne et les
+  // cartouches compétence + difficulté sont regroupés sur la 2e ligne.
   function variantButtonsHtml(ses, block, scene, excludeIds) {
     const variants = testVariants(block);
-    return '<div class="ses-tb-variants">' + variants.map(function (v, vi) {
-      const btn = v.action
-        ? '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go ses-tb-action" data-vi="' + vi + '">⚡ ' +
-            esc(v.label || 'Agir') + '</button>'
-        : '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
-            esc(block.label || 'Tenter le test') +
-            ' <span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +
-            ' <span class="ssk-diff ssk-diff-' + (v.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[v.difficulty] || 'Moyen') + '</span>' +
-          '</button>';
-      return '<div class="ses-tb-variant">' + btn + (v.action ? '' : variantHelperFor(ses, block, scene, v.skill, excludeIds)) + '</div>';
-    }).join(variants.length > 1 ? '<div class="ses-tb-or">ou</div>' : '') + '</div>';
+    const multi = variants.length > 1;
+    function btnHtml(v, vi) {
+      if (v.action) {
+        return '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go ses-tb-action" data-vi="' + vi + '">⚡ ' +
+          esc(v.label || 'Agir') + '</button>';
+      }
+      return '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
+        '<span class="ssk-btn-label">' + esc(block.label || 'Tenter le test') + '</span>' +
+        '<span class="ssk-btn-meta">' +
+          '<span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +
+          '<span class="ssk-diff ssk-diff-' + (v.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[v.difficulty] || 'Moyen') + '</span>' +
+        '</span>' +
+      '</button>';
+    }
+    const btnRow = '<div class="ses-tb-btnrow">' +
+      variants.map(function (v, vi) { return btnHtml(v, vi); }).join(multi ? '<div class="ses-tb-or">ou</div>' : '') +
+    '</div>';
+    let pillRow = '';
+    if (variants.some(function (v) { return !v.action; })) {
+      pillRow = '<div class="ses-tb-pillrow">' +
+        variants.map(function (v, vi) {
+          return '<div class="ses-tb-pillcell">' + (v.action ? '' : variantHelperFor(ses, block, scene, v.skill, excludeIds)) + '</div>';
+        }).join(multi ? '<div class="ses-tb-or ses-tb-or-ghost" aria-hidden="true">ou</div>' : '') +
+      '</div>';
+    }
+    return '<div class="ses-tb-variants' + (multi ? ' ses-tb-multi' : '') + '">' + btnRow + pillRow + rareResolveButtonHtml(ses, block) + '</div>';
+  }
+  // Bouton « Objet Rare » : si le groupe possède l'Objet Rare configuré sur le bloc,
+  // un bouton avec sa vignette permet de réussir le test / l'action automatiquement.
+  function rareResolveButtonHtml(ses, block) {
+    if (!block.rareKeyName) return '';
+    const r = ownedRare(ses, block.rareKeyName);
+    if (!r) return '';
+    return '<div class="ses-tb-rarewrap">' +
+      '<button class="ses-tb-rare" title="Utiliser « ' + esc(block.rareKeyName) + ' » pour réussir automatiquement' + (block.rareConsume ? ' (l\'objet sera consommé)' : '') + '">' +
+        '<span class="ses-rare-ico">🗝️</span>' +
+        '<span class="ses-rare-body">' +
+          '<span class="ses-rare-name">' + esc(block.rareKeyName) + (r.qty > 1 ? ' <span class="ses-rare-qty">×' + r.qty + '</span>' : '') + '</span>' +
+          '<span class="ses-rare-act">Réussite automatique' + (block.rareConsume ? ' · consommé' : '') + '</span>' +
+        '</span>' +
+      '</button></div>';
+  }
+  // Résout un test / une action grâce à un Objet Rare possédé (réussite garantie,
+  // objet éventuellement consommé).
+  function resolveTestWithRare(ses, adv, scene, block) {
+    const r = ownedRare(ses, block.rareKeyName);
+    if (!r) { render(); return; }
+    if (block.rareConsume) {
+      r.qty = (r.qty || 1) - 1;
+      if (r.qty <= 0) ses.treasures = ses.treasures.filter(function (t) { return t !== r; });
+      document.dispatchEvent(new CustomEvent('inventory-new-item'));
+    }
+    runTestBlock(ses, adv, scene, block, null, { rareAuto: true, rareName: block.rareKeyName, skill: block.skill, difficulty: block.difficulty });
   }
   // Câble les boutons de choix d'un bloc. excludeIds : re-test « avec un autre ».
   function wireVariantButtons(slot, ses, adv, scene, block, excludeIds) {
@@ -1233,6 +1298,8 @@
         runTestBlock(ses, adv, scene, block, excludeIds || null, variants[parseInt(b.getAttribute('data-vi'), 10) || 0]);
       });
     });
+    const rareBtn = slot.querySelector('.ses-tb-rare');
+    if (rareBtn) rareBtn.addEventListener('click', function () { resolveTestWithRare(ses, adv, scene, block); });
   }
   function renderTestBlock(slot, block, scene, adv, ses) {
     if (!ses.searchTests) ses.searchTests = {};
@@ -1294,7 +1361,18 @@
     const prevSt = ses.searchTests[block.id];
     const v = variant || (prevSt && prevSt.variant) || { skill: block.skill, difficulty: block.difficulty };
     const groupLike = !block.actionMode && (block.who === 'group' || block.who === 'concerned');
-    if (block.actionMode) {
+    if (variant && variant.rareAuto) {
+      // RÉSOLUTION PAR UN OBJET RARE : réussite garantie, sans jet. Applique les
+      // récompenses de réussite exactement comme une réussite classique.
+      state = { done: true, success: true, claimed: false, rareAuto: true, rareName: variant.rareName || '',
+        hero: '', heroId: null, rolls: [], succ: 0, need: 0 };
+      if (block.actionMode) state.action = true;
+      const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
+      if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+      grantDeedReward(ses, scene, block);
+      applyWinEffect(ses, block);
+      grantTreasures(ses, block);
+    } else if (block.actionMode) {
       // Bloc ACTION : pas de jet — l'Action 1 applique l'issue « réussite »
       // (récompenses, effet, passage), l'Action 2 l'issue « échec » (conséquence).
       const ok = !(v && v.action === 2);
@@ -1505,7 +1583,7 @@
       if (!r.itemId) return;
       const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
       if (!it) return;
-      const q = r.qty || 1;
+      const q = Math.max(1, Math.round(Store.rollAmount(r.qty == null ? 1 : r.qty)));
       it.qty = (it.qty || 0) + q;
       ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
       const rec = assign[idx] || fallback;
@@ -1646,7 +1724,7 @@
         return '<div class="rp-line">' +
           '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
             '<div class="inv-strip">' + strip + '</div>' +
-            (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '') +
+            (Store.isDiceExpr(r.qty) ? '<span class="rp-qty">×' + esc(String(r.qty).trim()) + '</span>' : (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '')) +
           '</div>' +
           (state.claimed ? '<span class="tag">Récupéré</span>' : (heroes.length ? '<select class="stp-hero" data-tb="' + esc(block.id) + '" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '')) +
         '</div>';
@@ -1690,7 +1768,9 @@
       groupResultsHtml(state) +
       fxMsgsHtml(state) +
       // Détail des jets, affiché AUSSI en cas de réussite (test individuel).
-      (state.group || state.action ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
+      (state.group || state.action || state.rareAuto ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
+      // Réussite obtenue grâce à un Objet Rare (sans jet).
+      (state.rareAuto ? '<div class="hint ses-st-rare-note">🗝️ Réussite obtenue grâce à « ' + esc(state.rareName || 'un Objet Rare') + ' »' + (block.rareConsume ? ' (objet consommé)' : '') + '.</div>' : '') +
       rewardHtml +
       '<div class="ses-st-actions">' +
         (needClaim ? '<button class="primary ses-tb-claim">Récupérer la récompense</button>' : '') +
@@ -2458,7 +2538,7 @@
       return '<div class="rp-line">' +
         '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
           '<div class="inv-strip">' + strip + '</div>' +
-          (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '') +
+          (Store.isDiceExpr(r.qty) ? '<span class="rp-qty">×' + esc(String(r.qty).trim()) + '</span>' : (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '')) +
         '</div>' +
         (heroes.length ? '<select class="rp-hero" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '') +
       '</div>';
@@ -2515,7 +2595,7 @@
       if (!r.itemId) return;
       const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
       if (!it) return;
-      const q = r.qty || 1;
+      const q = Math.max(1, Math.round(Store.rollAmount(r.qty == null ? 1 : r.qty)));
       it.qty = (it.qty || 0) + q;
       ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
       const recipient = (assign[idx]) || fallback;

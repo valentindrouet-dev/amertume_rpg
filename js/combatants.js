@@ -192,6 +192,16 @@
     return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' +
       heroPv(dh) + '</span></div>';
   }
+  // Vignette de Défense (onglet Groupe) : uniquement le blason de la valeur de DEF
+  // (assets/DEF N.png), sans texte « Défense ». Repli en chiffre hors plage 0-6.
+  function heroDefStatHtml(h) {
+    const dval = heroDef(h);
+    if (dval >= 0 && dval <= 6) {
+      return '<div class="hero-stat hero-stat-def" title="Défense ' + dval + '">' +
+        '<img class="def-img hero-def-img" src="assets/DEF ' + dval + '.png" alt="DEF ' + dval + '" /></div>';
+    }
+    return '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + dval + '</span></div>';
+  }
   // Repos court : Endu × 🟩 (somme de dés). Repos long : tout au max.
   function heroRestShort() {
     const lines = [];
@@ -704,7 +714,7 @@
           vieStatHtml(dh) +
           '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
           pvStatHtml(dh) +
-          '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(h) + '</span></div>' +
+          heroDefStatHtml(h) +
           '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
         '</div>' +
         // En mode Joueur : ni équipement, ni attaques, ni talents (consultables dans
@@ -1441,7 +1451,7 @@
       return '<div class="loot-row" data-i="' + idx + '">' +
         '<select class="loot-item">' + itemOpts(row.itemId) + '</select>' +
         '<label class="loot-pct">Loot <select class="loot-loot">' + lootOpts(row.loot) + '</select></label>' +
-        (opts.withQty ? '<label class="loot-qty">×<input type="number" class="loot-q" min="1" value="' + (row.qty || 1) + '" /></label>' : '') +
+        (opts.withQty ? '<label class="loot-qty">×<input type="text" class="loot-q" value="' + esc(String(row.qty == null ? 1 : row.qty)) + '" title="Quantité : valeur fixe ou en dés (ex. « 2d6 »)" placeholder="1 · 2d6" style="width:56px" /></label>' : '') +
         '<button type="button" class="icon-btn loot-del">✕</button>' +
       '</div>';
     }).join('') : '<p class="hint">Aucun.</p>';
@@ -1450,7 +1460,10 @@
       rowEl.querySelector('.loot-item').onchange = function () { list[idx].itemId = this.value; };
       rowEl.querySelector('.loot-loot').onchange = function () { list[idx].loot = parseInt(this.value, 10) || 0; };
       const q = rowEl.querySelector('.loot-q');
-      if (q) q.oninput = function () { list[idx].qty = Math.max(1, parseInt(this.value, 10) || 1); };
+      if (q) q.oninput = function () {
+        const raw = (this.value || '').trim();
+        list[idx].qty = Store.isDiceExpr(raw) ? raw : Math.max(1, parseInt(raw, 10) || 1);
+      };
       rowEl.querySelector('.loot-del').onclick = function () { list.splice(idx, 1); buildLootEditor(container, list, opts); };
     });
   }
@@ -1784,7 +1797,7 @@
     list.innerHTML = monsters.map(function (m) {
       const advLabel = adventureLabelById(m.advId);
       const open = monExpanded[m.id] === true;
-      return '<div class="roster-card type-' + m.type + (monSelected[m.id] ? ' mon-selected' : '') + (open ? '' : ' roster-collapsed') + '">' +
+      return '<div class="roster-card mon-card type-' + m.type + (monSelected[m.id] ? ' mon-selected' : '') + (open ? '' : ' roster-collapsed') + '" data-mon-card="' + m.id + '">' +
         '<div class="roster-head">' +
           '<button class="roster-toggle" data-toggle-monster="' + m.id + '" title="' + (open ? 'Replier' : 'Déplier') + '" aria-expanded="' + open + '">' + (open ? '▾' : '▸') + '</button>' +
           (monSelectMode ? '<input type="checkbox" class="mon-check" data-mon="' + m.id + '"' + (monSelected[m.id] ? ' checked' : '') + ' />' : '') +
@@ -1796,9 +1809,9 @@
             (m.rapide ? '<span class="tag">Rapide</span>' : '') +
             (m.esquive ? '<span class="tag">Esq. 6+</span>' : '') +
           '</span>' +
-          '<button class="ghost small" data-edit-monster="' + m.id + '">Éditer</button>' +
-          '<button class="ghost small" data-dup-monster="' + m.id + '" title="Dupliquer">⧉</button>' +
-          '<button class="ghost small del-btn" data-del-monster="' + m.id + '" title="Supprimer">✕</button>' +
+          '<button class="icon-btn mon-tool" data-edit-monster="' + m.id + '" title="Éditer">✎</button>' +
+          '<button class="icon-btn mon-tool" data-dup-monster="' + m.id + '" title="Dupliquer">⧉</button>' +
+          '<button class="icon-btn mon-tool del-btn" data-del-monster="' + m.id + '" title="Supprimer">✕</button>' +
         '</div>' +
         '<div class="roster-body">' +
           '<div class="stat-pills">' +
@@ -1818,9 +1831,18 @@
       '</div>';
     }).join('');
     list.querySelectorAll('[data-toggle-monster]').forEach(function (b) {
-      b.addEventListener('click', function () {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
         const id = b.getAttribute('data-toggle-monster');
         monExpanded[id] = !(monExpanded[id] === true);
+        renderMonsters();
+      });
+    });
+    // Clic n'importe où sur une vignette REPLIÉE (hors bouton / case à cocher) → déplie.
+    list.querySelectorAll('.mon-card.roster-collapsed').forEach(function (card) {
+      card.addEventListener('click', function (e) {
+        if (e.target.closest('button') || e.target.closest('input')) return;
+        monExpanded[card.getAttribute('data-mon-card')] = true;
         renderMonsters();
       });
     });
@@ -1946,7 +1968,13 @@
       attacks: monsterAttacks,
       equipment: monsterEquip.filter(function (r) { return r.itemId; }),
       loot: monsterLoot.filter(function (r) { return r.itemId; }),
-      goldLoot: Math.max(0, parseInt(($('#m-gold') && $('#m-gold').value) || 0, 10) || 0),
+      // Or lâché : valeur fixe OU expression en dés (« 1d6 », « 3d12 ») — stockée
+      // telle quelle et résolue au moment de la victoire (Store.rollAmount).
+      goldLoot: (function () {
+        const raw = (($('#m-gold') && $('#m-gold').value) || '').trim();
+        if (!raw) return 0;
+        return Store.isDiceExpr(raw) ? raw : Math.max(0, parseInt(raw, 10) || 0);
+      })(),
       talents: monsterTalents,
       advTalentIds: monsterAdvTalentIds.slice(),
     };
