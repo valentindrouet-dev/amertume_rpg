@@ -2052,6 +2052,9 @@
     }
     box.innerHTML = zones.map(function (z, zi) {
       const rows = (z.monsterRefs || []).map(function (ref, mi) {
+        // Backfill du nom tant que l'id résout encore (robustesse future).
+        const cur = ref.monsterId ? monsters.find(function (m) { return m.id === ref.monsterId; }) : null;
+        if (cur && ref.monName !== cur.name) { ref.monName = cur.name; }
         const monOpts = monsters.map(function (m) {
           return '<option value="' + m.id + '"' + (m.id === ref.monsterId ? ' selected' : '') + '>' + esc(m.name) + '</option>';
         }).join('');
@@ -2129,7 +2132,16 @@
         z.monsterRefs.push({ monsterId: '', count: 1 }); refresh();
       };
       zEl.querySelectorAll('.ref-mon').forEach(function (sel, mi) {
-        sel.onchange = function () { z.monsterRefs[mi].monsterId = this.value; save(); };
+        sel.onchange = function () {
+          const id = this.value;
+          z.monsterRefs[mi].monsterId = id;
+          // Mémorise AUSSI le nom : rend la référence robuste si l'id de l'adversaire
+          // change (partage / import / duplication / recréation) — le combat le
+          // retrouvera par son nom à défaut d'id.
+          const m = Store.state.monsters.find(function (x) { return x.id === id; });
+          z.monsterRefs[mi].monName = m ? m.name : '';
+          save();
+        };
       });
       zEl.querySelectorAll('.ref-count').forEach(function (inp, mi) {
         inp.oninput = function () { z.monsterRefs[mi].count = Math.max(1, parseInt(this.value, 10) || 1); save(); };

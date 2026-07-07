@@ -234,7 +234,7 @@
     if (hsi < 0) hsi = 0;
     return {
       zones: zones.slice(0, 4).map(function (z) {
-        return { name: z.name || '', monsterRefs: (z.monsterRefs || []).filter(function (r) { return r.monsterId; }) };
+        return { name: z.name || '', monsterRefs: (z.monsterRefs || []).filter(function (r) { return r.monsterId || r.monName; }) };
       }),
       barriers: normalizeBarriers(src && src.barriers),
       heroStartZone: hsi,
@@ -243,6 +243,18 @@
     };
   }
 
+  // Résout la fiche d'un adversaire référencé dans une zone : par id, puis, à
+  // défaut (id périmé après un partage / import / duplication / recréation), par
+  // NOM. Évite les combats « vides » où un adversaire configuré n'apparaît pas.
+  function monsterTplFor(ref) {
+    if (!ref) return null;
+    let t = ref.monsterId ? Store.state.monsters.find(function (m) { return m.id === ref.monsterId; }) : null;
+    if (!t && ref.monName) {
+      const nm = String(ref.monName).trim().toLowerCase();
+      t = Store.state.monsters.find(function (m) { return (m.name || '').trim().toLowerCase() === nm; }) || null;
+    }
+    return t;
+  }
   // Assemble les combattants en plaçant chacun dans sa zone
   function buildCombat(heroObjs, cfg) {
     const zones = (cfg.zones || []).map(function (z) { return { name: z.name || '' }; });
@@ -264,15 +276,17 @@
     const totalByTpl = {};
     (cfg.zones || []).forEach(function (z) {
       (z.monsterRefs || []).forEach(function (ref) {
-        totalByTpl[ref.monsterId] = (totalByTpl[ref.monsterId] || 0) + (ref.count || 1);
+        const tpl = monsterTplFor(ref);
+        if (!tpl) return;
+        totalByTpl[tpl.id] = (totalByTpl[tpl.id] || 0) + (ref.count || 1);
       });
     });
     const seqByTpl = {};
     let mi = 0;
     (cfg.zones || []).forEach(function (z, zi) {
       (z.monsterRefs || []).forEach(function (ref) {
-        const tpl = Store.state.monsters.find(function (m) { return m.id === ref.monsterId; });
-        if (!tpl) return;
+        const tpl = monsterTplFor(ref);
+        if (!tpl) { console.warn('[combat] Adversaire introuvable pour la zone', z.name, '— ref:', ref); return; }
         const count = ref.count || 1;
         for (let k = 0; k < count; k++) {
           const inst = instFromMonster(tpl, mi++);

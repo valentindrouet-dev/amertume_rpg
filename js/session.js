@@ -1685,11 +1685,19 @@
       const narr = (rescuedC || !ok)
         ? (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '')
         : (block.successText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.successText) + '</div>' : '');
+      // Test échoué revu lors d'un retour dans la salle : si le groupe possède
+      // désormais l'Objet Rare qui le résout, on propose quand même de l'utiliser.
+      const rareBtnCompact = (!ok && !state.validated) ? rareResolveButtonHtml(ses, block) : '';
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-compact ' +
         (ok || state.validated ? 'ses-st-success-box' : 'ses-st-fail-box') + '">' +
         '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + ' — ' + verdict + '</div>' +
         narr +
+        rareBtnCompact +
       '</div>';
+      if (rareBtnCompact) {
+        const rb = slot.querySelector('.ses-tb-rare');
+        if (rb) rb.addEventListener('click', function () { resolveTestWithRare(ses, adv, scene, block); });
+      }
       return;
     }
     if (!state.success) {
@@ -1744,7 +1752,12 @@
         (state.write ? '<div class="hint ses-st-write-answer">✍️ Réponse saisie : « ' + esc(state.answer || '') + ' »</div>' : '') +
         (state.group || state.action || state.write ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
         retryHtml +
+        // OBJET RARE : même APRÈS un échec (et même si le test n'est pas retentable),
+        // si le groupe possède désormais l'Objet Rare, il peut l'utiliser pour réussir.
+        rareResolveButtonHtml(ses, block) +
       '</div>';
+      const failRareBtn = slot.querySelector('.ses-tb-rare');
+      if (failRareBtn) failRareBtn.addEventListener('click', function () { resolveTestWithRare(ses, adv, scene, block); });
       if (retryAction === 'other-variants') {
         // Boutons de choix de compétence pour la relance « avec un autre aventurier ».
         const attempted = Array.isArray(state.attempted) ? state.attempted : (state.heroId ? [state.heroId] : []);
