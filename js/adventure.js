@@ -131,40 +131,58 @@
       return c.scenes.some(function (s) { return s.id === sceneId; });
     }) || null;
   }
-  // Tableau UNIQUE de rencontres aléatoires d'un chapitre : liste d'événements
-  // (scènes d'événement) avec un % de chance chacun. evScenes = scènes candidates.
-  function chapterRandTableHtml(chapter, evScenes) {
+  // Tableau UNIQUE de rencontres aléatoires d'un chapitre. Chaque entrée est une
+  // rencontre SPÉCIFIQUE (sa propre scène d'événement, éditable avec le menu de scène
+  // habituel), créée directement ici — pas une référence à une scène existante.
+  function chapterRandTableHtml(chapter) {
     if (!Array.isArray(chapter.randomEncounters)) chapter.randomEncounters = [];
-    if (!evScenes.length) {
-      return '<p class="hint">Crée d\'abord des <b>scènes d\'événement</b> (⚡) — rencontres, combats — pour composer le tableau.</p>';
-    }
     return '<div class="rand-table">' +
       chapter.randomEncounters.map(function (e, ri) {
-        const opts = '<option value="">— Événement —</option>' + evScenes.map(function (s) {
-          return '<option value="' + esc(s.id) + '"' + (e && e.sceneId === s.id ? ' selected' : '') + '>' + esc(s.title || '(événement)') + '</option>';
-        }).join('');
+        const sc = chapter.scenes.find(function (s) { return s.id === (e && e.sceneId); });
+        const missing = !sc;
+        const name = sc ? (sc.title || '') : '';
         return '<div class="rand-row" data-ri="' + ri + '">' +
-          '<select class="rand-scene">' + opts + '</select>' +
+          '<input type="text" class="rand-name" value="' + esc(name) + '" placeholder="Nom de la rencontre" ' + (missing ? 'disabled' : '') + ' />' +
+          '<button type="button" class="ghost small rand-edit"' + (missing ? ' disabled' : '') + ' title="Éditer cette rencontre (texte, combat, tests, récompenses…)">✎ Éditer</button>' +
           '<input type="number" class="rand-chance" min="0" max="100" value="' + (e && e.chance != null ? e.chance : 25) + '" title="Chance de déclenchement (%)" /> %' +
-          '<button type="button" class="icon-btn rand-del" title="Retirer">✕</button>' +
+          '<button type="button" class="icon-btn rand-del" title="Supprimer cette rencontre">✕</button>' +
         '</div>';
       }).join('') +
-      '<button type="button" class="ghost small rand-add">+ Rencontre</button>' +
+      '<button type="button" class="ghost small rand-add">+ Nouvelle rencontre</button>' +
     '</div>';
   }
-  function wireChapterRandTable(scopeEl, chapter, rerender) {
+  function wireChapterRandTable(scopeEl, chapter, adv, rerender) {
     if (!Array.isArray(chapter.randomEncounters)) chapter.randomEncounters = [];
     const add = scopeEl.querySelector('.rand-add');
-    if (add) add.onclick = function () { chapter.randomEncounters.push({ sceneId: '', chance: 25 }); save(); rerender(); };
+    if (add) add.onclick = function () {
+      // Crée une rencontre SPÉCIFIQUE : une scène d'événement dédiée (hors rotation
+      // et hors navigation), ajoutée au tableau, puis ouvre son éditeur.
+      const ns = newScene();
+      ns.isTransition = true;
+      ns.title = 'Rencontre aléatoire';
+      chapter.scenes.push(ns);
+      chapter.randomEncounters.push({ sceneId: ns.id, chance: 25 });
+      save();
+      openSceneModal(adv, chapter.id, ns.id);
+    };
     scopeEl.querySelectorAll('.rand-row').forEach(function (row) {
       const ri = parseInt(row.getAttribute('data-ri'), 10);
-      if (!chapter.randomEncounters[ri]) return;
-      const sc = row.querySelector('.rand-scene');
-      if (sc) sc.onchange = function () { chapter.randomEncounters[ri].sceneId = this.value || ''; save(); };
+      const entry = chapter.randomEncounters[ri];
+      if (!entry) return;
+      const sc = chapter.scenes.find(function (s) { return s.id === entry.sceneId; });
+      const nm = row.querySelector('.rand-name');
+      if (nm && sc) nm.oninput = function () { sc.title = this.value; save(); };
+      const ed = row.querySelector('.rand-edit');
+      if (ed && sc) ed.onclick = function () { openSceneModal(adv, chapter.id, sc.id); };
       const ch = row.querySelector('.rand-chance');
-      if (ch) ch.oninput = function () { chapter.randomEncounters[ri].chance = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); save(); };
+      if (ch) ch.oninput = function () { entry.chance = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); save(); };
       const del = row.querySelector('.rand-del');
-      if (del) del.onclick = function () { chapter.randomEncounters.splice(ri, 1); save(); rerender(); };
+      if (del) del.onclick = function () {
+        // Supprime la rencontre ET sa scène dédiée.
+        if (sc) chapter.scenes = chapter.scenes.filter(function (s) { return s.id !== sc.id; });
+        chapter.randomEncounters.splice(ri, 1);
+        save(); rerender();
+      };
     });
   }
   // Recense tous les noms d'Objets Rares ajoutés en récompense (kind: 'rare') dans
@@ -981,8 +999,6 @@
         '<button type="button" class="icon-btn dmap-link-del" title="Supprimer le connecteur">✕</button>' +
       '</div>';
     }).join('') : '<p class="hint">Aucun connecteur. Clique 🔗 sur une salle puis sur la salle d\'arrivée.</p>';
-    // Scènes d'événement (transition) du chapitre : candidates au tableau aléatoire.
-    const evScenesCh = ch.scenes.filter(function (s) { return s.isTransition; });
 
     const linking = dmapLinking && dmapLinking.chId === ch.id;
     box.innerHTML =
@@ -1001,8 +1017,8 @@
       '</div>' +
       '<div class="dmap-links"><div class="dmap-links-title">Connecteurs (couloirs, portes, passages…)</div>' + linkRows + '</div>' +
       '<div class="dmap-links dmap-randblock"><div class="dmap-links-title">🎲 Rencontres aléatoires du chapitre</div>' +
-        '<p class="hint">Tableau <b>commun</b> à tout le chapitre. Chaque connecteur coché <b>🎲</b> ci-dessus a, à chaque passage, une chance de déclencher l\'une de ces rencontres (une <b>scène d\'événement</b> : ajoute-la via <b>+ ⚡ Événement</b> sur un connecteur, ou coche « ⚡ Scène d\'événement » sur une salle).</p>' +
-        chapterRandTableHtml(ch, evScenesCh) +
+        '<p class="hint">Tableau <b>commun</b> à tout le chapitre. Chaque connecteur coché <b>🎲</b> ci-dessus a, à chaque passage, une chance de déclencher l\'une de ces rencontres. Clique <b>+ Nouvelle rencontre</b> pour créer une rencontre <b>spécifique</b> (combat, test, texte, récompenses…) qui n\'apparaît qu\'ici, puis <b>✎ Éditer</b> pour la composer.</p>' +
+        chapterRandTableHtml(ch) +
       '</div>';
 
     // ----- Câblage -----
@@ -1074,7 +1090,7 @@
       };
     });
     // Tableau UNIQUE de rencontres aléatoires du chapitre.
-    wireChapterRandTable(box, ch, function () { renderDungeonEditor(a, ch); });
+    wireChapterRandTable(box, ch, a, function () { renderDungeonEditor(a, ch); });
     box.querySelectorAll('.dmap-link-del').forEach(function (b) {
       b.onclick = function () {
         const i = +b.closest('.dmap-link-row').getAttribute('data-i');
@@ -1408,15 +1424,14 @@
         // Donjon ALÉATOIRE : pas de connecteurs. Case « sujette aux rencontres » +
         // le TABLEAU UNIQUE du chapitre (édité ici faute de carte de donjon).
         dlBox.hidden = false;
-        const evScenes = curCh.scenes.filter(function (s) { return s.isTransition && s.id !== scene.id; });
         dlBox.innerHTML = '<div class="attacks-head"><h3>🎲 Rencontres aléatoires</h3></div>' +
           '<label class="sm-dl-randchk"><input type="checkbox" id="sm-scene-randenabled"' + (scene.randomEnabled ? ' checked' : '') + '> Cette salle est <b>sujette aux rencontres aléatoires</b> (en la quittant)</label>' +
           '<div class="rand-chapter-block"><div class="rand-chapter-title">Tableau des rencontres du chapitre (commun) :</div>' +
-            chapterRandTableHtml(curCh, evScenes) + '</div>' +
-          '<p class="hint">Coche « ⚡ Scène d\'événement » sur les salles-rencontres pour les rendre disponibles ci-dessus. À chaque passage vers la salle suivante, une chance (%) de dérouter vers l\'une des rencontres.</p>';
+            chapterRandTableHtml(curCh) + '</div>' +
+          '<p class="hint">Clique <b>+ Nouvelle rencontre</b> pour créer une rencontre <b>spécifique</b> (combat, test, texte, récompenses…), puis <b>✎ Éditer</b> pour la composer. À chaque passage vers la salle suivante, une chance (%) de dérouter vers l\'une des rencontres.</p>';
         const rEn = document.getElementById('sm-scene-randenabled');
         if (rEn) rEn.onchange = function () { scene.randomEnabled = this.checked; save(); };
-        wireChapterRandTable(dlBox, curCh, function () { refreshSceneModalSections(scene, adv); });
+        wireChapterRandTable(dlBox, curCh, adv, function () { refreshSceneModalSections(scene, adv); });
       } else {
         dlBox.hidden = true;
         dlBox.innerHTML = '';
