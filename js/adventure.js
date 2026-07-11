@@ -136,6 +136,16 @@
   // habituel), créée directement ici — pas une référence à une scène existante.
   function chapterRandTableHtml(chapter) {
     if (!Array.isArray(chapter.randomEncounters)) chapter.randomEncounters = [];
+    const total = chapter.randomEncounters.reduce(function (n, e) {
+      const sc = e && chapter.scenes.some(function (s) { return s.id === e.sceneId; });
+      return n + (sc ? Math.max(0, Math.min(100, Number(e && e.chance) || 0)) : 0);
+    }, 0);
+    const totalHtml = chapter.randomEncounters.length
+      ? '<p class="hint rand-total' + (total > 100 ? ' rand-over' : '') + '">À chaque passage : ' +
+          '<b>' + total + '%</b> qu\'une rencontre survienne · <b>' + Math.max(0, 100 - total) + '%</b> aucun événement. ' +
+          'Chaque % est la probabilité de CETTE rencontre précise ; une seule peut se déclencher.' +
+          (total > 100 ? ' <b>⚠ La somme dépasse 100 % : les dernières rencontres du tableau ne se déclencheront jamais.</b>' : '') + '</p>'
+      : '';
     return '<div class="rand-table">' +
       chapter.randomEncounters.map(function (e, ri) {
         const sc = chapter.scenes.find(function (s) { return s.id === (e && e.sceneId); });
@@ -149,6 +159,7 @@
         '</div>';
       }).join('') +
       '<button type="button" class="ghost small rand-add">+ Nouvelle rencontre</button>' +
+      totalHtml +
     '</div>';
   }
   function wireChapterRandTable(scopeEl, chapter, adv, rerender) {
@@ -175,7 +186,10 @@
       const ed = row.querySelector('.rand-edit');
       if (ed && sc) ed.onclick = function () { openSceneModal(adv, chapter.id, sc.id); };
       const ch = row.querySelector('.rand-chance');
-      if (ch) ch.oninput = function () { entry.chance = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); save(); };
+      if (ch) {
+        ch.oninput = function () { entry.chance = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); save(); };
+        ch.onchange = function () { rerender(); }; // met à jour le total à la validation du champ
+      }
       const del = row.querySelector('.rand-del');
       if (del) del.onclick = function () {
         // Supprime la rencontre ET sa scène dédiée.

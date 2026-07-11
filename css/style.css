@@ -3924,6 +3924,8 @@ body.mode-player #item-list.roster-list { display: block; }
 .rand-row .rand-name { flex: 1 1 12rem; min-width: 0; }
 .rand-row .rand-edit { flex: 0 0 auto; }
 .rand-row .rand-chance { width: 66px; flex: 0 0 auto; }
+.rand-total { margin-top: .35rem; }
+.rand-total.rand-over { color: #d13b4e; }
 
 /* Flèche directionnelle des connecteurs (suit la géométrie de la carte) */
 .dmap-dir { font-weight: 800; color: var(--accent-2, #e2974a); padding: 0 .15rem; }

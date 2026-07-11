@@ -1017,16 +1017,23 @@
       global.setTimeout(function () { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 900);
     } catch (e) { /* animation best-effort */ }
   }
-  // Tire une rencontre aléatoire parmi le tableau d'un connecteur : chaque entrée a
-  // sa propre chance (0-100). Première entrée « touchée » gagne. Renvoie l'id de la
-  // scène d'événement (transition) à jouer, ou null.
+  // Tire AU PLUS UNE rencontre du tableau, en UN SEUL jet. Chaque entrée occupe une
+  // tranche = sa chance (%) : le % est exactement la probabilité que CETTE rencontre
+  // précise survienne à ce passage. « Aucun événement » = le reste (100 − somme des %).
+  // Deux rencontres ne peuvent donc jamais se déclencher en même temps. Ex. 5 % + 7 % :
+  // 5 % la 1re, 7 % la 2de, 88 % rien (total 12 %). Si la somme dépasse 100 %, les
+  // dernières tranches deviennent inatteignables (un avertissement s'affiche à l'édition).
   function pickRandomEncounter(entries, chapter) {
+    const roll = Math.random() * 100;
+    let acc = 0;
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i];
       if (!e || !e.sceneId) continue;
       if (!chapter.scenes.some(function (s) { return s.id === e.sceneId; })) continue;
       const chance = Math.max(0, Math.min(100, Number(e.chance) || 0));
-      if (chance > 0 && Math.random() * 100 < chance) return e.sceneId;
+      if (chance <= 0) continue;
+      acc += chance;
+      if (roll < acc) return e.sceneId;
     }
     return null;
   }
