@@ -1150,6 +1150,21 @@
       sec.innerHTML = '<button class="primary" id="ses-rand-next">Continuer l\'exploration → ' +
         '<span class="ses-rand-count">(salle ' + (idx + 2) + '/' + order.length + ')</span></button>';
       sec.querySelector('#ses-rand-next').addEventListener('click', function () {
+        // RENCONTRE ALÉATOIRE (répétable) posée sur la salle qu'on quitte : à chaque
+        // passage vers la salle suivante, une chance de dérouter vers un événement.
+        if (scene.randomOn && Array.isArray(scene.randomEncounters) && scene.randomEncounters.length) {
+          const hit = pickRandomEncounter(scene.randomEncounters, chapter);
+          if (hit) {
+            const rev = chapter.scenes.find(function (s) { return s.id === hit; });
+            if (rev) {
+              resetTransitionScene(ses, rev);
+              ses.transit = { sceneId: rev.id, destId: nextId };
+              navigateTo(ses, adv, rev.id);
+              playEncounterFx();
+              return;
+            }
+          }
+        }
         // Événement de passage affecté à cette transition (une fois par partie).
         const assign = ses.randomEvents && ses.randomEvents[chapter.id];
         const evId = assign && assign[idx];

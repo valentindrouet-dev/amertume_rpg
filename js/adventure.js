@@ -1239,6 +1239,22 @@
     nextBox.style.display = (curCh && curCh.mode === 'dungeon') ? 'none' : '';
     choicesBox.style.display = '';
     rewardBox.style.display = '';
+    // « Scène d'événement » (hors rotation) : proposé dans les donjons ALÉATOIRES,
+    // où c'est le seul moyen de créer des scènes de rencontre aléatoire.
+    const transRow = document.getElementById('sm-transition-row');
+    const transCb = document.getElementById('sm-scene-transition');
+    if (transRow && transCb) {
+      const showTrans = !!(curCh && curCh.mode === 'random');
+      transRow.hidden = !showTrans;
+      transCb.checked = !!scene.isTransition;
+      transCb.onchange = function () {
+        scene.isTransition = this.checked;
+        if (scene.isTransition) { scene.randomOn = false; } // une scène d'événement ne porte pas de table
+        save();
+        refreshSceneModalSections(scene, adv);
+        renderChapters(adv);
+      };
+    }
     // Zones de combat : repliées derrière un bouton « + ⚔ Combat » tant que la
     // scène ne contient ni adversaires ni scènes de victoire/défaite. Les
     // combats déjà installés restent affichés (rien n'est perdu).
@@ -1379,6 +1395,50 @@
           if (chIn) chIn.oninput = function () { l.randomEncounters[ri].chance = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); save(); };
           const del = row.querySelector('.sm-dl-randdel');
           if (del) del.onclick = function () { l.randomEncounters.splice(ri, 1); save(); refreshSceneModalSections(scene, adv); };
+        });
+      } else if (curCh && curCh.mode === 'random' && !scene.isTransition) {
+        // Donjon ALÉATOIRE : pas de connecteurs, mais on peut poser des rencontres
+        // aléatoires déclenchées en quittant cette salle vers la suivante.
+        dlBox.hidden = false;
+        const evScenes = curCh.scenes.filter(function (s) { return s.isTransition && s.id !== scene.id; });
+        if (!Array.isArray(scene.randomEncounters)) scene.randomEncounters = [];
+        const randOn = !!scene.randomOn;
+        const encs = scene.randomEncounters;
+        dlBox.innerHTML = '<div class="attacks-head"><h3>🎲 Rencontres aléatoires</h3></div>' +
+          '<label class="sm-dl-randtoggle"><input type="checkbox" id="sm-scene-randon"' + (randOn ? ' checked' : '') + '> Déclencher des rencontres aléatoires en quittant cette salle</label>' +
+          (randOn ? (evScenes.length
+            ? '<div class="sm-dl-randtable">' +
+                encs.map(function (e, ri) {
+                  const opts = '<option value="">— Événement —</option>' + evScenes.map(function (s) {
+                    return '<option value="' + esc(s.id) + '"' + (e && e.sceneId === s.id ? ' selected' : '') + '>' + esc(s.title || '(événement)') + '</option>';
+                  }).join('');
+                  return '<div class="sm-dl-randrow" data-ri="' + ri + '">' +
+                    '<select class="sm-scene-randscene">' + opts + '</select>' +
+                    '<input type="number" class="sm-scene-randchance" min="0" max="100" value="' + (e && e.chance != null ? e.chance : 25) + '" title="Chance de déclenchement (%)" /> %' +
+                    '<button type="button" class="icon-btn sm-scene-randdel">✕</button>' +
+                  '</div>';
+                }).join('') +
+                '<button type="button" class="ghost small" id="sm-scene-randadd">+ Rencontre</button>' +
+              '</div>'
+            : '<p class="hint">Crée d\'abord une <b>scène d\'événement</b> : coche « ⚡ Scène d\'événement » sur une autre salle du chapitre, puis reviens ici pour l\'ajouter au tableau.</p>') : '') +
+          '<p class="hint">À chaque passage vers la salle suivante de ce donjon aléatoire, une chance (%) de dérouter vers l\'une de ces rencontres.</p>';
+        const rOn = document.getElementById('sm-scene-randon');
+        if (rOn) rOn.onchange = function () {
+          scene.randomOn = this.checked;
+          if (scene.randomOn && !scene.randomEncounters.length) scene.randomEncounters = [{ sceneId: '', chance: 25 }];
+          save(); refreshSceneModalSections(scene, adv);
+        };
+        const rAdd = document.getElementById('sm-scene-randadd');
+        if (rAdd) rAdd.onclick = function () { scene.randomEncounters.push({ sceneId: '', chance: 25 }); save(); refreshSceneModalSections(scene, adv); };
+        dlBox.querySelectorAll('.sm-dl-randrow').forEach(function (row) {
+          const ri = parseInt(row.getAttribute('data-ri'), 10);
+          if (!scene.randomEncounters[ri]) return;
+          const scSel = row.querySelector('.sm-scene-randscene');
+          if (scSel) scSel.onchange = function () { scene.randomEncounters[ri].sceneId = this.value || ''; save(); };
+          const chIn = row.querySelector('.sm-scene-randchance');
+          if (chIn) chIn.oninput = function () { scene.randomEncounters[ri].chance = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); save(); };
+          const del = row.querySelector('.sm-scene-randdel');
+          if (del) del.onclick = function () { scene.randomEncounters.splice(ri, 1); save(); refreshSceneModalSections(scene, adv); };
         });
       } else {
         dlBox.hidden = true;
