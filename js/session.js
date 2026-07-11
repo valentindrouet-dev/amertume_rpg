@@ -774,19 +774,34 @@
     if (ex) ex.qty = (ex.qty || 1) + qty;
     else ses.treasures.push({ id: Store.uid(), name: name, qty: qty, kind: k });
   }
-  // Attribue l'Or et les trésors d'une source de récompense (scène ou bloc de test).
-  // Les quantités acceptent une valeur fixe OU une notation en dés (« 2d6 », « 1d3 »),
-  // résolue ici — l'Or est toujours arrondi à l'entier.
-  function grantTreasures(ses, o) {
+  // Tire UNE SEULE FOIS les récompenses en dés d'une source (scène ou bloc), et
+  // met le résultat en cache sur la session (clé = id de la source). Ainsi les
+  // aventuriers voient la valeur RÉELLE (« 11 Or ») — pas la variable (« 3d12 ») —
+  // et l'affichage coïncide avec ce qui est effectivement remis.
+  function rewardRoll(ses, sourceId, o) {
+    if (!ses.rewardRolls) ses.rewardRolls = {};
+    if (ses.rewardRolls[sourceId]) return ses.rewardRolls[sourceId];
+    const amt = function (v, min) { return Math.max(min, Math.round(Store.rollAmount(v == null ? min : v))); };
+    const res = { gold: amt(o.goldReward || 0, 0), tq: [], iq: [] };
+    (o.treasureRewards || []).forEach(function (r, i) { res.tq[i] = amt(r ? r.qty : 1, 0); });
+    (o.itemRewards || []).forEach(function (r, i) { res.iq[i] = amt(r ? r.qty : 1, 1); });
+    ses.rewardRolls[sourceId] = res;
+    save();
+    return res;
+  }
+  // Attribue l'Or et les trésors d'une source de récompense (scène ou bloc de test),
+  // en utilisant le tirage mis en cache (cf. rewardRoll) pour rester cohérent avec
+  // l'affichage.
+  function grantTreasures(ses, o, sourceId) {
     if (!o) return;
-    const gold = Math.max(0, Math.round(Store.rollAmount(o.goldReward || 0)));
-    if (gold > 0) { ensureLoot(ses); ses.gold += gold; }
-    (o.treasureRewards || []).forEach(function (r) {
+    const roll = rewardRoll(ses, sourceId, o);
+    if (roll.gold > 0) { ensureLoot(ses); ses.gold += roll.gold; }
+    (o.treasureRewards || []).forEach(function (r, i) {
       if (!r || !r.name) return;
-      const q = Math.max(0, Math.round(Store.rollAmount(r.qty == null ? 1 : r.qty)));
+      const q = roll.tq[i] || 0;
       if (q > 0) addTreasure(ses, r.name, q, r.kind);
     });
-    if (gold > 0 || (o.treasureRewards || []).some(function (r) { return r && r.name; })) {
+    if (roll.gold > 0 || (o.treasureRewards || []).some(function (r) { return r && r.name; })) {
       document.dispatchEvent(new CustomEvent('inventory-new-item'));
     }
   }
@@ -801,18 +816,19 @@
       (Array.isArray(o.treasureRewards) && o.treasureRewards.some(function (r) { return r && r.name && rewardAmountSet(r.qty == null ? 1 : r.qty); }));
   }
   // HTML des lignes de récompense Or/Trésors (encadré « Butin » doré et festif).
-  function treasureRewardHtml(o) {
+  // `roll` = tirage mis en cache (rewardRoll) : on affiche la valeur RÉELLE tirée
+  // (« +11 Or ») plutôt que la variable en dés.
+  function treasureRewardHtml(o, roll) {
     if (!hasTreasureReward(o)) return '';
     let rows = '';
-    // Les quantités en dés (« 2d6 ») sont affichées telles quelles ; le tirage a
-    // lieu à la remise de la récompense.
     if (rewardAmountSet(o.goldReward)) {
-      rows += '<div class="ses-reward-title ses-loot-gold">🪙 <strong>+' + esc(String(o.goldReward)) + ' Or</strong></div>';
+      const goldShow = roll ? roll.gold : Math.round(Number(o.goldReward) || 0);
+      rows += '<div class="ses-reward-title ses-loot-gold">🪙 <strong>+' + goldShow + ' Or</strong></div>';
     }
-    (o.treasureRewards || []).forEach(function (r) {
+    (o.treasureRewards || []).forEach(function (r, i) {
       if (!r || !r.name || !rewardAmountSet(r.qty == null ? 1 : r.qty)) return;
-      const q = r.qty == null ? 1 : r.qty;
-      const qShow = (Store.isDiceExpr(q) || q > 1) ? ' ×' + esc(String(q)) : '';
+      const q = roll ? (roll.tq[i] || 0) : (r.qty == null ? 1 : r.qty);
+      const qShow = (q > 1) ? ' ×' + esc(String(q)) : '';
       rows += r.kind === 'rare'
         ? '<div class="ses-reward-title ses-loot-rare">🗝️ Objet Rare — <strong>' + esc(r.name) + qShow + '</strong></div>'
         : '<div class="ses-reward-title ses-loot-treasure">💎 Trésor — <strong>' + esc(r.name) + qShow + '</strong></div>';
@@ -987,11 +1003,54 @@
       });
     }
   }
+  // Petite animation de « rencontre » : secousse de l'écran + flash rouge d'alerte,
+  // pour signaler un événement surprenant sur un connecteur.
+  function playEncounterFx() {
+    try {
+      const flash = document.createElement('div');
+      flash.className = 'ses-encounter-flash';
+      flash.innerHTML = '<div class="ses-encounter-badge">⚠ Événement !</div>';
+      document.body.appendChild(flash);
+      const main = document.querySelector('#session-root') || document.querySelector('main') || document.body;
+      main.classList.add('ses-encounter-shake');
+      global.setTimeout(function () { main.classList.remove('ses-encounter-shake'); }, 560);
+      global.setTimeout(function () { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 900);
+    } catch (e) { /* animation best-effort */ }
+  }
+  // Tire une rencontre aléatoire parmi le tableau d'un connecteur : chaque entrée a
+  // sa propre chance (0-100). Première entrée « touchée » gagne. Renvoie l'id de la
+  // scène d'événement (transition) à jouer, ou null.
+  function pickRandomEncounter(entries, chapter) {
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      if (!e || !e.sceneId) continue;
+      if (!chapter.scenes.some(function (s) { return s.id === e.sceneId; })) continue;
+      const chance = Math.max(0, Math.min(100, Number(e.chance) || 0));
+      if (chance > 0 && Math.random() * 100 < chance) return e.sceneId;
+    }
+    return null;
+  }
   // Déclenche (si nécessaire) l'événement d'un connecteur lors d'un déplacement
   // vers `destId`. Renvoie true si la navigation est déroutée vers la scène
   // d'événement (le « Continuer » de celle-ci mènera ensuite à destination).
   function triggerLinkEvent(ses, adv, chapter, link, destId) {
-    if (!link || !link.eventSceneId) return false;
+    if (!link) return false;
+    // 1) RENCONTRE ALÉATOIRE (répétable) : à chaque passage, chance par entrée.
+    if (link.randomOn && Array.isArray(link.randomEncounters) && link.randomEncounters.length) {
+      const hit = pickRandomEncounter(link.randomEncounters, chapter);
+      if (hit) {
+        const rev = chapter.scenes.find(function (s) { return s.id === hit; });
+        if (rev) {
+          resetTransitionScene(ses, rev); // rejouable à chaque rencontre
+          ses.transit = { sceneId: rev.id, destId: destId };
+          navigateTo(ses, adv, rev.id);
+          playEncounterFx();
+          return true;
+        }
+      }
+    }
+    // 2) Événement de passage DÉTERMINISTE (une fois, ou répétable si eventRepeat).
+    if (!link.eventSceneId) return false;
     const evScene = chapter.scenes.find(function (s) { return s.id === link.eventSceneId; });
     if (!evScene) return false;
     if (!ses.linkEventsDone) ses.linkEventsDone = {};
@@ -1004,6 +1063,7 @@
     }
     ses.transit = { sceneId: evScene.id, destId: destId };
     navigateTo(ses, adv, evScene.id);
+    playEncounterFx();
     return true;
   }
 
@@ -1100,6 +1160,7 @@
             ses.randomEventsDone[key] = true;
             ses.transit = { sceneId: evId, destId: nextId };
             navigateTo(ses, adv, evId);
+            playEncounterFx();
             return;
           }
         }
@@ -1414,7 +1475,7 @@
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
         applyWinEffect(ses, block);
-        grantTreasures(ses, block);
+        grantTreasures(ses, block, block.id);
       } else {
         state.fxMsg = applyTestFailEffect(ses, scene, block, aliveEngagedHeroes(ses)[0] || null) || '';
       }
@@ -1428,7 +1489,7 @@
       if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
       grantDeedReward(ses, scene, block);
       applyWinEffect(ses, block);
-      grantTreasures(ses, block);
+      grantTreasures(ses, block, block.id);
     } else if (block.actionMode) {
       // Bloc ACTION : pas de jet — l'Action 1 applique l'issue « réussite »
       // (récompenses, effet, passage), l'Action 2 l'issue « échec » (conséquence).
@@ -1439,7 +1500,7 @@
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
         applyWinEffect(ses, block);
-        grantTreasures(ses, block);
+        grantTreasures(ses, block, block.id);
       } else {
         const h = aliveEngagedHeroes(ses)[0] || null;
         state.fxMsg = applyTestFailEffect(ses, scene, block, h) || '';
@@ -1476,7 +1537,7 @@
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
         applyWinEffect(ses, block);
-        grantTreasures(ses, block);
+        grantTreasures(ses, block, block.id);
       }
     } else {
       // Exclusions (mode « avec un autre aventurier ») : les aventuriers ayant
@@ -1495,7 +1556,7 @@
         if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
         grantDeedReward(ses, scene, block);
         applyWinEffect(ses, block);
-        grantTreasures(ses, block);
+        grantTreasures(ses, block, block.id);
       }
       // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
       if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
@@ -1636,11 +1697,12 @@
     if (!ses.acquiredItems) ses.acquiredItems = {};
     if (!ses.heroOwned) ses.heroOwned = {};
     const fallback = (ses.heroIds && ses.heroIds[0]) || null;
+    const roll = rewardRoll(ses, block.id, block);
     (block.itemRewards || []).forEach(function (r, idx) {
       if (!r.itemId) return;
       const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
       if (!it) return;
-      const q = Math.max(1, Math.round(Store.rollAmount(r.qty == null ? 1 : r.qty)));
+      const q = roll.iq[idx] || 1;
       it.qty = (it.qty || 0) + q;
       ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
       const rec = assign[idx] || fallback;
@@ -1783,6 +1845,8 @@
     const lines = (block.itemRewards || []).filter(function (r) { return r.itemId; });
     const needClaim = lines.length && !state.claimed;
     const heroOpts = heroes.map(function (h) { return '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>'; }).join('');
+    // Tirage mis en cache : quantités d'objets affichées EN VALEUR (pas en dés).
+    const roll = rewardRoll(ses, block.id, block);
     let rewardHtml = '';
     // XP réellement gagnée (valeur tirée si la récompense était en dés).
     const xpShow = (typeof state.xpGained === 'number') ? state.xpGained : (parseInt(block.xpReward, 10) || 0);
@@ -1796,10 +1860,11 @@
         const strip = (it && global.Inventory && Inventory.itemStripHtml) ? Inventory.itemStripHtml(it) :
           '<span class="inv-strip-name">' + esc(it ? it.name : '?') + '</span>';
         const realIdx = (block.itemRewards || []).indexOf(r);
+        const qtyShow = roll.iq[realIdx] || 1;
         return '<div class="rp-line">' +
           '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
             '<div class="inv-strip">' + strip + '</div>' +
-            (Store.isDiceExpr(r.qty) ? '<span class="rp-qty">×' + esc(String(r.qty).trim()) + '</span>' : (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '')) +
+            (qtyShow > 1 ? '<span class="rp-qty">×' + qtyShow + '</span>' : '') +
           '</div>' +
           (state.claimed ? '<span class="tag">Récupéré</span>' : (heroes.length ? '<select class="stp-hero" data-tb="' + esc(block.id) + '" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '')) +
         '</div>';
@@ -1809,7 +1874,7 @@
     if ((block.deedReward || '').trim()) {
       rewardHtml += '<div class="ses-reward-block ses-reward-deed"><div class="ses-reward-title">🏆 Haut Fait <strong>' + esc(block.deedReward.trim()) + '</strong></div></div>';
     }
-    rewardHtml += treasureRewardHtml(block);
+    rewardHtml += treasureRewardHtml(block, rewardRoll(ses, block.id, block));
     rewardHtml += winEffectHtml(block);
     // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
     // Un combat imposé par ce test verrouille toute sortie : pas de bouton passage.
@@ -2607,15 +2672,18 @@
       return;
     }
     const heroOpts = heroes.map(function (h) { return '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>'; }).join('');
+    // Tirage mis en cache : quantités affichées EN VALEUR (pas en dés).
+    const roll = rewardRoll(ses, scene.id, scene);
     const rowsHtml = lines.map(function (r) {
       const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
       const strip = (it && global.Inventory && Inventory.itemStripHtml) ? Inventory.itemStripHtml(it) :
         '<span class="inv-strip-name">' + esc(it ? it.name : '?') + '</span>';
       const realIdx = (scene.itemRewards || []).indexOf(r);
+      const qtyShow = roll.iq[realIdx] || 1;
       return '<div class="rp-line">' +
         '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
           '<div class="inv-strip">' + strip + '</div>' +
-          (Store.isDiceExpr(r.qty) ? '<span class="rp-qty">×' + esc(String(r.qty).trim()) + '</span>' : (r.qty > 1 ? '<span class="rp-qty">×' + r.qty + '</span>' : '')) +
+          (qtyShow > 1 ? '<span class="rp-qty">×' + qtyShow + '</span>' : '') +
         '</div>' +
         (heroes.length ? '<select class="rp-hero" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '') +
       '</div>';
@@ -2638,7 +2706,7 @@
         '<p class="hint">Choisis le destinataire de chaque objet ; l\'attribution se fait en cliquant sur « Continuer ».</p>' +
       '</div>';
     }
-    html += treasureRewardHtml(scene);
+    html += treasureRewardHtml(scene, rewardRoll(ses, scene.id, scene));
     html += winEffectHtml(scene);
     sec.innerHTML = html;
   }
@@ -2668,18 +2736,19 @@
     if (!ses.acquiredItems) ses.acquiredItems = {};
     if (!ses.heroOwned) ses.heroOwned = {};
     const fallback = (ses.heroIds && ses.heroIds[0]) || null;
+    const roll = rewardRoll(ses, scene.id, scene);
     (scene.itemRewards || []).forEach(function (r, idx) {
       if (!r.itemId) return;
       const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
       if (!it) return;
-      const q = Math.max(1, Math.round(Store.rollAmount(r.qty == null ? 1 : r.qty)));
+      const q = roll.iq[idx] || 1;
       it.qty = (it.qty || 0) + q;
       ses.acquiredItems[r.itemId] = (ses.acquiredItems[r.itemId] || 0) + q;
       const recipient = (assign[idx]) || fallback;
       if (recipient) addToHeroOwned(ses, recipient, r.itemId, q); // armes plafonnées à 2
     });
     applyWinEffect(ses, scene);
-    grantTreasures(ses, scene);
+    grantTreasures(ses, scene, scene.id);
     if (!ses.claimedRewards) ses.claimedRewards = {};
     ses.claimedRewards[scene.id] = true;
     Store.save();

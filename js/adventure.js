@@ -1275,6 +1275,8 @@
         const mine = curCh.links.filter(function (l) { return l.from === scene.id || l.to === scene.id; });
         // Blocs de test de CETTE salle : candidats pour révéler un passage secret.
         const testBlocks = (scene.blocks || []).filter(function (b) { return b.type === 'test'; });
+        // Scènes d'ÉVÉNEMENT (transition) du chapitre : candidates aux rencontres aléatoires.
+        const evScenes = curCh.scenes.filter(function (s) { return s.isTransition; });
         dlBox.hidden = false;
         dlBox.innerHTML = '<div class="attacks-head"><h3>Connecteurs de la salle</h3></div>' +
           (mine.length
@@ -1299,10 +1301,34 @@
                   revealOpts += '<option value="' + esc(l.revealTestId) + '" selected>(test d\'une autre salle)</option>';
                 }
                 const revealHidden = gateMode === 'none' ? ' style="display:none"' : '';
+                // RENCONTRES ALÉATOIRES : case + tableau d'événements avec % par passage.
+                const randOn = !!l.randomOn;
+                const encs = Array.isArray(l.randomEncounters) ? l.randomEncounters : [];
+                const randHtml = '<div class="sm-dl-random">' +
+                  '<label class="sm-dl-randtoggle" title="À chaque passage sur ce connecteur, une chance (%) de déclencher une des rencontres du tableau.">' +
+                    '<input type="checkbox" class="sm-dl-randon" data-link="' + esc(l.id) + '"' + (randOn ? ' checked' : '') + '> 🎲 Rencontres aléatoires sur ce connecteur</label>' +
+                  (randOn ? (evScenes.length
+                    ? '<div class="sm-dl-randtable">' +
+                        encs.map(function (e, ri) {
+                          const opts = '<option value="">— Événement —</option>' + evScenes.map(function (s) {
+                            return '<option value="' + esc(s.id) + '"' + (e && e.sceneId === s.id ? ' selected' : '') + '>' + esc(s.title || '(événement)') + '</option>';
+                          }).join('');
+                          return '<div class="sm-dl-randrow" data-link="' + esc(l.id) + '" data-ri="' + ri + '">' +
+                            '<select class="sm-dl-randscene">' + opts + '</select>' +
+                            '<input type="number" class="sm-dl-randchance" min="0" max="100" value="' + (e && e.chance != null ? e.chance : 25) + '" title="Chance de déclenchement (%)" /> %' +
+                            '<button type="button" class="icon-btn sm-dl-randdel">✕</button>' +
+                          '</div>';
+                        }).join('') +
+                        '<button type="button" class="ghost small sm-dl-randadd" data-link="' + esc(l.id) + '">+ Rencontre</button>' +
+                      '</div>'
+                    : '<p class="hint">Crée d\'abord une scène d\'événement (bouton « + ⚡ Événement » sur la carte du donjon) pour l\'ajouter au tableau.</p>'
+                  ) : '') +
+                '</div>';
                 return '<div class="sm-dl-row"><span class="dmap-dir">' + arrow + '</span> <b>' + esc(titles[otherId] || '(salle)') + '</b>' +
                   (l.label ? ' <span class="sm-dl-lbl">« ' + esc(l.label) + ' »</span>' : '') +
                   ' <select class="sm-dl-mode" data-link="' + esc(l.id) + '" title="Accès du connecteur : visible, dissimulé (invisible tant que le test n\'est pas réussi) ou verrouillé (cadenas visible, ouvert par le test).">' + modeOpts + '</select>' +
                   ' <select class="sm-dl-reveal" data-link="' + esc(l.id) + '"' + revealHidden + ' title="Test de la salle qui révèle / déverrouille ce connecteur.">' + revealOpts + '</select>' +
+                  randHtml +
                 '</div>';
               }).join('')
             : '<p class="hint">Aucun connecteur — trace-les avec 🔗 sur la carte du donjon.</p>') +
@@ -1324,6 +1350,35 @@
             const l = curCh.links.find(function (x) { return x.id === sel.getAttribute('data-link'); });
             if (l) { l.revealTestId = sel.value || null; save(); }
           };
+        });
+        const linkOf = function (el) { return curCh.links.find(function (x) { return x.id === el.getAttribute('data-link'); }); };
+        dlBox.querySelectorAll('.sm-dl-randon').forEach(function (cb) {
+          cb.onchange = function () {
+            const l = linkOf(this); if (!l) return;
+            l.randomOn = this.checked;
+            if (l.randomOn && (!Array.isArray(l.randomEncounters) || !l.randomEncounters.length)) {
+              l.randomEncounters = [{ sceneId: '', chance: 25 }];
+            }
+            save(); refreshSceneModalSections(scene, adv);
+          };
+        });
+        dlBox.querySelectorAll('.sm-dl-randadd').forEach(function (b) {
+          b.onclick = function () {
+            const l = linkOf(this); if (!l) return;
+            if (!Array.isArray(l.randomEncounters)) l.randomEncounters = [];
+            l.randomEncounters.push({ sceneId: '', chance: 25 });
+            save(); refreshSceneModalSections(scene, adv);
+          };
+        });
+        dlBox.querySelectorAll('.sm-dl-randrow').forEach(function (row) {
+          const l = linkOf(row); const ri = parseInt(row.getAttribute('data-ri'), 10);
+          if (!l || !Array.isArray(l.randomEncounters) || !l.randomEncounters[ri]) return;
+          const scSel = row.querySelector('.sm-dl-randscene');
+          if (scSel) scSel.onchange = function () { l.randomEncounters[ri].sceneId = this.value || ''; save(); };
+          const chIn = row.querySelector('.sm-dl-randchance');
+          if (chIn) chIn.oninput = function () { l.randomEncounters[ri].chance = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0)); save(); };
+          const del = row.querySelector('.sm-dl-randdel');
+          if (del) del.onclick = function () { l.randomEncounters.splice(ri, 1); save(); refreshSceneModalSections(scene, adv); };
         });
       } else {
         dlBox.hidden = true;

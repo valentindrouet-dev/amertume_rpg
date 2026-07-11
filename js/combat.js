@@ -360,14 +360,17 @@
     c.combatants.forEach(function (h) {
       if (h.side !== 'hero') return;
       const wasDown = h.status !== 'active' || h.pv <= 0;
+      // Aventurier déjà au maximum et debout : aucun soin, aucune ligne au tableau.
+      if (!wasDown && h.pv >= h.maxPv) return;
       const roll = 1 + Math.floor(Math.random() * 6) + (h.endu || 0);
+      const before = Math.max(0, h.pv);
       if (wasDown) {
         h.pv = Math.min(h.maxPv, roll);
         h.status = 'active';
       } else {
         h.pv = Math.min(h.maxPv, h.pv + roll);
       }
-      c.healLines.push({ name: h.name, pv: h.pv, gained: roll });
+      c.healLines.push({ name: h.name, pv: h.pv, gained: h.pv - before, wasDown: wasDown });
     });
     // Bonus +1 XP par aventurier n'ayant subi aucun dégât pendant le combat
     c.noDmgXp = unscathedHeroes().length;

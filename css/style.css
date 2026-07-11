@@ -1157,6 +1157,41 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .ses-write-input:focus { border-color: var(--accent-2, #e2974a); outline: none; }
 .ses-write-go { flex: 0 0 auto; }
 .ses-st-write-answer { color: var(--muted); font-style: italic; }
+/* Animation « rencontre » sur un connecteur : secousse + flash rouge d'alerte. */
+@keyframes ses-shake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-9px, 3px); } 20% { transform: translate(8px, -3px); }
+  30% { transform: translate(-7px, -2px); } 40% { transform: translate(6px, 3px); }
+  50% { transform: translate(-5px, -1px); } 60% { transform: translate(4px, 2px); }
+  70% { transform: translate(-3px, -1px); } 80% { transform: translate(2px, 1px); }
+  90% { transform: translate(-1px, 0); }
+}
+.ses-encounter-shake { animation: ses-shake .56s cubic-bezier(.36,.07,.19,.97) both; }
+.ses-encounter-flash {
+  position: fixed; inset: 0; z-index: 9997; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(180,20,20,.05) 25%, rgba(180,20,20,.42) 100%);
+  box-shadow: inset 0 0 120px 30px rgba(200,30,30,.55);
+  animation: ses-flash .85s ease forwards;
+}
+@keyframes ses-flash { 0% { opacity: 0; } 12% { opacity: 1; } 55% { opacity: .85; } 100% { opacity: 0; } }
+.ses-encounter-badge {
+  font-family: "Georgia", serif; font-weight: 800; font-size: clamp(1.4rem, 5vw, 2.6rem);
+  color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.6), 0 0 22px rgba(220,40,40,.9);
+  letter-spacing: .04em; transform: rotate(-3deg);
+  animation: ses-badge-pop .85s ease forwards;
+}
+@keyframes ses-badge-pop {
+  0% { transform: rotate(-3deg) scale(.6); opacity: 0; }
+  20% { transform: rotate(-3deg) scale(1.12); opacity: 1; }
+  40% { transform: rotate(-3deg) scale(1); }
+  100% { transform: rotate(-3deg) scale(1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ses-encounter-shake { animation: none; }
+  .ses-encounter-flash { animation: ses-flash-soft 0.6s ease forwards; }
+  @keyframes ses-flash-soft { 0% { opacity: 0; } 30% { opacity: .5; } 100% { opacity: 0; } }
+}
 /* Connecteur VERROUILLÉ : bouton visible avec cadenas, non franchissable. */
 .ses-exit-btn.ses-exit-locked { opacity: .8; cursor: not-allowed; border-style: dashed; }
 .ses-exit-btn.ses-exit-locked:hover { filter: none; }
@@ -3877,8 +3912,15 @@ body.mode-player #item-list.roster-list { display: block; }
 }
 .dmap-view-scroll { overflow: auto; max-height: 70vh; border: 1px solid rgba(120,120,120,.25); border-radius: 10px; background: rgba(120,120,120,.05); }
 /* Éditeur : rappel des connecteurs dans la modale de scène */
-.sm-dl-row { padding: .15rem 0; font-size: .9rem; }
+.sm-dl-row { padding: .35rem 0; font-size: .9rem; border-bottom: 1px solid var(--border); }
 .sm-dl-lbl { color: var(--muted); }
+/* Rencontres aléatoires par connecteur */
+.sm-dl-random { margin: .35rem 0 .1rem; padding-left: .2rem; }
+.sm-dl-randtoggle { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; color: var(--text); }
+.sm-dl-randtable { margin: .35rem 0 .2rem; display: flex; flex-direction: column; gap: .3rem; padding-left: 1.2rem; }
+.sm-dl-randrow { display: flex; align-items: center; gap: .4rem; }
+.sm-dl-randrow .sm-dl-randscene { flex: 1 1 auto; min-width: 0; }
+.sm-dl-randrow .sm-dl-randchance { width: 64px; }
 
 /* Flèche directionnelle des connecteurs (suit la géométrie de la carte) */
 .dmap-dir { font-weight: 800; color: var(--accent-2, #e2974a); padding: 0 .15rem; }
