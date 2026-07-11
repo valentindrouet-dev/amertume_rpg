@@ -1020,22 +1020,34 @@
   // Tire AU PLUS UNE rencontre du tableau, en UN SEUL jet. Chaque entrée occupe une
   // tranche = sa chance (%) : le % est exactement la probabilité que CETTE rencontre
   // précise survienne à ce passage. « Aucun événement » = le reste (100 − somme des %).
-  // Deux rencontres ne peuvent donc jamais se déclencher en même temps. Ex. 5 % + 7 % :
-  // 5 % la 1re, 7 % la 2de, 88 % rien (total 12 %). Si la somme dépasse 100 %, les
-  // dernières tranches deviennent inatteignables (un avertissement s'affiche à l'édition).
-  function pickRandomEncounter(entries, chapter) {
-    const roll = Math.random() * 100;
-    let acc = 0;
-    for (let i = 0; i < entries.length; i++) {
-      const e = entries[i];
-      if (!e || !e.sceneId) continue;
-      if (!chapter.scenes.some(function (s) { return s.id === e.sceneId; })) continue;
+  // Deux rencontres ne peuvent jamais se déclencher en même temps.
+  // « UNE FOIS PAR PARTIE » : une rencontre déjà survenue (usedSet) ne se reproduit
+  // jamais. Si le jet tombe sur sa tranche, on redirige vers une rencontre ENCORE
+  // DISPONIBLE (au hasard, pondérée par sa chance) — la proba globale « qu'il se passe
+  // quelque chose » reste donc identique tant qu'il reste des rencontres.
+  function pickRandomEncounter(entries, chapter, usedSet) {
+    const valid = [];
+    (entries || []).forEach(function (e) {
+      if (!e || !e.sceneId) return;
+      if (!chapter.scenes.some(function (s) { return s.id === e.sceneId; })) return;
       const chance = Math.max(0, Math.min(100, Number(e.chance) || 0));
-      if (chance <= 0) continue;
-      acc += chance;
-      if (roll < acc) return e.sceneId;
-    }
-    return null;
+      if (chance > 0) valid.push({ sceneId: e.sceneId, chance: chance });
+    });
+    if (!valid.length) return null;
+    const used = usedSet || {};
+    // 1) Jet additif sur la table COMPLÈTE.
+    const roll = Math.random() * 100;
+    let acc = 0, hit = null;
+    for (let i = 0; i < valid.length; i++) { acc += valid[i].chance; if (roll < acc) { hit = valid[i]; break; } }
+    if (!hit) return null;                       // rien ce passage
+    if (!used[hit.sceneId]) return hit.sceneId;  // rencontre inédite → on la joue
+    // 2) Rencontre déjà vue : redirige vers une rencontre restante (pondérée).
+    const remaining = valid.filter(function (e) { return !used[e.sceneId]; });
+    if (!remaining.length) return null;          // tout a déjà eu lieu → rien
+    const totalRem = remaining.reduce(function (n, e) { return n + e.chance; }, 0);
+    let r2 = Math.random() * totalRem, acc2 = 0;
+    for (let j = 0; j < remaining.length; j++) { acc2 += remaining[j].chance; if (r2 < acc2) return remaining[j].sceneId; }
+    return remaining[remaining.length - 1].sceneId;
   }
   // Déclenche (si nécessaire) l'événement d'un connecteur lors d'un déplacement
   // vers `destId`. Renvoie true si la navigation est déroutée vers la scène
@@ -1045,10 +1057,12 @@
     // 1) RENCONTRE ALÉATOIRE (répétable) : si ce connecteur y est sujet, on tire dans
     // le TABLEAU UNIQUE du chapitre (chapter.randomEncounters). Chance par entrée.
     if (link.randomEnabled && Array.isArray(chapter.randomEncounters) && chapter.randomEncounters.length) {
-      const hit = pickRandomEncounter(chapter.randomEncounters, chapter);
+      if (!ses.usedRandomEncounters) ses.usedRandomEncounters = {};
+      const hit = pickRandomEncounter(chapter.randomEncounters, chapter, ses.usedRandomEncounters);
       if (hit) {
         const rev = chapter.scenes.find(function (s) { return s.id === hit; });
         if (rev) {
+          ses.usedRandomEncounters[hit] = true; // une rencontre ne survient qu'une fois par partie
           resetTransitionScene(ses, rev); // rejouable à chaque rencontre
           ses.transit = { sceneId: rev.id, destId: destId };
           navigateTo(ses, adv, rev.id);
@@ -1161,10 +1175,12 @@
         // RENCONTRE ALÉATOIRE (répétable) : si cette salle y est sujette, on tire dans
         // le TABLEAU UNIQUE du chapitre à chaque passage vers la salle suivante.
         if (scene.randomEnabled && Array.isArray(chapter.randomEncounters) && chapter.randomEncounters.length) {
-          const hit = pickRandomEncounter(chapter.randomEncounters, chapter);
+          if (!ses.usedRandomEncounters) ses.usedRandomEncounters = {};
+          const hit = pickRandomEncounter(chapter.randomEncounters, chapter, ses.usedRandomEncounters);
           if (hit) {
             const rev = chapter.scenes.find(function (s) { return s.id === hit; });
             if (rev) {
+              ses.usedRandomEncounters[hit] = true; // une rencontre ne survient qu'une fois par partie
               resetTransitionScene(ses, rev);
               ses.transit = { sceneId: rev.id, destId: nextId };
               navigateTo(ses, adv, rev.id);
