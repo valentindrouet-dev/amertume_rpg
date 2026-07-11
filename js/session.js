@@ -1035,9 +1035,10 @@
   // d'événement (le « Continuer » de celle-ci mènera ensuite à destination).
   function triggerLinkEvent(ses, adv, chapter, link, destId) {
     if (!link) return false;
-    // 1) RENCONTRE ALÉATOIRE (répétable) : à chaque passage, chance par entrée.
-    if (link.randomOn && Array.isArray(link.randomEncounters) && link.randomEncounters.length) {
-      const hit = pickRandomEncounter(link.randomEncounters, chapter);
+    // 1) RENCONTRE ALÉATOIRE (répétable) : si ce connecteur y est sujet, on tire dans
+    // le TABLEAU UNIQUE du chapitre (chapter.randomEncounters). Chance par entrée.
+    if (link.randomEnabled && Array.isArray(chapter.randomEncounters) && chapter.randomEncounters.length) {
+      const hit = pickRandomEncounter(chapter.randomEncounters, chapter);
       if (hit) {
         const rev = chapter.scenes.find(function (s) { return s.id === hit; });
         if (rev) {
@@ -1150,10 +1151,10 @@
       sec.innerHTML = '<button class="primary" id="ses-rand-next">Continuer l\'exploration → ' +
         '<span class="ses-rand-count">(salle ' + (idx + 2) + '/' + order.length + ')</span></button>';
       sec.querySelector('#ses-rand-next').addEventListener('click', function () {
-        // RENCONTRE ALÉATOIRE (répétable) posée sur la salle qu'on quitte : à chaque
-        // passage vers la salle suivante, une chance de dérouter vers un événement.
-        if (scene.randomOn && Array.isArray(scene.randomEncounters) && scene.randomEncounters.length) {
-          const hit = pickRandomEncounter(scene.randomEncounters, chapter);
+        // RENCONTRE ALÉATOIRE (répétable) : si cette salle y est sujette, on tire dans
+        // le TABLEAU UNIQUE du chapitre à chaque passage vers la salle suivante.
+        if (scene.randomEnabled && Array.isArray(chapter.randomEncounters) && chapter.randomEncounters.length) {
+          const hit = pickRandomEncounter(chapter.randomEncounters, chapter);
           if (hit) {
             const rev = chapter.scenes.find(function (s) { return s.id === hit; });
             if (rev) {

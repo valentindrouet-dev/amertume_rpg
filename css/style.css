@@ -3914,13 +3914,15 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Éditeur : rappel des connecteurs dans la modale de scène */
 .sm-dl-row { padding: .35rem 0; font-size: .9rem; border-bottom: 1px solid var(--border); }
 .sm-dl-lbl { color: var(--muted); }
-/* Rencontres aléatoires par connecteur */
-.sm-dl-random { margin: .35rem 0 .1rem; padding-left: .2rem; }
-.sm-dl-randtoggle { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; color: var(--text); }
-.sm-dl-randtable { margin: .35rem 0 .2rem; display: flex; flex-direction: column; gap: .3rem; padding-left: 1.2rem; }
-.sm-dl-randrow { display: flex; align-items: center; gap: .4rem; }
-.sm-dl-randrow .sm-dl-randscene { flex: 1 1 auto; min-width: 0; }
-.sm-dl-randrow .sm-dl-randchance { width: 64px; }
+/* Rencontres aléatoires : case par connecteur + tableau unique du chapitre */
+.sm-dl-randchk, .dmap-link-rand { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; white-space: nowrap; }
+.dmap-randblock { margin-top: .6rem; }
+.rand-chapter-block { margin: .5rem 0; }
+.rand-chapter-title { font-weight: 700; color: var(--muted); font-size: .82rem; margin-bottom: .3rem; }
+.rand-table { display: flex; flex-direction: column; gap: .3rem; margin: .3rem 0; }
+.rand-row { display: flex; align-items: center; gap: .4rem; }
+.rand-row .rand-scene { flex: 1 1 auto; min-width: 0; }
+.rand-row .rand-chance { width: 66px; }
 
 /* Flèche directionnelle des connecteurs (suit la géométrie de la carte) */
 .dmap-dir { font-weight: 800; color: var(--accent-2, #e2974a); padding: 0 .15rem; }
