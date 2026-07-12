@@ -3753,6 +3753,11 @@ body.mode-player #item-list.roster-list { display: block; }
   fill: #d9c9a8; font-size: 11px; font-weight: 700; letter-spacing: .02em;
   paint-order: stroke; stroke: rgba(30,25,18,.85); stroke-width: 3px;
 }
+/* Emoji dé sur les connecteurs marqués « aléatoires » */
+.dmap-line-rand {
+  font-size: 15px;
+  paint-order: stroke; stroke: rgba(30,25,18,.85); stroke-width: 3px;
+}
 .dmap-room {
   position: absolute; width: 164px; height: 100px; box-sizing: border-box;
   border: 2px solid rgba(150,150,150,.55); border-radius: 10px;
@@ -3926,6 +3931,20 @@ body.mode-player #item-list.roster-list { display: block; }
 .rand-row .rand-chance { width: 66px; flex: 0 0 auto; }
 .rand-total { margin-top: .35rem; }
 .rand-total.rand-over { color: #d13b4e; }
+/* Coloration de chaque ligne selon le type de la rencontre (mêmes teintes que le plan) */
+.rand-row { border-left: 4px solid transparent; padding-left: .45rem; }
+.rand-row.type-description  { border-left-color: rgba(176,122,46,.8); }
+.rand-row.type-exploration  { border-left-color: rgba(74,141,214,.8); }
+.rand-row.type-interaction  { border-left-color: rgba(106,171,106,.85); }
+.rand-row.type-combat       { border-left-color: rgba(214,92,64,.9); }
+.rand-row.type-reward       { border-left-color: rgba(196,154,32,.9); }
+.rand-row.type-danger       { border-left-color: rgba(209,59,78,.9); }
+.rand-row.type-repos        { border-left-color: rgba(47,158,119,.9); }
+.rand-row.type-commerce     { border-left-color: rgba(224,149,46,.9); }
+.rand-row.type-boss         { border-left-color: rgba(176,46,168,.9); }
+.rand-row.type-temps        { border-left-color: rgba(98,114,201,.9); }
+.rand-row.type-vide         { border-left-color: rgba(141,141,141,.9); }
+.rand-row.type-fin          { border-left-color: rgba(157,114,196,.9); }
 
 /* Flèche directionnelle des connecteurs (suit la géométrie de la carte) */
 .dmap-dir { font-weight: 800; color: var(--accent-2, #e2974a); padding: 0 .15rem; }

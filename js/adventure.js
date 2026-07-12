@@ -151,7 +151,7 @@
         const sc = chapter.scenes.find(function (s) { return s.id === (e && e.sceneId); });
         const missing = !sc;
         const name = sc ? (sc.title || '') : '';
-        return '<div class="rand-row" data-ri="' + ri + '">' +
+        return '<div class="rand-row type-' + (sc ? sc.type : 'vide') + '" data-ri="' + ri + '">' +
           '<input type="text" class="rand-name" value="' + esc(name) + '" placeholder="Nom de la rencontre" ' + (missing ? 'disabled' : '') + ' />' +
           '<button type="button" class="ghost small rand-edit"' + (missing ? ' disabled' : '') + ' title="Éditer cette rencontre (texte, combat, tests, récompenses…)">✎ Éditer</button>' +
           '<input type="number" class="rand-chance" min="0" max="100" value="' + (e && e.chance != null ? e.chance : 25) + '" title="Chance de déclenchement (%)" /> %' +
@@ -957,7 +957,9 @@
       const mx = (cx(f) + cx(t)) / 2, my = (cy(f) + cy(t)) / 2;
       const kind = linkEventKind(ch, l);
       return '<line x1="' + cx(f) + '" y1="' + cy(f) + '" x2="' + cx(t) + '" y2="' + cy(t) + '" class="dmap-line' + (kind ? ' dmap-line-' + kind : '') + '"></line>' +
-        (l.label ? '<text x="' + mx + '" y="' + (my - 5) + '" class="dmap-line-lbl" text-anchor="middle">' + esc(l.label) + '</text>' : '');
+        (l.label ? '<text x="' + mx + '" y="' + (my - 5) + '" class="dmap-line-lbl" text-anchor="middle">' + esc(l.label) + '</text>' : '') +
+        // 🎲 sur les connecteurs sujets aux rencontres aléatoires.
+        (l.randomEnabled ? '<text x="' + mx + '" y="' + (my + (l.label ? 16 : 6)) + '" class="dmap-line-rand" text-anchor="middle">🎲</text>' : '');
     }).join('');
 
     const rooms = ch.scenes.filter(function (s) { return !s.isTransition; }).map(function (s) {
