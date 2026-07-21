@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.3.51';
+  const APP_VERSION = 'v2.3.52';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
@@ -36,6 +36,7 @@
       else safe('session', Session.render);
     }
     if (target === 'saves') safe('saves', function () { Session.renderSaves(advId); });
+    if (target === 'bugs') safe('bugs', Bugs.renderAdmin);
   }
 
   // Active un onglet (visible) et son panneau, puis déclenche son rendu
@@ -192,6 +193,7 @@
     safe('share.init', Share.init);
     safe('dataio.init', DataIO.init);
     safe('shell.init', Shell.init);
+    safe('bugs.init', Bugs.init);
     safe('share.wire', setupShare);
     safe('share.load', loadSharedIfAny);
   });

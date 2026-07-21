@@ -4077,3 +4077,41 @@ body.mode-player #item-list.roster-list { display: block; }
 .sm-combat-head.adv-block-done h3 { color: #4f9a4f; }
 .sm-combat-head .adv-block-ok { margin-left: auto; }
 .sm-combat-head h3 { margin: 0; }
+
+/* ===================== SIGNALEMENT DE BUGS ===================== */
+/* Bouton flottant présent sur toutes les pages. */
+#bug-fab {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 60;
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid rgba(209,59,78,.6);
+  background: rgba(40,26,28,.92); color: #fff;
+  font-size: 1.35rem; line-height: 1; cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0,0,0,.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+#bug-fab:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(209,59,78,.5); }
+#bug-fab:active { transform: scale(.96); }
+
+.bug-box { max-width: 480px; }
+.modal-body { padding: 1.1rem; display: flex; flex-direction: column; gap: .75rem; }
+.modal-close { background: none; border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; }
+.modal-close:hover { color: var(--fg, #eee); }
+.bug-label { font-size: .82rem; color: var(--muted); display: flex; flex-direction: column; gap: .25rem; }
+.bug-label input[readonly] { background: var(--panel-2); color: var(--accent-2, #e2974a); font-weight: 600; }
+.bug-label textarea { resize: vertical; }
+.bug-flash { color: #4fb46e; font-weight: 600; margin: 0; }
+
+/* Liste des bugs (Mode MJ / Admin) */
+.bug-list { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.bug-item {
+  display: flex; align-items: flex-start; gap: .6rem;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-left: 4px solid rgba(209,59,78,.85); border-radius: 8px; padding: .55rem .7rem;
+}
+.bug-item-main { flex: 1 1 auto; display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.bug-item-context { font-size: .78rem; color: var(--accent-2, #e2974a); font-weight: 600; }
+.bug-item-date { color: var(--muted); font-weight: 400; }
+.bug-item-desc { font-size: .9rem; white-space: pre-wrap; word-break: break-word; }
+.bug-item-tools { flex: 0 0 auto; display: flex; gap: .3rem; }
+.bug-item-tools .danger { color: #d13b4e; }
