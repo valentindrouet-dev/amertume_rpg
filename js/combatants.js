@@ -475,6 +475,13 @@
           return Object.assign(common, { effects: Object.assign(Store.noStates(), { affaibli: true }) });
         case 'attaque_enflammee':
           return Object.assign(common, { range: 'contact', effects: Object.assign(Store.noStates(), { feu: true }) });
+        case 'attaque_etat': {
+          // Attaque de contact qui inflige l'état choisi (POISON est numérique).
+          const st = t.choice || 'feu';
+          const fx = Store.noStates();
+          if (st === 'poison') fx.poison = 1; else fx[st] = true;
+          return Object.assign(common, { range: 'contact', effects: fx });
+        }
         case 'frappe_tournoyante':
           return Object.assign(common, { range: 'contact', targets: 'all', zoneOnly: true });
         case 'deluge':
@@ -507,6 +514,11 @@
         if (!a.effects) a.effects = Store.noStates();
         if (t.effect === 'arme_enflammee' && a.range === 'contact') a.effects.feu = true;
         if (t.effect === 'arme_affaiblissante') a.effects.affaibli = true;
+        if (t.effect === 'arme_etat' && t.choice) {
+          // Toutes les attaques infligent l'état choisi (POISON est numérique).
+          if (t.choice === 'poison') a.effects.poison = (a.effects.poison || 0) + 1;
+          else a.effects[t.choice] = true;
+        }
         if (t.effect === 'perce_blindage') a.ignoreBlindage = true;
         if (t.effect === 'frappe_perforante') a.ignoreBlindage = true; // ignore Blindage sans le retirer
         if (t.effect === 'bourreau_rapides') a.doubleVsRapide = true;

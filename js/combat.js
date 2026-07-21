@@ -1661,8 +1661,14 @@
       switch (t.effect) {
         case 'frappe_lourde': bonus += t.val || 0; break;
         case 'maitre_distance': if (atk && atk.range === 'distance') bonus += t.val || 0; break;
+        case 'maitre_contact': if (atk && atk.range === 'contact') bonus += t.val || 0; break;
         case 'tueur_au_sol': if (target.states.auSol) bonus += t.val || 0; break;
         case 'tueur_affaibli': if (target.states.affaibli) bonus += t.val || 0; break;
+        case 'tueur_etat': {
+          const st = t.choice;
+          if (st && target.states && (st === 'poison' ? target.states.poison > 0 : !!target.states[st])) bonus += t.val || 0;
+          break;
+        }
         case 'meute': {
           const allies = combat().combatants.filter(function (c) {
             return c.side === attacker.side && c.status === 'active' && c.iid !== attacker.iid && c.zone === target.zone;

@@ -106,30 +106,59 @@
   function groupByRef(ref) { return groups().find(function (g) { return g.ref === ref; }) || null; }
 
   // ---- Bibliothèque des effets (panneau de référence repliable) ----
+  // Organisée par CATÉGORIES thématiques (mêmes groupes que le sélecteur
+  // d'effet), avec recherche instantanée sur le nom et la description.
+  function effectCategories() { return Store.effectCategories ? Store.effectCategories() : []; }
+  function effectSearchKey(e) {
+    return ((e.name || '') + ' ' + (e.desc || '') + ' ' + (e.effect || '')).toLowerCase();
+  }
   function libraryHTML() {
     const cat = effectCatalog();
-    const byKind = {};
-    cat.forEach(function (e) { (byKind[e.kind] = byKind[e.kind] || []).push(e); });
-    const sections = KIND_ORDER.filter(function (k) { return byKind[k]; }).map(function (k) {
-      const rows = byKind[k].map(function (e) {
-        return '<div class="lib-row">' +
+    const byCat = {};
+    cat.forEach(function (e) { const c = e.cat || 'attaque'; (byCat[c] = byCat[c] || []).push(e); });
+    const sections = effectCategories().filter(function (c) { return byCat[c.key]; }).map(function (c) {
+      const rows = byCat[c.key].map(function (e) {
+        return '<div class="lib-row" data-search="' + esc(effectSearchKey(e)) + '">' +
+          '<span class="tl-kind tl-kind-' + e.kind + '" title="' + esc(KIND_LABEL[e.kind] || e.kind) + '">' + esc(KIND_SHORT[e.kind] || e.kind) + '</span>' +
+          '<b class="lib-eff-name">' + esc(e.name) + '</b>' +
           '<span class="lib-eff-desc">' + esc(e.desc) + '</span>' +
           (e.hasVal ? '<span class="lib-eff-var">X = ' + esc(e.valLabel || 'valeur') + '</span>' : '') +
         '</div>';
       }).join('');
-      return '<div class="lib-kind lib-kind-' + k + '">' +
-        '<div class="lib-kind-head">' + esc(KIND_LABEL[k]) + '</div>' + rows + '</div>';
+      return '<div class="lib-cat">' +
+        '<div class="lib-cat-head">' + esc(c.icon) + ' ' + esc(c.label) +
+          ' <span class="tag">' + byCat[c.key].length + '</span></div>' + rows + '</div>';
     }).join('');
     return '<details class="card lib-card">' +
-      '<summary><b>📖 Bibliothèque des effets</b> — ' + cat.length + ' effets câblés au moteur</summary>' +
-      '<p class="hint">Reliez un talent à un effet pour le rendre actif en combat. ' +
-        '<span class="lib-leg lib-kind-action">Action</span> · ' +
-        '<span class="lib-leg lib-kind-reaction">Réaction</span> · ' +
-        '<span class="lib-leg lib-kind-passive">Passif</span> · ' +
-        '<span class="lib-leg lib-kind-upgrade">Amélioration</span> · ' +
-        '<span class="lib-leg lib-kind-mastery">Maîtrise</span>.</p>' +
-      sections +
+      '<summary><b>📖 Bibliothèque des effets</b> — ' + cat.length + ' effets câblés au moteur, ' +
+        effectCategories().length + ' catégories</summary>' +
+      '<p class="hint">Chaque effet est actif en combat dès qu\'un talent y est relié. Types : ' +
+        '<span class="lib-leg tl-kind-action">Action</span> · ' +
+        '<span class="lib-leg tl-kind-reaction">Réaction</span> · ' +
+        '<span class="lib-leg tl-kind-passive">Passif</span> · ' +
+        '<span class="lib-leg tl-kind-upgrade">Amélioration</span> · ' +
+        '<span class="lib-leg tl-kind-mastery">Maîtrise</span>.</p>' +
+      '<input type="search" id="lib-search" placeholder="🔍 Rechercher un effet… (nom, description)" />' +
+      '<div class="lib-cats">' + sections + '</div>' +
     '</details>';
+  }
+  // Recherche instantanée dans la bibliothèque : filtre les lignes, masque les
+  // catégories vides.
+  function wireLibrary(root) {
+    const input = root.querySelector('#lib-search');
+    if (!input) return;
+    input.addEventListener('input', function () {
+      const q = input.value.toLowerCase().trim();
+      root.querySelectorAll('.lib-cat').forEach(function (catBox) {
+        let any = false;
+        catBox.querySelectorAll('.lib-row').forEach(function (r) {
+          const hit = !q || (r.getAttribute('data-search') || '').indexOf(q) >= 0;
+          r.hidden = !hit;
+          if (hit) any = true;
+        });
+        catBox.hidden = !any;
+      });
+    });
   }
 
   function render() {
@@ -165,6 +194,7 @@
         '</div>' +
         '<div id="class-list" class="roster-list inv-strip-layout"></div>' +
       '</div>';
+    wireLibrary(root);
     $('#tl-add').addEventListener('click', function () { openTalentModal(null); });
     $('#tl-search').addEventListener('input', function () { term = this.value.toLowerCase().trim(); renderColumns(); });
     $('#tl-groupfilter').addEventListener('change', function () { groupFilter = this.value; renderColumns(); });
@@ -274,19 +304,54 @@
   // ---- Mini-fenêtre d'édition d'un talent ----
   let editing = null; // { ref, id } du talent en cours d'édition (null = création)
 
-  function effectOptions(cur) {
-    const cat = effectCatalog();
-    let html = '<option value="">— Aucun (descriptif) —</option>';
-    KIND_ORDER.forEach(function (k) {
-      const list = cat.filter(function (e) { return e.kind === k; });
-      if (!list.length) return;
-      html += '<optgroup label="' + esc(KIND_LABEL[k]) + '">' +
-        list.map(function (e) {
-          return '<option value="' + esc(e.effect) + '" title="' + esc(e.name) + '"' + (e.effect === cur ? ' selected' : '') + '>' + esc(e.desc) + '</option>';
-        }).join('') +
-      '</optgroup>';
+  // ---- Sélecteur d'effet structuré (Type → Catégorie → Effet + recherche) ----
+  // Types réellement présents dans le catalogue (chips de filtre du sélecteur).
+  const PICKER_KINDS = ['action', 'reaction', 'passive', 'upgrade', 'mastery'];
+  // Construit la liste des effets du panneau selon le filtre de type et la
+  // recherche de la ligne. Les effets sont groupés par catégorie thématique.
+  function buildPickerList(row) {
+    const box = row.querySelector('.tl-eff-optlist');
+    if (!box) return;
+    const q = (row._pickTerm || '').toLowerCase().trim();
+    const kindFilter = row._pickKind || '';
+    const cur = row.querySelector('.tl-eff-effect').value;
+    const cat = effectCatalog().filter(function (e) {
+      if (kindFilter && e.kind !== kindFilter) return false;
+      return !q || effectSearchKey(e).indexOf(q) >= 0;
     });
-    return html;
+    const byCat = {};
+    cat.forEach(function (e) { const c = e.cat || 'attaque'; (byCat[c] = byCat[c] || []).push(e); });
+    let html = (!q && !kindFilter)
+      ? '<button type="button" class="tl-eff-opt tl-eff-opt-none' + (cur ? '' : ' selected') + '" data-key="">— Aucun effet (talent descriptif) —</button>'
+      : '';
+    effectCategories().filter(function (c) { return byCat[c.key]; }).forEach(function (c) {
+      html += '<div class="tl-eff-cat-hdr">' + esc(c.icon) + ' ' + esc(c.label) + '</div>' +
+        byCat[c.key].map(function (e) {
+          return '<button type="button" class="tl-eff-opt' + (e.effect === cur ? ' selected' : '') + '" data-key="' + esc(e.effect) + '">' +
+            '<span class="tl-kind tl-kind-' + e.kind + '">' + esc(KIND_SHORT[e.kind] || e.kind) + '</span>' +
+            '<b>' + esc(e.name) + '</b>' +
+            '<span class="tl-eff-opt-desc">' + esc(e.desc) + '</span>' +
+          '</button>';
+        }).join('');
+    });
+    box.innerHTML = html || '<p class="inv-col-empty">Aucun effet ne correspond à la recherche.</p>';
+    box.querySelectorAll('.tl-eff-opt').forEach(function (b) {
+      b.addEventListener('click', function () {
+        row.querySelector('.tl-eff-effect').value = b.getAttribute('data-key') || '';
+        row.querySelector('.tl-eff-picker').hidden = true;
+        syncEffectRow(row);
+      });
+    });
+  }
+  function openPicker(row) {
+    const panel = row.querySelector('.tl-eff-picker');
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) {
+      buildPickerList(row);
+      const s = row.querySelector('.tl-eff-search');
+      if (s) { s.value = row._pickTerm || ''; s.focus(); }
+    }
   }
   function groupOptions(cur) {
     return groups().map(function (g) {
@@ -318,9 +383,24 @@
   }
 
   // ---- Lignes d'effet (multi-effets, chacune avec ses paramètres) ----
-  // Met à jour les champs conditionnels (X, portée, dés) d'une ligne selon l'effet choisi.
+  // Met à jour le bouton de sélection, la description et les champs
+  // conditionnels (X, portée, dés, choix, cibles) d'une ligne selon l'effet choisi.
   function syncEffectRow(row) {
     const eff = effectMap()[row.querySelector('.tl-eff-effect').value] || null;
+    // Bouton de sélection : vignette de type colorée + nom de l'effet choisi.
+    const pickBtn = row.querySelector('.tl-eff-pick');
+    if (pickBtn) {
+      pickBtn.innerHTML = eff
+        ? '<span class="tl-kind tl-kind-' + eff.kind + '">' + esc(KIND_SHORT[eff.kind] || eff.kind) + '</span> <b>' + esc(eff.name) + '</b> <span class="tl-eff-pick-caret">▾</span>'
+        : '🔍 Choisir un effet… <span class="tl-eff-pick-caret">▾</span>';
+      pickBtn.classList.toggle('tl-eff-pick-empty', !eff);
+    }
+    // Description complète de l'effet sélectionné, toujours visible sous la ligne.
+    const descBox = row.querySelector('.tl-eff-seldesc');
+    if (descBox) {
+      descBox.textContent = eff ? eff.desc : '';
+      descBox.hidden = !eff;
+    }
     const valWrap = row.querySelector('.tl-eff-val-wrap');
     const rangeWrap = row.querySelector('.tl-eff-range-wrap');
     const diceWrap = row.querySelector('.tl-eff-dice-wrap');
@@ -363,9 +443,21 @@
     row.className = 'tl-eff-row';
     row.innerHTML =
       '<div class="tl-eff-top">' +
-        '<select class="tl-eff-effect">' + effectOptions(e.effect || '') + '</select>' +
+        '<input type="hidden" class="tl-eff-effect" value="' + esc(Store.canonicalEffect ? Store.canonicalEffect(e.effect || '') : (e.effect || '')) + '" />' +
+        '<button type="button" class="tl-eff-pick" title="Choisir l\'effet de ce talent"></button>' +
         '<button type="button" class="tl-eff-del" title="Retirer cet effet">✕</button>' +
       '</div>' +
+      '<div class="tl-eff-picker" hidden>' +
+        '<input type="search" class="tl-eff-search" placeholder="🔍 Rechercher… (nom, description)" />' +
+        '<div class="tl-eff-kindchips">' +
+          '<button type="button" class="tl-eff-chip selected" data-kind="">Tous</button>' +
+          PICKER_KINDS.map(function (k) {
+            return '<button type="button" class="tl-eff-chip tl-chip-' + k + '" data-kind="' + k + '">' + esc(KIND_LABEL[k]) + '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="tl-eff-optlist"></div>' +
+      '</div>' +
+      '<p class="tl-eff-seldesc hint" hidden></p>' +
       '<div class="tl-eff-params">' +
         '<span class="tl-eff-kind"></span>' +
         '<label class="tl-eff-val-wrap" hidden><span class="tl-eff-val-label">Valeur X</span>' +
@@ -395,7 +487,17 @@
     if (Inventory && Inventory.buildDiceSteppers) {
       Inventory.buildDiceSteppers(row.querySelector('.tl-eff-dice'), row._pool);
     }
-    row.querySelector('.tl-eff-effect').addEventListener('change', function () { syncEffectRow(row); });
+    row.querySelector('.tl-eff-pick').addEventListener('click', function () { openPicker(row); });
+    row.querySelector('.tl-eff-search').addEventListener('input', function () {
+      row._pickTerm = this.value; buildPickerList(row);
+    });
+    row.querySelectorAll('.tl-eff-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        row._pickKind = chip.getAttribute('data-kind') || '';
+        row.querySelectorAll('.tl-eff-chip').forEach(function (c) { c.classList.toggle('selected', c === chip); });
+        buildPickerList(row);
+      });
+    });
     row.querySelector('.tl-eff-del').addEventListener('click', function () { row.remove(); });
     const choiceSel = row.querySelector('.tl-eff-choice');
     if (choiceSel) choiceSel.addEventListener('change', function () { row._choice = choiceSel.value; });
