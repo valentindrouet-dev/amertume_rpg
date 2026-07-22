@@ -4279,3 +4279,21 @@ body.mode-player #item-list.roster-list { display: block; }
 /* 4. Zone vide compacte. */
 .zone-empty { padding: .25rem 0; }
 .combat-zone { min-height: 64px; }
+
+/* ===================== AJUSTEMENTS COMBAT v2.3.62 ===================== */
+/* 1. Barre de PV du bandeau raccourcie de ~40 % ; les boutons à sa droite
+   absorbent la place (le Pyromane garde sa colonne étroite spécifique). */
+.ab-card:not(.has-orbes) .ab-id { flex: 0 0 115px; }
+/* 2. Icônes des attaques ré-agrandies grâce à la place gagnée. */
+.ab-atk .die-sq, .ab-orbes-figs .die-sq { width: 19px !important; height: 19px !important; }
+.ab-atk .die-sq::after, .ab-orbes-figs .die-sq::after { width: 6px !important; height: 6px !important; }
+.ab-atk img.ab-atk-name { width: 1.6em; height: 1.6em; }
+.ab-atk .atk-dmg { font-size: .72rem; }
+/* 3. Espace entre zones réduit quand il n'y a pas de barrière (la gouttière
+   ne garde de l'épaisseur que pour les barrières elles-mêmes). */
+.combat-zones-grid { gap: .5rem; }
+.zone-sep-diag-wrap { min-width: 8px; min-height: 8px; }
+/* 4. « Analyse » tient dans son bouton : les 3 outils se partagent la largeur
+   sans ellipse, police ajustée. */
+.ab-tools { gap: 2px; }
+.ab-tool { font-size: .64rem; padding: 0 1px; letter-spacing: 0; text-overflow: clip; }
