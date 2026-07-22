@@ -35,39 +35,142 @@
       '_' + (loadBugs().length);
   }
 
-  // Libellé automatique de la page courante (sert d'intitulé du ticket).
+  // ---- Capture des erreurs JS (5 dernières) : jointes à chaque rapport ----
+  const jsErrors = [];
+  function pushErr(msg) {
+    jsErrors.push(String(msg).slice(0, 220));
+    if (jsErrors.length > 5) jsErrors.shift();
+  }
+  function captureErrors() {
+    global.addEventListener('error', function (ev) {
+      pushErr((ev.message || 'Erreur') +
+        (ev.filename ? ' (' + String(ev.filename).split('/').pop() + ':' + ev.lineno + ')' : ''));
+    });
+    global.addEventListener('unhandledrejection', function (ev) {
+      const r = ev.reason;
+      pushErr('Promesse rejetée : ' + (r && r.message ? r.message : String(r)));
+    });
+  }
+
+  // Session active pour une aventure (position du joueur : chapitre + scène).
+  function activeSessionFor(advId) {
+    try {
+      const list = Store.loadSessions ? Store.loadSessions() : [];
+      return list.find(function (s) { return s.adventureId === advId && s.status === 'active'; }) || null;
+    } catch (e) { return null; }
+  }
+  // Chapitre + scène correspondant à un id de scène dans une aventure.
+  function findScene(adv, sceneId) {
+    if (!adv || !sceneId) return null;
+    for (let i = 0; i < adv.chapters.length; i++) {
+      const ch = adv.chapters[i];
+      const sc = (ch.scenes || []).find(function (s) { return s.id === sceneId; });
+      if (sc) return { chapter: ch, scene: sc };
+    }
+    return null;
+  }
+  // Résumé d'un bloc de scène : type + paramètres clés (pour cibler le bug).
+  function blockSummary(b) {
+    if (!b || !b.type) return '';
+    if (b.type === 'narrative') return 'narratif';
+    if (b.type === 'test') {
+      if (b.writeMode) return 'écriture (« ' + (b.answers || b.expected || '?') + ' »)';
+      let s = (b.actionMode ? 'action' : 'test') + ' ' + (b.skill || '?') + ' d.' + (b.difficulty != null ? b.difficulty : '?');
+      if (b.altSkill) s += ' / ' + b.altSkill + ' d.' + (b.altDifficulty != null ? b.altDifficulty : '?');
+      if (b.winEffect && b.winEffect.kind === 'combat') s += ' → combat si réussite';
+      if (b.failEffect && b.failEffect.kind === 'combat') s += ' → combat si échec';
+      if (b.mandatory) s += ' (obligatoire)';
+      return s;
+    }
+    if (b.type === 'combat') return 'combat';
+    if (b.type === 'obstruante') return 'obstruante';
+    return b.type;
+  }
+  // Détail d'une scène : type, transition, blocs, zones de combat, sorties.
+  function sceneSummary(sc) {
+    const bits = [];
+    bits.push('type ' + (sc.type || '?') + (sc.isTransition ? ' (événement/transition)' : ''));
+    const blocks = (sc.blocks || []).map(blockSummary).filter(Boolean);
+    if (blocks.length) bits.push('blocs : ' + blocks.join(' · '));
+    if (Array.isArray(sc.combatZones) && sc.combatZones.length) {
+      const monsters = [];
+      sc.combatZones.forEach(function (z) {
+        (z.monsterRefs || []).forEach(function (r) {
+          monsters.push((r.monName || r.monsterId || '?') + (r.count > 1 ? ' ×' + r.count : ''));
+        });
+      });
+      bits.push('combat : ' + sc.combatZones.length + ' zone(s)' + (monsters.length ? ' [' + monsters.join(', ') + ']' : ''));
+    }
+    if (Array.isArray(sc.choices) && sc.choices.length) bits.push(sc.choices.length + ' choix/sorties');
+    return bits.join(' | ');
+  }
+  // État du combat en cours (module de combat actif).
+  function combatSummary() {
+    try {
+      const c = Store.state && Store.state.combat;
+      if (!c || !Array.isArray(c.combatants) || !c.combatants.length) return '';
+      const foes = {};
+      c.combatants.forEach(function (m) {
+        if (m.side === 'monster' && m.status === 'active') foes[m.name] = (foes[m.name] || 0) + 1;
+      });
+      const foesTxt = Object.keys(foes).map(function (n) { return n + (foes[n] > 1 ? ' ×' + foes[n] : ''); }).join(', ');
+      return 'COMBAT EN COURS : tour ' + (c.turn || '?') + ', phase ' + (c.phase || '?') +
+        ', ' + (c.zones ? c.zones.length : '?') + ' zone(s)' + (foesTxt ? ' | adversaires : ' + foesTxt : '');
+    } catch (e) { return ''; }
+  }
+
+  // Contexte complet : { title (intitulé court), details (lignes de diagnostic) }.
   function currentContext() {
     const parts = [];
+    const details = [];
     const mode = (global.Shell && Shell.getMode) ? Shell.getMode() : 'admin';
     const modeLbl = mode === 'player' ? 'Joueur' : (mode === 'home' ? 'Accueil' : 'MJ / Admin');
     parts.push(modeLbl);
+
+    const verEl = document.querySelector('.brand-version');
+    if (verEl && verEl.textContent) details.push('version ' + verEl.textContent.trim());
 
     // Onglet actif visible
     const activeTab = document.querySelector('.tab.active:not([hidden])');
     if (activeTab && mode !== 'home') parts.push(activeTab.textContent.trim());
 
-    // Aventure en cours (mode Joueur)
+    // Aventure + position exacte (session active : chapitre, scène, contenu)
     if (mode === 'player' && global.Shell && Shell.getAdventureId && global.Store) {
       try {
         const advId = Shell.getAdventureId();
         const adv = Store.loadAdventures().find(function (a) { return a.id === advId; });
-        if (adv) parts.push(adv.title);
+        if (adv) {
+          parts.push(adv.title);
+          const ses = activeSessionFor(advId);
+          const pos = ses ? findScene(adv, ses.currentSceneId) : null;
+          if (pos) {
+            parts.push(pos.chapter.title || 'Chapitre');
+            parts.push('« ' + (pos.scene.title || 'Scène') + ' »');
+            details.push('scène ' + pos.scene.id + ' — ' + sceneSummary(pos.scene));
+            if (pos.chapter.mode) details.push('chapitre en mode ' + pos.chapter.mode);
+            if (ses && ses.forcedCombat) details.push('combat forcé en attente (déclenché par un test)');
+          } else {
+            // Repli : titre affiché par le lecteur
+            const sesTitle = document.querySelector('#tab-session.active #session-root .ses-scene-title, #tab-session.active #session-root h2');
+            if (sesTitle && sesTitle.textContent.trim()) parts.push('« ' + sesTitle.textContent.trim() + ' »');
+          }
+        }
       } catch (e) {}
+      const cs = combatSummary();
+      if (cs) details.push(cs);
     }
 
-    // Scène courante si le lecteur de session l'expose (mode Joueur uniquement)
-    if (mode === 'player') {
-      const sesTitle = document.querySelector('#tab-session.active #session-root .ses-scene-title, #tab-session.active #session-root h2');
-      if (sesTitle && sesTitle.textContent.trim()) parts.push('« ' + sesTitle.textContent.trim() + ' »');
-    }
-
-    // Modale de scène ouverte (éditeur MJ)
+    // Modale de scène ouverte (éditeur MJ) : scène précise en cours d'édition
     if (mode === 'admin') {
       const smTitle = document.querySelector('#scene-modal:not([hidden]) .modal-title, #scene-modal:not([hidden]) h2');
       if (smTitle && smTitle.textContent.trim()) parts.push('Éditeur : ' + smTitle.textContent.trim());
+      const cs = combatSummary();
+      if (cs) details.push(cs + ' (Combat Test)');
     }
 
-    return parts.join(' › ');
+    if (jsErrors.length) details.push('erreurs JS récentes : ' + jsErrors.join(' ; '));
+
+    return { title: parts.join(' › '), details: details.join('\n') };
   }
 
   // ---------- Modale de signalement ----------
@@ -99,6 +202,8 @@
           '<label class="bug-label">Description du bug' +
             '<textarea id="bug-desc" rows="5" placeholder="Décris ce qui ne va pas…"></textarea>' +
           '</label>' +
+          '<details class="bug-tech"><summary>🔬 Données techniques jointes automatiquement</summary>' +
+            '<pre id="bug-details"></pre></details>' +
           '<div class="modal-actions">' +
             '<button type="button" id="bug-cancel" class="ghost">Annuler</button>' +
             '<button type="button" id="bug-send" class="primary">Envoyer</button>' +
@@ -115,9 +220,13 @@
     $('#bug-send').addEventListener('click', submitBug);
   }
 
+  let pendingDetails = '';
   function openModal() {
     ensureDom();
-    $('#bug-context').value = currentContext();
+    const ctx = currentContext();
+    pendingDetails = ctx.details || '';
+    $('#bug-context').value = ctx.title;
+    $('#bug-details').textContent = pendingDetails || '(aucune donnée particulière sur cette page)';
     $('#bug-desc').value = '';
     $('#bug-flash').hidden = true;
     $('#bug-modal').hidden = false;
@@ -131,12 +240,13 @@
   function submitBug() {
     const desc = ($('#bug-desc').value || '').trim();
     if (!desc) { $('#bug-desc').focus(); return; }
-    const context = $('#bug-context').value || currentContext();
+    const context = $('#bug-context').value || currentContext().title;
     const list = loadBugs();
     list.push({
       id: uid(),
       context: context,
       desc: desc,
+      details: pendingDetails || '',
       date: (function () { try { return new Date().toLocaleString('fr-FR'); } catch (e) { return ''; } })(),
     });
     saveBugs(list);
@@ -149,8 +259,12 @@
 
   // ---------- Page MJ / Admin : liste des bugs ----------
   function bugLineText(b) {
-    return '• [' + (b.context || 'Page inconnue') + ']' +
+    let s = '• [' + (b.context || 'Page inconnue') + ']' +
       (b.date ? ' (' + b.date + ')' : '') + ' : ' + (b.desc || '');
+    if (b.details) {
+      s += '\n' + b.details.split('\n').map(function (l) { return '   ─ ' + l; }).join('\n');
+    }
+    return s;
   }
 
   function renderAdmin() {
@@ -183,6 +297,7 @@
                   (b.date ? ' <span class="bug-item-date">· ' + esc(b.date) + '</span>' : '') +
                 '</span>' +
                 '<span class="bug-item-desc">' + esc(b.desc || '') + '</span>' +
+                (b.details ? '<details class="bug-tech"><summary>🔬 Données techniques</summary><pre>' + esc(b.details) + '</pre></details>' : '') +
               '</div>' +
               '<div class="bug-item-tools">' +
                 '<button type="button" class="ghost small bug-copy-one" title="Copier ce bug">⧉</button>' +
@@ -233,6 +348,7 @@
   }
 
   function init() {
+    captureErrors();
     ensureDom();
   }
 

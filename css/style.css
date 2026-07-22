@@ -4183,3 +4183,12 @@ body.mode-player #item-list.roster-list { display: block; }
 .lib-leg.tl-kind-passive  { background: rgba(150,150,150,.25); color: #d2d2d2; }
 .lib-leg.tl-kind-upgrade  { background: rgba(110,180,120,.25); color: #b6e0bd; }
 .lib-leg.tl-kind-mastery  { background: rgba(214,175,70,.25);  color: #ecd29a; }
+
+/* Données techniques jointes aux rapports de bug */
+.bug-tech { margin-top: .2rem; font-size: .78rem; }
+.bug-tech summary { cursor: pointer; color: var(--muted); }
+.bug-tech pre {
+  margin: .3rem 0 0; padding: .45rem .6rem; white-space: pre-wrap; word-break: break-word;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  font-size: .74rem; color: var(--muted); max-height: 180px; overflow-y: auto;
+}
