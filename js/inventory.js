@@ -241,10 +241,13 @@
 
     // Une seule languette (une copie). `checked` est calculé PAR EXEMPLAIRE.
     // `qtyBadge` (objets cumulables) : pastille de quantité en haut à droite.
+    // Objets arrivés depuis la dernière visite : badge « NEW » (une seule visite).
+    const newIds = (window.Session && Session.newInvIds) ? Session.newInvIds(advId) : {};
     const singleStrip = function (h, i, checked, qtyBadge) {
       return '<label class="inv-strip-row cat-' + i.category + (checked ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
         '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) +
+          (newIds[i.id] ? '<span class="inv-new-badge" title="Nouvel objet depuis votre dernière visite">NEW</span>' : '') +
           (qtyBadge > 1 ? '<span class="inv-qty-badge" title="' + qtyBadge + ' exemplaires">' + qtyBadge + '</span>' : '') +
         '</div>' +
         '<button type="button" class="inv-strip-del" data-hero="' + h.id + '" data-item="' + i.id + '" title="Jeter un exemplaire de cet objet">✕</button>' +

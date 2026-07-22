@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.3.64';
+  const APP_VERSION = 'v2.3.65';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
@@ -26,7 +26,11 @@
     if (target === 'tutorial') safe('tutorial.play', Tutorial.renderPlay);
     if (target === 'tutorial-admin') safe('tutorial.admin', Tutorial.renderAdmin);
     if (target === 'armory') {
-      if (mode === 'player') safe('armory.player', function () { Inventory.renderPlayer(advId); });
+      if (mode === 'player') safe('armory.player', function () {
+        // Ouverture de l'onglet Inventaire : fait tourner les badges « NEW ».
+        if (window.Session && Session.beginInventoryVisit) Session.beginInventoryVisit(advId);
+        Inventory.renderPlayer(advId);
+      });
       else safe('armory', Inventory.render);
     }
     if (target === 'talents') safe('talents.play', function () { Session.renderTalents(advId); });

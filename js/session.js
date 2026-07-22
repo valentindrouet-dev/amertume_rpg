@@ -3458,6 +3458,8 @@
     partyLoot: partyLoot,
     removeTreasure: removeTreasure,
     combatModuleActive: combatModuleActive,
+    beginInventoryVisit: beginInventoryVisit,
+    newInvIds: newInvIds,
   };
   // Retire DÉFINITIVEMENT un exemplaire d'un objet de l'inventaire d'un
   // aventurier (bouton ✕ de l'inventaire Aventure). Déséquipe les copies en
@@ -3522,7 +3524,27 @@
     // Max 2 armes de CONTACT identiques ; armes à distance (2 mains) plafonnées à 1.
     if (it && it.category === 'weapon') target = Math.min(it.ranged ? 1 : 2, target);
     ses.heroOwned[hid][itemId] = target;
+    // Badge « NEW » : l'objet vient d'arriver — il sera signalé à la prochaine
+    // visite de l'onglet Inventaire (une seule fois).
+    if (target - cur > 0) { if (!ses.invNew) ses.invNew = {}; ses.invNew[itemId] = true; }
     return target - cur;
+  }
+  // ---- Badge « NEW » de l'inventaire Joueur ----
+  // beginInventoryVisit : appelé à l'OUVERTURE de l'onglet Inventaire. Les objets
+  // en attente (invNew) deviennent les badges de CETTE visite (invNewShow), puis
+  // la file est vidée : au retour suivant, les badges ont disparu.
+  function beginInventoryVisit(advId) {
+    load();
+    const ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; });
+    if (!ses) return;
+    ses.invNewShow = ses.invNew || {};
+    ses.invNew = {};
+    save();
+  }
+  // Objets à badger pendant la visite courante de l'inventaire.
+  function newInvIds(advId) {
+    const ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; }) || activeSession;
+    return (ses && ses.invNewShow) || {};
   }
   // Stock restant d'un objet dans l'inventaire personnel d'un aventurier (session active).
   function ownedCount(heroId, itemId) {

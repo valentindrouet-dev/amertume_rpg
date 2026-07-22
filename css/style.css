@@ -4309,3 +4309,18 @@ body.mode-player #item-list.roster-list { display: block; }
 /* v2.3.64 : largeur STRICTEMENT identique pour toutes les vignettes —
    mêmes colonnes et même gouttière pour aventuriers et adversaires. */
 .monster-grid { gap: .5rem; }
+
+/* ===================== v2.3.65 ===================== */
+/* Badge « NEW » : objet arrivé dans l'inventaire depuis la dernière visite. */
+.inv-new-badge {
+  flex: 0 0 auto; margin-left: .3rem;
+  font-size: .58rem; font-weight: 800; letter-spacing: .05em;
+  color: #fff; background: #d13b4e; border: 1px solid rgba(255,255,255,.35);
+  border-radius: 6px; padding: .06rem .32rem;
+  box-shadow: 0 0 6px rgba(209,59,78,.5);
+}
+/* Encadré « ✨ Butin ! » compacté (moins haut) + espace garanti avant le
+   bouton « Continuer vers … ». */
+.ses-reward-block.ses-reward-gold { padding: .45rem .8rem; margin-bottom: .75rem; }
+.ses-reward-gold .ses-loot-head { font-size: .85rem; margin-bottom: .1rem; }
+.ses-reward-gold .ses-reward-title { margin: 0 0 .1rem; font-size: .9rem; }
