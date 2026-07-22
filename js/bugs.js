@@ -69,48 +69,46 @@
     }
     return null;
   }
-  // Résumé d'un bloc de scène : type + paramètres clés (pour cibler le bug).
+  // Résumé COMPACT d'un bloc de scène (format technique, destiné au diagnostic).
   function blockSummary(b) {
     if (!b || !b.type) return '';
-    if (b.type === 'narrative') return 'narratif';
+    if (b.type === 'narrative') return 'narr';
     if (b.type === 'test') {
-      if (b.writeMode) return 'écriture (« ' + (b.answers || b.expected || '?') + ' »)';
-      let s = (b.actionMode ? 'action' : 'test') + ' ' + (b.skill || '?') + ' d.' + (b.difficulty != null ? b.difficulty : '?');
-      if (b.altSkill) s += ' / ' + b.altSkill + ' d.' + (b.altDifficulty != null ? b.altDifficulty : '?');
-      if (b.winEffect && b.winEffect.kind === 'combat') s += ' → combat si réussite';
-      if (b.failEffect && b.failEffect.kind === 'combat') s += ' → combat si échec';
-      if (b.mandatory) s += ' (obligatoire)';
-      return s;
+      if (b.writeMode) return 'écrit(' + (b.answers || b.expected || '?') + ')';
+      let s = (b.actionMode ? 'action(' : 'test(') + (b.skill || '?') + ' d' + (b.difficulty != null ? b.difficulty : '?');
+      if (b.altSkill) s += '/' + b.altSkill + ' d' + (b.altDifficulty != null ? b.altDifficulty : '?');
+      if (b.mandatory) s += ',oblig';
+      if (b.winEffect && b.winEffect.kind === 'combat') s += ',réussite→cbt';
+      if (b.failEffect && b.failEffect.kind === 'combat') s += ',échec→cbt';
+      return s + ')';
     }
-    if (b.type === 'combat') return 'combat';
-    if (b.type === 'obstruante') return 'obstruante';
+    if (b.type === 'combat') return 'cbt';
+    if (b.type === 'obstruante') return 'obstr';
     return b.type;
   }
-  // Détail d'une scène : type, transition, blocs, zones de combat, sorties.
+  function monsterName(r) {
+    let name = r.monName;
+    if (!name && r.monsterId && global.Store && Store.state && Array.isArray(Store.state.monsters)) {
+      const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
+      if (m) name = m.name;
+    }
+    return (name || r.monsterId || '?') + (r.count > 1 ? '×' + r.count : '');
+  }
+  // Détail compact d'une scène : id court, type, blocs, zones de combat, sorties.
   function sceneSummary(sc) {
-    const bits = [];
-    bits.push('type ' + (sc.type || '?') + (sc.isTransition ? ' (événement/transition)' : ''));
+    const bits = ['scène:' + String(sc.id || '').slice(0, 8) +
+      ' ' + (sc.type || '?') + (sc.isTransition ? '/transition' : '')];
     const blocks = (sc.blocks || []).map(blockSummary).filter(Boolean);
-    if (blocks.length) bits.push('blocs : ' + blocks.join(' · '));
+    if (blocks.length) bits.push('blocs:[' + blocks.join(' · ') + ']');
     if (Array.isArray(sc.combatZones) && sc.combatZones.length) {
       const monsters = [];
-      sc.combatZones.forEach(function (z) {
-        (z.monsterRefs || []).forEach(function (r) {
-          // Résout l'id vers le nom du bestiaire quand le nom n'est pas stocké.
-          let name = r.monName;
-          if (!name && r.monsterId && global.Store && Store.state && Array.isArray(Store.state.monsters)) {
-            const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
-            if (m) name = m.name;
-          }
-          monsters.push((name || r.monsterId || '?') + (r.count > 1 ? ' ×' + r.count : ''));
-        });
-      });
-      bits.push('combat : ' + sc.combatZones.length + ' zone(s)' + (monsters.length ? ' [' + monsters.join(', ') + ']' : ''));
+      sc.combatZones.forEach(function (z) { (z.monsterRefs || []).forEach(function (r) { monsters.push(monsterName(r)); }); });
+      bits.push('cbt:' + sc.combatZones.length + 'z[' + monsters.join(', ') + ']');
     }
-    if (Array.isArray(sc.choices) && sc.choices.length) bits.push(sc.choices.length + ' choix/sorties');
+    if (Array.isArray(sc.choices) && sc.choices.length) bits.push(sc.choices.length + ' sorties');
     return bits.join(' | ');
   }
-  // État du combat en cours (module de combat actif).
+  // État compact du combat en cours (module de combat actif).
   function combatSummary() {
     try {
       const c = Store.state && Store.state.combat;
@@ -119,10 +117,35 @@
       c.combatants.forEach(function (m) {
         if (m.side === 'monster' && m.status === 'active') foes[m.name] = (foes[m.name] || 0) + 1;
       });
-      const foesTxt = Object.keys(foes).map(function (n) { return n + (foes[n] > 1 ? ' ×' + foes[n] : ''); }).join(', ');
-      return 'COMBAT EN COURS : tour ' + (c.turn || '?') + ', phase ' + (c.phase || '?') +
-        ', ' + (c.zones ? c.zones.length : '?') + ' zone(s)' + (foesTxt ? ' | adversaires : ' + foesTxt : '');
+      const foesTxt = Object.keys(foes).map(function (n) { return n + (foes[n] > 1 ? '×' + foes[n] : ''); }).join(', ');
+      return '⚔ cbt: tour ' + (c.turn || '?') + '/' + (c.phase || '?') +
+        ' ' + (c.zones ? c.zones.length : '?') + 'z' + (foesTxt ? ' actifs:[' + foesTxt + ']' : '');
     } catch (e) { return ''; }
+  }
+  // Fenêtres flottantes (modales) ouvertes : id + titre + contenu clé.
+  function modalSummaries() {
+    const out = [];
+    document.querySelectorAll('.modal:not([hidden])').forEach(function (m) {
+      if (m.id === 'bug-modal') return;
+      const h = m.querySelector('h2');
+      let s = 'fenêtre:' + (m.id || '?') + (h && h.textContent.trim() ? ' « ' + h.textContent.trim() + ' »' : '');
+      // Éditeur de talent : nom + effets sélectionnés (avec leur valeur X).
+      if (m.id === 'talent-modal') {
+        const nm = m.querySelector('#tl-f-name');
+        if (nm && nm.value) s += ' — « ' + nm.value + ' »';
+        const effs = [];
+        m.querySelectorAll('.tl-eff-row').forEach(function (row) {
+          const key = (row.querySelector('.tl-eff-effect') || {}).value;
+          if (!key) return;
+          const valEl = row.querySelector('.tl-eff-val-wrap');
+          const val = (valEl && !valEl.hidden) ? (row.querySelector('.tl-eff-val') || {}).value : '';
+          effs.push(key + (val ? '(' + val + ')' : ''));
+        });
+        if (effs.length) s += ' eff:[' + effs.join(', ') + ']';
+      }
+      out.push(s);
+    });
+    return out;
   }
 
   // Contexte complet : { title (intitulé court), details (lignes de diagnostic) }.
@@ -133,12 +156,22 @@
     const modeLbl = mode === 'player' ? 'Joueur' : (mode === 'home' ? 'Accueil' : 'MJ / Admin');
     parts.push(modeLbl);
 
-    const verEl = document.querySelector('.brand-version');
-    if (verEl && verEl.textContent) details.push('version ' + verEl.textContent.trim());
-
     // Onglet actif visible
     const activeTab = document.querySelector('.tab.active:not([hidden])');
     if (activeTab && mode !== 'home') parts.push(activeTab.textContent.trim());
+
+    // Ligne d'ancrage : version + mode + onglet (compact).
+    const verEl = document.querySelector('.brand-version');
+    details.push((verEl && verEl.textContent ? verEl.textContent.trim() : '?') +
+      ' · ' + mode + (activeTab ? ' · ' + activeTab.textContent.trim() : ''));
+
+    // Fenêtres flottantes ouvertes (modales) : dans l'intitulé ET le détail.
+    const modals = modalSummaries();
+    if (modals.length) {
+      const firstTitle = (document.querySelector('.modal:not([hidden]):not(#bug-modal) h2') || {}).textContent;
+      if (firstTitle && firstTitle.trim()) parts.push('Fenêtre : ' + firstTitle.trim());
+      modals.forEach(function (s) { details.push(s); });
+    }
 
     // Aventure + position exacte (session active : chapitre, scène, contenu)
     if (mode === 'player' && global.Shell && Shell.getAdventureId && global.Store) {
@@ -152,9 +185,9 @@
           if (pos) {
             parts.push(pos.chapter.title || 'Chapitre');
             parts.push('« ' + (pos.scene.title || 'Scène') + ' »');
-            details.push('scène ' + pos.scene.id + ' — ' + sceneSummary(pos.scene));
-            if (pos.chapter.mode) details.push('chapitre en mode ' + pos.chapter.mode);
-            if (ses && ses.forcedCombat) details.push('combat forcé en attente (déclenché par un test)');
+            details.push(sceneSummary(pos.scene) +
+              (pos.chapter.mode ? ' | chap:' + pos.chapter.mode : '') +
+              (ses && ses.forcedCombat ? ' | combat-forcé-en-attente' : ''));
           } else {
             // Repli : titre affiché par le lecteur
             const sesTitle = document.querySelector('#tab-session.active #session-root .ses-scene-title, #tab-session.active #session-root h2');
@@ -166,15 +199,12 @@
       if (cs) details.push(cs);
     }
 
-    // Modale de scène ouverte (éditeur MJ) : scène précise en cours d'édition
     if (mode === 'admin') {
-      const smTitle = document.querySelector('#scene-modal:not([hidden]) .modal-title, #scene-modal:not([hidden]) h2');
-      if (smTitle && smTitle.textContent.trim()) parts.push('Éditeur : ' + smTitle.textContent.trim());
       const cs = combatSummary();
       if (cs) details.push(cs + ' (Combat Test)');
     }
 
-    if (jsErrors.length) details.push('erreurs JS récentes : ' + jsErrors.join(' ; '));
+    if (jsErrors.length) details.push('⚠ JS: ' + jsErrors.join(' ; '));
 
     return { title: parts.join(' › '), details: details.join('\n') };
   }
