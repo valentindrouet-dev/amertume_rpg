@@ -4332,6 +4332,6 @@ body.mode-player #item-list.roster-list { display: block; }
 .ab-acts { overflow: visible; }
 @media (max-width: 980px) { .ab-acts { grid-auto-columns: minmax(64px, 1fr); } }
 
-/* v2.3.67 : bouton ORBES aligné exactement sur la hauteur de la grille de
-   boutons (2 rangées de 32px + gouttière), au lieu de s'étirer sur la carte. */
-.ab-orbes { align-self: center; height: calc(64px + .35rem); min-height: 0; }
+/* v2.3.67-68 : bouton ORBES EXACTEMENT à la hauteur de la grille de boutons
+   (2 rangées de 40px + gouttière de .35rem), calé haut/bas sur celle-ci. */
+.ab-orbes { align-self: center; height: calc(80px + .35rem); min-height: 0; }
