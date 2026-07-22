@@ -4335,3 +4335,18 @@ body.mode-player #item-list.roster-list { display: block; }
 /* v2.3.67-68 : bouton ORBES EXACTEMENT à la hauteur de la grille de boutons
    (2 rangées de 40px + gouttière de .35rem), calé haut/bas sur celle-ci. */
 .ab-orbes { align-self: center; height: calc(80px + .35rem); min-height: 0; }
+
+/* ===================== v2.3.69 — Bandeau Pyromane ===================== */
+/* Libellés des talents (ex. « Orbes Renforcés ») : 2 lignes max au lieu de
+   déborder — comportement aligné sur les boutons d'attaque. */
+.ab-talent { white-space: normal; text-overflow: clip; line-height: 1.05; font-size: .68rem; padding: 0 .2rem; }
+/* Carte Pyromane (colonne ORBES présente → colonnes plus étroites) : dés et
+   icône d'attaque réduits pour tenir SUR la ligne du bouton, sans retour à la
+   ligne. Les autres classes conservent les tailles standard. */
+.ab-card.has-orbes .ab-atk { gap: .15rem; padding: 0 .2rem; }
+.ab-card.has-orbes .ab-atk .die-sq { width: 14px !important; height: 14px !important; border-radius: 3px; }
+.ab-card.has-orbes .ab-atk .die-sq::after { width: 5px !important; height: 5px !important; }
+.ab-card.has-orbes .ab-orbes-figs .die-sq { width: 16px !important; height: 16px !important; }
+.ab-card.has-orbes .ab-orbes-figs .die-sq::after { width: 5px !important; height: 5px !important; }
+.ab-card.has-orbes .ab-atk img.ab-atk-name { width: 1.3em; height: 1.3em; padding: .08em; }
+.ab-card.has-orbes .ab-atk .atk-dmg { font-size: .6rem; padding: 0 .18rem; }
