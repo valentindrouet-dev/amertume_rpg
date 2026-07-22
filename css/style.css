@@ -4305,3 +4305,7 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Icônes des dés de dégâts encore agrandies. */
 .ab-atk .die-sq, .ab-orbes-figs .die-sq { width: 22px !important; height: 22px !important; border-radius: 5px; }
 .ab-atk .die-sq::after, .ab-orbes-figs .die-sq::after { width: 7px !important; height: 7px !important; }
+
+/* v2.3.64 : largeur STRICTEMENT identique pour toutes les vignettes —
+   mêmes colonnes et même gouttière pour aventuriers et adversaires. */
+.monster-grid { gap: .5rem; }

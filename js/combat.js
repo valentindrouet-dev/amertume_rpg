@@ -3351,15 +3351,10 @@
         .sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
       // Aventuriers côte à côte (grille), pour gagner de la place
       let html = heroes.length ? '<div class="hero-grid">' + heroes.map(safeCard).join('') + '</div>' : '';
-      // La place occupée dépend de la TAILLE (et non plus du type) :
-      //  • Moyen  → demi-largeur (grille)
-      //  • Grand  → toute la largeur
-      //  • Énorme → toute la largeur, sur deux lignes (carte plus haute)
-      const sizeOf = function (m) { return (m.socle === 'large' || m.socle === 'huge') ? m.socle : 'medium'; };
-      const meds = monsters.filter(function (m) { return sizeOf(m) === 'medium'; });
-      const bigs = monsters.filter(function (m) { return sizeOf(m) !== 'medium'; });
-      if (meds.length) html += '<div class="monster-grid">' + meds.map(safeCard).join('') + '</div>';
-      bigs.forEach(function (m) { html += safeCard(m); });
+      // TOUTES les vignettes font la même largeur (grille demi-largeur commune) ;
+      // les grands socles (Grand / Énorme) se distinguent par leur HAUTEUR
+      // (classes socle-*), plus par une pleine largeur.
+      if (monsters.length) html += '<div class="monster-grid">' + monsters.map(safeCard).join('') + '</div>';
       box.innerHTML = html || '<p class="empty zone-empty">Zone vide</p>';
       placed += heroes.length + monsters.length;
       heroes.concat(monsters).forEach(function (c) {
