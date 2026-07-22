@@ -2987,14 +2987,20 @@
             (activeChoice.allowSkip ? '<button id="choice-skip" class="ghost xs">Passer</button>' : '') +
           '</div>'
         : '') +
-      // Journal compact : hauteur fixe 4 lignes minimum, scrollable au-delà.
-      '<div id="combat-log" class="combat-log compact"></div>' +
-      '<div id="combat-actionbar" class="combat-actionbar"></div>' +
-      '<div class="combat-zones-grid zc-' + zoneCount() + '" style="' + zonesGridStyle(zoneCount()) + '">' +
-        zonesGridCells() +
-      '</div>' +
-      '<div id="combat-cemetery" class="combat-cemetery"></div>' +
-      '<div class="phase-controls" id="phase-controls"></div>';
+      // Plateau + journal : le journal occupe une colonne à droite (assez large
+      // pour lire, sans empiéter sur les zones) ; sur écran étroit il repasse
+      // au-dessus du plateau en version compacte.
+      '<div class="combat-main-grid">' +
+        '<div class="combat-main-col">' +
+          '<div id="combat-actionbar" class="combat-actionbar"></div>' +
+          '<div class="combat-zones-grid zc-' + zoneCount() + '" style="' + zonesGridStyle(zoneCount()) + '">' +
+            zonesGridCells() +
+          '</div>' +
+          '<div id="combat-cemetery" class="combat-cemetery"></div>' +
+          '<div class="phase-controls" id="phase-controls"></div>' +
+        '</div>' +
+        '<div id="combat-log" class="combat-log compact side"></div>' +
+      '</div>';
 
     // Chaque phase de rendu est isolée : un incident dans l'une ne doit jamais
     // laisser le plateau, les contrôles ou le journal entièrement vides.

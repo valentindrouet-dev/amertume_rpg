@@ -4205,3 +4205,27 @@ body.mode-player #item-list.roster-list { display: block; }
 .ab-card .ab-name .roster-name {
   display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* ===================== JOURNAL DE COMBAT EN COLONNE (v2.3.59) ===================== */
+/* Plateau (1fr, proportions des zones inchangées) + journal à droite (largeur fixe). */
+.combat-main-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 330px;
+  gap: .65rem; align-items: start;
+}
+.combat-main-col { min-width: 0; }
+/* En colonne : hauteur généreuse, collé en haut au défilement, mêmes styles de lignes. */
+.combat-log.compact.side {
+  position: sticky; top: .5rem;
+  max-height: calc(100vh - 1.2rem); min-height: 16rem;
+  margin: 0; overflow-y: auto;
+}
+.combat-log.compact.side:empty { display: block; min-height: 16rem; }
+/* Écran étroit : le journal repasse AU-DESSUS du plateau, en bandeau compact. */
+@media (max-width: 1100px) {
+  .combat-main-grid { display: flex; flex-direction: column; }
+  .combat-log.compact.side {
+    order: -1; position: static; width: 100%; box-sizing: border-box;
+    max-height: 6.8rem; min-height: 6.8rem; margin: .4rem 0;
+  }
+  .combat-log.compact.side:empty { min-height: 5rem; }
+}

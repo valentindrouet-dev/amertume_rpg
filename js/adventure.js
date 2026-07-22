@@ -421,6 +421,9 @@
         '<div class="org-saga-head">' + arrows +
           '<span class="org-saga-ic">📚</span>' +
           '<input type="text" class="org-saga-title" data-saga="' + saga.id + '" value="' + esc(saga.title || '') + '" placeholder="Nom de la Grande Aventure" />' +
+          '<button class="icon-btn saga-eye" data-saga="' + saga.id + '" title="' +
+            (saga.homeHidden ? 'Grande Aventure masquée sur l\'accueil — cliquer pour la réafficher' : 'Masquer cette Grande Aventure sur l\'écran d\'accueil') + '">' +
+            (saga.homeHidden ? '🙈' : '👁') + '</button>' +
           '<button class="icon-btn saga-del" data-saga="' + saga.id + '" title="Supprimer la Grande Aventure">✕</button>' +
         '</div>' +
         '<div class="org-members">' + membersHtml + '</div>' +
@@ -434,6 +437,15 @@
     box.querySelectorAll('.org-saga-sel').forEach(function (sel) { sel.onchange = function () { assignToSaga(sel.getAttribute('data-adv'), sel.value); }; });
     box.querySelectorAll('.saga-remove').forEach(function (b) { b.onclick = function () { assignToSaga(b.getAttribute('data-adv'), ''); }; });
     box.querySelectorAll('.saga-del').forEach(function (b) { b.onclick = function () { if (confirm('Supprimer cette Grande Aventure ? (Ses aventures redeviennent autonomes.)')) deleteSaga(b.getAttribute('data-saga')); }; });
+    // Œil : masque/réaffiche la Grande Aventure entière sur l'écran d'accueil.
+    box.querySelectorAll('.saga-eye').forEach(function (b) {
+      b.onclick = function () {
+        const s = sagas.find(function (x) { return x.id === b.getAttribute('data-saga'); });
+        if (!s) return;
+        s.homeHidden = !s.homeHidden;
+        saveOrg(); renderHomeOrg();
+      };
+    });
     box.querySelectorAll('.org-saga-title').forEach(function (inp) {
       inp.onchange = function () { const s = sagas.find(function (x) { return x.id === inp.getAttribute('data-saga'); }); if (s) { s.title = inp.value.trim() || 'Grande Aventure'; saveOrg(); } };
     });
@@ -456,8 +468,11 @@
             '<button class="icon-btn adv-up" data-id="' + a.id + '"' + (i === 0 ? ' disabled' : '') + ' title="Monter">↑</button>' +
             '<button class="icon-btn adv-down" data-id="' + a.id + '"' + (i === n - 1 ? ' disabled' : '') + ' title="Descendre">↓</button>' +
           '</span>' +
-          '<span class="roster-name">' + esc(a.title) + '</span>' +
+          '<span class="roster-name">' + (a.homeHidden ? '🙈 ' : '') + esc(a.title) + '</span>' +
           '<span class="tag">' + chCount + ' ch. · ' + scCount + ' sc.</span>' +
+          '<button class="icon-btn adv-eye" data-id="' + a.id + '" title="' +
+            (a.homeHidden ? 'Aventure masquée sur l\'accueil — cliquer pour la réafficher' : 'Masquer cette aventure sur l\'écran d\'accueil') + '">' +
+            (a.homeHidden ? '🙈' : '👁') + '</button>' +
           '<button class="ghost small adv-edit" data-id="' + a.id + '">Éditer</button>' +
           '<button class="ghost small adv-dup" data-id="' + a.id + '" title="Dupliquer cette aventure">⧉ Dupliquer</button>' +
           '<button class="icon-btn adv-del" data-id="' + a.id + '" title="Supprimer">✕</button>' +
@@ -467,6 +482,15 @@
 
     box.querySelectorAll('.adv-edit').forEach(function (b) {
       b.addEventListener('click', function () { openEditor(b.getAttribute('data-id')); });
+    });
+    // Œil : masque/réaffiche l'aventure sur l'écran d'accueil (données conservées).
+    box.querySelectorAll('.adv-eye').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const a = adventures.find(function (x) { return x.id === b.getAttribute('data-id'); });
+        if (!a) return;
+        a.homeHidden = !a.homeHidden;
+        save(); renderList();
+      });
     });
     box.querySelectorAll('.adv-dup').forEach(function (b) {
       b.addEventListener('click', function () { duplicateAdventure(b.getAttribute('data-id')); });

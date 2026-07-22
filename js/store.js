@@ -330,7 +330,8 @@
       const raw = global.localStorage.getItem(SAGA_KEY);
       const arr = raw ? JSON.parse(raw) : [];
       return Array.isArray(arr) ? arr.map(function (s) {
-        return { id: s.id, title: s.title || '', adventureIds: Array.isArray(s.adventureIds) ? s.adventureIds : [] };
+        return { id: s.id, title: s.title || '', adventureIds: Array.isArray(s.adventureIds) ? s.adventureIds : [],
+          homeHidden: !!s.homeHidden };
       }) : [];
     } catch (e) { return []; }
   }

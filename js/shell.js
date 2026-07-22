@@ -84,12 +84,15 @@
     box.innerHTML = layout.entries.map(function (e) {
       if (e.type === 'adv') {
         const a = layout.advById[e.id];
+        // Aventure masquée par le MJ (œil de l'onglet Aventures) : absente de l'accueil.
+        if (a && a.homeHidden) return '';
         return a ? advCardHtml(a, unlocked) : '';
       }
       // Grande Aventure : menu déroulant regroupant ses chapitres.
       const saga = layout.sagaById[e.id];
-      if (!saga) return '';
-      const chapters = (saga.adventureIds || []).map(function (id) { return layout.advById[id]; }).filter(Boolean);
+      if (!saga || saga.homeHidden) return '';
+      const chapters = (saga.adventureIds || []).map(function (id) { return layout.advById[id]; })
+        .filter(function (a) { return a && !a.homeHidden; });
       if (!chapters.length) return '';
       const totalSc = chapters.reduce(function (n, a) {
         return n + a.chapters.reduce(function (m, ch) { return m + ch.scenes.length; }, 0);
