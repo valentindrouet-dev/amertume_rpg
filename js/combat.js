@@ -638,7 +638,9 @@
   function zonesGridStyle(n) {
     if (n <= 1) return 'grid-template-columns:1fr;';
     if (n === 2) return 'grid-template-columns:1fr auto 1fr;';
-    return 'grid-template-columns:1fr auto 1fr;grid-template-rows:1fr auto 1fr;';
+    // Rangées dimensionnées par leur contenu : une zone vide reste compacte
+    // au lieu de s'étirer à la hauteur de la rangée la plus haute.
+    return 'grid-template-columns:1fr auto 1fr;grid-template-rows:auto auto auto;';
   }
   // Paires « diagonales » (sans arête orthogonale) : 1-4 et 2-3 d'un carré 2x2.
   // Elles se croisent au centre de la grille (gouttière centrale).
