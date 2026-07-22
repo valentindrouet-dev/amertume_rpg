@@ -4297,3 +4297,11 @@ body.mode-player #item-list.roster-list { display: block; }
    sans ellipse, police ajustée. */
 .ab-tools { gap: 2px; }
 .ab-tool { font-size: .64rem; padding: 0 1px; letter-spacing: 0; text-overflow: clip; }
+
+/* ===================== AJUSTEMENTS COMBAT v2.3.63 ===================== */
+/* Barre de PV du bandeau ré-élargie de 20 %, texte des PV réduit pour tenir. */
+.ab-card:not(.has-orbes) .ab-id { flex: 0 0 138px; }
+.ab-card .pv-text { font-size: .68rem; padding-left: .35rem; letter-spacing: -.01em; }
+/* Icônes des dés de dégâts encore agrandies. */
+.ab-atk .die-sq, .ab-orbes-figs .die-sq { width: 22px !important; height: 22px !important; border-radius: 5px; }
+.ab-atk .die-sq::after, .ab-orbes-figs .die-sq::after { width: 7px !important; height: 7px !important; }

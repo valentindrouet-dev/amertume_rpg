@@ -923,7 +923,10 @@
     // test / une action est en attente. Sans combat, le drapeau est ignoré.
     // (forcedCombatPending a déjà court-circuité le rendu plus haut ; clause de
     // sécurité conservée.)
-    const rewardGated = scene.rewardAfterCombat && ((hasCombat && !cleared) || forcedCombatPending(ses, scene));
+    // Verrou : combat de zone non remporté, combat imposé en attente, OU test
+    // obligatoire pas encore résolu (celui-ci peut déclencher le combat).
+    const rewardGated = scene.rewardAfterCombat &&
+      ((hasCombat && !cleared) || forcedCombatPending(ses, scene) || mandatoryTestPending(scene, ses));
     if (sceneHasReward(scene) && !rewardGated) renderRewardScene(box, scene, adv, ses);
     if (hasCombat && (mode === 'linear' || !cleared)) renderCombatScene(box, scene, adv, ses);
     else if (hasCombat && cleared && mode !== 'linear') {
@@ -2765,7 +2768,8 @@
     // défaite le ré-arme), donc forcedCombatPending suffit à retenir la récompense.
     if (scene.rewardAfterCombat &&
         ((sceneHasCombat(scene) && !(ses.clearedScenes && ses.clearedScenes[scene.id]))
-         || forcedCombatPending(ses, scene))) return;
+         || forcedCombatPending(ses, scene)
+         || mandatoryTestPending(scene, ses))) return;
     const assign = {};
     document.querySelectorAll('#ses-actions .rp-hero').forEach(function (sel) {
       assign[parseInt(sel.getAttribute('data-idx'), 10)] = sel.value;
