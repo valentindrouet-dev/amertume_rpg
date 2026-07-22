@@ -320,7 +320,8 @@
       '<div class="card">' +
         '<div class="card-head">' +
           '<h2>🐞 Bugs signalés (' + list.length + ')</h2>' +
-          '<div style="display:flex; gap:.4rem;">' +
+          '<div style="display:flex; gap:.4rem; flex-wrap:wrap;">' +
+            '<button type="button" id="bug-mail-all" class="primary small">✉ Envoyer par e-mail</button>' +
             '<button type="button" id="bug-copy-all" class="ghost small">⧉ Tout copier</button>' +
             '<button type="button" id="bug-clear-all" class="ghost small">🗑 Tout supprimer</button>' +
           '</div>' +
@@ -358,6 +359,24 @@
       } catch (e) {}
     }
 
+    // Envoi par e-mail (mailto) : ouvre l'application mail du joueur avec le
+    // rapport complet pré-rempli — aucun service externe requis. Les liens
+    // mailto sont limités en taille : on tronque au besoin en l'indiquant.
+    const MAIL_TO = 'valentin.drouet@gmail.com';
+    const mailAll = $('#bug-mail-all');
+    if (mailAll) mailAll.addEventListener('click', function () {
+      const bugs = loadBugs();
+      const subject = 'Amertüme — Rapport de bugs (' + bugs.length + ')';
+      let body = bugs.map(bugLineText).join('\n\n');
+      const maxBody = 1700; // marge sous la limite pratique des liens mailto (~2000)
+      if (body.length > maxBody) {
+        body = body.slice(0, maxBody) +
+          '\n\n… (rapport tronqué : utilisez « ⧉ Tout copier » puis collez dans le mail)';
+      }
+      global.location.href = 'mailto:' + MAIL_TO +
+        '?subject=' + encodeURIComponent(subject) +
+        '&body=' + encodeURIComponent(body);
+    });
     const copyAll = $('#bug-copy-all');
     if (copyAll) copyAll.addEventListener('click', function () {
       copyText(loadBugs().map(bugLineText).join('\n'), copyAll, '✓ Copié');
