@@ -4324,3 +4324,10 @@ body.mode-player #item-list.roster-list { display: block; }
 .ses-reward-block.ses-reward-gold { padding: .45rem .8rem; margin-bottom: .75rem; }
 .ses-reward-gold .ses-loot-head { font-size: .85rem; margin-bottom: .1rem; }
 .ses-reward-gold .ses-reward-title { margin: 0 0 .1rem; font-size: .9rem; }
+
+/* v2.3.66 : le halo pulsé des boutons activables ne doit JAMAIS être rogné —
+   l'overflow ajouté en v2.3.60 découpait le halo en lignes scintillantes
+   au-dessus/au-dessous du bandeau. On rend l'overflow visible ; sur écran
+   étroit, les colonnes se resserrent au lieu de défiler. */
+.ab-acts { overflow: visible; }
+@media (max-width: 980px) { .ab-acts { grid-auto-columns: minmax(64px, 1fr); } }
