@@ -1950,7 +1950,7 @@
         applyAttack(m, contactIdx, target);
       } else if (moved) {
         // Déplacement d'approche (relais) : se rapproche sans encore atteindre la cible.
-        log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span> pour se rapprocher.', 'move');
+        log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
       }
     }
   }
@@ -3258,10 +3258,6 @@
     // PYROMANE : bouton spécial ORBES (occupe les 2 lignes, à gauche de la grille).
     const orbIdx = (!isEnemy && Array.isArray(c.attacks)) ? c.attacks.findIndex(function (a) { return a.pyromaneOrb; }) : -1;
     if (orbIdx >= 0) cls.push('has-orbes');
-    const initial = (c.name || '?').charAt(0).toUpperCase();
-    const abAvatarStyle = c.imageUrl
-      ? ' style="background-image:url(\'' + c.imageUrl.replace(/'/g, '%27') + '\');background-size:cover;background-position:center;"'
-      : '';
     const pvText = (isEnemy && !known) ? '' : (c.pv + ' / ' + c.maxPv + ' PV');
 
     // Sépare attaques d'arme (boutons « Attaque » du haut) et spéciales (talents)
@@ -3270,8 +3266,8 @@
       (a.special ? specialAtks : weaponAtks).push({ a: a, i: i });
     });
 
+    // Pas d'avatar dans le bandeau : toute la largeur va au nom et aux actions.
     let html = '<div class="' + cls.join(' ') + '">' +
-      '<div class="ab-avatar"' + abAvatarStyle + ' aria-hidden="true">' + (c.imageUrl ? '' : esc(initial)) + '</div>' +
       '<div class="ab-id">' +
         '<div class="ab-name"><span class="roster-name">' + esc(c.name) + '</span></div>' +
         '<div class="ab-pvline cc-pvline">' +
@@ -4178,8 +4174,9 @@
           hero.used.move = true;
           // Chaque groupe nommé n'est analysable qu'une fois : +2 XP au groupe.
           if (firstTime) combat_.analyzeXp = (combat_.analyzeXp || 0) + 2;
-          log(cname(hero) + ' analyse ' + esc(baseName) + (revealed_ > 1 ? ' (' + revealed_ + ' adversaires révélés)' : '') +
-            ' : DEF, Dégâts et XP révélés' + (firstTime ? ' <span class="atk-dmg">+2 XP</span>' : '') + '.', 'move');
+          log(cname(hero) + ' analyse ' + esc(baseName) +
+            (revealed_ > 1 ? ' (×' + revealed_ + ')' : '') +
+            (firstTime ? ' <span class="atk-dmg">+2 XP</span>' : '') + '.', 'move');
           Store.save(); render(); return;
         }
         // 2) Ciblage d'une attaque à cibles multiples (talent Double Attaque)

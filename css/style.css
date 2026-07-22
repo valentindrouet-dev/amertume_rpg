@@ -4201,10 +4201,6 @@ body.mode-player #item-list.roster-list { display: block; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .combat-card .cc-head .tag { flex: 0 0 auto; }
-.ab-card .ab-name { min-width: 0; }
-.ab-card .ab-name .roster-name {
-  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 
 /* ===================== JOURNAL DE COMBAT EN COLONNE (v2.3.59) ===================== */
 /* Plateau (1fr, proportions des zones inchangées) + journal à droite (largeur fixe). */
@@ -4229,3 +4225,29 @@ body.mode-player #item-list.roster-list { display: block; }
   }
   .combat-log.compact.side:empty { min-height: 5rem; }
 }
+
+/* ===================== AJUSTEMENTS COMBAT v2.3.60 ===================== */
+/* Journal : colonne plus étroite et TAILLE FIXE (ne grandit plus avec le contenu). */
+.combat-main-grid { grid-template-columns: minmax(0, 1fr) 300px; }
+.combat-log.compact.side,
+.combat-log.compact.side:empty {
+  height: min(calc(100vh - 1.2rem), 44rem);
+  max-height: none; min-height: 0;
+}
+.combat-log.compact.side .log-row { font-size: .8rem; }
+@media (max-width: 1100px) {
+  .combat-log.compact.side, .combat-log.compact.side:empty {
+    height: 6.8rem; max-height: 6.8rem; min-height: 6.8rem;
+  }
+}
+/* Bandeau d'action : les colonnes de boutons gardent une largeur lisible
+   (défilement horizontal plutôt qu'écrasement) et des polices inchangées. */
+.ab-acts { grid-auto-columns: minmax(84px, 1fr); overflow-x: auto; }
+.ab-atk-name { font-size: .78rem; }
+.ab-tool { font-size: .78rem; }
+/* Vignettes de zone : hauteur réduite (padding et interlignes resserrés),
+   en conservant la ligne réservée aux états. */
+.combat-card { padding: .45rem .65rem; }
+.combat-card .cc-head { margin-bottom: .2rem; }
+.combat-card .cc-pvline { margin-bottom: .15rem; }
+.cc-states, .cc-states:empty { margin-bottom: .1rem; min-height: 1.05rem; }
