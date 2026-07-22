@@ -3649,14 +3649,10 @@
     // utilisé son Action / Attaque ce tour. Disparaît une fois l'action faite.
     const actionDot = (!isEnemy && !dead && (!c.used.action || c.prepBonus))
       ? '<span class="action-dot" title="Action / Attaque non utilisée"></span>' : '';
-    const initial = (c.name || '?').charAt(0).toUpperCase();
-    const avatarStyle = c.imageUrl
-      ? ' style="background-image:url(\'' + c.imageUrl.replace(/'/g, '%27') + '\');background-size:cover;background-position:center;"'
-      : '';
+    // Pas d'avatar dans les vignettes de zone : toute la largeur va au nom / PV.
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       actionDot +
       '<div class="cc-top-row">' +
-        '<div class="cc-avatar"' + avatarStyle + ' aria-hidden="true">' + (c.imageUrl ? '' : esc(initial)) + '</div>' +
         '<div class="cc-body">' +
           '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
             (isMarked ? '<span class="tag tag-marked" title="Proie : les adversaires ajoutent des dés contre lui ce tour">🎯 Proie</span>' : '') +
