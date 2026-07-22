@@ -373,7 +373,8 @@
           id: t.id, name: t.name, effect: e.effect,
           description: t.description || c.desc || '',
           kind: c.kind || 'passive',
-          val: (typeof e.val === 'number') ? e.val : (c.defaultVal || 0),
+          // val : nombre, ou expression de dés (« 1d6+1 ») pour les effets valDice.
+          val: (typeof e.val === 'number' || (typeof e.val === 'string' && e.val)) ? e.val : (c.defaultVal || 0),
           dice: e.dice || null,
           range: e.range || null,
           choice: e.choice || null,
@@ -401,7 +402,9 @@
         order.push(t.effect);
       }
       const m = merged[t.effect];
-      m.val += (t.val || 0);
+      // Expression de dés (« 1d6 ») : conservée telle quelle (pas de cumul numérique).
+      if (typeof t.val === 'string' && t.val) m.val = t.val;
+      else if (typeof m.val !== 'string') m.val += (t.val || 0);
       if (!m.dice && t.dice) m.dice = t.dice;
       if (!m.range && t.range) m.range = t.range;
       if (t.scope && t.scope !== 'count') m.scope = t.scope;

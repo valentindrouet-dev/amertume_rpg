@@ -412,7 +412,11 @@
     const scopeVal = scopeSel ? scopeSel.value : 'count';
     // X masqué si la portée vise tout (zone / combat).
     valWrap.hidden = !(eff && eff.hasVal) || (hasScope && scopeVal !== 'count');
-    if (eff && eff.hasVal) row.querySelector('.tl-eff-val-label').textContent = eff.valLabel || 'Valeur X';
+    if (eff && eff.hasVal) {
+      // Les effets valDice acceptent un tirage : « 3 » ou « 1d6+1 ».
+      row.querySelector('.tl-eff-val-label').textContent = (eff.valLabel || 'Valeur X') +
+        (eff.valDice ? ' (fixe ou dés, ex. 1d6)' : '');
+    }
     rangeWrap.hidden = !(eff && eff.hasRange);
     diceWrap.hidden = !(eff && eff.hasDice);
     // Choix paramétrable (compétence, état infligé…) : peuple et affiche le select.
@@ -461,7 +465,7 @@
       '<div class="tl-eff-params">' +
         '<span class="tl-eff-kind"></span>' +
         '<label class="tl-eff-val-wrap" hidden><span class="tl-eff-val-label">Valeur X</span>' +
-          '<input type="number" class="tl-eff-val" min="0" max="99" value="' + (e.val || 0) + '" /></label>' +
+          '<input type="text" class="tl-eff-val" inputmode="numeric" value="' + esc(e.val != null ? e.val : 0) + '" /></label>' +
         '<label class="tl-eff-range-wrap" hidden>Portée ' +
           '<select class="tl-eff-range">' +
             '<option value="contact"' + (e.range === 'contact' ? ' selected' : '') + '>Au contact</option>' +
@@ -547,7 +551,12 @@
       if (!key) return;
       const meta = cat[key] || {};
       const e = { effect: key };
-      if (meta.hasVal) e.val = Math.max(0, Math.min(99, parseInt(row.querySelector('.tl-eff-val').value, 10) || 0));
+      if (meta.hasVal) {
+        const raw = (row.querySelector('.tl-eff-val').value || '').trim();
+        // Effets valDice : « 1d6+1 » conservé tel quel (tiré au moment du soin).
+        if (meta.valDice && Store.isDiceExpr && Store.isDiceExpr(raw)) e.val = raw;
+        else e.val = Math.max(0, Math.min(99, parseInt(raw, 10) || 0));
+      }
       if (meta.hasRange) e.range = row.querySelector('.tl-eff-range').value || 'contact';
       if (meta.hasDice) e.dice = Object.assign(emptyPool(), row._pool || {});
       if (meta.hasChoice) {
@@ -581,7 +590,7 @@
       // Vignette : override manuel (ex. CRITIQUE) sinon type dérivé du 1ᵉʳ effet.
       kindOverride: kindOverride,
       kind: kindOverride || (firstMeta ? firstMeta.kind : ''),
-      val: (first && typeof first.val === 'number') ? first.val : 0,
+      val: (first && first.val != null) ? first.val : 0,
       prereq: (($('#tl-f-prereq') && $('#tl-f-prereq').value) || '') || null,
       description: ($('#tl-f-desc').value || '').trim(),
       hidden: existingHidden,

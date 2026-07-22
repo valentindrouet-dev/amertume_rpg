@@ -96,7 +96,13 @@
       const monsters = [];
       sc.combatZones.forEach(function (z) {
         (z.monsterRefs || []).forEach(function (r) {
-          monsters.push((r.monName || r.monsterId || '?') + (r.count > 1 ? ' ×' + r.count : ''));
+          // Résout l'id vers le nom du bestiaire quand le nom n'est pas stocké.
+          let name = r.monName;
+          if (!name && r.monsterId && global.Store && Store.state && Array.isArray(Store.state.monsters)) {
+            const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
+            if (m) name = m.name;
+          }
+          monsters.push((name || r.monsterId || '?') + (r.count > 1 ? ' ×' + r.count : ''));
         });
       });
       bits.push('combat : ' + sc.combatZones.length + ' zone(s)' + (monsters.length ? ' [' + monsters.join(', ') + ']' : ''));

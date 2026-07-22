@@ -2855,7 +2855,16 @@
     save();
 
     let targetId = null;
-    if (scene && !wasForced) {
+    // Défaite sur une scène d'ÉVÉNEMENT DE PASSAGE (rencontre de connecteur) :
+    // le combat ne se relance pas — l'aventure se poursuit vers la salle de
+    // destination et l'événement est consommé (il ne se rejouera jamais).
+    const inTransit = !!(scene && ses.transit && ses.transit.sceneId === scene.id && scene.isTransition);
+    if (inTransit && detail.outcome === 'defeat') {
+      if (!ses.clearedScenes) ses.clearedScenes = {};
+      ses.clearedScenes[scene.id] = true;
+      save();
+      targetId = scene.defeatSceneId || ses.transit.destId;
+    } else if (scene && !wasForced) {
       if (detail.outcome === 'defeat') targetId = scene.defeatSceneId;
       else if (detail.outcome === 'victory' || detail.outcome === 'minor') targetId = scene.outcomeSceneId;
     } else if (scene && wasForced && detail.outcome === 'defeat') {

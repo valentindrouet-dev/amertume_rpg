@@ -4192,3 +4192,16 @@ body.mode-player #item-list.roster-list { display: block; }
   background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
   font-size: .74rem; color: var(--muted); max-height: 180px; overflow-y: auto;
 }
+
+/* v2.3.56 : taille des vignettes de combat normalisée — un nom long ne fait
+   plus varier la hauteur (une seule ligne, coupée par une ellipse). */
+.combat-card .cc-head { flex-wrap: nowrap; min-width: 0; }
+.combat-card .cc-head .roster-name {
+  flex: 1 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.combat-card .cc-head .tag { flex: 0 0 auto; }
+.ab-card .ab-name { min-width: 0; }
+.ab-card .ab-name .roster-name {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}

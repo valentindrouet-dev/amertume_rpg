@@ -1740,7 +1740,9 @@
   function heroTalentVal(c, effect) {
     if (!c || !Array.isArray(c.talents)) return 0;
     const t = c.talents.find(function (x) { return x.effect === effect; });
-    return t ? (t.val || 0) : 0;
+    // rollAmount : nombre → tel quel ; expression de dés (« 1d6 ») → tirage
+    // (Régénération / Réanimation à valeur aléatoire).
+    return t ? Store.rollAmount(t.val || 0) : 0;
   }
   // Nom choisi d'un talent de l'aventurier (effect si absent)
   function heroTalentName(c, effect) {
@@ -3843,14 +3845,18 @@
     applyPoison(c);
     if (c.status !== 'active') return;
     const before = c.pv;
+    // healVal accepte un nombre OU une expression de dés (« 1d6+1 »), tirée ici.
+    const healRolled = Store.rollAmount(atk.healVal || 0);
+    const healExpr = (typeof atk.healVal === 'string' && atk.healVal) ? atk.healVal + ' → ' + healRolled : null;
     let heal = 0, detail = '';
     if (atk.selfHeal === 'soin_fixe') {
-      heal = atk.healVal || 0;
+      heal = healRolled;
+      if (healExpr) detail = ' <span class="ldice">(' + healExpr + ')</span>';
     } else if (atk.selfHeal === 'soin_endu') {
-      heal = (c.endu || 0) + (atk.healVal || 0);
-      detail = ' <span class="ldice">(ENDU ' + (c.endu || 0) + (atk.healVal ? ' + ' + atk.healVal : '') + ')</span>';
+      heal = (c.endu || 0) + healRolled;
+      detail = ' <span class="ldice">(ENDU ' + (c.endu || 0) + (healRolled ? ' + ' + (healExpr || healRolled) : '') + ')</span>';
     } else if (atk.selfHeal === 'soin_des') {
-      const n = Math.max(1, atk.healVal || 1); const rolls = [];
+      const n = Math.max(1, healRolled || 1); const rolls = [];
       for (let i = 0; i < n; i++) { const v = 1 + Math.floor(Math.random() * 6); rolls.push(dnum(v, 'green')); heal += v; }
       detail = ' <span class="ldice">(' + rolls.join('<span class="dplus">+</span>') + ')</span>';
     }
