@@ -427,6 +427,7 @@
       if (ses.randomTestPick) delete ses.randomTestPick[b.id];
       if (ses.playerTestPick) delete ses.playerTestPick[b.id];
       if (ses.rewardRolls) delete ses.rewardRolls[b.id];
+      if (ses.groupSkillPick) delete ses.groupSkillPick[b.id];
       // Désignations « meilleur aventurier » (clés bloc|compétence)
       if (ses.bestTestPick) {
         Object.keys(ses.bestTestPick).forEach(function (k) {
@@ -558,6 +559,8 @@
     if (mmap) mmap.addEventListener('click', function () { openDungeonMapModal(chapter, ses); });
 
     renderSceneActions(scene, adv, ses, chapter);
+    // Animation de révélation des blocs débloqués par le dernier jet.
+    applyRevealAnimations();
   }
 
   function xpProgressHtml(ses) {
@@ -1424,6 +1427,61 @@
     if (block.altSkill) variants.push({ skill: block.altSkill, difficulty: block.altDifficulty || block.difficulty });
     return variants;
   }
+  // ---- Test de GROUPE à 2 compétences : répartition des aventuriers ----
+  // Chaque aventurier est affecté à l'une des deux compétences (défaut : celle
+  // où il est le plus fort) ; la bascule ⇄ permet de le changer, y compris
+  // entre deux tentatives d'un test retentable.
+  function groupSplitInfo(block) {
+    if (block.actionMode) return null;
+    if (!(block.who === 'group' || block.who === 'concerned')) return null;
+    const variants = testVariants(block);
+    if (variants.length !== 2 || variants.some(function (v) { return v.action; })) return null;
+    return variants;
+  }
+  function groupAssignmentOf(ses, block, hero, variants) {
+    const map = (ses.groupSkillPick && ses.groupSkillPick[block.id]) || {};
+    if (map[hero.id] === 0 || map[hero.id] === 1) return map[hero.id];
+    const a = heroTestInfo(ses, hero, variants[0].skill);
+    const b = heroTestInfo(ses, hero, variants[1].skill);
+    return (b.bonus + b.talentSucc) > (a.bonus + a.talentSucc) ? 1 : 0;
+  }
+  function groupSplitPillsHtml(ses, block, heroes, variants) {
+    const cols = [[], []];
+    heroes.forEach(function (h) { cols[groupAssignmentOf(ses, block, h, variants)].push(h); });
+    function colHtml(vi) {
+      const v = variants[vi];
+      return '<div class="ses-split-col">' +
+        '<div class="ses-split-head"><span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +
+          ' <span class="ssk-diff ssk-diff-' + (v.difficulty || 'moyen') + '">' + (ST_DIFF_LABEL[v.difficulty] || 'Moyen') + '</span></div>' +
+        (cols[vi].length ? cols[vi].map(function (h) {
+          const info = heroTestInfo(ses, h, v.skill);
+          return '<div class="ses-skill-pill ses-split-pill">' +
+            '<button type="button" class="ssk-swap" data-hero="' + esc(h.id) + '" title="Basculer ' + esc(h.name) + ' vers « ' + esc(variants[1 - vi].skill || '') + ' »">⇄</button>' +
+            '<span class="ssk-hero">' + esc(h.name) + '</span>' +
+            '<span class="ssk-skill skill-' + slug(v.skill || '') + '">' + (1 + info.bonus) + ' 🎲</span>' +
+            (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + '</span>' : '') +
+          '</div>';
+        }).join('') : '<div class="hint ses-split-empty">Personne</div>') +
+      '</div>';
+    }
+    return '<div class="ses-split-wrap">' + colHtml(0) + '<div class="ses-split-arrows" aria-hidden="true">⇄</div>' + colHtml(1) + '</div>';
+  }
+  function wireGroupSplit(slot, ses, block) {
+    slot.querySelectorAll('.ssk-swap').forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const variants = groupSplitInfo(block);
+        const hid = b.getAttribute('data-hero');
+        const h = aliveEngagedHeroes(ses).find(function (x) { return x.id === hid; });
+        if (!variants || !h) return;
+        if (!ses.groupSkillPick) ses.groupSkillPick = {};
+        const m = ses.groupSkillPick[block.id] || (ses.groupSkillPick[block.id] = {});
+        m[hid] = 1 - groupAssignmentOf(ses, block, h, variants);
+        save();
+        if (global.App) App.renderForTab('session');
+      });
+    });
+  }
   // Vignette(s) de testeur sous un bouton, pour une compétence donnée.
   function variantHelperFor(ses, block, scene, skill, excludeIds) {
     const groupLike = !block.actionMode && (block.who === 'group' || block.who === 'concerned');
@@ -1477,6 +1535,23 @@
   // cartouches compétence + difficulté sont regroupés sur la 2e ligne.
   function variantButtonsHtml(ses, block, scene, excludeIds) {
     const variants = testVariants(block);
+    // GROUPE à 2 compétences : un seul bouton — chaque aventurier teste la
+    // compétence de sa colonne (bascule ⇄ pour répartir).
+    const splitVars = groupSplitInfo(block);
+    if (splitVars) {
+      const heroes = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
+      return '<div class="ses-tb-variants">' +
+        '<div class="ses-tb-btnrow">' +
+          '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go" data-vi="0">' +
+            '<span class="ssk-btn-label">' + esc(block.label || 'Tenter le test') + '</span>' +
+            '<span class="ssk-btn-meta">👥 chacun selon sa colonne</span>' +
+          '</button>' +
+        '</div>' +
+        (heroes.length ? groupSplitPillsHtml(ses, block, heroes, splitVars)
+          : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>') +
+        rareResolveButtonHtml(ses, block) +
+      '</div>';
+    }
     const multi = variants.length > 1;
     function btnHtml(v, vi) {
       if (v.action) {
@@ -1541,6 +1616,8 @@
     });
     const rareBtn = slot.querySelector('.ses-tb-rare');
     if (rareBtn) rareBtn.addEventListener('click', function () { resolveTestWithRare(ses, adv, scene, block); });
+    // Bascules ⇄ de la répartition d'un test de groupe à 2 compétences.
+    wireGroupSplit(slot, ses, block);
     // AU CHOIX DU JOUEUR : mémorise l'aventurier sélectionné et rafraîchit la
     // vignette (dés / réussites de talent recalculés pour l'élu).
     slot.querySelectorAll('.ssk-pick').forEach(function (sel) {
@@ -1630,6 +1707,11 @@
 
   function runTestBlock(ses, adv, scene, block, excludeIds, variant) {
     if (!ses.searchTests) ses.searchTests = {};
+    // Blocs actuellement MASQUÉS (tests enchaînés non révélés) : ceux qui
+    // apparaissent après ce jet recevront l'animation de révélation.
+    const hiddenBefore = (scene.blocks || []).filter(function (b) {
+      return b.type === 'test' && testChainHidden(scene, b, ses);
+    }).map(function (b) { return b.id; });
     let state;
     // Compétence/difficulté réellement testées : variante choisie (2e bouton),
     // sinon celle mémorisée (relance), sinon la principale du bloc.
@@ -1690,7 +1772,20 @@
         const passedIds = keptResults.map(function (r) { return r.heroId; });
         heroList = heroList.filter(function (h) { return passedIds.indexOf(h.id) < 0; });
       }
-      const gr = runGroupRolls(ses, v.skill, v.difficulty, heroList, block.groupMode);
+      // GROUPE à 2 compétences : chaque aventurier lance le test de SA colonne.
+      const splitVars = groupSplitInfo(block);
+      let gr;
+      if (splitVars) {
+        const colA = heroList.filter(function (h) { return groupAssignmentOf(ses, block, h, splitVars) === 0; });
+        const colB = heroList.filter(function (h) { return groupAssignmentOf(ses, block, h, splitVars) === 1; });
+        const grA = runGroupRolls(ses, splitVars[0].skill, splitVars[0].difficulty, colA, block.groupMode);
+        const grB = runGroupRolls(ses, splitVars[1].skill, splitVars[1].difficulty, colB, block.groupMode);
+        grA.results.forEach(function (r) { r.skill = splitVars[0].skill; });
+        grB.results.forEach(function (r) { r.skill = splitVars[1].skill; });
+        gr = { results: grA.results.concat(grB.results), need: grA.need };
+      } else {
+        gr = runGroupRolls(ses, v.skill, v.difficulty, heroList, block.groupMode);
+      }
       // Résultats fusionnés (acquis + nouveaux jets) ; verdict sur l'ensemble.
       const merged = keptResults.concat(gr.results);
       const passed = groupVerdict(merged, block.groupMode);
@@ -1732,6 +1827,18 @@
       // Conséquence de l'échec, appliquée à l'aventurier qui a tenté le test.
       if (!passed) state.fxMsg = applyTestFailEffect(ses, scene, block, bh.hero) || '';
     }
+    // COMA sur la conséquence d'échec : les alliés sortent et réaniment le blessé —
+    // le test est considéré RÉUSSI automatiquement (récompenses accordées).
+    if (comaRescue && state && state.done && !state.success) {
+      state.success = true;
+      state.comaRescue = true;
+      const xpGain = Math.max(0, Store.rollAmount(block.xpReward));
+      if (xpGain > 0) { ses.party.xp = (ses.party.xp || 0) + xpGain; state.xpGained = xpGain; }
+      grantDeedReward(ses, scene, block);
+      applyWinEffect(ses, block);
+      grantTreasures(ses, block, block.id);
+    }
+    comaRescue = null;
     // Variante utilisée (compétence/difficulté) — réutilisée aux relances.
     state.variant = v;
     // Niveau du groupe au moment de la tentative (re-test « montée de niveau »).
@@ -1755,12 +1862,31 @@
       }
     }
     save();
+    // Blocs fraîchement révélés par ce jet (+ le résultat du test lui-même) :
+    // marqués pour l'animation de révélation appliquée après le re-rendu.
+    justRevealedIds = hiddenBefore.filter(function (id) {
+      const b = (scene.blocks || []).find(function (x) { return x.id === id; });
+      return b && !testChainHidden(scene, b, ses);
+    }).concat([block.id]);
     render();
+  }
+  // Ids des blocs à animer au prochain rendu de scène (transitoire, non persisté).
+  let justRevealedIds = [];
+  function applyRevealAnimations() {
+    if (!justRevealedIds.length) return;
+    justRevealedIds.forEach(function (id) {
+      const el = document.querySelector('.ses-test-slot[data-tb="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if (el) el.classList.add('ses-reveal');
+    });
+    justRevealedIds = [];
   }
 
   // Applique la conséquence d'un échec au test (block.failEffect) et renvoie le
   // message à afficher dans l'encadré d'échec.
   const FX_STATE_LABEL = { affaibli: 'Affaibli', auSol: 'Au sol', feu: 'Feu', poison: 'Poison', brise: 'Brisé', faille: 'Faille' };
+  // Drapeau posé par la conséquence « perte de PV » quand les dégâts sont létaux :
+  // l'aventurier tombe au coma et le test devient une réussite automatique.
+  let comaRescue = null;
   const FX_SLOT_LABEL = { mainG: 'main gauche', mainD: 'main droite', randhand: 'main', armor: 'armure', object: 'objet équipé' };
   function applyTestFailEffect(ses, scene, block, hero) {
     const fx = block.failEffect;
@@ -1787,9 +1913,28 @@
     const diceNote = Store.isDiceExpr(fx.val) ? ' (' + String(fx.val).trim() + ')' : '';
     switch (fx.kind) {
       case 'pv': {
-        // Plancher à 1 PV : seule la conséquence « Mort » tue un aventurier.
-        st.pv = Math.max(1, (typeof st.pv === 'number' ? st.pv : Combatants.heroPv(h)) - n);
-        return name + ' perd ' + n + ' PV' + diceNote + '.';
+        const cur = (typeof st.pv === 'number') ? st.pv : Combatants.heroPv(h);
+        const after = cur - n;
+        if (after >= 1) {
+          st.pv = after;
+          return name + ' perd ' + n + ' PV' + diceNote + '.';
+        }
+        // Dégâts LÉTAUX : chute au COMA (perte d'1 VIE). Ses alliés le sortent et
+        // le réaniment — le test est réussi AUTOMATIQUEMENT (drapeau comaRescue,
+        // lu par runTestBlock). Dernière VIE perdue → éliminé définitivement.
+        st.viePenalty = (st.viePenalty || 0) - 1;
+        const g = ses.levelGains ? ses.levelGains[hid] : null;
+        const vieLeft = (h.vie || 0) + ((g && g.vie) || 0) + (st.viePenalty || 0);
+        if (vieLeft <= 0) {
+          st.pv = 0;
+          st.dead = true;
+          comaRescue = { name: name, dead: true };
+          return name + ' perd ' + n + ' PV' + diceNote + ', tombe au coma et perd sa DERNIÈRE VIE — il quitte l\'aventure définitivement. Ses alliés achèvent l\'épreuve à sa place.';
+        }
+        const maxPv = Math.max(1, Combatants.heroPv(effectiveHero(ses, h)));
+        st.pv = Math.max(1, Math.floor(maxPv / 2));
+        comaRescue = { name: name, dead: false };
+        return name + ' perd ' + n + ' PV' + diceNote + ', tombe au coma et perd 1 VIE (' + vieLeft + ' restante' + (vieLeft > 1 ? 's' : '') + ') — ses alliés le sortent et le réaniment (' + st.pv + ' PV).';
       }
       case 'state': {
         const key = fx.state || 'affaibli';
@@ -1890,7 +2035,9 @@
     if (!state.group || !Array.isArray(state.results)) return '';
     return '<div class="ses-st-groupres">' + state.results.map(function (r) {
       return '<div class="ses-st-gr ' + (r.passed ? 'ok' : 'ko') + '">' + (r.passed ? '✓' : '✗') + ' ' +
-        esc(r.name) + ' <span class="ses-st-gr-roll">' + r.succ + '/' + r.need + ' · dés : ' + (r.rolls || []).join(', ') + '</span></div>';
+        esc(r.name) +
+        (r.skill ? ' <span class="ssk-skill skill-' + slug(r.skill) + '">' + esc(r.skill) + '</span>' : '') +
+        ' <span class="ses-st-gr-roll">' + r.succ + '/' + r.need + ' · dés : ' + (r.rolls || []).join(', ') + '</span></div>';
     }).join('') + '</div>';
   }
   // Conséquences individuelles (une ligne ⚠ par aventurier ayant échoué).
@@ -1984,6 +2131,15 @@
         fxMsgsHtml(state) +
         (state.write ? '<div class="hint ses-st-write-answer">✍️ Réponse saisie : « ' + esc(state.answer || '') + ' »</div>' : '') +
         (state.group || state.action || state.write ? '' : '<div class="hint ses-st-rolls">' + esc(state.hero || 'Le groupe') + ' — ' + (state.succ || 0) + '/' + (state.need || 0) + ' réussite(s) · dés : ' + (state.rolls || []).join(', ') + '</div>') +
+        // GROUPE à 2 compétences retentable : les aventuriers en échec peuvent
+        // être re-répartis (bascule ⇄) avant de relancer.
+        (isGroupRes && retryAction && groupSplitInfo(block)
+          ? (function () {
+              const failedIds = state.results.filter(function (r) { return !r.passed; }).map(function (r) { return r.heroId; });
+              const failedHeroes = aliveEngagedHeroes(ses).filter(function (h) { return failedIds.indexOf(h.id) >= 0; });
+              return failedHeroes.length ? groupSplitPillsHtml(ses, block, failedHeroes, groupSplitInfo(block)) : '';
+            })()
+          : '') +
         retryHtml +
         // OBJET RARE : même APRÈS un échec (et même si le test n'est pas retentable),
         // si le groupe possède désormais l'Objet Rare, il peut l'utiliser pour réussir.
@@ -1991,6 +2147,8 @@
       '</div>';
       const failRareBtn = slot.querySelector('.ses-tb-rare');
       if (failRareBtn) failRareBtn.addEventListener('click', function () { resolveTestWithRare(ses, adv, scene, block); });
+      // Bascules ⇄ de re-répartition avant une relance de test collectif.
+      wireGroupSplit(slot, ses, block);
       if (retryAction === 'other-variants') {
         // Boutons de choix de compétence pour la relance « avec un autre aventurier ».
         const attempted = Array.isArray(state.attempted) ? state.attempted : (state.heroId ? [state.heroId] : []);
