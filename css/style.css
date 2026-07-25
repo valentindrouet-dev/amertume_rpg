@@ -4350,3 +4350,11 @@ body.mode-player #item-list.roster-list { display: block; }
 .ab-card.has-orbes .ab-orbes-figs .die-sq::after { width: 6px !important; height: 6px !important; }
 .ab-card.has-orbes .ab-atk img.ab-atk-name { width: 1.3em; height: 1.3em; padding: .08em; }
 .ab-card.has-orbes .ab-atk .atk-dmg { font-size: .6rem; padding: 0 .18rem; }
+
+/* ===================== v2.3.71 ===================== */
+/* Test « Au choix du joueur » : menu déroulant d'aventuriers dans la vignette */
+.ssk-pick { font-size: .82rem; padding: .1rem .25rem; border-radius: 6px; max-width: 11rem; }
+.ses-skill-pill.ssk-player-pick { border-color: #e2974a; }
+/* Bouton MJ « Recharger la Salle » : discret mais identifiable */
+.ses-mj-btn { border-style: dashed; color: var(--accent-2, #e2974a); }
+.ses-mj-btn:hover { border-color: var(--accent-2, #e2974a); }

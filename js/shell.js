@@ -227,6 +227,7 @@
     showPlayTab: showPlayTab,
     renderHome: renderHome,
     getMode: function () { return mode; },
+    isPublished: function () { return publishedMode; },
     getAdventureId: function () { return adventureId; },
   };
 })(window);

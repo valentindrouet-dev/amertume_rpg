@@ -1685,6 +1685,7 @@
               '<label>Testeur <select class="tb-who" data-bi="' + i + '" title="GROUPE : chaque aventurier lance le test. CONCERNÉS : uniquement les aventuriers ayant réussi/échoué le test qui a révélé celui-ci (test enchaîné).">' +
                 '<option value="best"' + ((blk.who || 'best') === 'best' ? ' selected' : '') + '>Meilleur aventurier</option>' +
                 '<option value="random"' + (blk.who === 'random' ? ' selected' : '') + '>🎲 Aventurier aléatoire</option>' +
+                '<option value="player"' + (blk.who === 'player' ? ' selected' : '') + '>🙋 Au choix du joueur</option>' +
                 '<option value="group"' + (blk.who === 'group' ? ' selected' : '') + '>👥 GROUPE (tous)</option>' +
                 '<option value="concerned"' + (blk.who === 'concerned' ? ' selected' : '') + '>🎯 Aventuriers concernés (chaîne)</option>' +
               '</select></label>' +

@@ -352,6 +352,61 @@
     });
   }
 
+  // ---- « Recharger la Salle » (outil MJ, absent de la version partagée) ----
+  // Photographie COMPLÈTE de l'état à l'ENTRÉE de la salle : session entière
+  // (XP, or, butin, hauts faits, tests, combats nettoyés, rencontres…) + les
+  // fiches des aventuriers engagés (PV, VIE…). Restaurée telle quelle au clic.
+  function captureRoomSnapshot(ses) {
+    try {
+      const clone = JSON.parse(JSON.stringify(ses));
+      delete clone.roomSnapshot; delete clone.roomSnapshotScene;
+      const heroes = (ses.heroIds || []).map(function (id) {
+        return Store.state.heroes.find(function (h) { return h.id === id; });
+      }).filter(Boolean);
+      ses.roomSnapshot = JSON.stringify({ session: clone, heroes: JSON.parse(JSON.stringify(heroes)) });
+      ses.roomSnapshotScene = ses.currentSceneId;
+      save();
+    } catch (e) { console.error('[session] snapshot de salle', e); }
+  }
+  // Capture au premier rendu de chaque salle (avant toute interaction) ; les
+  // re-rendus de la même salle conservent la photo d'entrée.
+  function ensureRoomSnapshot(ses) {
+    if (!ses || !ses.currentSceneId) return;
+    if (ses.roomSnapshotScene === ses.currentSceneId && ses.roomSnapshot) return;
+    captureRoomSnapshot(ses);
+  }
+  function reloadRoom() {
+    const ses = activeSession;
+    if (!ses || !ses.roomSnapshot) return;
+    let snap;
+    try { snap = JSON.parse(ses.roomSnapshot); } catch (e) { return; }
+    if (!snap || !snap.session) return;
+    const keepSnap = ses.roomSnapshot, keepScene = ses.roomSnapshotScene;
+    const restored = snap.session;
+    restored.roomSnapshot = keepSnap;
+    restored.roomSnapshotScene = keepScene;
+    const idx = sessions.findIndex(function (s) { return s.id === ses.id; });
+    if (idx >= 0) sessions[idx] = restored;
+    activeSession = restored;
+    // Fiches des aventuriers (PV, VIE, équipement…) restaurées à l'entrée de salle.
+    (snap.heroes || []).forEach(function (h) {
+      const i = Store.state.heroes.findIndex(function (x) { return x.id === h.id; });
+      if (i >= 0) Store.state.heroes[i] = h;
+    });
+    // Combat de session en cours pour cette partie : annulé (il sera relancé
+    // par la salle rechargée s'il y a lieu).
+    if (Store.state.sessionCombat && Store.state.sessionCombat.sessionId === restored.id) {
+      Store.state.combat = null;
+      Store.state.sessionCombat = null;
+    }
+    Store.save(); save();
+    if (global.App) App.renderForTab('session');
+  }
+  // Le bouton n'existe que côté MJ : jamais dans la version partagée (#pub=…).
+  function isMJ() {
+    return !(global.Shell && Shell.isPublished && Shell.isPublished());
+  }
+
   function renderScene(root) {
     const ses = activeSession;
     const adv = findAdventure(ses.adventureId);
@@ -370,6 +425,10 @@
     const found = findScene(adv, ses.currentSceneId);
     if (!found) { root.innerHTML = '<p class="empty">Scène introuvable.</p>'; return; }
     const { chapter, scene } = found;
+
+    // Photo d'entrée de salle pour « 🔄 Salle » (avant toute mutation : le haut
+    // fait de la scène, enregistré juste dessous, sera lui aussi annulable).
+    ensureRoomSnapshot(ses);
 
     // Journal des faits : enregistre le fait de la scène atteinte (une seule fois)
     if (scene.fait && scene.fait.trim()) {
@@ -406,6 +465,9 @@
         '<div class="ses-bar-right">' +
           roomTag +
           '<span class="tag">XP : ' + ses.party.xp + '</span>' +
+          (isMJ()
+            ? '<button id="ses-reload-room" class="ghost small ses-mj-btn" title="MJ : réinitialise ENTIÈREMENT cette salle — tests, combats, butin, XP, PV, hauts faits reviennent à l\'état d\'entrée">🔄 Salle</button>'
+            : '') +
           '<button id="ses-quit" class="ghost small">✕ Quitter</button>' +
         '</div>' +
       '</div>' +
@@ -437,6 +499,10 @@
         '</div>' +
       '</div>';
 
+    const reloadBtn = $('#ses-reload-room');
+    if (reloadBtn) reloadBtn.addEventListener('click', function () {
+      if (confirm('Recharger la salle ?\n\nTout ce qui s\'est passé dans CETTE salle est annulé : tests, combats, butin, XP, PV, hauts faits reviennent à l\'état d\'entrée.')) reloadRoom();
+    });
     $('#ses-quit').addEventListener('click', function () {
       activeSession = null;
       if (global.Shell && Shell.getMode && Shell.getMode() === 'player' && global.App) {
@@ -1344,6 +1410,23 @@
     const bh = singleTester(ses, block, excludeIds || null, skill);
     const dice = 1 + (bh.bonus || 0);
     const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">🎲 au hasard</span>' : '';
+    // AU CHOIX DU JOUEUR : la vignette devient un menu déroulant d'aventuriers.
+    if (block.who === 'player') {
+      const alive = aliveEngagedHeroes(ses).filter(function (h) {
+        return !(Array.isArray(excludeIds) && excludeIds.indexOf(h.id) >= 0);
+      });
+      if (!bh.hero || !alive.length) return '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+      return '<div class="ses-skill-pill ssk-player-pick">' +
+          '<select class="ssk-pick" data-block="' + esc(block.id) + '" title="Choisissez l\'aventurier qui tente le test">' +
+            alive.map(function (h) {
+              return '<option value="' + esc(h.id) + '"' + (h.id === bh.hero.id ? ' selected' : '') + '>' + esc(h.name) + '</option>';
+            }).join('') +
+          '</select>' +
+          '<span class="ssk-rand" title="Le joueur choisit qui tente le test">🙋 au choix</span>' +
+          '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + ' 🎲</span>' +
+          (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
+        '</div>';
+    }
     return bh.hero
       ? '<div class="ses-skill-pill">' +
           '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' + randTag +
@@ -1422,6 +1505,16 @@
     });
     const rareBtn = slot.querySelector('.ses-tb-rare');
     if (rareBtn) rareBtn.addEventListener('click', function () { resolveTestWithRare(ses, adv, scene, block); });
+    // AU CHOIX DU JOUEUR : mémorise l'aventurier sélectionné et rafraîchit la
+    // vignette (dés / réussites de talent recalculés pour l'élu).
+    slot.querySelectorAll('.ssk-pick').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        if (!ses.playerTestPick) ses.playerTestPick = {};
+        ses.playerTestPick[sel.getAttribute('data-block')] = sel.value;
+        save();
+        if (global.App) App.renderForTab('session');
+      });
+    });
   }
   // Champ de saisie d'un bloc ÉCRITURE (énigme / mot de passe) : description,
   // consigne, zone de texte + bouton Valider. Tolérance gérée par writeMatches.
@@ -2070,6 +2163,18 @@
   // permet de tester une compétence ALTERNATIVE (2e bouton du bloc).
   function singleTester(ses, block, excludeIds, skillOverride) {
     const skill = skillOverride || block.skill;
+    // AU CHOIX DU JOUEUR : l'aventurier sélectionné dans la vignette du test
+    // (repli : le premier vivant).
+    if (block.who === 'player') {
+      const alive = aliveEngagedHeroes(ses).filter(function (h) {
+        return !(Array.isArray(excludeIds) && excludeIds.indexOf(h.id) >= 0);
+      });
+      if (!alive.length) return { hero: null, bonus: 0, talentSucc: 0 };
+      const pick = ses.playerTestPick && ses.playerTestPick[block.id];
+      const h = (pick && alive.find(function (x) { return x.id === pick; })) || alive[0];
+      const info = heroTestInfo(ses, h, skill);
+      return { hero: h, bonus: info.bonus, talentSucc: info.talentSucc };
+    }
     if (block.who === 'random') {
       const h = designatedRandomHero(ses, block, excludeIds);
       if (!h) return { hero: null, bonus: 0, talentSucc: 0 };
