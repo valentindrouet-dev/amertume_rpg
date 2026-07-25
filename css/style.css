@@ -4358,3 +4358,17 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Bouton MJ « Recharger la Salle » : discret mais identifiable */
 .ses-mj-btn { border-style: dashed; color: var(--accent-2, #e2974a); }
 .ses-mj-btn:hover { border-color: var(--accent-2, #e2974a); }
+
+/* ===================== v2.3.73 — Vignette « choix du testeur » ===================== */
+/* Tout sur UNE ligne, fond clair (comme les autres vignettes de test), nom en
+   gras dans un menu déroulant au style parchemin. */
+.ses-skill-pill.ssk-player-pick { flex-wrap: nowrap; }
+.ssk-pick {
+  max-width: 12rem; min-width: 0;
+  background: #f7eeda; color: #2a1d10;
+  font-family: "Georgia", serif; font-weight: 700; font-size: .85rem;
+  border: 1px solid #cdb98f; border-radius: 7px;
+  padding: .12rem .3rem; cursor: pointer;
+}
+.ssk-pick:hover { border-color: var(--accent-2, #e2974a); }
+.ssk-pick option { font-family: inherit; font-weight: 700; }

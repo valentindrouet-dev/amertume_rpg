@@ -427,6 +427,12 @@
       if (ses.randomTestPick) delete ses.randomTestPick[b.id];
       if (ses.playerTestPick) delete ses.playerTestPick[b.id];
       if (ses.rewardRolls) delete ses.rewardRolls[b.id];
+      // Désignations « meilleur aventurier » (clés bloc|compétence)
+      if (ses.bestTestPick) {
+        Object.keys(ses.bestTestPick).forEach(function (k) {
+          if (k.indexOf(b.id + '|') === 0) delete ses.bestTestPick[k];
+        });
+      }
     });
   }
   // Le bouton n'existe que côté MJ : jamais dans la version partagée (#pub=…).
@@ -1444,7 +1450,7 @@
         return !(Array.isArray(excludeIds) && excludeIds.indexOf(h.id) >= 0);
       });
       if (!bh.hero || !alive.length) return '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
-      const best = bestHeroForSkill(ses, skill, null, excludeIds);
+      const best = stableBestHero(ses, block, skill, excludeIds);
       const bestId = best && best.hero ? best.hero.id : null;
       return '<div class="ses-skill-pill ssk-player-pick">' +
           '<select class="ssk-pick" data-block="' + esc(block.id) + '" title="Cliquez pour changer d\'aventurier (★ = meilleur dans cette compétence)">' +
@@ -2173,6 +2179,19 @@
     if (!pick) return { hero: null, bonus: 0, talentSucc: 0 };
     return { hero: pick.hero, bonus: Math.max(0, pick.v), talentSucc: Math.max(0, pick.tal) };
   }
+  // Meilleur aventurier STABLE par bloc+compétence : en cas d'ex æquo, le tirage
+  // n'est fait qu'UNE fois puis mémorisé — sinon chaque re-rendu (ex. changement
+  // d'un menu voisin) re-tirerait le désigné des AUTRES tests de la page.
+  function stableBestHero(ses, block, skill, excludeIds) {
+    if (!ses.bestTestPick) ses.bestTestPick = {};
+    const key = block.id + '|' + (skill || '');
+    const bh = bestHeroForSkill(ses, skill, ses.bestTestPick[key] || null, excludeIds);
+    if (bh.hero && ses.bestTestPick[key] !== bh.hero.id) {
+      ses.bestTestPick[key] = bh.hero.id;
+      save();
+    }
+    return bh;
+  }
   // Bonus de compétence d'UN aventurier donné (base + gains de niveau + Expertise).
   // Aventurier tiré AU HASARD pour un test « aléatoire », FIGÉ pour ce bloc (ne
   // change pas au re-rendu / changement d'onglet). Re-tiré si l'actuel est exclu.
@@ -2208,7 +2227,7 @@
           return { hero: h, bonus: info.bonus, talentSucc: info.talentSucc };
         }
       }
-      return bestHeroForSkill(ses, skill, null, excludeIds);
+      return stableBestHero(ses, block, skill, excludeIds);
     }
     if (block.who === 'random') {
       const h = designatedRandomHero(ses, block, excludeIds);
