@@ -399,8 +399,35 @@
       Store.state.combat = null;
       Store.state.sessionCombat = null;
     }
+    // PURGE TOTALE de l'état lié à cette scène, VISITES PRÉCÉDENTES INCLUSES :
+    // la salle se rejoue comme à la toute première entrée (tests, chaînes,
+    // combat nettoyé, récompenses réclamées, hauts faits, rencontres…).
+    const adv = findAdventure(restored.adventureId);
+    const found = adv ? findScene(adv, restored.currentSceneId) : null;
+    if (found) purgeSceneState(restored, found.scene);
     Store.save(); save();
+    // La photo d'entrée est reprise sur cet état purgé : un second rechargement
+    // redonne exactement le même résultat.
+    captureRoomSnapshot(restored);
     if (global.App) App.renderForTab('session');
+  }
+  // Efface TOUT ce que la session a mémorisé à propos d'une scène donnée.
+  function purgeSceneState(ses, scene) {
+    if (!ses || !scene) return;
+    if (ses.clearedScenes) delete ses.clearedScenes[scene.id];
+    if (ses.claimedRewards) delete ses.claimedRewards[scene.id];
+    if (ses.usedRandomEncounters) delete ses.usedRandomEncounters[scene.id];
+    if (ses.rewardRolls) delete ses.rewardRolls[scene.id];
+    if (ses.forcedCombat && ses.forcedCombat.sceneId === scene.id) delete ses.forcedCombat;
+    if (Array.isArray(ses.deeds)) {
+      ses.deeds = ses.deeds.filter(function (d) { return d.sceneId !== scene.id; });
+    }
+    (scene.blocks || []).forEach(function (b) {
+      if (ses.searchTests) delete ses.searchTests[b.id];
+      if (ses.randomTestPick) delete ses.randomTestPick[b.id];
+      if (ses.playerTestPick) delete ses.playerTestPick[b.id];
+      if (ses.rewardRolls) delete ses.rewardRolls[b.id];
+    });
   }
   // Le bouton n'existe que côté MJ : jamais dans la version partagée (#pub=…).
   function isMJ() {
@@ -1410,19 +1437,22 @@
     const bh = singleTester(ses, block, excludeIds || null, skill);
     const dice = 1 + (bh.bonus || 0);
     const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">🎲 au hasard</span>' : '';
-    // AU CHOIX DU JOUEUR : la vignette devient un menu déroulant d'aventuriers.
-    if (block.who === 'player') {
+    // MEILLEUR AVENTURIER : le désigné est modifiable — la vignette est un menu
+    // déroulant (le meilleur est marqué ★). Aléatoire / Groupe / Concernés : figé.
+    if (block.who !== 'random' && block.who !== 'group' && block.who !== 'concerned') {
       const alive = aliveEngagedHeroes(ses).filter(function (h) {
         return !(Array.isArray(excludeIds) && excludeIds.indexOf(h.id) >= 0);
       });
       if (!bh.hero || !alive.length) return '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
+      const best = bestHeroForSkill(ses, skill, null, excludeIds);
+      const bestId = best && best.hero ? best.hero.id : null;
       return '<div class="ses-skill-pill ssk-player-pick">' +
-          '<select class="ssk-pick" data-block="' + esc(block.id) + '" title="Choisissez l\'aventurier qui tente le test">' +
+          '<select class="ssk-pick" data-block="' + esc(block.id) + '" title="Cliquez pour changer d\'aventurier (★ = meilleur dans cette compétence)">' +
             alive.map(function (h) {
-              return '<option value="' + esc(h.id) + '"' + (h.id === bh.hero.id ? ' selected' : '') + '>' + esc(h.name) + '</option>';
+              return '<option value="' + esc(h.id) + '"' + (h.id === bh.hero.id ? ' selected' : '') + '>' +
+                esc(h.name) + (h.id === bestId ? ' ★' : '') + '</option>';
             }).join('') +
           '</select>' +
-          '<span class="ssk-rand" title="Le joueur choisit qui tente le test">🙋 au choix</span>' +
           '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + ' 🎲</span>' +
           (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
         '</div>';
@@ -2163,17 +2193,22 @@
   // permet de tester une compétence ALTERNATIVE (2e bouton du bloc).
   function singleTester(ses, block, excludeIds, skillOverride) {
     const skill = skillOverride || block.skill;
-    // AU CHOIX DU JOUEUR : l'aventurier sélectionné dans la vignette du test
-    // (repli : le premier vivant).
-    if (block.who === 'player') {
-      const alive = aliveEngagedHeroes(ses).filter(function (h) {
-        return !(Array.isArray(excludeIds) && excludeIds.indexOf(h.id) >= 0);
-      });
-      if (!alive.length) return { hero: null, bonus: 0, talentSucc: 0 };
+    // MEILLEUR AVENTURIER (défaut) : le joueur peut TOUJOURS désigner quelqu'un
+    // d'autre via le menu de la vignette (pour ne pas risquer son meilleur
+    // élément, par exemple). Le meilleur reste proposé par défaut.
+    if (block.who !== 'random' && block.who !== 'group' && block.who !== 'concerned') {
       const pick = ses.playerTestPick && ses.playerTestPick[block.id];
-      const h = (pick && alive.find(function (x) { return x.id === pick; })) || alive[0];
-      const info = heroTestInfo(ses, h, skill);
-      return { hero: h, bonus: info.bonus, talentSucc: info.talentSucc };
+      if (pick) {
+        const alive = aliveEngagedHeroes(ses).filter(function (h) {
+          return !(Array.isArray(excludeIds) && excludeIds.indexOf(h.id) >= 0);
+        });
+        const h = alive.find(function (x) { return x.id === pick; });
+        if (h) {
+          const info = heroTestInfo(ses, h, skill);
+          return { hero: h, bonus: info.bonus, talentSucc: info.talentSucc };
+        }
+      }
+      return bestHeroForSkill(ses, skill, null, excludeIds);
     }
     if (block.who === 'random') {
       const h = designatedRandomHero(ses, block, excludeIds);
