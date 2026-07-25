@@ -1225,32 +1225,42 @@
       const f = findScene(adv, id);
       return f ? (f.scene.title || 'Salle') : 'Salle';
     };
-    // Tri des sorties selon leur direction sur la carte : Gauche, Haut, Droite,
-    // Bas (les diagonales s'intercalent entre les points cardinaux voisins).
-    const DIR_ORDER = { '⬅': 0, '↖': 1, '⬆': 2, '↗': 3, '➡': 4, '↘': 5, '⬇': 6, '↙': 7, '→': 8 };
     const exits = links.map(function (l) {
       const other = l.from === scene.id ? l.to : l.from;
       const f = findScene(adv, other);
       return { l: l, other: other, f: f, arrow: sceneDirArrow(scene, f ? f.scene : null), gate: linkGate(l, ses) };
-    }).sort(function (a, b) { return (DIR_ORDER[a.arrow] || 0) - (DIR_ORDER[b.arrow] || 0); });
+    });
+    function exitBtnHtml(e) {
+      const visited = (ses.visitedSceneIds || []).indexOf(e.other) >= 0;
+      // VERROUILLÉ non encore ouvert : bouton visible avec un cadenas, non franchissable.
+      const locked = e.gate.mode === 'locked' && !e.gate.unlocked;
+      // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
+      // (pas d'indice sur les salles inconnues).
+      const danger = visited && e.f && sceneHasCombat(e.f.scene) && !(ses.clearedScenes && ses.clearedScenes[e.other]);
+      return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + (locked ? ' ses-exit-locked' : '') + '" data-to="' + esc(e.other) + '"' +
+        (locked ? ' disabled title="Verrouillé — réussissez le test de la salle pour l\'ouvrir."' : '') + '>' +
+        (locked ? '<span class="ses-exit-lock">🔒</span>' : '') +
+        (e.l.label ? '<span class="ses-exit-lbl">' + esc(e.l.label) + '</span>' : '') +
+        '<span class="ses-exit-to"><span class="ses-exit-dir">' + e.arrow + '</span> ' + (visited ? esc(titleOf(e.other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
+      '</button>';
+    }
+    // Disposition « joystick » : chaque sortie occupe la case de sa direction sur
+    // une grille 3×3 (haut au centre-haut, gauche/droite au milieu, bas au
+    // centre-bas, diagonales dans les coins). Les cases sans sortie restent
+    // vides : la structure directionnelle est conservée.
+    const CELL = { '↖': '1/1', '⬆': '1/2', '↗': '1/3', '⬅': '2/1', '→': '2/2', '➡': '2/3', '↙': '3/1', '⬇': '3/2', '↘': '3/3' };
+    const cells = {};
+    exits.forEach(function (e) {
+      const c = CELL[e.arrow] || '2/2';
+      (cells[c] = cells[c] || []).push(exitBtnHtml(e));
+    });
     sec.innerHTML = '<div class="ses-exits">' +
       '<div class="ses-exits-title">🚪 Sorties &amp; accès</div>' +
-      '<div class="ses-exits-list ses-exits-inline">' +
-      exits.map(function (e) {
-        const visited = (ses.visitedSceneIds || []).indexOf(e.other) >= 0;
-        // VERROUILLÉ non encore ouvert : bouton visible avec un cadenas, non franchissable.
-        const locked = e.gate.mode === 'locked' && !e.gate.unlocked;
-        // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
-        // (pas d'indice sur les salles inconnues).
-        const danger = visited && e.f && sceneHasCombat(e.f.scene) && !(ses.clearedScenes && ses.clearedScenes[e.other]);
-        // Pas de libellé générique « Passage » : la flèche + le nom suffisent.
-        // Un connecteur nommé par le MJ (porte, escalier…) reste affiché.
-        return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + (locked ? ' ses-exit-locked' : '') + '" data-to="' + esc(e.other) + '"' +
-          (locked ? ' disabled title="Verrouillé — réussissez le test de la salle pour l\'ouvrir."' : '') + '>' +
-          (locked ? '<span class="ses-exit-lock">🔒</span>' : '') +
-          (e.l.label ? '<span class="ses-exit-lbl">' + esc(e.l.label) + '</span>' : '') +
-          '<span class="ses-exit-to"><span class="ses-exit-dir">' + e.arrow + '</span> ' + (visited ? esc(titleOf(e.other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
-        '</button>';
+      '<div class="ses-exits-grid">' +
+      Object.keys(cells).map(function (c) {
+        const rc = c.split('/');
+        return '<div class="ses-exit-cell" style="grid-row:' + rc[0] + ';grid-column:' + rc[1] + ';">' +
+          cells[c].join('') + '</div>';
       }).join('') +
       '</div></div>';
     sec.querySelectorAll('.ses-exit-btn:not([disabled])').forEach(function (b) {

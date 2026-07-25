@@ -4393,3 +4393,16 @@ body.mode-player #item-list.roster-list { display: block; }
 }
 .ssk-swap:hover { border-color: var(--accent-2, #e2974a); background: #fdf4e0; }
 .ses-st-gr .ssk-skill { font-size: .68rem; padding: 0 .3rem; }
+
+/* ===================== v2.3.75 ===================== */
+/* Sorties du donjon en « joystick » : grille 3×3 directionnelle. */
+.ses-exits-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: .4rem; max-width: 46rem; margin-top: .4rem;
+  align-items: stretch; justify-items: stretch;
+}
+.ses-exit-cell { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.ses-exit-cell .ses-exit-btn { width: 100%; box-sizing: border-box; }
+/* Bouton de test : titre + compétence/difficulté sur UNE seule ligne. */
+.ses-choice-btn.skill-test .ssk-btn-meta { flex: 0 0 auto; margin-top: 0; margin-left: auto; }
+.ses-choice-btn.skill-test .ssk-btn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
