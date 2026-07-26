@@ -448,6 +448,7 @@
     if (ses.usedRandomEncounters) delete ses.usedRandomEncounters[scene.id];
     if (ses.rewardRolls) delete ses.rewardRolls[scene.id];
     if (ses.forcedCombat && ses.forcedCombat.sceneId === scene.id) delete ses.forcedCombat;
+    if (ses.blockCombat && ses.blockCombat.sceneId === scene.id) delete ses.blockCombat;
     if (Array.isArray(ses.deeds)) {
       ses.deeds = ses.deeds.filter(function (d) { return d.sceneId !== scene.id; });
     }
@@ -749,8 +750,10 @@
   // Tests ENCHAÎNÉS : un bloc de test référencé par un autre (chainSuccessId /
   // chainFailId) reste masqué tant que le test parent n'a pas produit le
   // résultat déclencheur (ex. rater l'Agilité révèle un test de Force).
+  // Un bloc (de N'IMPORTE QUEL type) coché dans un « Bloc révélé si … » reste
+  // masqué tant que l'issue correspondante n'est pas survenue.
   function testChainHidden(scene, blk, ses) {
-    if (!blk || blk.type !== 'test') return false;
+    if (!blk) return false;
     // Un test déjà tenté (résultat enregistré) reste TOUJOURS visible : sinon,
     // valider rétroactivement le parent le ferait disparaître avec ses jets.
     var self = ses && ses.searchTests ? ses.searchTests[blk.id] : null;
@@ -758,7 +761,7 @@
     var blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
     var isChained = false, triggered = false;
     blocks.forEach(function (p) {
-      if (p.type !== 'test' || p.id === blk.id) return;
+      if ((p.type !== 'test' && p.type !== 'fight') || p.id === blk.id) return;
       var st = ses && ses.searchTests ? ses.searchTests[p.id] : null;
       if (chainIdsOf(p, 'success').indexOf(blk.id) >= 0) { isChained = true; if (st && st.done && st.success) triggered = true; }
       if (chainIdsOf(p, 'fail').indexOf(blk.id) >= 0) { isChained = true; if (st && st.done && !st.success) triggered = true; }
@@ -778,15 +781,18 @@
       // Bloc « Combat » : visible uniquement AVANT le combat de la scène —
       // masqué une fois les adversaires vaincus (ou s'il n'y a pas de combat).
       if (blk.type === 'combat' && (combatCleared || !sceneHasCombat(scene))) return;
-      if (blk.type === 'test') {
-        // Test enchaîné non encore révélé par son test parent : masqué.
+      if (blk.type === 'test' || blk.type === 'fight') {
+        // Bloc enchaîné non encore révélé par son bloc parent : masqué.
         if (ses && testChainHidden(scene, blk, ses)) return;
         // Emplacement rempli après le rendu par wireTestBlocks (contenu interactif).
         // Test découlant d'un test préalable : léger décalage à droite + flèche.
         var chainedFrom = chainParentOf(scene, blk);
         parts.push('<div class="ses-test-slot' + (chainedFrom ? ' ses-test-chained' : '') + '" data-tb="' + esc(blk.id) + '"></div>');
       } else {
-        parts.push('<div class="scene-block scene-block-' + (blk.type || 'narrative') + '">' + fmtSceneText(blk.content || '') + '</div>');
+        // Bloc de texte révélé par une chaîne : masqué tant qu'elle ne s'est pas déclenchée.
+        if (ses && testChainHidden(scene, blk, ses)) return;
+        parts.push('<div class="scene-block scene-block-' + (blk.type || 'narrative') + '" data-tb="' + esc(blk.id || '') + '">' +
+          fmtSceneText(blk.content || '') + '</div>');
       }
     });
     return parts.length ? '<div class="ses-scene-blocks">' + parts.join('') + '</div>' : '';
@@ -795,10 +801,13 @@
   // (bouton ou résultat), en respectant l'ordre dans le texte de la scène.
   function wireTestBlocks(scene, adv, ses) {
     sceneRenderBlocks(scene).forEach(function (blk) {
-      if (blk.type !== 'test' || (ses && !blockVisible(blk, ses))) return;
+      const isFight = blk.type === 'fight';
+      if ((blk.type !== 'test' && !isFight) || (ses && !blockVisible(blk, ses))) return;
       if (ses && testChainHidden(scene, blk, ses)) return;
       const slot = document.querySelector('.ses-test-slot[data-tb="' + (window.CSS && CSS.escape ? CSS.escape(blk.id) : blk.id) + '"]');
-      if (slot) renderTestBlock(slot, blk, scene, adv, ses);
+      if (!slot) return;
+      if (isFight) renderFightBlock(slot, blk, scene, adv, ses);
+      else renderTestBlock(slot, blk, scene, adv, ses);
     });
   }
 
@@ -1827,7 +1836,7 @@
     const blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
     for (let i = 0; i < blocks.length; i++) {
       const p = blocks[i];
-      if (p.type !== 'test' || p.id === block.id) continue;
+      if ((p.type !== 'test' && p.type !== 'fight') || p.id === block.id) continue;
       if (chainIdsOf(p, 'success').indexOf(block.id) >= 0) return { block: p, viaSuccess: true };
       if (chainIdsOf(p, 'fail').indexOf(block.id) >= 0) return { block: p, viaSuccess: false };
     }
@@ -2022,7 +2031,8 @@
   function applyRevealAnimations() {
     if (!justRevealedIds.length) return;
     justRevealedIds.forEach(function (id) {
-      const el = document.querySelector('.ses-test-slot[data-tb="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      const sel = '[data-tb="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]';
+      const el = document.querySelector('.ses-test-slot' + sel + ', .scene-block' + sel);
       if (el) el.classList.add('ses-reveal');
     });
     justRevealedIds = [];
@@ -3128,6 +3138,73 @@
     sec.querySelector('#ses-start-forced').addEventListener('click', function () { launchForcedCombat(scene, adv, ses); });
   }
 
+  // ---- BLOC DE COMBAT jouable (posé dans le fil de la salle) ----
+  // Avant : mise en scène + bouton « Lancer le combat ».
+  // Après : verdict (victoire / défaite) et texte de conséquence. L'issue est
+  // enregistrée comme celle d'un test (ses.searchTests), ce qui lui donne
+  // gratuitement les chaînes « Bloc révélé si victoire / défaite ».
+  function renderFightBlock(slot, blk, scene, adv, ses) {
+    if (!ses.searchTests) ses.searchTests = {};
+    const state = ses.searchTests[blk.id];
+    const title = '⚔️ ' + esc(blk.label || 'Combat');
+    if (!state || !state.done) {
+      const nFoes = ((blk.combat && blk.combat.combatZones) || []).reduce(function (n, z) {
+        return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; })
+          .reduce(function (t, r) { return t + (r.count || 1); }, 0);
+      }, 0);
+      slot.innerHTML = '<div class="ses-searchtest ses-fight">' +
+        '<div class="ses-st-title">' + title + '</div>' +
+        (blk.content && blk.content.trim() ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(blk.content) + '</div>' : '') +
+        '<button type="button" class="ses-exit-btn ses-fight-go"' + (nFoes ? '' : ' disabled title="Aucun adversaire défini dans ce bloc."') + '>' +
+          '⚔ Lancer le combat' + (nFoes ? ' <span class="ses-fight-count">(' + nFoes + ' adversaire' + (nFoes > 1 ? 's' : '') + ')</span>' : '') +
+        '</button>' +
+      '</div>';
+      const go = slot.querySelector('.ses-fight-go');
+      if (go && nFoes) go.addEventListener('click', function () { launchBlockCombat(blk, scene, adv, ses); });
+      return;
+    }
+    const ok = !!state.success;
+    const txt = ok ? blk.winText : blk.failText;
+    slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-fight ' + (ok ? 'ses-st-success-box' : 'ses-st-fail-box') + '">' +
+      '<div class="ses-st-title">' + title + ' — ' +
+        (ok ? '<span class="ses-st-verdict success">Victoire</span>' : '<span class="ses-st-verdict fail">Défaite</span>') + '</div>' +
+      (txt && txt.trim() ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(txt) + '</div>' : '') +
+    '</div>';
+  }
+  // Lance le combat d'un bloc de combat : même moteur que le combat imposé, mais
+  // l'issue revient au BLOC (et non à la salle entière).
+  function launchBlockCombat(blk, scene, adv, ses) {
+    const cfg = blk.combat || {};
+    const zones = cfg.combatZones || [];
+    const monsterCount = zones.reduce(function (n, z) {
+      return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; })
+        .reduce(function (t, r) { return t + (r.count || 1); }, 0);
+    }, 0);
+    if (!monsterCount) { alert('Aucun adversaire défini pour ce combat.'); return; }
+    const fighters = (ses.heroIds || []).filter(function (hid) {
+      return !(ses.heroStates && ses.heroStates[hid] && ses.heroStates[hid].dead);
+    });
+    if (!fighters.length) { alert('Aucun aventurier vivant pour ce combat.'); return; }
+    fighters.forEach(function (hid) {
+      const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+      if (h && ses.heroStates[hid] && typeof ses.heroStates[hid].pv === 'number') h.pv = ses.heroStates[hid].pv;
+    });
+    Store.save();
+    if (ses.pendingStates && Object.keys(ses.pendingStates).length) {
+      Store.state.pendingCombatStates = ses.pendingStates;
+      ses.pendingStates = null;
+    }
+    // Mémorise le bloc à qui revient l'issue du combat.
+    ses.blockCombat = { blockId: blk.id, sceneId: scene.id };
+    save();
+    const ctx = { sessionId: ses.id, adventureId: adv.id, sceneId: scene.id,
+      outcomeSceneId: null, defeatSceneId: null, forced: true };
+    const root = $('#session-root');
+    root.innerHTML = '<div class="ses-combat-wrap"><div id="session-combat-root"></div></div>';
+    ensureLevelData(ses);
+    Combat.startInSession(fighters, { combatZones: zones, barriers: cfg.barriers || {} }, ctx, '#session-combat-root', ses.levelGains);
+  }
+
   function launchForcedCombat(scene, adv, ses) {
     const fc = ses.forcedCombat || {};
     const zones = fc.zones || [];
@@ -3297,6 +3374,24 @@
         ses.heroStates[hid] = Object.assign({}, ses.heroStates[hid], { pv: h.pv });
       }
     });
+    // Combat d'un BLOC DE COMBAT : l'issue revient au bloc (et pas à la salle).
+    // On l'enregistre comme un résultat de test, ce qui active ses chaînes
+    // « Bloc révélé si victoire / défaite ».
+    const bc = ses.blockCombat;
+    const isBlockCombat = !!(bc && bc.sceneId === ses.currentSceneId);
+    if (isBlockCombat) {
+      const won = detail.outcome === 'victory' || detail.outcome === 'minor';
+      if (!ses.searchTests) ses.searchTests = {};
+      ses.searchTests[bc.blockId] = { done: true, success: won, fight: true };
+      delete ses.blockCombat;
+      // Les blocs que ce combat révèle s'animent au retour dans la salle.
+      const fscene = findScene(adv, bc.sceneId);
+      if (fscene) {
+        const parent = (fscene.scene.blocks || []).find(function (b) { return b.id === bc.blockId; });
+        if (parent) justRevealedIds = chainIdsOf(parent, won ? 'success' : 'fail').slice();
+        justRevealedIds.push(bc.blockId);
+      }
+    }
     // Combat IMPOSÉ par un test : à la victoire il est levé (déverrouille la scène) ;
     // il ne « nettoie » PAS la scène (un éventuel combat propre à la salle demeure).
     const wasForced = !!(ses.forcedCombat && ses.forcedCombat.sceneId === ses.currentSceneId);
@@ -3305,7 +3400,7 @@
     }
     // Victoire : la salle est « nettoyée » (donjons : le combat ne se relance pas
     // lors des visites suivantes, et les sorties de la salle se débloquent).
-    if ((detail.outcome === 'victory' || detail.outcome === 'minor') && !wasForced) {
+    if ((detail.outcome === 'victory' || detail.outcome === 'minor') && !wasForced && !isBlockCombat) {
       if (!ses.clearedScenes) ses.clearedScenes = {};
       if (ses.currentSceneId) ses.clearedScenes[ses.currentSceneId] = true;
     }
@@ -3336,7 +3431,7 @@
       ses.clearedScenes[scene.id] = true;
       save();
       targetId = scene.defeatSceneId || ses.transit.destId;
-    } else if (scene && !wasForced) {
+    } else if (scene && !wasForced && !isBlockCombat) {
       if (detail.outcome === 'defeat') targetId = scene.defeatSceneId;
       else if (detail.outcome === 'victory' || detail.outcome === 'minor') targetId = scene.outcomeSceneId;
     } else if (scene && wasForced && detail.outcome === 'defeat') {

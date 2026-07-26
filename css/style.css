@@ -4658,3 +4658,16 @@ label.tb-chain-item > .tb-chain-name {
   .rose-cell, .rose-btn.ses-exit-btn { min-height: 44px; }
   .rose-name, .rose-center-name { font-size: .68rem; }
 }
+
+/* ===================== v2.3.89 — Blocs de combat jouables ===================== */
+.ses-searchtest.ses-fight { border-left-color: #d65c40; }
+.ses-fight-go { border-left-color: #d65c40 !important; }
+.ses-fight-count { font-weight: 600; opacity: .85; font-size: .85em; }
+/* Éditeur : bandeau d'un bloc de combat */
+.adv-block-fight { border-left: 4px solid #d65c40; }
+.adv-block-num {
+  font-size: .72rem; font-weight: 800; color: var(--muted);
+  background: rgba(255,255,255,.06); border: 1px solid var(--border);
+  border-radius: 6px; padding: .02rem .28rem; flex: 0 0 auto;
+}
+.sm-collapse-all { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; color: var(--muted); cursor: pointer; }

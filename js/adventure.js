@@ -1279,6 +1279,11 @@
       scene.blocks.push(b);
       renderBlocksEditor(scene, adv);
     };
+    const addFight = document.getElementById('sm-add-fight');
+    if (addFight) addFight.onclick = function () {
+      scene.blocks.push(newFightBlock());
+      renderBlocksEditor(scene, adv);
+    };
     const addWrite = document.getElementById('sm-add-write');
     if (addWrite) addWrite.onclick = function () {
       // Bloc ÉCRITURE : un bloc de test dont la réussite dépend d'un mot écrit
@@ -1596,6 +1601,13 @@
       successText: '', failText: '', xpReward: 0, itemRewards: [], targetSceneId: null, reqSkill: '', reqVal: 0,
       retry: false, failEffect: { kind: 'none', val: 1, state: 'affaibli', slot: 'randhand', text: '' } };
   }
+  // Bloc COMBAT jouable : un combat posé dans le fil de la salle. Un bloc test ou
+  // action peut le révéler, et il révèle à son tour d'autres blocs selon l'issue.
+  function newFightBlock() {
+    return { id: Store.uid(), type: 'fight', label: '', content: '',
+      combat: { combatZones: [], barriers: {} },
+      winText: '', failText: '', chainSuccessIds: [], chainFailIds: [], reqSkill: '', reqVal: 0 };
+  }
   // Migration : ancien `text` → bloc narratif ; ancien `searchTest` (v2.3.04) → bloc de test.
   function migrateSceneBlocks(scene) {
     if (!Array.isArray(scene.blocks)) scene.blocks = [];
@@ -1638,6 +1650,33 @@
       return DIFF_LEVELS.map(function (d) {
         return '<option value="' + d[0] + '"' + ((cur || 'moyen') === d[0] ? ' selected' : '') + '>' + d[1] + '</option>';
       }).join('');
+    };
+    // Sélecteur « Bloc révélé si … » partagé par les blocs test / action / écriture
+    // et les blocs de combat. Liste FIXE : une ligne par bloc, case à cocher à
+    // gauche, nom tronqué par « … ». Plusieurs blocs peuvent être révélés ensemble.
+    const chainPickerHtml = function (blk, i, succLbl, failLbl) {
+      // Tous les types de blocs peuvent être révélés (texte, test, action, combat).
+      const others = scene.blocks.filter(function (b) { return b.id && b.id !== blk.id; });
+      if (!others.length) return '';
+      const boxes = function (which) {
+        const cur = chainIdsOf(blk, which);
+        return '<div class="tb-chain-list">' + others.map(function (b) {
+          const n = scene.blocks.indexOf(b) + 1;
+          const nm = (b.label || '').trim() ||
+            (b.type === 'fight' ? 'Combat' : b.type === 'test' ? (b.skill ? 'Test ' + b.skill : 'Test')
+            : (b.content || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Texte');
+          const ico = b.type === 'fight' ? '⚔️ ' : b.type === 'test' ? (b.actionMode ? '⚡ ' : '🔍 ') : '📝 ';
+          const full = '#' + n + ' · ' + ico + nm;
+          return '<label class="tb-chain-item" title="' + esc(full) + '"><input type="checkbox" class="tb-chain-cb" ' +
+            'data-bi="' + i + '" data-which="' + which + '" value="' + esc(b.id) + '"' +
+            (cur.indexOf(b.id) >= 0 ? ' checked' : '') + ' />' +
+            '<span class="tb-chain-name">' + esc(full) + '</span></label>';
+        }).join('') + '</div>';
+      };
+      return '<div class="form-row tb-chain-row" style="grid-template-columns:1fr 1fr" title="Les blocs cochés n\'apparaissent dans la scène qu\'après ce résultat. Plusieurs blocs peuvent être révélés ensemble.">' +
+        '<div class="tb-chain-col"><span class="tb-chain-head">' + succLbl + '</span>' + boxes('success') + '</div>' +
+        '<div class="tb-chain-col"><span class="tb-chain-head">' + failLbl + '</span>' + boxes('fail') + '</div>' +
+      '</div>';
     };
     if (!scene.blocks.length) {
       box.innerHTML = '<p class="empty" style="margin:.25rem 0 .35rem">Aucun bloc — clique « + Bloc » (texte) ou « + Bloc Test ».</p>';
@@ -1766,32 +1805,11 @@
             '<label>Passage débloqué en cas de réussite <select class="tb-target" data-bi="' + i + '">' + sceneTargetOptions(allScenes, blk.targetSceneId, adv) + '</select></label>' +
             // Tests enchaînés : un AUTRE bloc de test de la scène, révélé selon le
             // résultat (ex. rater l'Agilité fait apparaître un test de Force).
+            chainPickerHtml(blk, i,
+              blk.actionMode ? '🔗 Bloc révélé si Action 1' : '🔗 Bloc révélé si réussite',
+              blk.actionMode ? '🔗 Bloc révélé si Action 2' : '🔗 Bloc révélé si échec') +
             (function () {
-              const others = scene.blocks.filter(function (b) { return b.type === 'test' && b.id !== blk.id; });
-              if (!others.length) return '';
-              // PLUSIEURS blocs peuvent être révélés par une même issue : cases à
-              // cocher (ex. réussir un test révèle À LA FOIS des runes à lire ET
-              // la recherche d'un passage secret).
-              // Liste FIXE (jamais déroulante) : une ligne par bloc, case à cocher
-              // à gauche, nom tronqué par « … » s'il dépasse la largeur.
-              const boxes = function (which) {
-                const cur = chainIdsOf(blk, which);
-                return '<div class="tb-chain-list">' + others.map(function (b) {
-                  const n = scene.blocks.indexOf(b) + 1;
-                  const nm = (b.label || '').trim() || (b.skill ? ('Test ' + b.skill) : 'Bloc');
-                  const full = '#' + n + ' · ' + nm;
-                  return '<label class="tb-chain-item" title="' + esc(full) + '"><input type="checkbox" class="tb-chain-cb" ' +
-                    'data-bi="' + i + '" data-which="' + which + '" value="' + esc(b.id) + '"' +
-                    (cur.indexOf(b.id) >= 0 ? ' checked' : '') + ' />' +
-                    '<span class="tb-chain-name">' + esc(full) + '</span></label>';
-                }).join('') + '</div>';
-              };
-              const succLbl = blk.actionMode ? '🔗 Bloc révélé si Action 1' : '🔗 Bloc révélé si réussite';
-              const failLbl = blk.actionMode ? '🔗 Bloc révélé si Action 2' : '🔗 Bloc révélé si échec';
-              return '<div class="form-row tb-chain-row" style="grid-template-columns:1fr 1fr" title="Les blocs cochés n\'apparaissent dans la scène qu\'après ce résultat. Plusieurs blocs peuvent être révélés ensemble.">' +
-                '<div class="tb-chain-col"><span class="tb-chain-head">' + succLbl + '</span>' + boxes('success') + '</div>' +
-                '<div class="tb-chain-col"><span class="tb-chain-head">' + failLbl + '</span>' + boxes('fail') + '</div>' +
-              '</div>';
+              return '';
             })() +
             // Un test enchaîné peut « rattraper » le test qui l'a révélé : le
             // réussir valide rétroactivement le précédent (débloque son accès /
@@ -1843,6 +1861,25 @@
             })() +
             reqHtml +
             '</div>' + // .adv-block-body
+          '</div>';
+        }
+        // ---- Bloc COMBAT jouable ----
+        if (blk.type === 'fight') {
+          if (!blk.combat || typeof blk.combat !== 'object') blk.combat = { combatZones: [], barriers: {} };
+          return '<div class="adv-block-row adv-block-fight' + (done ? ' adv-block-done' : '') + (collapsed ? ' collapsed' : '') + '" data-bi="' + i + '">' +
+            '<div class="adv-block-row-head">' +
+              collapseBtn +
+              '<span class="adv-block-test-tag">⚔️ Combat' + (blk.label ? ' · ' + esc(blk.label) : '') + '</span>' + tools +
+            '</div>' +
+            bodyOpen +
+              '<input type="text" class="fb-label" data-bi="' + i + '" placeholder="Intitulé du combat (ex : La Garde d\'Honneur se dresse)" value="' + esc(blk.label || '') + '" />' +
+              '<textarea class="fb-content" data-bi="' + i + '" rows="2" placeholder="Texte affiché AVANT le combat (mise en scène)">' + esc(blk.content || '') + '</textarea>' +
+              '<div class="tb-fx-combat" id="fb-cbt-' + blk.id + '"></div>' +
+              '<label>Conséquence en cas de VICTOIRE<textarea class="fb-wintext" data-bi="' + i + '" rows="2" placeholder="Texte affiché après la victoire">' + esc(blk.winText || '') + '</textarea></label>' +
+              '<label>Conséquence en cas de DÉFAITE<textarea class="fb-failtext" data-bi="' + i + '" rows="2" placeholder="Texte affiché après la défaite">' + esc(blk.failText || '') + '</textarea></label>' +
+              chainPickerHtml(blk, i, '🔗 Bloc révélé si victoire', '🔗 Bloc révélé si défaite') +
+              reqHtml +
+            '</div>' +
           '</div>';
         }
         // Bloc de texte typé
@@ -1905,6 +1942,13 @@
         save(); renderBlocksEditor(scene, adv);
       };
     }
+    // Champs texte des blocs de COMBAT jouables.
+    [['fb-label', 'label'], ['fb-content', 'content'], ['fb-wintext', 'winText'], ['fb-failtext', 'failText']]
+      .forEach(function (pair) {
+        box.querySelectorAll('.' + pair[0]).forEach(function (el) {
+          el.oninput = function () { scene.blocks[biOf(this)][pair[1]] = this.value; };
+        });
+      });
     box.querySelectorAll('.block-done').forEach(function (cb) {
       cb.onchange = function () {
         scene.blocks[biOf(this)].done = this.checked;
@@ -2001,6 +2045,9 @@
       }
       if (blk.winEffect && blk.winEffect.kind === 'combat') {
         renderCombatEditor(document.getElementById('tb-wincbt-' + blk.id), ensureFxCombat(blk.winEffect), Store.state.monsters, 'winzone-' + blk.id, false);
+      }
+      if (blk.type === 'fight') {
+        renderCombatEditor(document.getElementById('fb-cbt-' + blk.id), blk.combat, Store.state.monsters, 'fightzone-' + blk.id, false);
       }
     });
     box.querySelectorAll('.tb-target').forEach(function (el) {
