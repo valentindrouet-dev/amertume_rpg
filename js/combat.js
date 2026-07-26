@@ -3985,11 +3985,17 @@
     }
     const hidden = inZone.filter(isInvisible);
     if (!hidden.length) {
+      // Attaque au CONTACT : l'aventurier s'engage tout de même dans la zone
+      // visée — le déplacement a lieu même s'il n'y a personne à y frapper.
+      const atkVoid = attacker.attacks[pendingAttack.atkIndex];
+      if (atkVoid && atkVoid.range === 'contact' && attacker.zone !== zi &&
+          crossCheck(attacker, zi) !== 'block') {
+        doMove(attacker, zi);
+      }
       log(cname(attacker) + ' frappe dans le vide : aucune cible dans <span class="lstate">' + esc(zname(zi)) + '</span>.', 'state');
       toast('💨 Attaque dans le vide !', 'miss');
       // Frapper une zone vide COÛTE l'attaque / l'action (comme une fouille ratée).
-      const atkVoid = attacker.attacks[pendingAttack.atkIndex];
-      if (atkVoid && !atkVoid.freeAction) useAction(attacker);
+      if (atkVoid && !atkVoid.freeAction && attacker.status === 'active') useAction(attacker);
       pendingAttack = null; checkOutcome(); Store.save(); render(); return;
     }
     const t = perceptionTest(attacker, 2);
