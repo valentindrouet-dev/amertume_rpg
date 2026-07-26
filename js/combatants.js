@@ -1961,9 +1961,56 @@
     buildTalentsEditor($('#m-talents'), monsterTalents);
     monsterAdvTalentIds = isEdit ? (Array.isArray(m.advTalentIds) ? m.advTalentIds.slice() : []) : [];
     buildAdvTalentsPicker($('#m-adv-talents'));
+    monsterBehaviors = isEdit && Array.isArray(m.behaviors) ? m.behaviors.slice() : [];
+    buildBehaviorsEditor($('#m-behaviors'));
     $('#btn-delete-monster').hidden = !isEdit;
     $('#monster-modal').hidden = false;
     $('#m-name').focus();
+  }
+
+  // ---- Comportements de déplacement (fiche d'adversaire) ----
+  // Appliqués en combat dans l'ordre de la liste ; la première règle applicable
+  // l'emporte. N'affecte pas la Menace (choix de cible), qui reste indépendante.
+  const BEHAVIORS = [
+    { value: 'roam',        label: '🔀 Se déplace dans une autre zone à chaque tour' },
+    { value: 'still',       label: '⛔ Ne se déplace jamais' },
+    { value: 'fleeHeroes',  label: '🏃 Quitte une zone occupée par un aventurier vers une zone vide' },
+    { value: 'toCrowd',     label: '👥 Se déplace vers la zone qui contient le PLUS d\'aventuriers' },
+    { value: 'toLonely',    label: '👤 Se déplace vers la zone qui contient le MOINS d\'aventuriers' },
+  ];
+  let monsterBehaviors = [];
+  function buildBehaviorsEditor(box) {
+    if (!box) return;
+    if (!monsterBehaviors.length) {
+      box.innerHTML = '<p class="hint">Aucun comportement : l\'adversaire suit l\'IA par défaut (il avance vers sa cible).</p>';
+      return;
+    }
+    box.innerHTML = monsterBehaviors.map(function (b, i) {
+      return '<div class="behavior-row" data-bi="' + i + '">' +
+        '<span class="behavior-rank">' + (i + 1) + '</span>' +
+        '<select class="behavior-sel">' +
+          BEHAVIORS.map(function (o) {
+            return '<option value="' + o.value + '"' + (o.value === b ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+          }).join('') +
+        '</select>' +
+        '<button type="button" class="icon-btn behavior-up"' + (i === 0 ? ' disabled' : '') + ' title="Monter">↑</button>' +
+        '<button type="button" class="icon-btn behavior-down"' + (i === monsterBehaviors.length - 1 ? ' disabled' : '') + ' title="Descendre">↓</button>' +
+        '<button type="button" class="icon-btn behavior-del" title="Retirer">✕</button>' +
+      '</div>';
+    }).join('');
+    const bi = function (el) { return parseInt(el.closest('.behavior-row').getAttribute('data-bi'), 10); };
+    box.querySelectorAll('.behavior-sel').forEach(function (sel) {
+      sel.onchange = function () { monsterBehaviors[bi(sel)] = sel.value; };
+    });
+    box.querySelectorAll('.behavior-up').forEach(function (b) {
+      b.onclick = function () { const i = bi(b); const t = monsterBehaviors[i - 1]; monsterBehaviors[i - 1] = monsterBehaviors[i]; monsterBehaviors[i] = t; buildBehaviorsEditor(box); };
+    });
+    box.querySelectorAll('.behavior-down').forEach(function (b) {
+      b.onclick = function () { const i = bi(b); const t = monsterBehaviors[i + 1]; monsterBehaviors[i + 1] = monsterBehaviors[i]; monsterBehaviors[i] = t; buildBehaviorsEditor(box); };
+    });
+    box.querySelectorAll('.behavior-del').forEach(function (b) {
+      b.onclick = function () { monsterBehaviors.splice(bi(b), 1); buildBehaviorsEditor(box); };
+    });
   }
 
   function saveMonster(e) {
@@ -1997,6 +2044,7 @@
       })(),
       talents: monsterTalents,
       advTalentIds: monsterAdvTalentIds.slice(),
+      behaviors: monsterBehaviors.slice(),
     };
     if (existing) Object.assign(existing, data);
     else Store.state.monsters.push(data);
@@ -2006,6 +2054,11 @@
   }
 
   function init() {
+    const addBeh = $('#m-add-behavior');
+    if (addBeh) addBeh.addEventListener('click', function () {
+      monsterBehaviors.push(BEHAVIORS[0].value);
+      buildBehaviorsEditor($('#m-behaviors'));
+    });
     // Aventuriers
     $('#btn-add-hero').addEventListener('click', function () { openHeroModal(null); });
     $('#btn-add-prebuilt').addEventListener('click', function () { openPrebuiltPicker(); });

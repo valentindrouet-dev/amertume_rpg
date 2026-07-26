@@ -4426,3 +4426,14 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Vignette d'un combattant invisible de NOTRE camp : rendu fantomatique */
 .combat-card.is-invisible { opacity: .72; border-style: dashed; }
 @media (prefers-reduced-motion: reduce) { .cbt-invis-alert { animation: none; } }
+
+/* v2.3.77 : éditeur de comportements d'un adversaire */
+.behaviors-editor { display: flex; flex-direction: column; gap: .35rem; }
+.behavior-row { display: flex; align-items: center; gap: .4rem; }
+.behavior-row .behavior-sel { flex: 1 1 auto; min-width: 0; }
+.behavior-rank {
+  flex: 0 0 auto; width: 1.5rem; height: 1.5rem; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(226,151,74,.18); color: var(--accent-2, #e2974a);
+  font-weight: 800; font-size: .75rem;
+}

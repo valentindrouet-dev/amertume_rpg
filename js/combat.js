@@ -206,6 +206,7 @@
       maxPv: m.pv + renfort, pv: m.pv + renfort,
       def: Combatants.monsterTotalDef(m), damage: m.damage, xp: m.xp, type: m.type,
       menace: m.menace, esquive: !!m.esquive || hasEsquiveEff, rapide: !!m.rapide, socle: m.socle,
+      behaviors: Array.isArray(m.behaviors) ? m.behaviors.slice() : [],
       attacks: attacks, attackUses: initUses(attacks),
       talents: advTalents,
       talentLabels: Combatants.monsterTalentLabels(m),
@@ -1917,6 +1918,68 @@
   // Contact : frappe en priorité un héros de sa zone (se déplace si besoin).
   // Distance : frappe en priorité un héros d'une autre zone.
   // Activation d'un seul adversaire (choix de cible + attaque/déplacement)
+  // ---- COMPORTEMENTS de déplacement (fiche d'adversaire) ----
+  // Évalués DANS L'ORDRE : la première règle qui donne une destination valable
+  // l'emporte. Indépendants de la Menace (qui choisit la cible d'attaque).
+  // Renvoie { zone } (destination), { stay: true } (immobile) ou null (aucune règle).
+  function zonesReachableFrom(m) {
+    return zones().map(function (z, i) { return i; }).filter(function (i) {
+      return i !== m.zone && moveBarrier(m.zone, i).type !== 'block';
+    });
+  }
+  function heroesInZone(zi) {
+    return activeOf('hero').filter(function (h) { return h.zone === zi && targetableByFoe(h); }).length;
+  }
+  function behaviorMove(m) {
+    const list = Array.isArray(m.behaviors) ? m.behaviors : [];
+    if (!list.length) return null;
+    const reach = zonesReachableFrom(m);
+    for (let i = 0; i < list.length; i++) {
+      const b = list[i];
+      if (b === 'still') return { stay: true };
+      if (!reach.length) continue; // règles de déplacement : sans issue, on passe à la suivante
+      if (b === 'roam') {
+        return { zone: reach[Math.floor(Math.random() * reach.length)] };
+      }
+      if (b === 'fleeHeroes') {
+        // Ne s'applique que si la zone actuelle contient un aventurier ; cible une zone VIDE.
+        if (!heroesInZone(m.zone)) continue;
+        const empties = reach.filter(function (z) { return heroesInZone(z) === 0; });
+        if (empties.length) return { zone: empties[Math.floor(Math.random() * empties.length)] };
+        continue;
+      }
+      if (b === 'toCrowd' || b === 'toLonely') {
+        // Zones candidates : la sienne incluse (rester peut être la bonne réponse).
+        const cands = [m.zone].concat(reach);
+        const counts = cands.map(heroesInZone);
+        const want = b === 'toCrowd' ? Math.max.apply(null, counts) : Math.min.apply(null, counts);
+        const best = cands.filter(function (z, k) { return counts[k] === want; });
+        // La zone actuelle satisfait déjà la règle → on ne bouge pas.
+        if (best.indexOf(m.zone) >= 0) return { stay: true };
+        return { zone: best[Math.floor(Math.random() * best.length)] };
+      }
+    }
+    return null;
+  }
+  // Applique le comportement avant l'IA d'attaque. Retourne true si le
+  // comportement a pris la main sur le déplacement (l'IA ne bougera plus).
+  function applyBehavior(m) {
+    const dec = behaviorMove(m);
+    if (!dec) return false;
+    if (dec.stay) { m.used.move = true; return true; }
+    if (dec.zone === m.zone || m.used.move) { m.used.move = true; return true; }
+    const cross = crossCheck(m, dec.zone);
+    if (cross === 'ok') {
+      m.zone = dec.zone; m.used.move = true;
+      pushFx({ type: 'move', iid: m.iid });
+      log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
+      epinesOnArrival(m);
+    } else {
+      m.used.move = true; // barrière : tentative perdue
+    }
+    return true;
+  }
+
   function actOneMonster(m) {
     if (actionSpent(m)) return;
     // AU SOL : l'adversaire utilise son mouvement pour se relever, puis attaque
@@ -1929,8 +1992,13 @@
     }
     // INVISIBLE : les aventuriers invisibles sont retirés des cibles possibles
     // (les adversaires ne les voient pas).
+    // INVISIBLE : les aventuriers invisibles sont retirés des cibles possibles
+    // (les adversaires ne les voient pas).
     const heroes = activeOf('hero').filter(targetableByFoe);
     if (!heroes.length) return;
+    // COMPORTEMENTS de la fiche : ils décident du déplacement AVANT l'IA d'approche.
+    applyBehavior(m);
+    if (m.status !== 'active') return;
     // HAPPE : avant d'attaquer, déplace de force un aventurier d'une autre zone dans la sienne.
     if (monsterTalent(m, 'pull_to_zone')) {
       // On ne happe pas un aventurier au travers d'une barrière infranchissable/obstruante.
