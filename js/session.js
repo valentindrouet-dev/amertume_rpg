@@ -1544,7 +1544,7 @@
                   const info = heroTestInfo(ses, h, ch.skill);
                   return '<div class="ses-skill-pill">' +
                     '<span class="ssk-hero">' + esc(h.name) + '</span>' +
-                    '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
+                    '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + (1 + info.bonus) + diceTag(ch.difficulty) + '</span>' +
                     (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
                   '</div>';
                 }).join('') + '</div>'
@@ -1557,7 +1557,7 @@
             helper = bh.hero
               ? '<div class="ses-skill-pill">' +
                   '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' +
-                  '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + dice + ' 🎲</span>' +
+                  '<span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + ' ' + dice + diceTag(ch.difficulty) + '</span>' +
                   (talBonus ? '<span class="ssk-tal">+' + talBonus + ' réussite' + (talBonus > 1 ? 's' : '') + '</span>' : '') +
                 '</div>'
               : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
@@ -1594,6 +1594,9 @@
   }
 
   // ----- Blocs de test de compétence (tentés une seule fois, dans le fil du texte) -----
+  // Pastille « 🎲 » : uniquement quand un jet de dés a effectivement lieu.
+  // Une difficulté « Automatique » (ou un bloc Action) ne lance aucun dé.
+  function diceTag(diff, isAction) { return (isAction || diff === 'auto') ? '' : ' 🎲'; }
   const ST_DIFF_LABEL = { auto: 'Automatique', facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile', tresdifficile: 'Très Difficile', insurmontable: 'Insurmontable', impossible: 'Impossible' };
   // Normalisation TOLÉRANTE d'un mot pour les blocs Écriture : minuscules, sans
   // accents, sans espaces/ponctuation, sans « s »/« x » final (pluriel simple).
@@ -1655,7 +1658,7 @@
           return '<div class="ses-skill-pill ses-split-pill">' +
             '<button type="button" class="ssk-swap" data-hero="' + esc(h.id) + '" title="Basculer ' + esc(h.name) + ' vers « ' + esc(variants[1 - vi].skill || '') + ' »">⇄</button>' +
             '<span class="ssk-hero">' + esc(h.name) + '</span>' +
-            '<span class="ssk-skill skill-' + slug(v.skill || '') + '">' + (1 + info.bonus) + ' 🎲</span>' +
+            '<span class="ssk-skill skill-' + slug(v.skill || '') + '">' + (1 + info.bonus) + diceTag(v.difficulty, block.actionMode) + '</span>' +
             (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + '</span>' : '') +
           '</div>';
         }).join('') : '<div class="hint ses-split-empty">Personne</div>') +
@@ -1680,7 +1683,8 @@
     });
   }
   // Vignette(s) de testeur sous un bouton, pour une compétence donnée.
-  function variantHelperFor(ses, block, scene, skill, excludeIds) {
+  function variantHelperFor(ses, block, scene, skill, excludeIds, diff) {
+    const dTag = diceTag(diff == null ? block.difficulty : diff, block.actionMode);
     const groupLike = !block.actionMode && (block.who === 'group' || block.who === 'concerned');
     if (groupLike) {
       const heroes = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
@@ -1689,7 +1693,7 @@
             const info = heroTestInfo(ses, h, skill);
             return '<div class="ses-skill-pill">' +
               '<span class="ssk-hero">' + esc(h.name) + '</span>' +
-              '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + (1 + info.bonus) + ' 🎲</span>' +
+              '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + (1 + info.bonus) + dTag + '</span>' +
               (info.talentSucc ? '<span class="ssk-tal">+' + info.talentSucc + ' réussite' + (info.talentSucc > 1 ? 's' : '') + '</span>' : '') +
             '</div>';
           }).join('') + '</div>'
@@ -1697,7 +1701,7 @@
     }
     const bh = singleTester(ses, block, excludeIds || null, skill);
     const dice = 1 + (bh.bonus || 0);
-    const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">🎲 au hasard</span>' : '';
+    const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">au hasard</span>' : '';
     // MEILLEUR AVENTURIER : le désigné est modifiable — la vignette est un menu
     // déroulant (le meilleur est proposé par défaut). Aléatoire / Groupe / Concernés : figé.
     if (block.who !== 'random' && block.who !== 'group' && block.who !== 'concerned') {
@@ -1713,14 +1717,14 @@
                 esc(h.name) + '</option>';
             }).join('') +
           '</select>' +
-          '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + ' 🎲</span>' +
+          '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + dTag + '</span>' +
           (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
         '</div>';
     }
     return bh.hero
       ? '<div class="ses-skill-pill">' +
           '<span class="ssk-hero">' + esc(bh.hero.name) + '</span>' + randTag +
-          '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + ' 🎲</span>' +
+          '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + dTag + '</span>' +
           (bh.talentSucc ? '<span class="ssk-tal">+' + bh.talentSucc + ' réussite' + (bh.talentSucc > 1 ? 's' : '') + '</span>' : '') +
         '</div>'
       : '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
@@ -1769,7 +1773,7 @@
     if (variants.some(function (v) { return !v.action; })) {
       pillRow = '<div class="ses-tb-pillrow">' +
         variants.map(function (v, vi) {
-          return '<div class="ses-tb-pillcell">' + (v.action ? '' : variantHelperFor(ses, block, scene, v.skill, excludeIds)) + '</div>';
+          return '<div class="ses-tb-pillcell">' + (v.action ? '' : variantHelperFor(ses, block, scene, v.skill, excludeIds, v.difficulty)) + '</div>';
         }).join(multi ? '<div class="ses-tb-or ses-tb-or-ghost" aria-hidden="true">ou</div>' : '') +
       '</div>';
     }
