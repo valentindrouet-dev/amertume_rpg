@@ -4594,7 +4594,7 @@ label.tb-chain-item > .tb-chain-name {
   display: flex; justify-content: center; pointer-events: none;
 }
 .ses-compass-inner {
-  pointer-events: auto; width: 100%; max-width: 34rem; box-sizing: border-box;
+  pointer-events: auto; width: 100%; box-sizing: border-box;
   background: linear-gradient(180deg, #2f2418, #241b11);
   border: 1px solid #6b5432; border-radius: 14px;
   box-shadow: 0 6px 18px rgba(0,0,0,.4);
@@ -4609,12 +4609,7 @@ label.tb-chain-item > .tb-chain-name {
   min-width: 0; min-height: 46px; border-radius: 9px;
 }
 /* Case sans sortie : discrète, jamais cliquable — la forme reste identique. */
-.rose-empty {
-  align-items: center; justify-content: center;
-  border: 1px dashed rgba(190,160,110,.22); background: rgba(255,245,225,.03);
-  pointer-events: none;
-}
-.rose-empty-dir { font-size: .62rem; font-weight: 700; letter-spacing: .08em; color: rgba(228,214,188,.24); }
+.rose-empty { border: 0; background: none; pointer-events: none; visibility: hidden; }
 /* Salle courante : identifiable, non cliquable. */
 .rose-center {
   align-items: center; justify-content: center; text-align: center; gap: .1rem;
@@ -4629,7 +4624,7 @@ label.tb-chain-item > .tb-chain-name {
 }
 /* Bouton de sortie */
 .rose-btn.ses-exit-btn {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem;
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .3rem;
   width: 100%; min-height: 46px; box-sizing: border-box; flex: 1 1 auto;
   padding: .28rem .3rem; text-align: center; cursor: pointer;
   border: 1px solid rgba(0,0,0,.28); border-left: 1px solid rgba(0,0,0,.28);
@@ -4639,14 +4634,13 @@ label.tb-chain-item > .tb-chain-name {
 .rose-btn.ses-exit-btn:hover:not([disabled]) { filter: brightness(1.06); border-color: #b4813c; }
 .rose-btn.ses-exit-visited { box-shadow: inset 0 0 0 1px rgba(106,171,106,.55), 0 1px 2px rgba(0,0,0,.25); }
 .rose-btn.ses-exit-locked { opacity: .5; cursor: not-allowed; border-style: dashed; }
-.rose-arrow { font-size: 1rem; line-height: 1; font-weight: 800; }
+.rose-arrow { flex: 0 0 auto; font-size: 1rem; line-height: 1; font-weight: 800; }
+/* Flèche et nom de salle sur UNE seule ligne (nom tronqué par « … »). */
 .rose-name {
-  font-size: .7rem; font-weight: 700; line-height: 1.05; max-width: 100%;
-  overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
-  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  flex: 0 1 auto; min-width: 0; font-size: .72rem; font-weight: 700; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.rose-lbl { font-size: .6rem; font-weight: 600; color: #5d4f38; max-width: 100%;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rose-lbl { display: none; } /* le libellé du connecteur passe en infobulle : tout tient sur une ligne */
 .rose-none { margin: .3rem 0 0; text-align: center; font-size: .74rem; color: rgba(228,214,188,.6); }
 /* Salle survolée depuis la rose : surlignée sur la mini-carte. */
 .mmap-room.mmap-hover { outline: 2px solid #e2974a; outline-offset: 1px; box-shadow: 0 0 8px rgba(226,151,74,.6); }

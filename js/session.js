@@ -1307,10 +1307,21 @@
     const col = document.querySelector('.ses-scene-card');
     const narrow = window.matchMedia('(max-width: 860px)').matches;
     if (col && !narrow) {
+      // Même largeur que les BLOCS DE TEXTE de la salle : on se cale sur la
+      // boîte de contenu de la carte de scène (padding déduit).
       const r = col.getBoundingClientRect();
-      rose.style.left = Math.round(r.left) + 'px';
+      const cs = window.getComputedStyle(col);
+      const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+      const bw = parseFloat(cs.borderLeftWidth) || 0;
+      // Le cadre de la rose déborde de sa propre marge intérieure, de sorte que
+      // la GRILLE et les BOUTONS s'alignent pile sur les blocs de texte.
+      const inner = rose.querySelector('.ses-compass-inner');
+      const ics = inner ? window.getComputedStyle(inner) : null;
+      const inL = ics ? (parseFloat(ics.paddingLeft) || 0) + (parseFloat(ics.borderLeftWidth) || 0) : 0;
+      const inR = ics ? (parseFloat(ics.paddingRight) || 0) + (parseFloat(ics.borderRightWidth) || 0) : 0;
+      rose.style.left = Math.round(r.left + bw + padL - inL) + 'px';
       rose.style.right = 'auto';
-      rose.style.width = Math.round(r.width) + 'px';
+      rose.style.width = Math.round(r.width - bw * 2 - padL - padR + inL + inR) + 'px';
     } else {
       rose.style.left = ''; rose.style.right = ''; rose.style.width = '';
     }
