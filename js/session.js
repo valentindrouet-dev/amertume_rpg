@@ -844,6 +844,19 @@
   // enchaînés non révélés et les blocs dont la condition de compétence n'est pas
   // remplie sont ignorés. Un test obligatoire qui déclenche un combat en cas
   // d'échec reste ensuite verrouillé via forcedCombatPending.
+  // Un test obligatoire NARRATIF interrompt l'histoire : il bloque TOUTE sortie,
+  // demi-tour compris.
+  function narrativeTestPending(scene, ses) {
+    if (!scene || !ses) return false;
+    const blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
+    return blocks.some(function (blk) {
+      if (blk.type !== 'test' || !blk.mandatory || !blk.mandatoryNarrative) return false;
+      if (!blockVisible(blk, ses)) return false;
+      if (testChainHidden(scene, blk, ses)) return false;
+      const st = ses.searchTests && ses.searchTests[blk.id];
+      return !(st && st.done);
+    });
+  }
   function mandatoryTestPending(scene, ses) {
     if (!scene || !ses) return false;
     const blocks = Array.isArray(scene.blocks) ? scene.blocks : [];
@@ -965,7 +978,7 @@
     if (!fx || !fx.kind || fx.kind === 'none') return '';
     let inner = '';
     if (fx.kind === 'combat') inner = '⚔️ <strong>Un combat se déclenche !</strong>';
-    else if (fx.kind === 'prepare') inner = '⚡ Le groupe est <strong>Préparé</strong> pour le prochain combat <span class="ses-reward-note">(+1 Action ou +1 Mouvement au 1er Tour)</span>';
+    else if (fx.kind === 'prepare') inner = '⚡ Le groupe est <strong>Préparé</strong> pour le prochain combat<br><span class="ses-reward-note">(+1 Action ou +1 Mouvement au 1er Tour)</span>';
     else if (fx.kind === 'pv') inner = '❤️ Soin <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' PV</strong> pour le groupe';
     else if (fx.kind === 'vie') inner = '❤️ Gain <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' VIE</strong> pour le groupe';
     else if (fx.kind === 'state') inner = '🛡️ Groupe gagne <strong>' + esc(WIN_STATE_LABEL[fx.state] || fx.state || 'Blindage') + '</strong> au prochain combat';
@@ -978,7 +991,7 @@
     const fx = (o && o.winEffect) || (o && o.prepareReward ? { kind: 'prepare' } : null);
     if (!fx || !fx.kind || fx.kind === 'none') return '';
     if (fx.kind === 'combat') { triggerForcedCombat(ses, ses.currentSceneId, fx.combat); return '⚔️ Un combat se déclenche !'; }
-    if (fx.kind === 'prepare') { prepareParty(ses); return 'Le groupe est Préparé pour le prochain combat (+1 Action ou +1 Mouvement au 1er Tour).'; }
+    if (fx.kind === 'prepare') { prepareParty(ses); return 'Le groupe est Préparé pour le prochain combat\n(+1 Action ou +1 Mouvement au 1er Tour).'; }
     const n = Math.max(1, Store.rollAmount(fx.val == null ? 2 : fx.val));
     if (!ses.heroStates) ses.heroStates = {};
     if (fx.kind === 'pv') {
@@ -1078,15 +1091,23 @@
       }
     } else {
       // Joystick de sorties : dans la colonne principale, sous les blocs de la scène.
-      if (mode === 'dungeon' && !navBlocked && !scene.isTransition) renderDungeonExits(box, ch, scene, adv, ses);
+      // Un test obligatoire NON narratif laisse le demi-tour possible : les sorties
+      // s'affichent, mais seules les salles DÉJÀ VISITÉES sont franchissables.
+      const backOnly = navBlocked && resolved && !narrativeTestPending(scene, ses);
+      if (mode === 'dungeon' && (!navBlocked || backOnly) && !scene.isTransition) {
+        renderDungeonExits(box, ch, scene, adv, ses, backOnly);
+      }
       if (mode === 'random' && !navBlocked && !hasChoices && !scene.nextSceneId && !scene.isTransition) renderRandomNext(box, ch, scene, adv, ses);
     }
     // Message explicatif : on indique pourquoi aucune sortie n'est proposée
     // (le combat imposé, lui, a son propre écran et a déjà court-circuité le rendu).
-    if (navBlocked && !forcedCombatPending(ses, scene) && scene.type !== 'fin') {
+    const backAllowed = navBlocked && resolved && !narrativeTestPending(scene, ses) && chapterMode(ch) === 'dungeon';
+    if (navBlocked && !forcedCombatPending(ses, scene) && scene.type !== 'fin' && !backAllowed) {
       const why = !resolved
         ? '🔒 Terminez le combat de cette salle avant de continuer.'
-        : '🔒 Un test obligatoire doit être tenté avant de continuer.';
+        : (narrativeTestPending(scene, ses)
+          ? '🔒 Un test obligatoire doit être tenté avant de continuer.'
+          : '🔒 Un test obligatoire doit être tenté pour explorer plus loin — vous pouvez faire demi-tour.');
       appendSection(box).innerHTML = '<p class="hint ses-nav-locked">' + why + '</p>';
     }
     if (scene.type === 'fin') renderFinButton(box, scene, adv, ses);
@@ -1218,7 +1239,7 @@
     return { mode: mode, unlocked: !!(st && st.success) };
   }
   // ----- Donjon structuré : sorties & accès de la salle (connecteurs) -----
-  function renderDungeonExits(box, chapter, scene, adv, ses) {
+  function renderDungeonExits(box, chapter, scene, adv, ses, backOnly) {
     const links = (chapter && Array.isArray(chapter.links) ? chapter.links : []).filter(function (l) {
       if (l.from !== scene.id && l.to !== scene.id) return false;
       // DISSIMULÉ : invisible tant que son test de révélation n'est pas réussi.
@@ -1244,12 +1265,17 @@
     function exitBtnHtml(e) {
       const visited = (ses.visitedSceneIds || []).indexOf(e.other) >= 0;
       // VERROUILLÉ non encore ouvert : bouton visible avec un cadenas, non franchissable.
-      const locked = e.gate.mode === 'locked' && !e.gate.unlocked;
+      // backOnly (test obligatoire en attente) : seules les salles déjà visitées
+      // restent accessibles — on peut faire demi-tour, pas avancer.
+      const lockedByTest = backOnly && (ses.visitedSceneIds || []).indexOf(e.other) < 0;
+      const locked = (e.gate.mode === 'locked' && !e.gate.unlocked) || lockedByTest;
       // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
       // (pas d'indice sur les salles inconnues).
       const danger = visited && e.f && sceneHasCombat(e.f.scene) && !(ses.clearedScenes && ses.clearedScenes[e.other]);
       return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + (locked ? ' ses-exit-locked' : '') + '" data-to="' + esc(e.other) + '"' +
-        (locked ? ' disabled title="Verrouillé — réussissez le test de la salle pour l\'ouvrir."' : '') + '>' +
+        (locked ? ' disabled title="' + (lockedByTest
+          ? 'Un test obligatoire doit être tenté avant d\'explorer plus loin (le demi-tour reste possible).'
+          : 'Verrouillé — réussissez le test de la salle pour l\'ouvrir.') + '"' : '') + '>' +
         (locked ? '<span class="ses-exit-lock">🔒</span>' : '') +
         (e.l.label ? '<span class="ses-exit-lbl">' + esc(e.l.label) + '</span>' : '') +
         '<span class="ses-exit-to"><span class="ses-exit-dir">' + e.arrow + '</span> ' + (visited ? esc(titleOf(e.other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +

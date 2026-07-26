@@ -1196,7 +1196,9 @@
     if (negated) {
       log(cname(attacker) + movePfx + ' attaque ' + cname(target) +
         ' mais l’attaque est annulée (<span class="lstate">' + reason + '</span>).', 'attack');
-      pushFx({ type: 'miss', iid: target.iid, text: reason });
+      // BLINDAGE absorbé : éclat métallique « tschiing » + texte dédié.
+      if (reason.indexOf('Blindage') === 0) pushFx({ type: 'blindage', iid: target.iid, text: 'BLINDAGE !' });
+      else pushFx({ type: 'miss', iid: target.iid, text: reason });
       applyRegain(target, attacker); // Blindage / annulation → Regain
       return;
     }
@@ -2576,7 +2578,8 @@
       ? ' (' + c.blindageCharges + ' restant' + (c.blindageCharges > 1 ? 's' : '') + ')'
       : '';
     log(cname(c) + ' absorbe ' + label + ' grâce au <span class="lstate">Blindage</span>' + left + '.', 'state');
-    pushFx({ type: 'state', iid: c.iid });
+    // Effet visuel dédié : éclat métallique + texte « BLINDAGE ! » sur la vignette.
+    pushFx({ type: 'blindage', iid: c.iid, text: 'BLINDAGE !' });
     return true;
   }
 
@@ -2803,6 +2806,18 @@
     ghost.addEventListener('animationend', function () { ghost.remove(); }, { once: true });
   }
 
+  // Éclat métallique du Blindage (« tschiing ») : trait lumineux qui balaie la
+  // vignette. Purement décoratif, supprimé à la fin de l'animation.
+  function sparkFx(card) {
+    if (!card) return;
+    try {
+      const el = document.createElement('div');
+      el.className = 'fx-spark';
+      card.appendChild(el);
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 650);
+    } catch (e) {}
+  }
+
   function flushFx() {
     if (!fxQueue.length) return;
     const q = fxQueue; fxQueue = [];
@@ -2841,6 +2856,12 @@
           break;
         case 'state':
           cardAnim(a.card, 'fx-state');
+          break;
+        case 'blindage':
+          // « Tschiing ! » : éclat métallique sur la vignette + texte flottant.
+          cardAnim(a.card, 'fx-blindage');
+          sparkFx(a.card);
+          floatText(a.rect, ev.text || 'BLINDAGE !', 'fx-blindage-txt', fxFloatIdx++);
           break;
         case 'move':
           if (VFX.mouvement) flipMove(ev.iid); // glissement de zone à zone
@@ -4748,10 +4769,14 @@
     if (!box) return;
     if (!combat().log.length) { box.innerHTML = '<p class="empty">—</p>'; return; }
     // e.text contient du HTML pré-échappé (noms échappés à la construction)
-    box.innerHTML = combat().log.map(function (e) {
+    // Ordre CHRONOLOGIQUE : le journal est stocké du plus récent au plus ancien,
+    // on l'inverse pour l'affichage (les dernières lignes apparaissent en bas).
+    box.innerHTML = combat().log.slice().reverse().map(function (e) {
       return '<div class="log-row log-' + e.kind + '"><span class="log-turn">T' + e.turn + '</span>' +
         e.text + '</div>';
     }).join('');
+    // Suit automatiquement les dernières entrées.
+    box.scrollTop = box.scrollHeight;
   }
 
   // Démarre un combat directement dans une session d'aventure, sans écran de

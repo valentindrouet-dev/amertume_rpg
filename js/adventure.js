@@ -1705,7 +1705,8 @@
             // Bloc ACTION : une 2e ACTION optionnelle (issue « échec ») à la place.
             (isWrite
               ? '<div class="form-row tb-alt-row" style="grid-template-columns:1fr">' +
-                  '<label class="tb-mandatory-lbl" title="Affiche 🔒 Obligatoire en rouge dans le titre."><input type="checkbox" class="tb-mandatory" data-bi="' + i + '"' + (blk.mandatory ? ' checked' : '') + ' /> 🔒 Obligatoire</label>' +
+                  '<label class="tb-mandatory-lbl" title="Affiche 🔒 Obligatoire en rouge dans le titre. Bloque l\'accès aux salles non visitées (le demi-tour reste possible)."><input type="checkbox" class="tb-mandatory" data-bi="' + i + '"' + (blk.mandatory ? ' checked' : '') + ' /> 🔒 Obligatoire</label>' +
+                  (blk.mandatory ? '<label class="tb-mandatory-lbl" title="Test qui INTERROMPT l\'histoire : tant qu\'il n\'est pas tenté, AUCUNE sortie n\'est possible, pas même le demi-tour."><input type="checkbox" class="tb-narrative" data-bi="' + i + '"' + (blk.mandatoryNarrative ? ' checked' : '') + ' /> 🎬 Narratif (bloque aussi le demi-tour)</label>' : '') +
                 '</div>'
               : '<div class="form-row tb-alt-row" style="grid-template-columns:1fr 1fr auto">' +
                 (isAction
@@ -1715,7 +1716,8 @@
                       '<option value="">— Aucune —</option>' +
                       SKILLS.map(function (s) { return '<option value="' + s + '"' + (blk.altSkill === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
                     '<label>Difficulté (alternative) <select class="tb-altdiff" data-bi="' + i + '"' + (blk.altSkill ? '' : ' disabled') + '>' + diffOptsHtml(blk.altDifficulty || blk.difficulty) + '</select></label>') +
-                '<label class="tb-mandatory-lbl" title="Affiche 🔒 Obligatoire en rouge dans le titre."><input type="checkbox" class="tb-mandatory" data-bi="' + i + '"' + (blk.mandatory ? ' checked' : '') + ' /> 🔒 Obligatoire</label>' +
+                '<label class="tb-mandatory-lbl" title="Affiche 🔒 Obligatoire en rouge dans le titre. Bloque l\'accès aux salles non visitées (le demi-tour reste possible)."><input type="checkbox" class="tb-mandatory" data-bi="' + i + '"' + (blk.mandatory ? ' checked' : '') + ' /> 🔒 Obligatoire</label>' +
+                  (blk.mandatory ? '<label class="tb-mandatory-lbl" title="Test qui INTERROMPT l\'histoire : tant qu\'il n\'est pas tenté, AUCUNE sortie n\'est possible, pas même le demi-tour."><input type="checkbox" class="tb-narrative" data-bi="' + i + '"' + (blk.mandatoryNarrative ? ' checked' : '') + ' /> 🎬 Narratif (bloque aussi le demi-tour)</label>' : '') +
               '</div>') +
             // Seuil de réussite d'un test collectif (groupe / concernés).
             ((blk.who === 'group' || blk.who === 'concerned')
@@ -1905,8 +1907,16 @@
     box.querySelectorAll('.tb-altdiff').forEach(function (el) {
       el.onchange = function () { scene.blocks[biOf(this)].altDifficulty = this.value; };
     });
+    box.querySelectorAll('.tb-narrative').forEach(function (el) {
+      el.onchange = function () { scene.blocks[biOf(this)].mandatoryNarrative = this.checked; };
+    });
     box.querySelectorAll('.tb-mandatory').forEach(function (el) {
-      el.onchange = function () { scene.blocks[biOf(this)].mandatory = this.checked; };
+      el.onchange = function () {
+        const blk = scene.blocks[biOf(this)];
+        blk.mandatory = this.checked;
+        if (!this.checked) delete blk.mandatoryNarrative;
+        renderBlocksEditor(scene, adv); // fait apparaître/disparaître l'option « Narratif »
+      };
     });
     box.querySelectorAll('.tb-rarekey').forEach(function (el) {
       el.onchange = function () {
