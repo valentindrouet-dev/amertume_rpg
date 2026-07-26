@@ -832,7 +832,7 @@
     if (c.status !== 'active') return; // tombé au coma en partant
     c.zone = zi;
     pushFx({ type: 'move', iid: c.iid });
-    if (!silent) log(cname(c) + ' se déplace <span class="lstate">' + esc(zname(zi)) + '</span>.', 'move');
+    if (!silent) logMove(c, zi);
     if (c.side === 'hero') chargeOnEnter(c);
   }
 
@@ -888,7 +888,7 @@
       if (absorbBlindage(m, 'la charge')) return;
       const before = m.pv;
       m.pv = Math.max(0, m.pv - dmg);
-      m.dmgTaken += dmg; c.dmgDealt += dmg;
+      m.dmgTaken += dmg; revealOnDamage(m, dmg); c.dmgDealt += dmg;
       pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
       log('<b class="lopp">' + esc(heroTalentName(c, 'charge_devastatrice')) + ' !</b> ' + cname(c) + ' inflige ' + amt(dmg, 'dmg') +
         ' Dégâts à ' + cname(m) + ' en chargeant.', 'dchoc');
@@ -979,7 +979,7 @@
     if (absorbBlindage(monster, 'l\'attaque d\'opportunité')) return;
     const before = monster.pv;
     monster.pv = Math.max(0, monster.pv - dmg);
-    monster.dmgTaken += dmg; hero.dmgDealt += dmg;
+    monster.dmgTaken += dmg; revealOnDamage(monster, dmg); hero.dmgDealt += dmg;
     pushFx({ type: 'hit', iid: monster.iid, amount: dmg, fromPct: pct(before, monster.maxPv), toPct: pct(monster.pv, monster.maxPv) });
     log('<b class="lopp">Attaque d\'Opportunité</b> : ' + cname(hero) + ' inflige ' + amt(dmg, 'dmg') + ' à ' + cname(monster) + ' (' + (why || 'Bousculade') + ').', 'dchoc');
     if (monster.pv <= 0 && !monster.killedBy) monster.killedBy = hero.iid;
@@ -1005,7 +1005,7 @@
     if (absorbBlindage(hero, 'l\'attaque d\'opportunité')) return 0;
     const pvBefore = hero.pv;
     hero.pv = Math.max(0, hero.pv - dmg);
-    hero.dmgTaken += dmg; monster.dmgDealt += dmg;
+    hero.dmgTaken += dmg; revealOnDamage(hero, dmg); monster.dmgDealt += dmg;
     pushFx({ type: 'hit', iid: hero.iid, amount: dmg, fromPct: pct(pvBefore, hero.maxPv), toPct: pct(hero.pv, hero.maxPv) });
     const why = reason === 'distance'
       ? 'car il utilise une <i>attaque à distance</i> dans sa zone'
@@ -1177,7 +1177,10 @@
     // Fusionne un déplacement effectué dans la même action (« se déplace … et attaque … »).
     let movePfx = '';
     if (movePrefix && movePrefix.iid === attacker.iid) {
-      movePfx = ' se déplace <span class="lstate">' + esc(movePrefix.zone) + '</span> et';
+      // INVISIBLE : la zone d'arrivée reste cachée dans la ligne fusionnée.
+      movePfx = hiddenFromPlayer(attacker)
+        ? ' surgit <span class="lstate">de nulle part</span> et'
+        : ' se déplace <span class="lstate">' + esc(movePrefix.zone) + '</span> et';
       movePrefix = null;
     }
     if (res.echec) {
@@ -1231,7 +1234,7 @@
     const pvBefore = target.pv;
     const wasActive = target.status === 'active';
     if (res.pvLost > 0) {
-      target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; attacker.dmgDealt += res.pvLost;
+      target.pv = Math.max(0, target.pv - res.pvLost); target.dmgTaken += res.pvLost; revealOnDamage(target, res.pvLost); attacker.dmgDealt += res.pvLost;
       // RÉACTION Contre-Attaque : l'aventurier blessé pourra riposter. Restreinte
       // au contact, sauf RIPOSTE À DISTANCE qui l'autorise aussi à distance.
       if (target.side === 'hero' && attacker.side === 'monster' && heroHasTalent(target, 'contre_attaque') &&
@@ -1496,7 +1499,7 @@
         const dmg = attacker.damage;
         combat().combatants.filter(function (m) { return m.side === 'monster' && m.status === 'active' && m.zone === attacker.zone; }).forEach(function (m) {
           if (absorbBlindage(m, 'Critique Explosif')) return;
-          const before = m.pv; m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; attacker.dmgDealt += dmg;
+          const before = m.pv; m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; revealOnDamage(m, dmg); attacker.dmgDealt += dmg;
           pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
           log('<b class="lopp">Critique Explosif !</b> ' + cname(attacker) + ' inflige ' + amt(dmg, 'dmg') + ' Dégâts à ' + cname(m) + '.', 'dchoc');
           if (m.pv <= 0 && !m.killedBy) m.killedBy = attacker.iid;
@@ -1629,7 +1632,7 @@
       log('<b class="lreact">Exécution ?</b> ' + cname(m) + ' va fuir : ' + cname(h) + ' peut lui infliger ' + amt(dmg, 'dmg') + ' Dégâts.', 'state');
       if (!global.confirm('Exécution : ' + plainName(h) + ' inflige ' + dmg + ' Dégâts à ' + plainName(m) + ' avant sa fuite ?')) return;
       if (absorbBlindage(m, 'Exécution')) return;
-      const before = m.pv; m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; h.dmgDealt += dmg;
+      const before = m.pv; m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; revealOnDamage(m, dmg); h.dmgDealt += dmg;
       pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
       log('<b class="lopp">Exécution !</b> ' + cname(h) + ' inflige ' + amt(dmg, 'dmg') + ' Dégâts à ' + cname(m) + ' avant sa fuite.', 'dchoc');
       if (m.pv <= 0 && !m.killedBy) m.killedBy = h.iid;
@@ -1777,7 +1780,7 @@
       if (dmg <= 0 || m.status !== 'active') return;
       if (absorbBlindage(m, 'Épines')) return;
       const before = m.pv;
-      m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; h.dmgDealt += dmg;
+      m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; revealOnDamage(m, dmg); h.dmgDealt += dmg;
       pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
       log('<b class="lopp">Épines !</b> ' + cname(h) + ' inflige ' + amt(dmg, 'dmg') + ' Dégâts à ' + cname(m) + ' qui arrive dans sa zone.', 'dchoc');
       if (m.pv <= 0 && !m.killedBy) m.killedBy = h.iid;
@@ -2006,7 +2009,7 @@
     if (cross === 'ok') {
       m.zone = dec.zone; m.used.move = true;
       pushFx({ type: 'move', iid: m.iid });
-      log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
+      logMove(m, m.zone);
       epinesOnArrival(m);
     } else {
       m.used.move = true; // barrière : tentative perdue
@@ -2097,7 +2100,7 @@
       }
       // LENT : un adversaire qui s'est déplacé ne peut plus attaquer ce tour.
       if (moved && monsterTalent(m, 'slow')) {
-        log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span> mais est <span class="lstate">Lent</span> : pas d\'attaque.', 'state');
+        logMove(m, m.zone, ' mais est <span class="lstate">Lent</span> : pas d\'attaque');
       } else if (target && target.zone === m.zone) {
         // Parvenu dans la zone de la cible : fusionne déplacement + attaque sur une
         // seule ligne du journal.
@@ -2105,7 +2108,7 @@
         applyAttack(m, contactIdx, target);
       } else if (moved) {
         // Déplacement d'approche (relais) : se rapproche sans encore atteindre la cible.
-        log(cname(m) + ' se déplace <span class="lstate">' + esc(zname(m.zone)) + '</span>.', 'move');
+        logMove(m, m.zone);
       }
     }
   }
@@ -2527,6 +2530,25 @@
   // sur le terrain pour le camp adverse. On ne l'atteint qu'en visant sa ZONE,
   // avec un test de Perception 2.
   function isInvisible(c) { return !!(c && c.status === 'active' && c.states && c.states.invisible); }
+  // Tout dégât subi DISSIPE l'invisibilité : le combattant redevient visible et
+  // ciblable par tous. Appelé à chaque application de dégâts.
+  // Journal d'un déplacement : un adversaire INVISIBLE ne dévoile pas sa zone
+  // (le joueur ne perçoit qu'un mouvement diffus).
+  function logMove(c, zi, suffix) {
+    if (hiddenFromPlayer(c)) {
+      log('<span class="lstate">Vous sentez un mouvement non loin de vous</span> — un adversaire invisible s\'est déplacé.' +
+        (suffix || ''), 'move');
+      return;
+    }
+    log(cname(c) + ' se déplace <span class="lstate">' + esc(zname(zi)) + '</span>' + (suffix || '') + '.', 'move');
+  }
+  function revealOnDamage(c, dmg) {
+    if (!c || !(dmg > 0) || !c.states || !c.states.invisible) return;
+    c.states.invisible = false;
+    pushFx({ type: 'state', iid: c.iid });
+    log(cname(c) + ' est touché et <span class="lstate">perd son Invisibilité</span> — il redevient visible.', 'state');
+    toast('👁 ' + c.name + ' est démasqué !', 'invis');
+  }
   // Masqué à l'affichage : un adversaire invisible disparaît des zones pour le
   // joueur ; un aventurier invisible reste visible par le joueur (c'est son camp).
   function hiddenFromPlayer(c) { return isInvisible(c) && c.side === 'monster'; }
@@ -2561,7 +2583,7 @@
     if (absorbBlindage(c, 'le Poison')) return;
     const before = c.pv;
     c.pv = Math.max(0, c.pv - dmg);
-    c.dmgTaken += dmg;
+    c.dmgTaken += dmg; revealOnDamage(c, dmg);
     pushFx({ type: 'hit', iid: c.iid, amount: dmg, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
     log(cname(c) + ' subit ' + amt(dmg, 'dmg') + ' (<span class="lstate">Poison ' + dmg + '</span>) avant d\'agir.', 'state');
     checkComa(c);
@@ -2579,7 +2601,7 @@
       if (c.side === 'monster' && activeOf('hero').some(function (h) { return heroHasTalent(h, 'feu_double'); })) v *= 2;
       const before = c.pv;
       c.pv = Math.max(0, c.pv - v);
-      c.dmgTaken += v;
+      c.dmgTaken += v; revealOnDamage(c, v);
       pushFx({ type: 'hit', iid: c.iid, amount: v, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
       log(cname(c) + ' subit <span class="dnum d-black">' + v + '</span> Dégâts (<span class="lstate">Feu</span>) en fin de tour.', 'state');
       if (c.side === 'monster' && c.pv <= 0 && !c.killedBy) c.killedBy = null;
@@ -4372,13 +4394,16 @@
     if (pvLost > 0) {
       const pvBefore = target.pv;
       target.pv = Math.max(0, target.pv - pvLost);
-      target.dmgTaken += pvLost; attacker.dmgDealt += pvLost;
+      target.dmgTaken += pvLost; revealOnDamage(target, pvLost); attacker.dmgDealt += pvLost;
       pushFx({ type: 'hit', iid: target.iid, amount: pvLost, fromPct: pct(pvBefore, target.maxPv), toPct: pct(target.pv, target.maxPv) });
       checkMonsterTalents(target, pvLost);
     }
     let movePfx = '';
     if (movePrefix && movePrefix.iid === attacker.iid) {
-      movePfx = ' se déplace <span class="lstate">' + esc(movePrefix.zone) + '</span> et';
+      // INVISIBLE : la zone d'arrivée reste cachée dans la ligne fusionnée.
+      movePfx = hiddenFromPlayer(attacker)
+        ? ' surgit <span class="lstate">de nulle part</span> et'
+        : ' se déplace <span class="lstate">' + esc(movePrefix.zone) + '</span> et';
       movePrefix = null;
     }
     log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
