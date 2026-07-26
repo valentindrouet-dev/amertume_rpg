@@ -20,10 +20,58 @@
   // Courts descriptifs de classe (affichés à la sélection dans l'assistant).
   // À compléter au fil des définitions fournies.
   const CLASS_DESC = {
+    'Destructeur': 'L\'ivresse des batailles vous habite, et la rage vous envahit lorsque vous prenez les armes, afin d\'exterminer vos adversaires et de protéger vos coéquipiers.',
+    'Gardien': 'Protecteur et esprit tactique de votre équipe, vous êtes le héraut des plus faibles et la robustesse incarnée. Défendez vos coéquipiers et arrachez la victoire grâce à votre esprit de stratège.',
     'Lamevent': 'Combattant redoutablement rapide, vous vous faufilez entre les adversaires pour leur infliger d\'innombrables coups et attaques.',
     'Pyromane': 'Maître des arts mystiques et adeptes des brûlures extrêmes, vous manipulez des puissances qui, bien souvent, vous dépassent. Ce qui permet également d\'annihiler des hordes d\'adversaires facilement...',
   };
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
+  // Usage en jeu de chaque compétence (une ligne, affichée à la création).
+  const SKILL_DESC = {
+    'Agilité': 'Esquivez des pièges, franchissez des obstacles, gardez l\'équilibre.',
+    'Force': 'Forcez des portes, soulevez des charges, brisez ce qui résiste.',
+    'Mysticisme': 'Percez les arcanes, ressentez la magie, manipulez l\'occulte.',
+    'Perception': 'Repérez les détails, débusquez les embuscades et les passages cachés.',
+    'Robustesse': 'Encaissez la douleur, résistez au poison, au froid et à l\'épuisement.',
+    'Ruse': 'Crochetez, dissimulez-vous, dupez et négociez à votre avantage.',
+    'Savoir': 'Déchiffrez runes et écrits, identifiez créatures, lieux et légendes.',
+    'Technique': 'Désamorcez des mécanismes, réparez, bricolez et manipulez l\'ingénierie.',
+  };
+  // Genre de l'aventurier : détermine les accords utilisés dans toute l'application.
+  const GENDERS = [
+    { value: 'f', label: '♀ Femme' },
+    { value: 'm', label: '♂ Homme' },
+    { value: 'a', label: '⚧ Autre' },
+  ];
+  // Espèces jouables : chacune apporte un bonus fixe à la création.
+  const SPECIES = [
+    { value: 'humain',  label: 'Humain',  bonus: 'VIE +1',        vie: 1, endu: 0, damage: 0, pvBonus: 0 },
+    { value: 'nain',    label: 'Nain',    bonus: 'PV +8',         vie: 0, endu: 0, damage: 0, pvBonus: 8 },
+    { value: 'goliath', label: 'Goliath', bonus: 'Dégâts +2',     vie: 0, endu: 0, damage: 2, pvBonus: 0 },
+    { value: 'elfe',    label: 'Elfe',    bonus: 'ENDU +1 · Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0 },
+  ];
+  function speciesOf(v) { return SPECIES.find(function (x) { return x.value === v; }) || null; }
+  // ---- Accords selon le genre (utilisés partout dans l'application) ----
+  // g : 'f' (elle) · 'm' (il) · 'a' (iel, accords neutres)
+  function genderOf(h) { return (h && h.gender) || 'a'; }
+  function pronoun(h) { const g = genderOf(h); return g === 'f' ? 'elle' : g === 'm' ? 'il' : 'iel'; }
+  function pronounCap(h) { const p = pronoun(h); return p.charAt(0).toUpperCase() + p.slice(1); }
+  function possessive(h) { return genderOf(h) === 'f' ? 'sa' : 'son'; }
+  // Accord d'un adjectif : agree(h, 'vaincu') → « vaincue » au féminin.
+  function agree(h, word, fem, neutral) {
+    const g = genderOf(h);
+    if (g === 'f') return fem || (word + 'e');
+    if (g === 'a') return neutral || word;
+    return word;
+  }
+  // Nom de rôle accordé : « aventurier » / « aventurière » / « aventurier·e ».
+  function roleNoun(h, base) {
+    const g = genderOf(h);
+    const b = base || 'aventurier';
+    if (g === 'f') return b + 'ère'.replace('è', 'è') === b + 'ère' ? b.replace(/ier$/, 'ière') : b + 'e';
+    if (g === 'a') return b.replace(/ier$/, 'ier·ère');
+    return b;
+  }
   function emptySkills() { const o = {}; SKILLS.forEach(function (s) { o[s] = 0; }); return o; }
   function mergeSkills(src) {
     const o = emptySkills();
@@ -867,7 +915,7 @@
   let wiz = null;
   const WIZ_STEPS = ['Nom', 'Classe', 'Caractéristiques', 'Équipement', 'Talents', 'Compétences'];
   function openHeroWizard(advId) {
-    wiz = { advId: advId, step: 0, name: '', klass: '', statBonuses: { vie: 0, endu: 0, damage: 0 }, statClicks: 0, equipCombo: null, equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, talents: [], skills: {} };
+    wiz = { advId: advId, step: 0, name: '', gender: '', species: '', klass: '', statBonuses: { vie: 0, endu: 0, damage: 0 }, statClicks: 0, equipCombo: null, equipment: { mainG: null, mainD: null, armorId: null, objectId: null }, talents: [], skills: {} };
     $('#hero-wizard-modal').hidden = false;
     renderWizard();
   }
@@ -889,7 +937,7 @@
   function updateWizNav() {
     let ok = true;
     const step = WIZ_STEPS[wiz.step];
-    if (step === 'Nom') ok = !!wiz.name.trim();
+    if (step === 'Nom') ok = !!wiz.name.trim() && !!wiz.gender && !!wiz.species;
     else if (step === 'Classe') ok = !!wiz.klass;
     else if (step === 'Caractéristiques') ok = wiz.statClicks === 3;
     else if (step === 'Équipement') ok = !!wiz.equipCombo;
@@ -929,9 +977,28 @@
     }).join('');
     const stepName = WIZ_STEPS[wiz.step];
     if (stepName === 'Nom') {
-      body.innerHTML = '<label>Nom de l\'aventurier<input type="text" id="hw-name" value="' + esc(wiz.name) + '" placeholder="Son nom…" /></label>';
+      body.innerHTML =
+        '<p class="hint">Choisissez un nom pour votre aventurier(e), son genre et son Espèce.</p>' +
+        '<label>Nom<input type="text" id="hw-name" value="' + esc(wiz.name) + '" placeholder="Son nom…" /></label>' +
+        '<div class="hw-pick-title">Genre</div>' +
+        '<div class="hw-pick-list">' + GENDERS.map(function (g) {
+          return '<button type="button" class="hw-pick' + (wiz.gender === g.value ? ' selected' : '') + '" data-gender="' + g.value + '">' +
+            '<span class="hw-pick-name">' + esc(g.label) + '</span></button>';
+        }).join('') + '</div>' +
+        '<div class="hw-pick-title">Espèce</div>' +
+        '<div class="hw-pick-list hw-pick-species">' + SPECIES.map(function (sp) {
+          return '<button type="button" class="hw-pick' + (wiz.species === sp.value ? ' selected' : '') + '" data-species="' + sp.value + '">' +
+            '<span class="hw-pick-name">' + esc(sp.label) + '</span>' +
+            '<span class="hw-pick-bonus">' + esc(sp.bonus) + '</span></button>';
+        }).join('') + '</div>';
       const inp = $('#hw-name');
       inp.oninput = function () { wiz.name = this.value; updateWizNav(); };
+      body.querySelectorAll('[data-gender]').forEach(function (b) {
+        b.onclick = function () { wiz.gender = b.getAttribute('data-gender'); renderWizard(); };
+      });
+      body.querySelectorAll('[data-species]').forEach(function (b) {
+        b.onclick = function () { wiz.species = b.getAttribute('data-species'); renderWizard(); };
+      });
       setTimeout(function () { inp.focus(); }, 0);
     } else if (stepName === 'Classe') {
       const classes = Store.loadClasses().filter(function (c) { return PLAYABLE_CLASSES.indexOf(c.name) >= 0; });
@@ -943,7 +1010,9 @@
             (desc ? '<span class="hw-class-tab-desc">' + esc(desc) + '</span>' : '') +
           '</div>'
         : '';
-      body.innerHTML = tab + '<div class="hw-class-list">' +
+      body.innerHTML =
+        '<p class="hint">Choisissez la Classe de votre aventurier(e), laquelle déterminera sa façon d\'agir, de combattre et ses talents disponibles.</p>' +
+        tab + '<div class="hw-class-list">' +
         (classes.length ? classes.map(function (c) {
           return '<button type="button" class="hw-class klass-' + classSlug(c.name) + (wiz.klass === c.name ? ' selected' : '') + '" data-class="' + esc(c.name) + '">' +
             '<span class="hw-class-name">' + esc(c.name) + '</span><span class="hw-class-pv">PV +' + (CLASS_PV[c.name] || 0) + '</span></button>';
@@ -953,10 +1022,12 @@
       });
     } else if (stepName === 'Caractéristiques') {
       const classPvBonus = CLASS_PV[wiz.klass] || 0;
-      const vie = 3 + wiz.statBonuses.vie;
-      const endu = 0 + wiz.statBonuses.endu;
-      const dmg = 0 + wiz.statBonuses.damage;
-      const pv = Math.max(1, vie * endu + classPvBonus);
+      // Bonus d'ESPÈCE : ajoutés d'office aux caractéristiques de départ.
+      const sp = speciesOf(wiz.species) || { vie: 0, endu: 0, damage: 0, pvBonus: 0, label: '' };
+      const vie = 3 + wiz.statBonuses.vie + sp.vie;
+      const endu = 0 + wiz.statBonuses.endu + sp.endu;
+      const dmg = 0 + wiz.statBonuses.damage + sp.damage;
+      const pv = Math.max(1, vie * endu + classPvBonus + sp.pvBonus);
       const rem = 3 - wiz.statClicks;
       // Une ligne par caractéristique avec boutons − / + (modifiables jusqu'à validation)
       function statRow(stat, label, step, cur, bonus) {
@@ -972,8 +1043,9 @@
         '</div>';
       }
       body.innerHTML =
-        '<p class="hint">Répartis tes <b>3 points</b> entre les caractéristiques (tu peux ajuster avant de valider). ' +
-        '<b>' + rem + '</b> point' + (rem > 1 ? 's' : '') + ' restant' + (rem > 1 ? 's' : '') + '.</p>' +
+        '<p class="hint">Répartissez vos <b>3 points</b> entre les caractéristiques (vous pouvez ajuster avant de valider).' +
+        (sp.label ? '<br><span class="hw-species-note">Espèce ' + esc(sp.label) + ' : <b>' + esc(sp.bonus) + '</b> déjà appliqué.</span>' : '') +
+        '<br><b>' + rem + '</b> point' + (rem > 1 ? 's' : '') + ' restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-stat-list2">' +
           statRow('damage', 'DÉGÂTS <small>(+1 / point)</small>', 1, dmg, wiz.statBonuses.damage) +
           '<p class="hw-stat-desc">Augmente les dégâts infligés par toutes vos attaques de <b>+' + dmg + '</b>.</p>' +
@@ -987,6 +1059,7 @@
           '<span class="hw-pv-op">×</span>' +
           '<span class="hw-pv-term hw-pv-vie">VIE ' + vie + '</span>' +
           (classPvBonus ? '<span class="hw-pv-op">+</span><span class="hw-pv-term hw-pv-cls">Classe ' + classPvBonus + '</span>' : '') +
+          (sp.pvBonus ? '<span class="hw-pv-op">+</span><span class="hw-pv-term hw-pv-cls">Espèce ' + sp.pvBonus + '</span>' : '') +
           '<span class="hw-pv-op">=</span>' +
           '<span class="hw-pv-term hw-pv-total">PV ' + pv + '</span>' +
         '</div>';
@@ -1033,7 +1106,9 @@
             '</div></div>' +
           '</div>'
         : '';
-      body.innerHTML = '<p class="hint">Choisis ta <b>combinaison d\'armes</b> de départ.</p>' +
+      body.innerHTML = '<p class="hint">Choisissez votre <b>combinaison d\'armes</b> de départ.<br>' +
+        'Les dés de vos armes équipées infligent des dégâts à vos adversaires.<br>' +
+        'Votre valeur totale de défense annule les dés d\'attaque adverses qui lui sont égaux ou inférieurs.</p>' +
         '<div class="hw-combo-list">' + START_COMBOS.map(function (c) {
           const sel = wiz.equipCombo === c.id;
           return '<button type="button" class="hw-combo' + (sel ? ' selected' : '') + '" data-combo="' + c.id + '">' +
@@ -1082,28 +1157,20 @@
             '</span>' +
           '</div>' +
         '</div>' +
-        (t.description ? '<div class="lvl-tal-desc" hidden>' + Store.fillTalentTagsHtml(t.description, wizTagCtx) + '</div>' : '');
+        (t.description ? '<div class="lvl-tal-desc wiz-tal-desc">' + Store.fillTalentTagsHtml(t.description, wizTagCtx) + '</div>' : '');
       }
       const choiceRemaining = 1 - selCount;
-      body.innerHTML = '<p class="hint">Le Talent de Maîtrise est automatiquement ajouté. Choisis <b>1 talent</b> supplémentaire. ' +
-        '<b>' + Math.max(0, choiceRemaining) + '</b> restant.</p>' +
+      body.innerHTML = '<p class="hint">Le Talent de Maîtrise est automatiquement ajouté. Choisissez <b>1 talent</b> supplémentaire.' +
+        '<br><b>' + Math.max(0, choiceRemaining) + '</b> talent restant disponible.</p>' +
         (masteryTal ? '<div class="hw-tal-section-title">Talent de Maîtrise</div><div class="hw-tal-list">' + talRow(masteryTal, true) + '</div>' : '') +
         (gens.length ? '<div class="hw-tal-section-title">Talents Génériques</div><div class="hw-tal-list">' + gens.map(function (t) { return talRow(t, false); }).join('') + '</div>' : '') +
         (clsTals.length ? '<div class="hw-tal-section-title">Talents de Classe</div><div class="hw-tal-list">' + clsTals.map(function (t) { return talRow(t, false); }).join('') + '</div>' : '') +
         (!gens.length && !clsTals.length && !masteryTal ? '<p class="empty">Aucun talent de niveau 1 disponible pour cette classe.</p>' : '');
+      // Les descriptions restent VISIBLES en permanence : cliquer une languette
+      // SÉLECTIONNE le talent (sans replier son descriptif).
       body.querySelectorAll('.inv-strip-row[data-tal]').forEach(function (row) {
-        const desc = row.nextElementSibling && row.nextElementSibling.classList.contains('lvl-tal-desc') ? row.nextElementSibling : null;
-        row.addEventListener('click', function (e) {
-          const isAuto = row.getAttribute('data-auto') === '1';
-          const cb = row.querySelector('.lvl-tal-cb');
-          const clickedCb = cb && (e.target === cb || e.target.closest('input'));
-          if (isAuto || !clickedCb) {
-            // Clic sur la languette (hors case à cocher) : afficher/masquer la description
-            if (desc) desc.hidden = !desc.hidden;
-            if (isAuto) return;
-            return;
-          }
-          // Clic sur la case à cocher : sélection radio
+        row.addEventListener('click', function () {
+          if (row.getAttribute('data-auto') === '1') return; // Maîtrise auto : non modifiable
           const id = row.getAttribute('data-tal');
           const idx = wiz.talents.indexOf(id);
           if (idx >= 0) {
@@ -1118,12 +1185,14 @@
     } else {
       const total = wizSkillTotal();
       const rem = 3 - total;
-      body.innerHTML = '<p class="hint">Répartis tes <b>3 points</b> de compétence (max <b>2</b> dans une même). ' +
-        '<b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + '.</p>' +
+      body.innerHTML = '<p class="hint">Répartissez vos <b>3 points</b> de compétence (max <b>2</b> dans une même).' +
+        '<br><b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-skill-list2">' + SKILLS.map(function (s) {
           const v = wiz.skills[s] || 0;
           return '<div class="hw-skill-row skill-' + skillSlug(s) + '">' +
-            '<span class="hw-skill-name">' + s + '</span>' +
+            '<span class="hw-skill-name">' + s +
+              (SKILL_DESC[s] ? '<span class="hw-skill-desc">' + esc(SKILL_DESC[s]) + '</span>' : '') +
+            '</span>' +
             '<div class="hw-stat-ctrl">' +
               '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="-1"' + (v <= 0 ? ' disabled' : '') + '>−</button>' +
               '<span class="hw-skill-val' + (v > 0 ? ' on' : '') + '">+' + v + '</span>' +
@@ -1174,9 +1243,15 @@
       mainG: wiz.equipment.mainG || null, mainD: wiz.equipment.mainD || null,
       armorId: wiz.equipment.armorId || null, objectId: null, twoH: false,
     };
+    // Bonus d'ESPÈCE ajoutés aux caractéristiques de départ.
+    const sp = speciesOf(wiz.species) || { vie: 0, endu: 0, damage: 0, pvBonus: 0 };
     const h = {
       id: Store.uid(), name: wiz.name.trim() || 'Aventurier', klass: wiz.klass,
-      vie: 3 + (wiz.statBonuses.vie || 0), endu: 0 + (wiz.statBonuses.endu || 0), pvBonus: 0, damage: 0 + (wiz.statBonuses.damage || 0), rapide: false, notes: '',
+      gender: wiz.gender || 'a', species: wiz.species || '',
+      vie: 3 + (wiz.statBonuses.vie || 0) + sp.vie,
+      endu: 0 + (wiz.statBonuses.endu || 0) + sp.endu,
+      pvBonus: sp.pvBonus,
+      damage: 0 + (wiz.statBonuses.damage || 0) + sp.damage, rapide: false, notes: '',
       attacks: [], skills: mergeSkills(skills),
       startTalents: wiz.talents.slice(),
       equipment: eq,
@@ -2165,6 +2240,8 @@
   }
 
   global.Combatants = {
+    pronoun: pronoun, pronounCap: pronounCap, possessive: possessive, agree: agree,
+    genderOf: genderOf, SPECIES: SPECIES, speciesOf: speciesOf,
     init: init,
     renderHeroes: renderHeroes,
     renderMonsters: renderMonsters,

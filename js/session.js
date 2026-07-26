@@ -3541,10 +3541,15 @@
           ? active.map(function (s) {
               const date = new Date(s.startedAt).toLocaleDateString('fr-FR');
               const prog = s.visitedSceneIds ? s.visitedSceneIds.length : 0;
+              // Nom personnalisable (défaut : « Partie du JJ/MM/AAAA »).
+              const label = s.title || ('Partie du ' + date);
               return '<div class="adv-session-row">' +
-                '<div><strong>Partie du ' + date + '</strong> ' +
+                '<div class="ses-save-head">' +
+                  '<input type="text" class="ses-save-name" data-id="' + s.id + '" value="' + esc(label) + '" ' +
+                    'placeholder="Nom de la sauvegarde" title="Renommer cette sauvegarde" />' +
                   '<span class="tag">' + prog + ' scène(s)</span> ' +
-                  '<span class="tag">XP : ' + (s.party ? s.party.xp : 0) + '</span></div>' +
+                  '<span class="tag">XP : ' + (s.party ? s.party.xp : 0) + '</span>' +
+                '</div>' +
                 '<div style="display:flex;gap:.4rem;margin-top:.35rem">' +
                   '<button class="primary ses-resume" data-id="' + s.id + '">Reprendre</button>' +
                   '<button class="danger ses-end" data-id="' + s.id + '">Supprimer</button>' +
@@ -3555,6 +3560,16 @@
       '</div>';
 
     document.getElementById('saves-new').onclick = function () { beginNewGame(scopeAdventureId); };
+    // Renommage d'une sauvegarde (enregistré à la sortie du champ).
+    root.querySelectorAll('.ses-save-name').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        const s = sessions.find(function (x) { return x.id === inp.getAttribute('data-id'); });
+        if (!s) return;
+        s.title = inp.value.trim();
+        save();
+      });
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') inp.blur(); });
+    });
     root.querySelectorAll('.ses-resume').forEach(function (b) {
       b.addEventListener('click', function () {
         activeSession = sessions.find(function (s) { return s.id === b.getAttribute('data-id'); });
