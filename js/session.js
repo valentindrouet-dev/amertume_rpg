@@ -1414,7 +1414,7 @@
         return '<div class="rose-cell rose-center" aria-current="true">' +
           '<span class="rose-center-pin">📍</span>' +
           '<span class="rose-center-name">' + esc(scene.title || 'Salle') + '</span>' +
-        '</div>';
+        '</div>';  // pastille à gauche du nom (mise en ligne par le CSS)
       }
       const btns = cells[c[0]];
       if (!btns || !btns.length) {
@@ -1448,11 +1448,39 @@
         const link = (chapter.links || []).find(function (l) {
           return (l.from === scene.id && l.to === to) || (l.from === to && l.to === scene.id);
         });
-        if (triggerLinkEvent(ses, adv, chapter, link, to)) { scrollPageTop(); return; }
-        navigateTo(ses, adv, to);
-        scrollPageTop(); // la nouvelle salle se lit depuis le haut
+        const arrow = (exits.find(function (e) { return e.other === to; }) || {}).arrow;
+        sweepTo(arrow, function () {
+          if (triggerLinkEvent(ses, adv, chapter, link, to)) return;
+          navigateTo(ses, adv, to); // la nouvelle salle se lit depuis le haut
+        });
       });
     });
+  }
+  // ---- Balayage directionnel entre deux salles ----
+  // La salle quittée glisse dans le sens inverse du déplacement, la nouvelle
+  // arrive du côté visé. Uniquement des transformations (aucun recalcul de
+  // mise en page) et seulement sur le contenu — la rose ne bouge pas.
+  const SWEEP_DIR = {
+    '⬆': 'n', '⬇': 's', '⬅': 'o', '➡': 'e',
+    '↖': 'no', '↗': 'ne', '↙': 'so', '↘': 'se',
+  };
+  function reducedMotion() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+  }
+  function sweepTo(arrow, go) {
+    const d = SWEEP_DIR[arrow];
+    const out = document.querySelector('.ses-content');
+    if (!d || !out || reducedMotion()) { go(); scrollPageTop(); return; }
+    out.classList.add('ses-sweep-out', 'sweep-' + d);
+    // La navigation part de toute façon, même si l'animation n'aboutit pas.
+    setTimeout(function () {
+      go();
+      scrollPageTop();
+      const el = document.querySelector('.ses-content');
+      if (!el) return;
+      el.classList.add('ses-sweep-in', 'sweep-' + d);
+      setTimeout(function () { el.classList.remove('ses-sweep-in', 'sweep-' + d); }, 280);
+    }, 170);
   }
   // Remonte la page en haut après un déplacement.
   function scrollPageTop() {
