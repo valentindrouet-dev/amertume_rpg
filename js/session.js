@@ -1564,7 +1564,7 @@
           }
           // La difficulté est toujours SUR le bouton, à droite de la compétence.
           return '<div class="ses-choice">' +
-            '<button class="ses-choice-btn skill-test sktest-' + slug(ch.skill || '') + ' choice-type-' + (ch.choiceType || 'neutre') + '" data-ci="' + i + '" data-skill-hero="' + (bhBtn && bhBtn.hero ? esc(bhBtn.hero.id) : '') + '">' +
+            '<button class="ses-choice-btn skill-test sktest-' + slug(ch.skill || '') + ' choice-type-' + (ch.choiceType || 'neutre') + (ch.difficulty === 'auto' ? ' ses-noroll' : '') + '" data-ci="' + i + '" data-skill-hero="' + (bhBtn && bhBtn.hero ? esc(bhBtn.hero.id) : '') + '">' +
               (ch.groupTest ? '👥 ' : '') + esc(ch.label) +
               ' <span class="ssk-skill skill-' + slug(ch.skill || '') + '">' + esc(ch.skill || '') + '</span>' +
               ' <span class="ssk-diff ssk-diff-' + (ch.difficulty || 'moyen') + '">' + (DIFF[ch.difficulty] || 'Moyen') + '</span>' +
@@ -1742,7 +1742,8 @@
       const heroes = (block.who === 'concerned') ? (concernedHeroes(scene, block, ses) || []) : aliveEngagedHeroes(ses);
       return '<div class="ses-tb-variants">' +
         '<div class="ses-tb-btnrow">' +
-          '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go" data-vi="0">' +
+          '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go' +
+            (splitVars.every(function (v) { return v.difficulty === 'auto'; }) ? ' ses-noroll' : '') + '" data-vi="0">' +
             '<span class="ssk-btn-label">' + esc(block.label || 'Tenter le test') + '</span>' +
             '<span class="ssk-btn-meta">👥 chacun selon sa colonne</span>' +
           '</button>' +
@@ -1758,7 +1759,8 @@
         return '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go ses-tb-action" data-vi="' + vi + '">' +
           esc(v.label || 'Agir') + '</button>';
       }
-      return '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
+      return '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go' +
+          (v.difficulty === 'auto' ? ' ses-noroll' : '') + '" data-vi="' + vi + '">' +
         '<span class="ssk-btn-label">' + esc(block.label || 'Tenter le test') + '</span>' +
         '<span class="ssk-btn-meta">' +
           '<span class="ssk-skill skill-' + slug(v.skill || '') + '">' + esc(v.skill || '') + '</span>' +

@@ -2179,7 +2179,9 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .adv-choice-test .ch-mini { display: inline-flex; align-items: center; gap: .25rem; font-size: .76rem; color: var(--muted); }
 
 .choice-skill { font-size: .72rem; font-weight: 700; opacity: .9; }
-.ses-choice-btn.skill-test::before { content: "🎲 "; }
+/* Le de ne precede QUE les boutons declenchant un vrai jet : ni les blocs
+   Action (aucun jet), ni les tests de difficulte « Automatique ». */
+.ses-choice-btn.skill-test:not(.ses-tb-action):not(.ses-noroll)::before { content: "🎲 "; }
 .ses-choice-help { font-size: .78rem; color: var(--muted); margin-top: .2rem; padding-left: .2rem; }
 
 .hero-pick { align-items: flex-start; }
