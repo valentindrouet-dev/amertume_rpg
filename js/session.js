@@ -707,6 +707,16 @@
       return ((eh.skills && eh.skills[block.reqSkill]) || 0) >= need;
     });
   }
+  // Blocs révélés par un bloc parent, pour une issue donnée ('success' | 'fail').
+  // Nouveau format : chainSuccessIds[] / chainFailIds[] (plusieurs blocs).
+  // Ancien format mono-bloc (chainSuccessId / chainFailId) toujours accepté.
+  function chainIdsOf(blk, which) {
+    if (!blk) return [];
+    const arr = which === 'success' ? blk.chainSuccessIds : blk.chainFailIds;
+    if (Array.isArray(arr)) return arr.filter(Boolean);
+    const one = which === 'success' ? blk.chainSuccessId : blk.chainFailId;
+    return one ? [one] : [];
+  }
   // Tests ENCHAÎNÉS : un bloc de test référencé par un autre (chainSuccessId /
   // chainFailId) reste masqué tant que le test parent n'a pas produit le
   // résultat déclencheur (ex. rater l'Agilité révèle un test de Force).
@@ -721,8 +731,8 @@
     blocks.forEach(function (p) {
       if (p.type !== 'test' || p.id === blk.id) return;
       var st = ses && ses.searchTests ? ses.searchTests[p.id] : null;
-      if (p.chainSuccessId === blk.id) { isChained = true; if (st && st.done && st.success) triggered = true; }
-      if (p.chainFailId === blk.id) { isChained = true; if (st && st.done && !st.success) triggered = true; }
+      if (chainIdsOf(p, 'success').indexOf(blk.id) >= 0) { isChained = true; if (st && st.done && st.success) triggered = true; }
+      if (chainIdsOf(p, 'fail').indexOf(blk.id) >= 0) { isChained = true; if (st && st.done && !st.success) triggered = true; }
     });
     return isChained && !triggered;
   }
@@ -1691,8 +1701,8 @@
     for (let i = 0; i < blocks.length; i++) {
       const p = blocks[i];
       if (p.type !== 'test' || p.id === block.id) continue;
-      if (p.chainSuccessId === block.id) return { block: p, viaSuccess: true };
-      if (p.chainFailId === block.id) return { block: p, viaSuccess: false };
+      if (chainIdsOf(p, 'success').indexOf(block.id) >= 0) return { block: p, viaSuccess: true };
+      if (chainIdsOf(p, 'fail').indexOf(block.id) >= 0) return { block: p, viaSuccess: false };
     }
     return null;
   }

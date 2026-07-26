@@ -543,6 +543,8 @@
           s.blocks.forEach(function (b) {
             if (b.chainSuccessId && blockMap[b.chainSuccessId]) b.chainSuccessId = blockMap[b.chainSuccessId];
             if (b.chainFailId && blockMap[b.chainFailId]) b.chainFailId = blockMap[b.chainFailId];
+            if (Array.isArray(b.chainSuccessIds)) b.chainSuccessIds = b.chainSuccessIds.map(function (x) { return blockMap[x] || x; });
+            if (Array.isArray(b.chainFailIds)) b.chainFailIds = b.chainFailIds.map(function (x) { return blockMap[x] || x; });
           });
         }
         if (Array.isArray(s.choices)) s.choices.forEach(function (c) { c.id = Store.uid(); });
@@ -1617,6 +1619,15 @@
       SKILLS.map(function (s) { return '<option value="' + s + '"' + (cur === s ? ' selected' : '') + '>' + s + '</option>'; }).join('');
   }
 
+  // Blocs révélés par un bloc parent pour une issue ('success' | 'fail').
+  // Accepte le nouveau format multiple et l'ancien format mono-bloc.
+  function chainIdsOf(blk, which) {
+    if (!blk) return [];
+    const arr = which === 'success' ? blk.chainSuccessIds : blk.chainFailIds;
+    if (Array.isArray(arr)) return arr.filter(Boolean);
+    const one = which === 'success' ? blk.chainSuccessId : blk.chainFailId;
+    return one ? [one] : [];
+  }
   function renderBlocksEditor(scene, adv) {
     const box = document.getElementById('sm-blocks');
     if (!box) return;
@@ -1754,23 +1765,33 @@
             (function () {
               const others = scene.blocks.filter(function (b) { return b.type === 'test' && b.id !== blk.id; });
               if (!others.length) return '';
-              const opts = function (cur) {
-                return '<option value="">— Aucun —</option>' + others.map(function (b, k) {
-                  return '<option value="' + esc(b.id) + '"' + (cur === b.id ? ' selected' : '') + '>' + esc(b.label || ('Test #' + (k + 1))) + '</option>';
-                }).join('');
+              // PLUSIEURS blocs peuvent être révélés par une même issue : cases à
+              // cocher (ex. réussir un test révèle À LA FOIS des runes à lire ET
+              // la recherche d'un passage secret).
+              const boxes = function (which) {
+                const cur = chainIdsOf(blk, which);
+                return '<div class="tb-chain-list">' + others.map(function (b, k) {
+                  return '<label class="tb-chain-item"><input type="checkbox" class="tb-chain-cb" ' +
+                    'data-bi="' + i + '" data-which="' + which + '" value="' + esc(b.id) + '"' +
+                    (cur.indexOf(b.id) >= 0 ? ' checked' : '') + ' /> ' +
+                    esc(b.label || ('Bloc #' + (k + 1))) + '</label>';
+                }).join('') + '</div>';
               };
-              const succLbl = blk.actionMode ? '🔗 Test révélé si Action 1' : '🔗 Test révélé si réussite';
-              const failLbl = blk.actionMode ? '🔗 Test révélé si Action 2' : '🔗 Test révélé si échec';
-              return '<div class="form-row tb-chain-row" style="grid-template-columns:1fr 1fr" title="Le test choisi n\'apparaît dans la scène qu\'après ce résultat.">' +
-                '<label>' + succLbl + ' <select class="tb-chain-succ" data-bi="' + i + '">' + opts(blk.chainSuccessId) + '</select></label>' +
-                '<label>' + failLbl + ' <select class="tb-chain-fail" data-bi="' + i + '">' + opts(blk.chainFailId) + '</select></label>' +
+              const succLbl = blk.actionMode ? '🔗 Blocs révélés si Action 1' : '🔗 Blocs révélés si réussite';
+              const failLbl = blk.actionMode ? '🔗 Blocs révélés si Action 2' : '🔗 Blocs révélés si échec';
+              return '<div class="form-row tb-chain-row" style="grid-template-columns:1fr 1fr" title="Les blocs cochés n\'apparaissent dans la scène qu\'après ce résultat. Plusieurs blocs peuvent être révélés ensemble.">' +
+                '<div class="tb-chain-col"><span class="tb-chain-head">' + succLbl + '</span>' + boxes('success') + '</div>' +
+                '<div class="tb-chain-col"><span class="tb-chain-head">' + failLbl + '</span>' + boxes('fail') + '</div>' +
               '</div>';
             })() +
             // Un test enchaîné peut « rattraper » le test qui l'a révélé : le
             // réussir valide rétroactivement le précédent (débloque son accès /
             // connecteur secret).
             (function () {
-              const isChild = scene.blocks.some(function (b) { return b.type === 'test' && (b.chainSuccessId === blk.id || b.chainFailId === blk.id); });
+              const isChild = scene.blocks.some(function (b) {
+                return b.type === 'test' &&
+                  (chainIdsOf(b, 'success').indexOf(blk.id) >= 0 || chainIdsOf(b, 'fail').indexOf(blk.id) >= 0);
+              });
               if (!isChild) return '';
               return '<label class="tb-validate-lbl" title="Utile pour un test de rattrapage après un échec : réussir celui-ci valide le test précédent et débloque ce qu\'il conditionnait (passage secret, etc.).">' +
                 '<input type="checkbox" class="tb-validate" data-bi="' + i + '"' + (blk.validatesParent ? ' checked' : '') + ' /> ✅ Réussir ce test <b>valide le test précédent</b> (débloque son accès)</label>';
@@ -1954,11 +1975,21 @@
         blk.retry = this.value === 'always'; // rétro-compat de l'ancien booléen
       };
     });
-    box.querySelectorAll('.tb-chain-succ').forEach(function (el) {
-      el.onchange = function () { scene.blocks[biOf(this)].chainSuccessId = this.value || null; };
-    });
-    box.querySelectorAll('.tb-chain-fail').forEach(function (el) {
-      el.onchange = function () { scene.blocks[biOf(this)].chainFailId = this.value || null; };
+    // Cases à cocher « Blocs révélés si … » (multiple, par issue).
+    box.querySelectorAll('.tb-chain-cb').forEach(function (el) {
+      el.onchange = function () {
+        const blk = scene.blocks[biOf(this)];
+        const which = this.getAttribute('data-which');
+        const key = which === 'success' ? 'chainSuccessIds' : 'chainFailIds';
+        const cur = chainIdsOf(blk, which).slice();
+        const id = this.value;
+        const at = cur.indexOf(id);
+        if (this.checked) { if (at < 0) cur.push(id); } else if (at >= 0) { cur.splice(at, 1); }
+        blk[key] = cur;
+        // L'ancien champ mono-bloc devient obsolète dès qu'on édite ici.
+        if (which === 'success') delete blk.chainSuccessId; else delete blk.chainFailId;
+        renderBlocksEditor(scene, adv);
+      };
     });
     box.querySelectorAll('.tb-validate').forEach(function (el) {
       el.onchange = function () { scene.blocks[biOf(this)].validatesParent = this.checked; };
