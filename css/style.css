@@ -4668,3 +4668,8 @@ label.tb-chain-item > .tb-chain-name {
   border-radius: 6px; padding: .02rem .28rem; flex: 0 0 auto;
 }
 .sm-collapse-all { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; color: var(--muted); cursor: pointer; }
+
+/* ===================== v2.3.94 ===================== */
+/* Bloc de combat révélé mais pas encore mené : le reste de la salle est gelé. */
+.ses-test-slot.ses-slot-frozen { opacity: .55; }
+.ses-test-slot.ses-slot-frozen button { cursor: not-allowed; }

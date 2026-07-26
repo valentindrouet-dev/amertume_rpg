@@ -3994,12 +3994,18 @@
     }
     const t = perceptionTest(attacker, 2);
     if (!t.passed) {
-      // L'attaque est perdue : l'action est consommée sans toucher.
+      // L'attaque est perdue : l'action est consommée sans toucher. Une attaque
+      // au CONTACT engage tout de même le déplacement — on va bien au corps à
+      // corps dans la zone visée, même sans y trouver la cible invisible.
+      const atkLost = attacker.attacks[pendingAttack.atkIndex];
+      if (atkLost && atkLost.range === 'contact' && attacker.zone !== zi &&
+          crossCheck(attacker, zi) !== 'block') {
+        doMove(attacker, zi);
+      }
       log(cname(attacker) + ' fouille <span class="lstate">' + esc(zname(zi)) + '</span> à l\'aveugle ' +
         '(Perception ' + t.succ + '/' + t.need + ') — <span class="lfail">échec</span> : il ne trouve personne.', 'state');
       toast('🔍 Adversaire Introuvable', 'miss');
-      const atkLost = attacker.attacks[pendingAttack.atkIndex];
-      if (atkLost && !atkLost.freeAction) useAction(attacker);
+      if (atkLost && !atkLost.freeAction && attacker.status === 'active') useAction(attacker);
       pendingAttack = null; checkOutcome(); Store.save(); render(); return;
     }
     const found = hidden[0];

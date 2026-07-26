@@ -513,7 +513,7 @@
     if (chMode_ === 'random') {
       const order = ensureRandomOrder(ses, adv, chapter);
       const ri = order.indexOf(scene.id);
-      if (ri >= 0) roomTag = '<span class="tag ses-room-tag">🎲 Salle ' + (ri + 1) + '/' + order.length + '</span>';
+      if (ri >= 0) roomTag = '<span class="tag ses-room-tag">Salle ' + (ri + 1) + '/' + order.length + '</span>';
     } else if (chMode_ === 'dungeon') {
       const roomsOnly = chapter.scenes.filter(function (s) { return !s.isTransition; });
       const nVisited = roomsOnly.filter(function (s) { return (ses.visitedSceneIds || []).indexOf(s.id) >= 0; }).length;
@@ -768,6 +768,18 @@
     });
     return isChained && !triggered;
   }
+  // Bloc de COMBAT révélé mais pas encore mené : la salle est en pause — on ne
+  // peut ni emprunter une sortie ni jouer les autres tests / actions.
+  function fightBlockPending(scene, ses) {
+    if (!scene || !ses) return false;
+    return (scene.blocks || []).some(function (b) {
+      if (b.type !== 'fight') return false;
+      if (!blockVisible(b, ses)) return false;
+      if (testChainHidden(scene, b, ses)) return false;
+      const st = ses.searchTests ? ses.searchTests[b.id] : null;
+      return !(st && st.done);
+    });
+  }
   function sceneContentHtml(scene, ses) {
     var parts = [];
     // Champ hérité : affiché comme narratif si non vide
@@ -809,6 +821,20 @@
       if (isFight) renderFightBlock(slot, blk, scene, adv, ses);
       else renderTestBlock(slot, blk, scene, adv, ses);
     });
+    // Combat révélé et pas encore mené : les autres tests / actions de la salle
+    // sont gelés jusqu'à son issue.
+    if (ses && fightBlockPending(scene, ses)) {
+      const fightIds = (scene.blocks || []).filter(function (b) { return b.type === 'fight'; })
+        .map(function (b) { return b.id; });
+      document.querySelectorAll('.ses-test-slot').forEach(function (slot) {
+        if (fightIds.indexOf(slot.getAttribute('data-tb')) >= 0) return;
+        slot.classList.add('ses-slot-frozen');
+        slot.querySelectorAll('button, select, input, textarea').forEach(function (el) {
+          el.disabled = true;
+          el.title = 'Un combat est engagé dans cette salle — menez-le d\'abord.';
+        });
+      });
+    }
   }
 
   function typeLabel(t) {
@@ -1114,7 +1140,8 @@
     // relais à forcedCombatPending (qui a déjà court-circuité l'affichage plus haut).
     // Objectif : impossible d'« Emprunter le passage » / « Continuer » tant que le
     // combat (ou le test qui le déclenche) n'est pas résolu.
-    const navBlocked = !resolved || mandatoryTestPending(scene, ses) || forcedPending;
+    const fightPending = fightBlockPending(scene, ses);
+    const navBlocked = !resolved || mandatoryTestPending(scene, ses) || forcedPending || fightPending;
     // (Les tests de compétence sont désormais des blocs rendus dans le fil du
     // texte de la scène — cf. wireTestBlocks.)
     const hasChoices = scene.choices && scene.choices.length;
@@ -1142,7 +1169,7 @@
       // Joystick de sorties : dans la colonne principale, sous les blocs de la scène.
       // Un test obligatoire NON narratif laisse le demi-tour possible : les sorties
       // s'affichent, mais seules les salles DÉJÀ VISITÉES sont franchissables.
-      const backOnly = navBlocked && resolved && !forcedPending && !narrativeTestPending(scene, ses);
+      const backOnly = navBlocked && resolved && !forcedPending && !fightPending && !narrativeTestPending(scene, ses);
       if (mode === 'dungeon' && (!navBlocked || backOnly) && !scene.isTransition) {
         renderDungeonExits(box, ch, scene, adv, ses, backOnly);
       }
@@ -1150,9 +1177,11 @@
     }
     // Message explicatif : on indique pourquoi aucune sortie n'est proposée
     // (le combat imposé, lui, a son propre écran et a déjà court-circuité le rendu).
-    const backAllowed = navBlocked && resolved && !forcedPending && !narrativeTestPending(scene, ses) && chapterMode(ch) === 'dungeon';
+    const backAllowed = navBlocked && resolved && !forcedPending && !fightPending && !narrativeTestPending(scene, ses) && chapterMode(ch) === 'dungeon';
     if (navBlocked && !forcedCombatPending(ses, scene) && scene.type !== 'fin' && !backAllowed) {
-      const why = !resolved
+      const why = fightPending
+        ? '🔒 Un combat est engagé dans cette salle — menez-le avant de continuer.'
+        : !resolved
         ? '🔒 Terminez le combat de cette salle avant de continuer.'
         : (narrativeTestPending(scene, ses)
           ? '🔒 Un test obligatoire doit être tenté avant de continuer.'
@@ -1722,7 +1751,7 @@
     const multi = variants.length > 1;
     function btnHtml(v, vi) {
       if (v.action) {
-        return '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go ses-tb-action" data-vi="' + vi + '">⚡ ' +
+        return '<button class="ses-choice-btn skill-test choice-type-enquete ses-tb-go ses-tb-action" data-vi="' + vi + '">' +
           esc(v.label || 'Agir') + '</button>';
       }
       return '<button class="ses-choice-btn skill-test sktest-' + slug(v.skill || '') + ' choice-type-enquete ses-tb-go" data-vi="' + vi + '">' +
@@ -1826,7 +1855,7 @@
       if (block.writeMode) { renderWriteBlock(slot, block, scene, adv, ses); return; }
       const isAction = !!block.actionMode;
       slot.innerHTML = '<div class="ses-searchtest">' +
-        '<div class="ses-st-title">' + (isAction ? '⚡ ' : '🔍 ') + esc(block.label || (isAction ? 'Action' : 'Test de compétence')) +
+        '<div class="ses-st-title">' + esc(block.label || (isAction ? 'Action' : 'Test de compétence')) +
           (block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '') +
           (!isAction && block.who === 'group' ? ' <span class="ses-st-group-tag" title="' + esc(groupModeLabel(block.groupMode)) + '">👥 GROUPE</span>' : '') + '</div>' +
         variantButtonsHtml(ses, block, scene, null) +
@@ -2222,7 +2251,7 @@
 
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
     const mTag = block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '';
-    const stIcon = block.writeMode ? '✍️ ' : block.actionMode ? '⚡ ' : '🔍 ';
+    const stIcon = block.writeMode ? '✍️ ' : '';
     const stLabel = block.label || (block.writeMode ? 'Écriture' : block.actionMode ? 'Action' : 'Test de compétence');
     // Résultat obtenu lors d'une ENTRÉE ANTÉRIEURE (on est revenu dans la salle) :
     // version COMPACTE — on GARDE le titre, le verdict et le TEXTE narratif, mais on
