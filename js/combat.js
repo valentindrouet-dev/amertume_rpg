@@ -173,7 +173,7 @@
     });
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
-      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', endu: (hero.endu || 1) + endurHard, imageUrl: h.imageUrl || null,
+      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', gender: h.gender || 'a', endu: (hero.endu || 1) + endurHard, imageUrl: h.imageUrl || null,
       maxPv: Combatants.heroPv(hero) + renf, pv: Combatants.heroCurPv(hero) + renf,
       def: Combatants.heroDef(hero), damage: (hero.damage || 0) + surv, xp: 0, type: 'hero',
       menace: null, esquive: hasTalent('esquive_innee') || hasTalent('esquive_6') || false, rapide: !!h.rapide, socle: 'medium',
@@ -1008,8 +1008,8 @@
     hero.dmgTaken += dmg; revealOnDamage(hero, dmg); monster.dmgDealt += dmg;
     pushFx({ type: 'hit', iid: hero.iid, amount: dmg, fromPct: pct(pvBefore, hero.maxPv), toPct: pct(hero.pv, hero.maxPv) });
     const why = reason === 'distance'
-      ? 'car il utilise une <i>attaque à distance</i> dans sa zone'
-      : 'car il quitte sa zone';
+      ? 'car ' + gPro(hero) + ' utilise une <i>attaque à distance</i> dans sa zone'
+      : 'car ' + gPro(hero) + ' quitte sa zone';
     log('<b class="lopp">Attaque d\'Opportunité !</b> ' + cname(monster) + ' inflige ' + amt(dmg, 'dmg') +
       ' Dégâts à ' + cname(hero) + ' ' + why + '.', 'dchoc');
     checkComa(hero);
@@ -1586,7 +1586,7 @@
     if (effVie <= 0) {
       state.dead = true;
       ses.heroIds = ses.heroIds.filter(function (id) { return id !== hid; });
-      log(cname(combatant) + ' <span class="lcoma">perd sa dernière VIE — il quitte l\'aventure définitivement.</span>', 'down');
+      log(cname(combatant) + ' <span class="lcoma">perd sa dernière VIE — ' + gPro(combatant) + ' quitte l\'aventure définitivement.</span>', 'down');
     } else {
       log(cname(combatant) + ' <span class="lcoma">tombe dans le coma et perd 1 VIE (VIE restante : ' + effVie + ').</span>', 'down');
     }
@@ -1613,7 +1613,7 @@
       c.pv = 0;
       pushFx({ type: 'faint', iid: c.iid, side: c.side, name: c.name });
       appendLastLog(c.side === 'monster'
-        ? cname(c) + ' <span class="lvanq">est vaincu !</span>'
+        ? cname(c) + ' <span class="lvanq">est ' + gAgr(c, 'vaincu') + ' !</span>'
         : cname(c) + ' <span class="lcoma">tombe dans le coma…</span>');
       if (c.side === 'hero' && combatKey === 'combat') applyHeroComaVieLoss(c);
     }
@@ -1680,7 +1680,7 @@
     c.markDice = dice;
     const badges = (window.Inventory && Inventory.poolBadges) ? Inventory.poolBadges(dice) : '';
     log('<b class="lopp">Proie !</b> ' + cname(target) + ' est désigné : les adversaires ajoutent ' +
-      badges + ' à leurs attaques contre lui ce tour.', 'state');
+      badges + ' à leurs attaques contre ' + gObj(target) + ' ce tour.', 'state');
   }
 
   // Bonus de dégâts des talents PASSIFS d'un aventurier attaquant
@@ -2524,6 +2524,11 @@
     garde: { l: 'Gardé', neg: false }, prepare: { l: 'Préparé', neg: false },
     invisible: { l: 'Invisible', neg: false },
   };
+  // ---- Accords selon le genre de l'aventurier (il/lui · elle/elle · on) ----
+  // Les adversaires restent au masculin par défaut.
+  function gPro(c) { return (c && c.side === 'hero' && Combatants.pronoun) ? Combatants.pronoun(c) : 'il'; }
+  function gObj(c) { return (c && c.side === 'hero' && Combatants.pronounObj) ? Combatants.pronounObj(c) : 'lui'; }
+  function gAgr(c, word, fem) { return (c && c.side === 'hero' && Combatants.agree) ? Combatants.agree(c, word, fem) : word; }
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
   // ---- INVISIBILITÉ ----
   // Un combattant invisible ne peut pas être ciblé directement et n'apparaît pas
@@ -2546,8 +2551,8 @@
     if (!c || !(dmg > 0) || !c.states || !c.states.invisible) return;
     c.states.invisible = false;
     pushFx({ type: 'state', iid: c.iid });
-    log(cname(c) + ' est touché et <span class="lstate">perd son Invisibilité</span> — il redevient visible.', 'state');
-    toast('👁 ' + c.name + ' est démasqué !', 'invis');
+    log(cname(c) + ' est ' + gAgr(c, 'touché') + ' et <span class="lstate">perd son Invisibilité</span> — ' + gPro(c) + ' redevient ' + gAgr(c, 'visible', 'visible') + '.', 'state');
+    toast('👁 ' + c.name + ' est ' + gAgr(c, 'démasqué') + ' !', 'invis');
   }
   // Masqué à l'affichage : un adversaire invisible disparaît des zones pour le
   // joueur ; un aventurier invisible reste visible par le joueur (c'est son camp).
@@ -3904,7 +3909,7 @@
       '<div class="cc-top-row">' +
         '<div class="cc-body">' +
           '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
-            (isMarked ? '<span class="tag tag-marked" title="Proie : les adversaires ajoutent des dés contre lui ce tour">🎯 Proie</span>' : '') +
+            (isMarked ? '<span class="tag tag-marked" title="Proie : les adversaires ajoutent des dés contre ' + esc(gObj(c)) + ' ce tour">🎯 Proie</span>' : '') +
             (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
           '</div>' +
           '<div class="cc-pvline">' +
@@ -4060,7 +4065,7 @@
         return i !== target.zone && moveBarrier(target.zone, i).type !== 'block';
       });
       if (!dests.length) {
-        log(cname(target) + ' est terrifié mais <span class="lstate">ne peut fuir nulle part</span>.', 'state');
+        log(cname(target) + ' est ' + gAgr(target, 'terrifié') + ' mais <span class="lstate">ne peut fuir nulle part</span>.', 'state');
       } else {
         const dest = dests[Math.floor(Math.random() * dests.length)];
         log('<b class="lopp">Frayeur !</b> ' + cname(attacker) + ' terrifie ' + cname(target) +

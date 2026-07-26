@@ -53,24 +53,24 @@
   function speciesOf(v) { return SPECIES.find(function (x) { return x.value === v; }) || null; }
   // ---- Accords selon le genre (utilisés partout dans l'application) ----
   // g : 'f' (elle) · 'm' (il) · 'a' (iel, accords neutres)
+  // g : 'm' → il / lui · 'f' → elle / elle · 'a' (autre, défaut) → on
   function genderOf(h) { return (h && h.gender) || 'a'; }
-  function pronoun(h) { const g = genderOf(h); return g === 'f' ? 'elle' : g === 'm' ? 'il' : 'iel'; }
+  // Pronom SUJET : « il » / « elle » / « on ».
+  function pronoun(h) { const g = genderOf(h); return g === 'f' ? 'elle' : g === 'm' ? 'il' : 'on'; }
   function pronounCap(h) { const p = pronoun(h); return p.charAt(0).toUpperCase() + p.slice(1); }
+  // Pronom COMPLÉMENT : « lui » / « elle ». Pour « autre », « on » ne s'emploie
+  // pas en complément : on retombe sur le nom du personnage (naturel et neutre).
+  function pronounObj(h) {
+    const g = genderOf(h);
+    if (g === 'f') return 'elle';
+    if (g === 'm') return 'lui';
+    return (h && h.name) ? h.name : 'cette personne';
+  }
   function possessive(h) { return genderOf(h) === 'f' ? 'sa' : 'son'; }
   // Accord d'un adjectif : agree(h, 'vaincu') → « vaincue » au féminin.
-  function agree(h, word, fem, neutral) {
-    const g = genderOf(h);
-    if (g === 'f') return fem || (word + 'e');
-    if (g === 'a') return neutral || word;
-    return word;
-  }
-  // Nom de rôle accordé : « aventurier » / « aventurière » / « aventurier·e ».
-  function roleNoun(h, base) {
-    const g = genderOf(h);
-    const b = base || 'aventurier';
-    if (g === 'f') return b + 'ère'.replace('è', 'è') === b + 'ère' ? b.replace(/ier$/, 'ière') : b + 'e';
-    if (g === 'a') return b.replace(/ier$/, 'ier·ère');
-    return b;
+  // « on » suit l'accord masculin en français standard (« on est prêt »).
+  function agree(h, word, fem) {
+    return genderOf(h) === 'f' ? (fem || (word + 'e')) : word;
   }
   function emptySkills() { const o = {}; SKILLS.forEach(function (s) { o[s] = 0; }); return o; }
   function mergeSkills(src) {
@@ -1052,7 +1052,8 @@
           statRow('endu', 'ENDURANCE <small>(+2 / point)</small>', 2, endu, wiz.statBonuses.endu) +
           '<p class="hw-stat-desc">Augmente vos PV, votre résistance et vos soins.</p>' +
           statRow('vie', 'VIE <small>(+1 / point)</small>', 1, vie, wiz.statBonuses.vie) +
-          '<p class="hw-stat-desc">Augmente vos PV et votre survie. À chaque coma, vous perdez 1 VIE. Si votre VIE tombe à 0, votre aventurier meurt.</p>' +
+          '<p class="hw-stat-desc">Augmente vos PV et votre survie. À chaque coma, vous perdez 1 VIE. Si votre VIE tombe à 0, votre ' +
+            (wiz.gender === 'f' ? 'aventurière meurt' : 'aventurier meurt') + '.</p>' +
         '</div>' +
         '<div class="hw-pv-formula">' +
           '<span class="hw-pv-term hw-pv-endu">ENDU ' + endu + '</span>' +
@@ -2240,7 +2241,7 @@
   }
 
   global.Combatants = {
-    pronoun: pronoun, pronounCap: pronounCap, possessive: possessive, agree: agree,
+    pronoun: pronoun, pronounCap: pronounCap, pronounObj: pronounObj, possessive: possessive, agree: agree,
     genderOf: genderOf, SPECIES: SPECIES, speciesOf: speciesOf,
     init: init,
     renderHeroes: renderHeroes,

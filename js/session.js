@@ -815,7 +815,7 @@
       if (state.dead) {
         return '<div class="ses-hero-row ses-hero-dead">' +
           '<span class="ses-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '" data-hero="' + h.id + '" title="Voir la fiche">☠ ' + esc(h.name) + '</span>' +
-          '<span class="tag dead">Mort</span>' +
+          '<span class="tag dead">' + heroAgree(h, 'Mort') + '</span>' +
         '</div>';
       }
       const curPv = typeof state.pv === 'number' ? state.pv : Combatants.heroCurPv(eh);
@@ -1915,6 +1915,9 @@
   // l'aventurier tombe au coma et le test devient une réussite automatique.
   let comaRescue = null;
   const FX_SLOT_LABEL = { mainG: 'main gauche', mainD: 'main droite', randhand: 'main', armor: 'armure', object: 'objet équipé' };
+  // Accord selon le genre de l'aventurier (il / elle / on).
+  function heroPronoun(h) { return (global.Combatants && Combatants.pronoun) ? Combatants.pronoun(h) : 'il'; }
+  function heroAgree(h, w, fem) { return (global.Combatants && Combatants.agree) ? Combatants.agree(h, w, fem) : w; }
   function applyTestFailEffect(ses, scene, block, hero) {
     const fx = block.failEffect;
     if (!fx || !fx.kind || fx.kind === 'none') return '';
@@ -1956,12 +1959,13 @@
           st.pv = 0;
           st.dead = true;
           comaRescue = { name: name, dead: true };
-          return name + ' perd ' + n + ' PV' + diceNote + ', tombe au coma et perd sa DERNIÈRE VIE — il quitte l\'aventure définitivement. Ses alliés achèvent l\'épreuve à sa place.';
+          return name + ' perd ' + n + ' PV' + diceNote + ', tombe au coma et perd sa DERNIÈRE VIE — ' +
+            heroPronoun(h) + ' quitte l\'aventure définitivement. Ses alliés achèvent l\'épreuve à sa place.';
         }
         const maxPv = Math.max(1, Combatants.heroPv(effectiveHero(ses, h)));
         st.pv = Math.max(1, Math.floor(maxPv / 2));
         comaRescue = { name: name, dead: false };
-        return name + ' perd ' + n + ' PV' + diceNote + ', tombe au coma et perd 1 VIE (' + vieLeft + ' restante' + (vieLeft > 1 ? 's' : '') + ') — ses alliés le sortent et le réaniment (' + st.pv + ' PV).';
+        return name + ' perd ' + n + ' PV' + diceNote + ', tombe au coma et perd 1 VIE (' + vieLeft + ' restante' + (vieLeft > 1 ? 's' : '') + ') — ses alliés ' + (Combatants.genderOf(h) === 'f' ? 'la' : 'le') + ' sortent et ' + (Combatants.genderOf(h) === 'f' ? 'la' : 'le') + ' réaniment (' + st.pv + ' PV).';
       }
       case 'state': {
         const key = fx.state || 'affaibli';
