@@ -165,7 +165,7 @@
     });
     // États en attente (conséquence d'un test de scène raté) : appliqués au
     // démarrage du combat, posés par session.js dans Store.state.pendingCombatStates.
-    const initStates = { affaibli: false, auSol: false, feu: false, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0, prepare: hasTalent('prepare_initial') };
+    const initStates = { affaibli: false, auSol: false, feu: false, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0, prepare: hasTalent('prepare_initial'), invisible: hasTalent('invisibilite') };
     const pendStates = (Store.state.pendingCombatStates && Store.state.pendingCombatStates[h.id]) || [];
     pendStates.forEach(function (k) {
       if (k === 'poison') initStates.poison = (initStates.poison || 0) + 1;
@@ -209,7 +209,7 @@
       attacks: attacks, attackUses: initUses(attacks),
       talents: advTalents,
       talentLabels: Combatants.monsterTalentLabels(m),
-      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0, prepare: advTalents.some(function (t) { return t.effect === 'prepare_initial'; }) },
+      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0, prepare: advTalents.some(function (t) { return t.effect === 'prepare_initial'; }), invisible: advTalents.some(function (t) { return t.effect === 'invisibilite'; }) },
       blindageCharges: 0,
       used: { action: false, move: false, object: false },
       zone: 0, status: 'active', analyzed: false,
@@ -318,6 +318,7 @@
     };
     buildCombat(heroObjs, cfg);
     log('Début du combat — Tour 1.', 'turn');
+    announceInvisibles();
     designateMarkedHero(); // PROIE : désigne la cible du Tour 1
     if (needsPretour()) {
       startPretour();
@@ -722,6 +723,25 @@
     return { passed: succ >= need, succ: succ, need: need };
   }
 
+  // PERCEPTION : test générique (mêmes règles que le test d'Agilité de barrière)
+  // servant à débusquer une cible INVISIBLE en attaquant sa zone (difficulté 2).
+  function perceptionOf(c) {
+    if (c.side === 'monster') return c.type === 'boss' ? 3 : (c.type === 'alpha' || c.type === 'solitaire') ? 2 : 1;
+    const tpl = Store.state.heroes.find(function (h) { return h.id === c.templateId; });
+    const base = (tpl && tpl.skills && tpl.skills['Perception']) || 0;
+    const g = sessionGains && sessionGains[c.templateId];
+    return base + ((g && g.skills && g.skills['Perception']) || 0);
+  }
+  function perceptionTest(c, need) {
+    let toRoll = 1 + perceptionOf(c), succ = 0, guard = 0;
+    while (toRoll > 0 && guard++ < 40) {
+      let nx = 0;
+      for (let i = 0; i < toRoll; i++) { const r = 1 + Math.floor(Math.random() * 6); if (r >= 4) succ++; if (r === 6) nx++; }
+      toRoll = nx;
+    }
+    return { passed: succ >= (need || 2), succ: succ, need: need || 2 };
+  }
+
   // Tente de franchir l'éventuelle barrière entre la zone de c et la zone zi.
   // Retourne 'ok' (aucune barrière ou test réussi), 'block' (infranchissable/mur),
   // ou 'fail' (barrière Difficile, test d'Agilité raté → le mouvement est perdu).
@@ -793,6 +813,15 @@
       if (enemiesHere.length && !otherAllies.length) {
         enemiesHere.forEach(function (m) { if (c.status === 'active') dchocFrom(m, c, 'move'); });
       }
+    } else if (c.side === 'monster') {
+      // ATTAQUE D'OPPORTUNITÉ (passif) : les aventuriers dotés du talent frappent
+      // l'adversaire qui quitte leur zone.
+      activeOf('hero').forEach(function (h) {
+        if (h.zone === from && heroHasTalent(h, 'attaque_opportunite') && c.status === 'active') {
+          heroOpportunity(h, c, 'quitte sa zone');
+        }
+      });
+      if (c.status !== 'active') return;
     }
     c.used.move = true;
     if (c.status !== 'active') return; // tombé au coma en partant
@@ -938,7 +967,7 @@
   // (le héros quitte une zone occupée).
   // Attaque d'opportunité d'un AVENTURIER contre un adversaire qui quitte sa zone
   // (Bousculade) : inflige son bonus de dégâts, absorbé par un éventuel Blindage.
-  function heroOpportunity(hero, monster) {
+  function heroOpportunity(hero, monster, why) {
     if (!hero || hero.status !== 'active' || hero.states.affaibli) return;
     const dmg = hero.damage || 0;
     if (dmg <= 0 || monster.status !== 'active') return;
@@ -947,10 +976,14 @@
     monster.pv = Math.max(0, monster.pv - dmg);
     monster.dmgTaken += dmg; hero.dmgDealt += dmg;
     pushFx({ type: 'hit', iid: monster.iid, amount: dmg, fromPct: pct(before, monster.maxPv), toPct: pct(monster.pv, monster.maxPv) });
-    log('<b class="lopp">Attaque d\'Opportunité</b> : ' + cname(hero) + ' inflige ' + amt(dmg, 'dmg') + ' à ' + cname(monster) + ' (Bousculade).', 'dchoc');
+    log('<b class="lopp">Attaque d\'Opportunité</b> : ' + cname(hero) + ' inflige ' + amt(dmg, 'dmg') + ' à ' + cname(monster) + ' (' + (why || 'Bousculade') + ').', 'dchoc');
     if (monster.pv <= 0 && !monster.killedBy) monster.killedBy = hero.iid;
     checkMonsterTalents(monster, dmg); checkComa(monster);
   }
+
+  // Cibles valides pour l'IA adverse : un aventurier INVISIBLE ne peut pas être pris
+  // pour cible (les adversaires ne le voient pas).
+  function targetableByFoe(h) { return h && h.status === 'active' && !isInvisible(h); }
 
   function dchocFrom(monster, hero, reason) {
     if (monster.status !== 'active' || monster.states.affaibli) return 0;
@@ -1227,6 +1260,15 @@
       enemyZoneMates(attacker).forEach(function (m) {
         if (m.iid === target.iid && target.pv <= 0) return;
         if (attacker.status === 'active') dchocFrom(m, attacker, 'distance');
+      });
+    }
+    // ATTAQUE D'OPPORTUNITÉ (passif) : un adversaire qui tire à distance depuis la
+    // zone d'un aventurier doté du talent en subit les dégâts.
+    if (atk.range === 'distance' && attacker.side === 'monster') {
+      activeOf('hero').forEach(function (h) {
+        if (h.zone === attacker.zone && heroHasTalent(h, 'attaque_opportunite') && attacker.status === 'active') {
+          heroOpportunity(h, attacker, 'tir dans sa zone');
+        }
       });
     }
     checkComa(target);
@@ -1885,7 +1927,9 @@
       pushFx({ type: 'state', iid: m.iid });
       // pas de return : il peut encore attaquer une cible déjà présente dans sa zone.
     }
-    const heroes = activeOf('hero');
+    // INVISIBLE : les aventuriers invisibles sont retirés des cibles possibles
+    // (les adversaires ne les voient pas).
+    const heroes = activeOf('hero').filter(targetableByFoe);
     if (!heroes.length) return;
     // HAPPE : avant d'attaquer, déplace de force un aventurier d'une autre zone dans la sienne.
     if (monsterTalent(m, 'pull_to_zone')) {
@@ -2366,8 +2410,23 @@
     blindage: { l: 'Blindage', neg: false }, onde: { l: 'Onde', neg: false }, ciblage: { l: 'Ciblage', neg: false },
     brise: { l: 'Brisé', neg: true }, faille: { l: 'Faille', neg: true }, poison: { l: 'Poison', neg: true },
     garde: { l: 'Gardé', neg: false }, prepare: { l: 'Préparé', neg: false },
+    invisible: { l: 'Invisible', neg: false },
   };
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
+  // ---- INVISIBILITÉ ----
+  // Un combattant invisible ne peut pas être ciblé directement et n'apparaît pas
+  // sur le terrain pour le camp adverse. On ne l'atteint qu'en visant sa ZONE,
+  // avec un test de Perception 2.
+  function isInvisible(c) { return !!(c && c.status === 'active' && c.states && c.states.invisible); }
+  // Masqué à l'affichage : un adversaire invisible disparaît des zones pour le
+  // joueur ; un aventurier invisible reste visible par le joueur (c'est son camp).
+  function hiddenFromPlayer(c) { return isInvisible(c) && c.side === 'monster'; }
+  // Cibles invisibles d'une zone (côté donné).
+  function invisibleIn(zi, side) {
+    return combat().combatants.filter(function (m) {
+      return m.side === side && m.status === 'active' && m.zone === zi && isInvisible(m);
+    });
+  }
   // Blindage actif : état ponctuel (states.blindage) OU charges restantes (blindageCharges).
   function hasBlindage(c) { return !!(c && (c.states && c.states.blindage || c.blindageCharges > 0)); }
   // Consomme une source de Blindage pour absorber des dégâts, quelle qu'en soit
@@ -2427,6 +2486,32 @@
   // on les joue après le re-rendu, en retrouvant les cartes par data-iid.
   // 100 % CSS (transform/opacity), auto-nettoyés, sans incidence sur le rythme.
   let fxQueue = [];
+  // ALERTE INVISIBLES : message d'ouverture du combat + bandeau flottant rappelé
+  // après chaque attaque tant qu'un adversaire invisible est en lice.
+  function anyInvisibleFoe() {
+    return combat() && combat().combatants.some(function (m) {
+      return m.side === 'monster' && m.status === 'active' && isInvisible(m);
+    });
+  }
+  function announceInvisibles() {
+    if (!anyInvisibleFoe()) return;
+    log('<b class="lopp">Un ou plusieurs adversaires Invisible(s) participe(nt) au combat.</b> ' +
+      'Essayez de les attaquer en visant une zone.', 'state');
+    flashInvisibleAlert();
+  }
+  function flashInvisibleAlert() {
+    if (!anyInvisibleFoe()) return;
+    try {
+      const root = document.querySelector(rootSel);
+      if (!root) return;
+      const el = document.createElement('div');
+      el.className = 'cbt-invis-alert';
+      el.textContent = '👁 Adversaire Invisible !';
+      root.appendChild(el);
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 1800);
+    } catch (e) {}
+  }
+
   function pushFx(ev) { if (ev) fxQueue.push(ev); }
   function pct(pv, max) { return Math.max(0, Math.min(100, Math.round((pv / (max || 1)) * 100))); }
   function reduceMotion() {
@@ -3071,13 +3156,18 @@
     // (uniquement après avoir cliqué le bouton Mouv.).
     root.querySelectorAll('.combat-zone').forEach(function (zEl) {
       zEl.addEventListener('click', function (e) {
-        if (!pendingMove) return;
         if (e.target.closest('button') || e.target.closest('.atk-row')) return;
         // Si le clic vise une carte d'adversaire, son propre handler a déjà agi.
         if (e.target.closest('.combat-card.side-monster')) return;
+        const zi = parseInt(zEl.getAttribute('data-zone'), 10);
+        // ATTAQUE DE ZONE : viser la zone plutôt qu'un adversaire précis. Frappe
+        // le premier adversaire visible ; s'il n'y en a pas, tente de débusquer
+        // une cible INVISIBLE (test de Perception 2).
+        if (pendingAttack && !pendingMove) { attackZone(zi); return; }
+        if (!pendingMove) return;
         // Clic sur la zone seule : pas de cible précise → premier adversaire.
         arrivalTargetIid = null;
-        moveCombatant(pendingMove, parseInt(zEl.getAttribute('data-zone'), 10));
+        moveCombatant(pendingMove, zi);
       });
     });
 
@@ -3347,8 +3437,11 @@
       // Les aventuriers restent dans leur zone (même au coma, grisés) ;
       // les adversaires morts/enfuis partent au cimetière (hors zone).
       const heroes = combat().combatants.filter(function (c) { return c.zone === zi && c.side === 'hero'; });
-      const monsters = combat().combatants.filter(function (c) { return c.zone === zi && c.side === 'monster' && c.status === 'active'; })
-        .sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
+      const monsters = combat().combatants.filter(function (c) {
+        // INVISIBLE : l'adversaire n'apparaît pas sur le terrain (on ne peut
+        // l'atteindre qu'en visant sa zone).
+        return c.zone === zi && c.side === 'monster' && c.status === 'active' && !hiddenFromPlayer(c);
+      }).sort(function (a, b) { return mrank(a.type) - mrank(b.type); });
       // Aventuriers côte à côte (grille), pour gagner de la place
       let html = heroes.length ? '<div class="hero-grid">' + heroes.map(safeCard).join('') + '</div>' : '';
       // TOUTES les vignettes font la même largeur (grille demi-largeur commune) ;
@@ -3571,7 +3664,7 @@
   function renderCard(c) {
     // Garde-fous : un combattant persisté incomplet ne doit jamais faire planter
     // le rendu (sinon tout le plateau disparaît). On comble les sous-objets requis.
-    if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0 };
+    if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0, invisible: false };
     if (c.states.brise === undefined) c.states.brise = false;
     if (c.states.faille === undefined) c.states.faille = false;
     if (c.states.poison === undefined) c.states.poison = 0;
@@ -3583,6 +3676,7 @@
     const pct = Math.round((c.pv / c.maxPv) * 100);
     const dead = c.status !== 'active';
     const cls = ['combat-card', 'side-' + c.side];
+    if (isInvisible(c)) cls.push('is-invisible');
     if (c.klass) cls.push('klass-' + c.klass.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''));
     if (c.side === 'monster' && c.type) cls.push('type-' + c.type);
     if (c.side === 'monster' && (c.socle === 'large' || c.socle === 'huge')) cls.push('socle-' + c.socle);
@@ -3676,6 +3770,65 @@
   }
 
   // Cœur d'exécution d'une attaque (sans rendu) — réutilisé par l'UI et l'auto-combat
+  // Attaque visant une ZONE (et non une vignette) : frappe le premier adversaire
+  // visible de la zone ; si la zone ne contient que des cibles INVISIBLES, un test
+  // de Perception 2 permet de la débusquer et de la frapper.
+  function attackZone(zi) {
+    const attacker = byId(pendingAttack.iid);
+    if (!attacker || attacker.status !== 'active') { pendingAttack = null; render(); return; }
+    const foeSide = attacker.side === 'hero' ? 'monster' : 'hero';
+    const inZone = combat().combatants.filter(function (m) {
+      return m.side === foeSide && m.status === 'active' && m.zone === zi;
+    });
+    const visible = inZone.filter(function (m) { return !isInvisible(m); });
+    if (visible.length) {
+      // Cible évidente : on résout l'attaque normalement (mouvement inclus si contact).
+      resolveAttackOn(visible[0]);
+      return;
+    }
+    const hidden = inZone.filter(isInvisible);
+    if (!hidden.length) {
+      log(cname(attacker) + ' frappe dans le vide : aucune cible dans <span class="lstate">' + esc(zname(zi)) + '</span>.', 'state');
+      pendingAttack = null; Store.save(); render(); return;
+    }
+    const t = perceptionTest(attacker, 2);
+    if (!t.passed) {
+      // L'attaque est perdue : l'action est consommée sans toucher.
+      log(cname(attacker) + ' fouille <span class="lstate">' + esc(zname(zi)) + '</span> à l\'aveugle ' +
+        '(Perception ' + t.succ + '/' + t.need + ') — <span class="lfail">échec</span> : il ne trouve personne.', 'state');
+      const atkLost = attacker.attacks[pendingAttack.atkIndex];
+      if (atkLost && !atkLost.freeAction) useAction(attacker);
+      pendingAttack = null; checkOutcome(); Store.save(); render(); return;
+    }
+    const found = hidden[0];
+    log('<b class="lopp">Démasqué !</b> ' + cname(attacker) + ' repère une cible invisible dans <span class="lstate">' +
+      esc(zname(zi)) + '</span> (Perception ' + t.succ + '/' + t.need + ').', 'state');
+    resolveAttackOn(found);
+  }
+  // Résout l'attaque en attente sur une cible donnée (même chemin que le clic
+  // direct sur une vignette : mouvement au contact, dégâts, fin de tour).
+  function resolveAttackOn(target) {
+    const iid = pendingAttack.iid, ai = pendingAttack.atkIndex;
+    const attacker = byId(iid);
+    if (!attacker || !target) { pendingAttack = null; render(); return; }
+    const atk = attacker.attacks[ai];
+    // Attaque de CONTACT depuis une autre zone : on se déplace d'abord.
+    if (atk && atk.range === 'contact' && attacker.zone !== target.zone) {
+      if (crossCheck(attacker, target.zone) === 'block') {
+        alert('Une barrière infranchissable sépare ces zones — attaque impossible.');
+        pendingAttack = null; render(); return;
+      }
+      arrivalTargetIid = target.iid;
+      doMove(attacker, target.zone);
+      arrivalTargetIid = null;
+      if (attacker.status !== 'active' || target.status !== 'active') {
+        pendingAttack = null; checkOutcome(); Store.save(); render(); return;
+      }
+    }
+    pendingAttack = null;
+    execHeroAttack(attacker, ai, target);
+  }
+
   function applyAttack(attacker, atkIndex, target) {
     let atk = attacker.attacks[atkIndex];
     if (!atk) return;
@@ -3728,6 +3881,24 @@
     if (atk.brasier) targets = targets.filter(function (t) { return t.states && t.states.feu; });
     // Frappe Tournoyante : limitée aux adversaires de la zone de l'aventurier.
     if (atk.zoneOnly) targets = targets.filter(function (t) { return t.zone === attacker.zone; });
+    // FRAYEUR : la cible de la zone fuit vers une autre zone accessible et subit
+    // les attaques d'opportunité (doMove les déclenche). Aucun dégât direct.
+    if (atk.frayeur) {
+      if (!target || target.zone !== attacker.zone) { if (!atk.freeAction) useAction(attacker); return; }
+      const dests = zones().map(function (z, i) { return i; }).filter(function (i) {
+        return i !== target.zone && moveBarrier(target.zone, i).type !== 'block';
+      });
+      if (!dests.length) {
+        log(cname(target) + ' est terrifié mais <span class="lstate">ne peut fuir nulle part</span>.', 'state');
+      } else {
+        const dest = dests[Math.floor(Math.random() * dests.length)];
+        log('<b class="lopp">Frayeur !</b> ' + cname(attacker) + ' terrifie ' + cname(target) +
+          ' qui fuit vers <span class="lstate">' + esc(zname(dest)) + '</span>.', 'state');
+        doMove(target, dest);
+      }
+      if (!atk.freeAction) useAction(attacker);
+      return;
+    }
     // PROVOCATION : attire la cible dans la zone de l'attaquant avant de frapper.
     if (atk.provoke && target && target.zone !== attacker.zone && moveBarrier(attacker.zone, target.zone).type !== 'block') {
       target.zone = attacker.zone; pushFx({ type: 'move', iid: target.iid });
@@ -3825,6 +3996,7 @@
   // Version UI : applique puis rafraîchit
   function execHeroAttack(attacker, atkIndex, target) {
     applyAttack(attacker, atkIndex, target);
+    flashInvisibleAlert();
     pendingAttack = null;
     checkOutcome(); Store.save(); render();
     if (startNextChoice()) render();
@@ -4433,6 +4605,7 @@
     sessionGains = null;  // les instances sont figées : on ne garde pas l'overlay
     delete Store.state.pendingCombatStates; // états de scène consommés au démarrage
     log('Début du combat — Tour 1.', 'turn');
+    announceInvisibles();
     designateMarkedHero(); // PROIE : désigne la cible du Tour 1
     if (needsPretour()) startPretour();
     Store.save();

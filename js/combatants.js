@@ -454,6 +454,11 @@
         case 'provocation':
           // Attire un adversaire dans la zone puis l'attaque (moteur).
           return Object.assign(common, { range: 'contact', provoke: true });
+        case 'frayeur':
+          // FRAYEUR : action pure — la cible désignée dans la zone doit fuir
+          // ailleurs (attaques d'opportunité déclenchées côté moteur).
+          return Object.assign(common, { range: 'contact', frayeur: true, useOwnDamage: false,
+            dice: D.emptyPool(), effects: Store.noStates() });
         case 'pyromane':
           // Orbe Mystique : 1 dé bleu, à distance, action gratuite réutilisable.
           // Le nombre d'orbes/tour (uses) est ajusté selon le niveau par le moteur.

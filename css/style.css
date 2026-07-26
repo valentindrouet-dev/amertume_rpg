@@ -4406,3 +4406,23 @@ body.mode-player #item-list.roster-list { display: block; }
 /* Bouton de test : titre + compétence/difficulté sur UNE seule ligne. */
 .ses-choice-btn.skill-test .ssk-btn-meta { flex: 0 0 auto; margin-top: 0; margin-left: auto; }
 .ses-choice-btn.skill-test .ssk-btn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+
+/* v2.3.76 : bandeau flottant « Adversaire Invisible ! » */
+.cbt-invis-alert {
+  position: absolute; left: 50%; top: 3.2rem; transform: translateX(-50%);
+  z-index: 40; pointer-events: none;
+  background: rgba(60,40,90,.94); color: #f0e4ff;
+  border: 1px solid rgba(190,150,240,.7); border-radius: 10px;
+  padding: .4rem .9rem; font-weight: 800; letter-spacing: .02em;
+  box-shadow: 0 0 18px rgba(160,110,220,.45);
+  animation: cbt-invis-pop 1.8s ease-out forwards;
+}
+@keyframes cbt-invis-pop {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  15%, 70% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+}
+#combat-root, #session-combat-root { position: relative; }
+/* Vignette d'un combattant invisible de NOTRE camp : rendu fantomatique */
+.combat-card.is-invisible { opacity: .72; border-style: dashed; }
+@media (prefers-reduced-motion: reduce) { .cbt-invis-alert { animation: none; } }
