@@ -2038,6 +2038,13 @@
     });
     // Éditeurs de zones de combat des effets « Démarrer un Combat » (réussite/échec).
     scene.blocks.forEach(function (blk) {
+      // Bloc de COMBAT jouable : son éditeur de combat (zones, adversaires,
+      // barrières) — traité AVANT le filtre sur les blocs de test.
+      if (blk.type === 'fight') {
+        if (!blk.combat || typeof blk.combat !== 'object') blk.combat = { combatZones: [], barriers: {} };
+        renderCombatEditor(document.getElementById('fb-cbt-' + blk.id), blk.combat, Store.state.monsters, 'fightzone-' + blk.id, false);
+        return;
+      }
       if (blk.type !== 'test') return;
       if (blk.failEffect && blk.failEffect.kind === 'combat') {
         // Placement de départ double (normal / échoués) réservé à l'échec du test.
@@ -2045,9 +2052,6 @@
       }
       if (blk.winEffect && blk.winEffect.kind === 'combat') {
         renderCombatEditor(document.getElementById('tb-wincbt-' + blk.id), ensureFxCombat(blk.winEffect), Store.state.monsters, 'winzone-' + blk.id, false);
-      }
-      if (blk.type === 'fight') {
-        renderCombatEditor(document.getElementById('fb-cbt-' + blk.id), blk.combat, Store.state.monsters, 'fightzone-' + blk.id, false);
       }
     });
     box.querySelectorAll('.tb-target').forEach(function (el) {
