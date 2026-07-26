@@ -1977,6 +1977,10 @@
     { value: 'fleeHeroes',  label: '🏃 Quitte une zone occupée par un aventurier vers une zone vide' },
     { value: 'toCrowd',     label: '👥 Se déplace vers la zone qui contient le PLUS d\'aventuriers' },
     { value: 'toLonely',    label: '👤 Se déplace vers la zone qui contient le MOINS d\'aventuriers' },
+    { value: 'useAtk',      label: '⚔️ Utilise son Attaque en priorité' },
+    { value: 'useAct1',     label: '① Utilise son Action 1 en priorité' },
+    { value: 'useAct2',     label: '② Utilise son Action 2 en priorité' },
+    { value: 'useAct3',     label: '③ Utilise son Action 3 en priorité' },
   ];
   let monsterBehaviors = [];
   function buildBehaviorsEditor(box) {

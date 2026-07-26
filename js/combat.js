@@ -659,7 +659,11 @@
       const teleports = mover && mover.side === 'hero' && heroHasTalent(mover, 'teleportation');
       const blocked = mover && mover.zone !== zi && !teleports && moveBarrier(mover.zone, zi).type === 'block';
       const movable = pendingMove && !blocked && (!mover || mover.zone !== zi);
-      html += '<div class="combat-zone' + (movable ? ' movable' : '') + '" data-zone="' + zi + '"' +
+      // ATTAQUE DE ZONE : toutes les zones atteignables sont mises en surbrillance
+      // (on peut viser une zone au lieu d'une vignette — utile contre les invisibles).
+      const atkr = pendingAttack ? byId(pendingAttack.iid) : null;
+      const zoneAttackable = !!(atkr && !pendingMove && zoneAttackReach(atkr, zi));
+      html += '<div class="combat-zone' + (movable ? ' movable' : '') + (zoneAttackable ? ' zone-attackable' : '') + '" data-zone="' + zi + '"' +
         ' style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';">' +
         '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
         '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
@@ -1961,6 +1965,36 @@
     }
     return null;
   }
+  // Attaque imposée par un comportement « Utilise … en priorité ».
+  // 'useAtk' = attaque d'arme (index 0) ; 'useAct1/2/3' = attaques spéciales
+  // (1re, 2e, 3e de la fiche). Renvoie l'index utilisable, ou -1.
+  const BEH_ATK_SLOT = { useAtk: 0, useAct1: 1, useAct2: 2, useAct3: 3 };
+  function behaviorAttackIdx(m) {
+    const list = Array.isArray(m.behaviors) ? m.behaviors : [];
+    for (let i = 0; i < list.length; i++) {
+      const slot = BEH_ATK_SLOT[list[i]];
+      if (slot == null) continue;
+      const a = m.attacks[slot];
+      if (!a) continue;
+      if (m.attackUses[slot] === 0) continue;
+      if (cannotAct(m, a, slot)) continue;
+      return slot;
+    }
+    return -1;
+  }
+  // Cible valable pour une attaque donnée (portée + ligne de vue / accès).
+  function behaviorTargetFor(m, idx, heroes) {
+    const a = m.attacks[idx];
+    if (!a) return null;
+    if (a.range === 'distance') {
+      const shootable = heroes.filter(function (h) { return !shootBlocked(m.zone, h.zone); });
+      const others = shootable.filter(function (h) { return h.zone !== m.zone; });
+      return chooseFrom(m, others.length ? others : shootable) || null;
+    }
+    const here = heroes.filter(function (h) { return h.zone === m.zone; });
+    return chooseFrom(m, here) || null;
+  }
+
   // Applique le comportement avant l'IA d'attaque. Retourne true si le
   // comportement a pris la main sur le déplacement (l'IA ne bougera plus).
   function applyBehavior(m) {
@@ -2012,6 +2046,13 @@
             ' dans sa zone (<span class="lstate">' + esc(zname(m.zone)) + '</span>).', 'state');
         }
       }
+    }
+    // COMPORTEMENT « Utilise … en priorité » : si l'attaque désignée est jouable
+    // sur une cible valable, elle passe avant l'IA d'attaque standard.
+    const behIdx = behaviorAttackIdx(m);
+    if (behIdx >= 0) {
+      const behTarget = behaviorTargetFor(m, behIdx, heroes);
+      if (behTarget) { applyAttack(m, behIdx, behTarget); return; }
     }
     const sameZone = heroes.filter(function (h) { return h.zone === m.zone; });
     // BARRIÈRES : cibles atteignables au tir (pas d'Obstruante) et au déplacement (pas de blocage).
@@ -2569,15 +2610,26 @@
   }
   function flashInvisibleAlert() {
     if (!anyInvisibleFoe()) return;
-    try {
-      const root = document.querySelector(rootSel);
-      if (!root) return;
+    toast('👁 Adversaire Invisible !', 'invis');
+  }
+  // ---- Messages flottants ----
+  // Mis en file puis affichés APRÈS le rendu : un toast inséré avant render()
+  // serait immédiatement effacé par la reconstruction du DOM.
+  let toastQueue = [];
+  function toast(text, kind) { toastQueue.push({ text: text, kind: kind || 'info' }); }
+  function flushToasts() {
+    if (!toastQueue.length) return;
+    const q = toastQueue; toastQueue = [];
+    const root = document.querySelector(rootSel);
+    if (!root) return;
+    q.forEach(function (t, i) {
       const el = document.createElement('div');
-      el.className = 'cbt-invis-alert';
-      el.textContent = '👁 Adversaire Invisible !';
+      el.className = 'cbt-toast cbt-toast-' + t.kind;
+      el.textContent = t.text;
+      el.style.top = (3.2 + i * 3) + 'rem';
       root.appendChild(el);
-      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 1800);
-    } catch (e) {}
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 1900);
+    });
   }
 
   function pushFx(ev) { if (ev) fxQueue.push(ev); }
@@ -3142,6 +3194,14 @@
             (activeChoice.allowSkip ? '<button id="choice-skip" class="ghost xs">Passer</button>' : '') +
           '</div>'
         : '') +
+      // CIBLAGE en cours : rappel que les ZONES en surbrillance sont visables
+      // (indispensable pour atteindre un adversaire invisible).
+      (pendingAttack && !pendingMove
+        ? '<div class="combat-choicebar cbt-aimbar">' +
+            '<span class="choicebar-msg">🎯 Clique un adversaire <b>ou une zone en surbrillance</b>' +
+            (anyInvisibleFoe() ? ' — viser une zone permet de débusquer un <b>invisible</b> (Perception 2)' : '') +
+            '</span></div>'
+        : '') +
       // Plateau + journal : le journal occupe une colonne à droite (assez large
       // pour lire, sans empiéter sur les zones) ; sur écran étroit il repasse
       // au-dessus du plateau en version compacte.
@@ -3241,6 +3301,8 @@
 
     // Joue les animations en attente (dégâts, critique, raté, soin, déplacement…)
     try { flushFx(); } catch (e) { fxQueue = []; }
+    // Messages flottants (invisibles, attaque dans le vide…) : après le rendu.
+    try { flushToasts(); } catch (e) { toastQueue = []; }
   }
 
   // Contenu de la bannière de ciblage / déplacement (toujours présente : pas de saut d'UI)
@@ -3283,7 +3345,10 @@
         return '🎯 <b>' + esc(at.name) + '</b> — ' + esc(ak.name) +
           (pendingAttack.average ? ' <span class="lavg">(dégâts moyens)</span>' : '') +
           (ak.range === 'contact' ? ' <span class="lavg">(contact : même zone)</span>' : ' <span class="lavg">(à distance)</span>') +
-          ' : <b>clique l\'adversaire à frapper</b>. <button id="cancel-target" class="ghost xs">Annuler</button>';
+          ' : <b>clique l\'adversaire à frapper</b>' +
+          ' <span class="lavg">ou une <b>zone</b> en surbrillance' +
+          (anyInvisibleFoe() ? ' (pour débusquer un invisible)' : '') + '</span>. ' +
+          '<button id="cancel-target" class="ghost xs">Annuler</button>';
       }
     }
     return '<span class="tb-idle">Choisis une attaque ou un mouvement, puis clique la cible / la zone.</span>';
@@ -3838,6 +3903,19 @@
   }
 
   // Cœur d'exécution d'une attaque (sans rendu) — réutilisé par l'UI et l'auto-combat
+  // Une zone est-elle visable par l'attaque en attente ?
+  // Contact : sa propre zone, ou une zone joignable (barrière non bloquante).
+  // Distance : toute zone dont la ligne de tir est dégagée.
+  function zoneAttackReach(attacker, zi) {
+    if (!pendingAttack || !attacker || attacker.status !== 'active') return false;
+    const atk = attacker.attacks[pendingAttack.atkIndex];
+    if (!atk) return false;
+    if (zi === attacker.zone) return true;
+    if (atk.range === 'distance') return !shootBlocked(attacker.zone, zi);
+    if (heroHasTalent(attacker, 'teleportation')) return true;
+    return moveBarrier(attacker.zone, zi).type !== 'block';
+  }
+
   // Attaque visant une ZONE (et non une vignette) : frappe le premier adversaire
   // visible de la zone ; si la zone ne contient que des cibles INVISIBLES, un test
   // de Perception 2 permet de la débusquer et de la frapper.
@@ -3857,6 +3935,7 @@
     const hidden = inZone.filter(isInvisible);
     if (!hidden.length) {
       log(cname(attacker) + ' frappe dans le vide : aucune cible dans <span class="lstate">' + esc(zname(zi)) + '</span>.', 'state');
+      toast('💨 Attaque dans le vide !', 'miss');
       pendingAttack = null; Store.save(); render(); return;
     }
     const t = perceptionTest(attacker, 2);
@@ -3864,11 +3943,13 @@
       // L'attaque est perdue : l'action est consommée sans toucher.
       log(cname(attacker) + ' fouille <span class="lstate">' + esc(zname(zi)) + '</span> à l\'aveugle ' +
         '(Perception ' + t.succ + '/' + t.need + ') — <span class="lfail">échec</span> : il ne trouve personne.', 'state');
+      toast('🔍 Adversaire Introuvable', 'miss');
       const atkLost = attacker.attacks[pendingAttack.atkIndex];
       if (atkLost && !atkLost.freeAction) useAction(attacker);
       pendingAttack = null; checkOutcome(); Store.save(); render(); return;
     }
     const found = hidden[0];
+    toast('👁 Démasqué !', 'invis');
     log('<b class="lopp">Démasqué !</b> ' + cname(attacker) + ' repère une cible invisible dans <span class="lstate">' +
       esc(zname(zi)) + '</span> (Perception ' + t.succ + '/' + t.need + ').', 'state');
     resolveAttackOn(found);

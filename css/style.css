@@ -4437,3 +4437,28 @@ body.mode-player #item-list.roster-list { display: block; }
   background: rgba(226,151,74,.18); color: var(--accent-2, #e2974a);
   font-weight: 800; font-size: .75rem;
 }
+
+/* v2.3.78 : zones visables pendant un ciblage d'attaque */
+.combat-zone.zone-attackable {
+  cursor: crosshair;
+  outline: 2px dashed rgba(231,111,57,.75); outline-offset: -2px;
+  background: rgba(231,111,57,.07);
+}
+.combat-zone.zone-attackable:hover { background: rgba(231,111,57,.16); outline-color: #e76f39; }
+/* Messages flottants du module de combat */
+.cbt-toast {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  z-index: 40; pointer-events: none;
+  border-radius: 10px; padding: .4rem .9rem; font-weight: 800; letter-spacing: .02em;
+  animation: cbt-toast-pop 1.9s ease-out forwards;
+}
+.cbt-toast-invis { background: rgba(60,40,90,.94); color: #f0e4ff; border: 1px solid rgba(190,150,240,.7); box-shadow: 0 0 18px rgba(160,110,220,.45); }
+.cbt-toast-miss  { background: rgba(70,55,40,.94); color: #f3e3cc; border: 1px solid rgba(214,175,70,.6); box-shadow: 0 0 16px rgba(214,175,70,.3); }
+.cbt-toast-info  { background: rgba(40,50,70,.94); color: #e2ecff; border: 1px solid rgba(120,160,220,.6); }
+@keyframes cbt-toast-pop {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  15%, 70% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) { .cbt-toast { animation: none; } }
+.combat-choicebar.cbt-aimbar { background: rgba(231,111,57,.14); border-color: rgba(231,111,57,.5); }
