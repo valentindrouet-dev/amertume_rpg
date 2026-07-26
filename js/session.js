@@ -530,9 +530,6 @@
                 '<p class="hint ses-minimap-hint">Cliquer pour agrandir</p>' +
               '</div>'
             : '') +
-          // Sorties (joystick) : dans la colonne de droite, sous la carte.
-          ((chMode_ === 'dungeon' || chMode_ === 'random')
-            ? '<div id="ses-side-exits" class="ses-side-exits"></div>' : '') +
         '</div>' +
       '</div>';
 
@@ -1080,12 +1077,9 @@
         });
       }
     } else {
-      // Le joystick de sorties et le passage « salle suivante » vivent dans la
-      // colonne de droite (sous la carte) ; repli dans le fil si elle est absente.
-      const sideBox = document.getElementById('ses-side-exits');
-      const navBox = sideBox || box;
-      if (mode === 'dungeon' && !navBlocked && !scene.isTransition) renderDungeonExits(navBox, ch, scene, adv, ses);
-      if (mode === 'random' && !navBlocked && !hasChoices && !scene.nextSceneId && !scene.isTransition) renderRandomNext(navBox, ch, scene, adv, ses);
+      // Joystick de sorties : dans la colonne principale, sous les blocs de la scène.
+      if (mode === 'dungeon' && !navBlocked && !scene.isTransition) renderDungeonExits(box, ch, scene, adv, ses);
+      if (mode === 'random' && !navBlocked && !hasChoices && !scene.nextSceneId && !scene.isTransition) renderRandomNext(box, ch, scene, adv, ses);
     }
     // Message explicatif : on indique pourquoi aucune sortie n'est proposée
     // (le combat imposé, lui, a son propre écran et a déjà court-circuité le rendu).

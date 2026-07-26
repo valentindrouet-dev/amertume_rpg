@@ -48,7 +48,7 @@
     { value: 'humain',  label: 'Humain',  bonus: 'VIE +1',        vie: 1, endu: 0, damage: 0, pvBonus: 0 },
     { value: 'nain',    label: 'Nain',    bonus: 'PV +8',         vie: 0, endu: 0, damage: 0, pvBonus: 8 },
     { value: 'goliath', label: 'Goliath', bonus: 'Dégâts +2',     vie: 0, endu: 0, damage: 2, pvBonus: 0 },
-    { value: 'elfe',    label: 'Elfe',    bonus: 'ENDU +1 · Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0 },
+    { value: 'elfe',    label: 'Elfe',    bonus: 'ENDU +1|Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0 },
   ];
   function speciesOf(v) { return SPECIES.find(function (x) { return x.value === v; }) || null; }
   // ---- Accords selon le genre (utilisés partout dans l'application) ----
@@ -989,7 +989,10 @@
         '<div class="hw-pick-list hw-pick-species">' + SPECIES.map(function (sp) {
           return '<button type="button" class="hw-pick' + (wiz.species === sp.value ? ' selected' : '') + '" data-species="' + sp.value + '">' +
             '<span class="hw-pick-name">' + esc(sp.label) + '</span>' +
-            '<span class="hw-pick-bonus">' + esc(sp.bonus) + '</span></button>';
+            // Bonus multiples : une ligne chacun (séparateur « | »).
+            '<span class="hw-pick-bonus">' + sp.bonus.split('|').map(function (x) {
+              return '<span class="hw-pick-bonus-line">' + esc(x) + '</span>';
+            }).join('') + '</span></button>';
         }).join('') + '</div>';
       const inp = $('#hw-name');
       inp.oninput = function () { wiz.name = this.value; updateWizNav(); };
@@ -1043,8 +1046,8 @@
         '</div>';
       }
       body.innerHTML =
-        '<p class="hint">Répartissez vos <b>3 points</b> entre les caractéristiques (vous pouvez ajuster avant de valider).' +
-        (sp.label ? '<br><span class="hw-species-note">Espèce ' + esc(sp.label) + ' : <b>' + esc(sp.bonus) + '</b> déjà appliqué.</span>' : '') +
+        '<p class="hint">Répartissez vos <b>3 points</b> entre les caractéristiques.' +
+        (sp.label ? '<br><span class="hw-species-note">Espèce ' + esc(sp.label) + ' : <b>' + esc(sp.bonus.split('|').join(' · ')) + '</b> déjà appliqué.</span>' : '') +
         '<br><b>' + rem + '</b> point' + (rem > 1 ? 's' : '') + ' restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-stat-list2">' +
           statRow('damage', 'DÉGÂTS <small>(+1 / point)</small>', 1, dmg, wiz.statBonuses.damage) +
@@ -1190,15 +1193,17 @@
         '<br><b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-skill-list2">' + SKILLS.map(function (s) {
           const v = wiz.skills[s] || 0;
-          return '<div class="hw-skill-row skill-' + skillSlug(s) + '">' +
-            '<span class="hw-skill-name">' + s +
-              (SKILL_DESC[s] ? '<span class="hw-skill-desc">' + esc(SKILL_DESC[s]) + '</span>' : '') +
-            '</span>' +
-            '<div class="hw-stat-ctrl">' +
-              '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="-1"' + (v <= 0 ? ' disabled' : '') + '>−</button>' +
-              '<span class="hw-skill-val' + (v > 0 ? ' on' : '') + '">+' + v + '</span>' +
-              '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="1"' + (v >= 2 || rem <= 0 ? ' disabled' : '') + '>+</button>' +
+          // Languette colorée (taille uniforme) + description JUSTE EN DESSOUS.
+          return '<div class="hw-skill-cell">' +
+            '<div class="hw-skill-row skill-' + skillSlug(s) + '">' +
+              '<span class="hw-skill-name">' + s + '</span>' +
+              '<div class="hw-stat-ctrl">' +
+                '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="-1"' + (v <= 0 ? ' disabled' : '') + '>−</button>' +
+                '<span class="hw-skill-val' + (v > 0 ? ' on' : '') + '">+' + v + '</span>' +
+                '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="1"' + (v >= 2 || rem <= 0 ? ' disabled' : '') + '>+</button>' +
+              '</div>' +
             '</div>' +
+            (SKILL_DESC[s] ? '<p class="hw-skill-desc">' + esc(SKILL_DESC[s]) + '</p>' : '') +
           '</div>';
         }).join('') + '</div>';
       body.querySelectorAll('.hw-skill-pm').forEach(function (b) {
