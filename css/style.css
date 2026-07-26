@@ -4466,14 +4466,17 @@ body.mode-player #item-list.roster-list { display: block; }
 /* v2.3.80 : « Blocs révélés si … » — cases à cocher multiples */
 .tb-chain-col { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
 .tb-chain-head { font-size: .82rem; color: var(--muted); }
+/* Liste FIXE : jamais de défilement — tous les blocs sont visibles d'un coup,
+   une seule ligne chacun (le nom trop long est tronqué par « … »). */
 .tb-chain-list {
   display: flex; flex-direction: column; gap: .15rem;
-  max-height: 9rem; overflow-y: auto;
+  overflow: visible;
   border: 1px solid var(--border); border-radius: 7px; padding: .3rem .4rem;
   background: var(--panel-2);
 }
-.tb-chain-item { display: flex; align-items: center; gap: .35rem; font-size: .85rem; margin: 0; cursor: pointer; }
-.tb-chain-item input { flex: 0 0 auto; }
+.tb-chain-item { display: flex; align-items: center; gap: .35rem; font-size: .85rem; margin: 0; cursor: pointer; min-width: 0; }
+.tb-chain-item input { flex: 0 0 auto; margin: 0; }
+.tb-chain-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-chain-list:empty::after { content: "Aucun autre bloc"; color: var(--muted); font-style: italic; font-size: .8rem; }
 
 
@@ -4571,4 +4574,22 @@ body.mode-player #item-list.roster-list { display: block; }
 .ab-card.side-hero.has-action .ab-name .roster-name {
   color: var(--action);
   text-shadow: 0 0 6px rgba(77,142,209,.35);
+}
+
+/* ===================== v2.3.87 ===================== */
+/* « Bloc révélé si … » : liste FIXE, une ligne par bloc, case à cocher à gauche.
+   Les règles génériques de l'éditeur (inputs en pleine largeur, labels en bloc)
+   ne doivent pas s'appliquer ici. */
+.tb-chain-list { display: flex !important; flex-direction: column; overflow: visible; max-height: none; }
+label.tb-chain-item {
+  display: flex !important; flex-direction: row !important; align-items: center; gap: .35rem;
+  width: 100%; min-width: 0; margin: 0; font-size: .85rem; cursor: pointer;
+}
+label.tb-chain-item > input[type="checkbox"] {
+  flex: 0 0 auto !important; width: 15px !important; height: 15px !important;
+  min-width: 0; margin: 0 !important; order: 0;
+}
+label.tb-chain-item > .tb-chain-name {
+  flex: 1 1 auto; min-width: 0; width: auto;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }

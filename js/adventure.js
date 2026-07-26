@@ -1770,17 +1770,22 @@
               // PLUSIEURS blocs peuvent être révélés par une même issue : cases à
               // cocher (ex. réussir un test révèle À LA FOIS des runes à lire ET
               // la recherche d'un passage secret).
+              // Liste FIXE (jamais déroulante) : une ligne par bloc, case à cocher
+              // à gauche, nom tronqué par « … » s'il dépasse la largeur.
               const boxes = function (which) {
                 const cur = chainIdsOf(blk, which);
-                return '<div class="tb-chain-list">' + others.map(function (b, k) {
-                  return '<label class="tb-chain-item"><input type="checkbox" class="tb-chain-cb" ' +
+                return '<div class="tb-chain-list">' + others.map(function (b) {
+                  const n = scene.blocks.indexOf(b) + 1;
+                  const nm = (b.label || '').trim() || (b.skill ? ('Test ' + b.skill) : 'Bloc');
+                  const full = '#' + n + ' · ' + nm;
+                  return '<label class="tb-chain-item" title="' + esc(full) + '"><input type="checkbox" class="tb-chain-cb" ' +
                     'data-bi="' + i + '" data-which="' + which + '" value="' + esc(b.id) + '"' +
-                    (cur.indexOf(b.id) >= 0 ? ' checked' : '') + ' /> ' +
-                    esc(b.label || ('Bloc #' + (k + 1))) + '</label>';
+                    (cur.indexOf(b.id) >= 0 ? ' checked' : '') + ' />' +
+                    '<span class="tb-chain-name">' + esc(full) + '</span></label>';
                 }).join('') + '</div>';
               };
-              const succLbl = blk.actionMode ? '🔗 Blocs révélés si Action 1' : '🔗 Blocs révélés si réussite';
-              const failLbl = blk.actionMode ? '🔗 Blocs révélés si Action 2' : '🔗 Blocs révélés si échec';
+              const succLbl = blk.actionMode ? '🔗 Bloc révélé si Action 1' : '🔗 Bloc révélé si réussite';
+              const failLbl = blk.actionMode ? '🔗 Bloc révélé si Action 2' : '🔗 Bloc révélé si échec';
               return '<div class="form-row tb-chain-row" style="grid-template-columns:1fr 1fr" title="Les blocs cochés n\'apparaissent dans la scène qu\'après ce résultat. Plusieurs blocs peuvent être révélés ensemble.">' +
                 '<div class="tb-chain-col"><span class="tb-chain-head">' + succLbl + '</span>' + boxes('success') + '</div>' +
                 '<div class="tb-chain-col"><span class="tb-chain-head">' + failLbl + '</span>' + boxes('fail') + '</div>' +

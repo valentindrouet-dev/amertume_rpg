@@ -1075,9 +1075,11 @@
     const cleared = !!(ses.clearedScenes && ses.clearedScenes[scene.id]);
     const hasCombat = sceneHasCombat(scene);
 
-    // Combat IMPOSÉ par un test : verrouille la scène (aucune sortie tant qu'il
-    // n'est pas remporté). Rien d'autre n'est affiché.
-    if (forcedCombatPending(ses, scene)) { renderForcedCombat(box, scene, adv, ses); return; }
+    // Combat IMPOSÉ par un test / une action : l'encadré « Combat imposé » est
+    // affiché en tête, mais le reste de la salle reste ACCESSIBLE (tests, actions,
+    // récompenses…). Seule la progression vers une autre salle est verrouillée.
+    const forcedPending = forcedCombatPending(ses, scene);
+    if (forcedPending) renderForcedCombat(box, scene, adv, ses);
 
     // Récompense « Gagné à l'issue du combat » : masquée tant que le combat de la
     // scène n'est pas remporté (cleared), OU tant qu'un combat déclenché par un
@@ -1089,8 +1091,10 @@
     const rewardGated = scene.rewardAfterCombat &&
       ((hasCombat && !cleared) || forcedCombatPending(ses, scene) || mandatoryTestPending(scene, ses));
     if (sceneHasReward(scene) && !rewardGated) renderRewardScene(box, scene, adv, ses);
-    if (hasCombat && (mode === 'linear' || !cleared)) renderCombatScene(box, scene, adv, ses);
-    else if (hasCombat && cleared && mode !== 'linear') {
+    // Un combat imposé prime : le combat propre à la salle n'est pas proposé
+    // tant que celui-ci n'a pas été mené.
+    if (hasCombat && !forcedPending && (mode === 'linear' || !cleared)) renderCombatScene(box, scene, adv, ses);
+    else if (hasCombat && !forcedPending && cleared && mode !== 'linear') {
       appendSection(box).innerHTML = '<p class="ses-done-note ses-done-combat">⚔ Salle déjà nettoyée — les adversaires ont été vaincus.</p>';
     }
     const resolved = !hasCombat || cleared;
@@ -1101,7 +1105,7 @@
     // relais à forcedCombatPending (qui a déjà court-circuité l'affichage plus haut).
     // Objectif : impossible d'« Emprunter le passage » / « Continuer » tant que le
     // combat (ou le test qui le déclenche) n'est pas résolu.
-    const navBlocked = !resolved || mandatoryTestPending(scene, ses);
+    const navBlocked = !resolved || mandatoryTestPending(scene, ses) || forcedPending;
     // (Les tests de compétence sont désormais des blocs rendus dans le fil du
     // texte de la scène — cf. wireTestBlocks.)
     const hasChoices = scene.choices && scene.choices.length;
@@ -1129,7 +1133,7 @@
       // Joystick de sorties : dans la colonne principale, sous les blocs de la scène.
       // Un test obligatoire NON narratif laisse le demi-tour possible : les sorties
       // s'affichent, mais seules les salles DÉJÀ VISITÉES sont franchissables.
-      const backOnly = navBlocked && resolved && !narrativeTestPending(scene, ses);
+      const backOnly = navBlocked && resolved && !forcedPending && !narrativeTestPending(scene, ses);
       if (mode === 'dungeon' && (!navBlocked || backOnly) && !scene.isTransition) {
         renderDungeonExits(box, ch, scene, adv, ses, backOnly);
       }
@@ -1137,7 +1141,7 @@
     }
     // Message explicatif : on indique pourquoi aucune sortie n'est proposée
     // (le combat imposé, lui, a son propre écran et a déjà court-circuité le rendu).
-    const backAllowed = navBlocked && resolved && !narrativeTestPending(scene, ses) && chapterMode(ch) === 'dungeon';
+    const backAllowed = navBlocked && resolved && !forcedPending && !narrativeTestPending(scene, ses) && chapterMode(ch) === 'dungeon';
     if (navBlocked && !forcedCombatPending(ses, scene) && scene.type !== 'fin' && !backAllowed) {
       const why = !resolved
         ? '🔒 Terminez le combat de cette salle avant de continuer.'

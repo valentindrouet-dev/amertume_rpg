@@ -3987,7 +3987,10 @@
     if (!hidden.length) {
       log(cname(attacker) + ' frappe dans le vide : aucune cible dans <span class="lstate">' + esc(zname(zi)) + '</span>.', 'state');
       toast('💨 Attaque dans le vide !', 'miss');
-      pendingAttack = null; Store.save(); render(); return;
+      // Frapper une zone vide COÛTE l'attaque / l'action (comme une fouille ratée).
+      const atkVoid = attacker.attacks[pendingAttack.atkIndex];
+      if (atkVoid && !atkVoid.freeAction) useAction(attacker);
+      pendingAttack = null; checkOutcome(); Store.save(); render(); return;
     }
     const t = perceptionTest(attacker, 2);
     if (!t.passed) {
