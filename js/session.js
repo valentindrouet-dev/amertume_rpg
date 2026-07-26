@@ -31,6 +31,34 @@
 
   // ---------- Persistance ----------
   function load() { sessions = Store.loadSessions(); }
+  // ---- Sauvegarde COURANTE (persistée) ----
+  // La partie sur laquelle on joue est mémorisée hors mémoire vive : un
+  // rafraîchissement ou un changement d'onglet reprend EXACTEMENT la même
+  // sauvegarde, même si plusieurs parties de la même aventure sont ouvertes.
+  const CUR_KEY = 'amertume_current_session_v1';
+  function curId() { try { return localStorage.getItem(CUR_KEY) || null; } catch (e) { return null; } }
+  function setCurId(id) {
+    try { if (id) localStorage.setItem(CUR_KEY, id); else localStorage.removeItem(CUR_KEY); } catch (e) {}
+  }
+  // Toute désignation de la partie en cours passe par ici (mémoire + persistance).
+  function setActive(s) { activeSession = s || null; setCurId(activeSession ? activeSession.id : null); }
+  // Partie en cours pour une aventure : d'abord celle explicitement choisie,
+  // puis celle en mémoire, et seulement en dernier recours la plus récente.
+  function sessionForAdv(advId) {
+    const okAdv = function (s) { return s && s.status === 'active' && (!advId || s.adventureId === advId); };
+    const id = curId();
+    if (id) {
+      const byCur = sessions.find(function (s) { return s.id === id && okAdv(s); });
+      if (byCur) return byCur;
+    }
+    if (okAdv(activeSession)) {
+      const live = sessions.find(function (s) { return s.id === activeSession.id; });
+      if (live && okAdv(live)) return live;
+    }
+    const list = sessions.filter(okAdv);
+    list.sort(function (a, b) { return (b.startedAt || 0) - (a.startedAt || 0); });
+    return list[0] || null;
+  }
   function save() { Store.saveSessions(sessions); }
 
   // ---------- Montées de niveau (par session, décorrélées de l'Admin) ----------
@@ -193,7 +221,8 @@
     const existing = sessions.filter(function (s) { return s.adventureId === advId && s.status === 'active'; });
     if (existing.length) {
       if (confirm('Une session est déjà en cours pour cette aventure. Reprendre ?')) {
-        activeSession = existing[0];
+        activeSession = sessionForAdv(advId) || existing[0];
+        setCurId(activeSession.id);
         switchToSession();
         return;
       }
@@ -223,7 +252,7 @@
     sessions.push(ses);
     initChapterEntry(ses, adv);  // 1er chapitre en donjon : démarre sur l'entrée / l'ordre tiré
     save();
-    activeSession = ses;
+    setActive(ses);
     // Demander quels héros engager
     openHeroPicker(adv);
   }
@@ -280,7 +309,7 @@
     };
     document.getElementById('hero-picker-cancel').onclick = function () {
       sessions = sessions.filter(function (s) { return s.id !== activeSession.id; });
-      save(); activeSession = null; modal.setAttribute('hidden', '');
+      save(); setActive(null); modal.setAttribute('hidden', '');
     };
   }
 
@@ -303,7 +332,7 @@
     // le tableau `sessions`, donc activeSession doit y appartenir pour ne rien perdre.
     if (activeSession) {
       const match = sessions.find(function (s) { return s.id === activeSession.id; });
-      if (match) activeSession = match;
+      if (match) setActive(match);
     }
     const root = $('#session-root');
     if (!root) return;
@@ -339,7 +368,7 @@
 
     root.querySelectorAll('.ses-resume').forEach(function (b) {
       b.addEventListener('click', function () {
-        activeSession = sessions.find(function (s) { return s.id === b.getAttribute('data-id'); });
+        setActive(sessions.find(function (s) { return s.id === b.getAttribute('data-id'); }));
         if (activeSession) render();
       });
     });
@@ -387,7 +416,7 @@
     restored.roomSnapshotScene = keepScene;
     const idx = sessions.findIndex(function (s) { return s.id === ses.id; });
     if (idx >= 0) sessions[idx] = restored;
-    activeSession = restored;
+    setActive(restored);
     // Fiches des aventuriers (PV, VIE, équipement…) restaurées à l'entrée de salle.
     (snap.heroes || []).forEach(function (h) {
       const i = Store.state.heroes.findIndex(function (x) { return x.id === h.id; });
@@ -538,7 +567,7 @@
       if (confirm('Recharger la salle ?\n\nTout ce qui s\'est passé dans CETTE salle est annulé : tests, combats, butin, XP, PV, hauts faits reviennent à l\'état d\'entrée.')) reloadRoom();
     });
     $('#ses-quit').addEventListener('click', function () {
-      activeSession = null;
+      setActive(null);
       if (global.Shell && Shell.getMode && Shell.getMode() === 'player' && global.App) {
         App.selectTab('saves'); // vue des parties sauvegardées
       } else { render(); }
@@ -973,11 +1002,18 @@
   }
   // Libellé d'affichage de l'effet de réussite (encadré de récompense).
   const WIN_STATE_LABEL = { blindage: 'Blindage', onde: 'Onde', prepare: 'Préparé' };
-  function winEffectHtml(o) {
+  // `scene` (optionnel) : quand l'effet déclenche un combat, l'encadré ne
+  // s'affiche que tant que ce combat est EN ATTENTE. Une fois le combat mené,
+  // le bloc « Un combat se déclenche ! » disparaît.
+  function winEffectHtml(o, scene) {
     const fx = (o && o.winEffect) || (o && o.prepareReward ? { kind: 'prepare' } : null);
     if (!fx || !fx.kind || fx.kind === 'none') return '';
     let inner = '';
-    if (fx.kind === 'combat') inner = '⚔️ <strong>Un combat se déclenche !</strong>';
+    if (fx.kind === 'combat') {
+      const ses = activeSession;
+      if (scene && ses && !forcedCombatPending(ses, scene)) return '';
+      inner = '⚔️ <strong>Un combat se déclenche !</strong>';
+    }
     else if (fx.kind === 'prepare') inner = '⚡ Le groupe est <strong>Préparé</strong> pour le prochain combat<br><span class="ses-reward-note">(+1 Action ou +1 Mouvement au 1er Tour)</span>';
     else if (fx.kind === 'pv') inner = '❤️ Soin <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' PV</strong> pour le groupe';
     else if (fx.kind === 'vie') inner = '❤️ Gain <strong>+' + esc(String(fx.val == null ? 2 : fx.val)) + ' VIE</strong> pour le groupe';
@@ -1549,19 +1585,18 @@
     const dice = 1 + (bh.bonus || 0);
     const randTag = block.who === 'random' ? '<span class="ssk-rand" title="Aventurier désigné au hasard">🎲 au hasard</span>' : '';
     // MEILLEUR AVENTURIER : le désigné est modifiable — la vignette est un menu
-    // déroulant (le meilleur est marqué ★). Aléatoire / Groupe / Concernés : figé.
+    // déroulant (le meilleur est proposé par défaut). Aléatoire / Groupe / Concernés : figé.
     if (block.who !== 'random' && block.who !== 'group' && block.who !== 'concerned') {
       const alive = aliveEngagedHeroes(ses).filter(function (h) {
         return !(Array.isArray(excludeIds) && excludeIds.indexOf(h.id) >= 0);
       });
       if (!bh.hero || !alive.length) return '<div class="ses-skill-pill ssk-none">Aucun aventurier disponible pour ce test</div>';
-      const best = stableBestHero(ses, block, skill, excludeIds);
-      const bestId = best && best.hero ? best.hero.id : null;
+      stableBestHero(ses, block, skill, excludeIds); // fige le choix par défaut
       return '<div class="ses-skill-pill ssk-player-pick">' +
-          '<select class="ssk-pick" data-block="' + esc(block.id) + '" title="Cliquez pour changer d\'aventurier (★ = meilleur dans cette compétence)">' +
+          '<select class="ssk-pick" data-block="' + esc(block.id) + '" title="Cliquez pour changer d\'aventurier">' +
             alive.map(function (h) {
               return '<option value="' + esc(h.id) + '"' + (h.id === bh.hero.id ? ' selected' : '') + '>' +
-                esc(h.name) + (h.id === bestId ? ' ★' : '') + '</option>';
+                esc(h.name) + '</option>';
             }).join('') +
           '</select>' +
           '<span class="ssk-skill skill-' + slug(skill || '') + '">' + esc(skill || '') + ' ' + dice + ' 🎲</span>' +
@@ -2255,7 +2290,7 @@
       rewardHtml += '<div class="ses-reward-block ses-reward-deed"><div class="ses-reward-title">🏆 Haut Fait <strong>' + esc(block.deedReward.trim()) + '</strong></div></div>';
     }
     rewardHtml += treasureRewardHtml(block, rewardRoll(ses, block.id, block));
-    rewardHtml += winEffectHtml(block);
+    rewardHtml += winEffectHtml(block, scene);
     // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
     // Un combat imposé par ce test verrouille toute sortie : pas de bouton passage.
     let passHtml = '';
@@ -2332,7 +2367,7 @@
       '<button class="primary" id="ses-fin-btn" style="margin-top:.75rem">Terminer la session</button></div>';
     sec.querySelector('#ses-fin-btn').addEventListener('click', function () {
       ses.status = 'ended'; ses.party.xp = 0;
-      save(); activeSession = null; render();
+      save(); setActive(null); render();
     });
   }
 
@@ -3117,7 +3152,7 @@
       '</div>';
     }
     html += treasureRewardHtml(scene, rewardRoll(ses, scene.id, scene));
-    html += winEffectHtml(scene);
+    html += winEffectHtml(scene, scene);
     sec.innerHTML = html;
   }
 
@@ -3181,7 +3216,7 @@
     // Session introuvable : on réaffiche tout de même la vue pour ne pas rester
     // bloqué sur l'écran de résumé de combat.
     if (!ses) { render(); return; }
-    activeSession = ses;
+    setActive(ses);
     const adv = findAdventure(ses.adventureId);
     if (!adv) { render(); return; }
 
@@ -3267,16 +3302,12 @@
     load();
     if (activeSession) {
       const m = sessions.find(function (s) { return s.id === activeSession.id; });
-      activeSession = m || null;
+      setActive(m || null);
     }
     if (forceSetup) {
-      activeSession = null;
-    } else if (!activeSession || activeSession.adventureId !== scopeAdventureId) {
-      const existing = sessions.filter(function (s) {
-        return s.adventureId === scopeAdventureId && s.status === 'active';
-      });
-      existing.sort(function (a, b) { return (b.startedAt || 0) - (a.startedAt || 0); });
-      activeSession = existing.length ? existing[0] : null;
+      setActive(null);
+    } else {
+      setActive(sessionForAdv(scopeAdventureId));
     }
     const root = $('#session-root');
     if (!root) return;
@@ -3431,7 +3462,7 @@
   // le déséquiper ne le fait jamais disparaître de l'inventaire.
   function ownedForHero(advId, heroId) {
     load();
-    let ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; }) || activeSession;
+    let ses = sessionForAdv(advId);
     const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
     if (!ses) {
       const o = {};
@@ -3500,7 +3531,7 @@
     sessions.push(ses);
     initChapterEntry(ses, adv);  // 1er chapitre en donjon : démarre sur l'entrée / l'ordre tiré
     save();
-    activeSession = ses;
+    setActive(ses);
     setupSel = {};
     // Lancement direct de la première scène (plus d'écran « L'Aventure commence »).
     const root = $('#session-root');
@@ -3540,7 +3571,7 @@
   function beginNewGame(advId) {
     scopeAdventureId = advId || scopeAdventureId;
     forceSetup = true;
-    activeSession = null;
+    setActive(null);
     setupSel = {};
     if (global.Shell && Shell.showPlayTab) Shell.showPlayTab();
     else { const root = $('#session-root'); if (root) renderPlay(scopeAdventureId); }
@@ -3596,7 +3627,7 @@
     });
     root.querySelectorAll('.ses-resume').forEach(function (b) {
       b.addEventListener('click', function () {
-        activeSession = sessions.find(function (s) { return s.id === b.getAttribute('data-id'); });
+        setActive(sessions.find(function (s) { return s.id === b.getAttribute('data-id'); }));
         if (global.Shell && Shell.showPlayTab) Shell.showPlayTab();
         else render();
       });
@@ -3606,7 +3637,7 @@
         if (!confirm('Supprimer cette session ? L\'XP des aventuriers sera remise à 0.')) return;
         const id = b.getAttribute('data-id');
         sessions.forEach(function (s) { if (s.id === id) { s.status = 'ended'; if (s.party) s.party.xp = 0; } });
-        if (activeSession && activeSession.id === id) activeSession = null;
+        if (activeSession && activeSession.id === id) setActive(null);
         save(); renderSaves(scopeAdventureId);
       });
     });
@@ -3667,12 +3698,7 @@
     });
   }
 
-  function findActiveSessionFor(advId) {
-    if (activeSession && activeSession.adventureId === advId && activeSession.status === 'active') return activeSession;
-    const existing = sessions.filter(function (s) { return s.adventureId === advId && s.status === 'active'; });
-    existing.sort(function (a, b) { return (b.startedAt || 0) - (a.startedAt || 0); });
-    return existing[0] || null;
-  }
+  function findActiveSessionFor(advId) { return sessionForAdv(advId); }
 
   function renderTalents(advId) {
     scopeAdventureId = advId || scopeAdventureId;
@@ -3849,10 +3875,10 @@
   // trop et décrémente aussi acquiredItems / le stock global.
   function discardItem(advId, heroId, itemId) {
     load();
-    const ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; }) || activeSession;
+    const ses = sessionForAdv(advId);
     if (!ses) return false;
     if (activeSession && ses.id === activeSession.id) { /* mute l'instance vivante */ }
-    else { activeSession = ses; }
+    else { setActive(ses); }
     if (!ses.heroOwned) ses.heroOwned = {};
     const owned = ses.heroOwned[heroId] || (ses.heroOwned[heroId] = {});
     const cur = Number(owned[itemId]) || 0;
@@ -3909,7 +3935,14 @@
     ses.heroOwned[hid][itemId] = target;
     // Badge « NEW » : l'objet vient d'arriver — il sera signalé à la prochaine
     // visite de l'onglet Inventaire (une seule fois).
-    if (target - cur > 0) { if (!ses.invNew) ses.invNew = {}; ses.invNew[itemId] = true; }
+    // Badge « NEW » : on mémorise QUI reçoit QUOI et COMBIEN d'exemplaires, pour
+    // ne signaler que les nouveaux exemplaires (et pas ceux déjà possédés, ni les
+    // objets identiques appartenant à d'autres aventuriers).
+    if (target - cur > 0) {
+      if (!ses.invNew) ses.invNew = {};
+      const k = hid + '|' + itemId;
+      ses.invNew[k] = (Number(ses.invNew[k]) || 0) + (target - cur);
+    }
     return target - cur;
   }
   // ---- Badge « NEW » de l'inventaire Joueur ----
@@ -3918,7 +3951,7 @@
   // la file est vidée : au retour suivant, les badges ont disparu.
   function beginInventoryVisit(advId) {
     load();
-    const ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; });
+    const ses = sessionForAdv(advId);
     if (!ses) return;
     ses.invNewShow = ses.invNew || {};
     ses.invNew = {};
@@ -3926,19 +3959,19 @@
   }
   // Objets à badger pendant la visite courante de l'inventaire.
   function newInvIds(advId) {
-    const ses = sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; }) || activeSession;
+    const ses = sessionForAdv(advId);
     return (ses && ses.invNewShow) || {};
   }
   // Stock restant d'un objet dans l'inventaire personnel d'un aventurier (session active).
   function ownedCount(heroId, itemId) {
-    const ses = activeSession || sessions.find(function (s) { return s.status === 'active'; });
+    const ses = sessionForAdv(null);
     if (!ses || !ses.heroOwned || !ses.heroOwned[heroId]) return 0;
     return Number(ses.heroOwned[heroId][itemId]) || 0;
   }
   function consumeObject(heroId, itemId) {
     // NE PAS recharger (load() remplacerait `sessions` et détacherait activeSession,
     // faisant perdre la mutation au save()). On mute la session vivante.
-    const ses = activeSession || sessions.find(function (s) { return s.status === 'active'; });
+    const ses = sessionForAdv(null);
     if (!ses) return; // hors session (combat de test) : rien à retirer
     if (!ses.heroOwned) ses.heroOwned = {};
     const owned = ses.heroOwned[heroId] || (ses.heroOwned[heroId] = {});
@@ -3959,7 +3992,7 @@
   // l'affichage du bloc « Or, Trésors et Objets Rares » de l'onglet Inventaire.
   function partyLoot(advId) {
     const ses = (activeSession && activeSession.adventureId === advId) ? activeSession
-      : sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; });
+      : sessionForAdv(advId);
     if (!ses) return null;
     ensureLoot(ses);
     return { gold: ses.gold, treasures: ses.treasures.slice() };
@@ -3967,7 +4000,7 @@
   // Retire UN exemplaire d'un trésor (bouton ✕ du bloc trésors).
   function removeTreasure(advId, tid) {
     const ses = (activeSession && activeSession.adventureId === advId) ? activeSession
-      : sessions.find(function (s) { return s.adventureId === advId && s.status === 'active'; });
+      : sessionForAdv(advId);
     if (!ses || !Array.isArray(ses.treasures)) return false;
     const t = ses.treasures.find(function (x) { return x.id === tid; });
     if (!t) return false;

@@ -243,11 +243,13 @@
     // `qtyBadge` (objets cumulables) : pastille de quantité en haut à droite.
     // Objets arrivés depuis la dernière visite : badge « NEW » (une seule visite).
     const newIds = (window.Session && Session.newInvIds) ? Session.newInvIds(advId) : {};
-    const singleStrip = function (h, i, checked, qtyBadge) {
+    // Nb d'exemplaires fraîchement acquis PAR CET AVENTURIER pour cet objet.
+    const newCount = function (h, i) { return Number(newIds[h.id + '|' + i.id]) || 0; };
+    const singleStrip = function (h, i, checked, qtyBadge, isNew) {
       return '<label class="inv-strip-row cat-' + i.category + (checked ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
         '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) +
-          (newIds[i.id] ? '<span class="inv-new-badge" title="Nouvel objet depuis votre dernière visite">NEW</span>' : '') +
+          (isNew ? '<span class="inv-new-badge" title="Nouvel objet depuis votre dernière visite">NEW</span>' : '') +
           (qtyBadge > 1 ? '<span class="inv-qty-badge" title="' + qtyBadge + ' exemplaires">' + qtyBadge + '</span>' : '') +
         '</div>' +
         '<button type="button" class="inv-strip-del" data-hero="' + h.id + '" data-item="' + i.id + '" title="Jeter un exemplaire de cet objet">✕</button>' +
@@ -258,16 +260,18 @@
     // de quantité (le stock se consomme en combat, exemplaire par exemplaire).
     const stripRows = function (h, e, owned, i) {
       const isObj = i.category === 'object' || i.category === 'misc' || i.category === 'ammo';
+      const fresh = newCount(h, i);
       if (isObj) {
         const stock = Number(owned[i.id]) || 1;
-        return singleStrip(h, i, equippedCount(e, i) > 0, stock);
+        return singleStrip(h, i, equippedCount(e, i) > 0, stock, fresh > 0);
       }
       const single = i.category === 'armor' || (i.category === 'weapon' && i.ranged);
       let qty = single ? 1 : (Number(owned[i.id]) || 1);
       if (i.category === 'weapon' && !i.ranged) qty = Math.min(2, qty); // max 2 armes de contact identiques
       const filled = equippedCount(e, i);
       let out = '';
-      for (let k = 0; k < qty; k++) out += singleStrip(h, i, k < filled, 0);
+      // Seuls les DERNIERS exemplaires (les nouveaux) portent le badge « NEW ».
+      for (let k = 0; k < qty; k++) out += singleStrip(h, i, k < filled, 0, k >= qty - fresh);
       return out;
     };
     const colContent = function (h, e, owned, items) {

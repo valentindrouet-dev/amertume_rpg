@@ -50,6 +50,15 @@
     { value: 'goliath', label: 'Goliath', bonus: 'Dégâts +2',     vie: 0, endu: 0, damage: 2, pvBonus: 0 },
     { value: 'elfe',    label: 'Elfe',    bonus: 'ENDU +1|Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0 },
   ];
+  // Couleur de chaque caractéristique — identique partout dans l'application.
+  function statKeyOf(txt) {
+    const t = (txt || '').toLowerCase();
+    if (t.indexOf('vie') === 0) return 'vie';
+    if (t.indexOf('pv') === 0) return 'pv';
+    if (t.indexOf('endu') === 0) return 'endu';
+    if (t.indexOf('dégâts') === 0 || t.indexOf('degats') === 0) return 'damage';
+    return '';
+  }
   function speciesOf(v) { return SPECIES.find(function (x) { return x.value === v; }) || null; }
   // ---- Accords selon le genre (utilisés partout dans l'application) ----
   // g : 'f' (elle) · 'm' (il) · 'a' (iel, accords neutres)
@@ -991,7 +1000,7 @@
             '<span class="hw-pick-name">' + esc(sp.label) + '</span>' +
             // Bonus multiples : une ligne chacun (séparateur « | »).
             '<span class="hw-pick-bonus">' + sp.bonus.split('|').map(function (x) {
-              return '<span class="hw-pick-bonus-line">' + esc(x) + '</span>';
+              return '<span class="hw-pick-bonus-line hw-bonus-' + statKeyOf(x) + '">' + esc(x) + '</span>';
             }).join('') + '</span></button>';
         }).join('') + '</div>';
       const inp = $('#hw-name');

@@ -4546,3 +4546,29 @@ body.mode-player #item-list.roster-list { display: block; }
 @media (prefers-reduced-motion: reduce) { .fx-spark, .combat-card.fx-blindage { animation: none; } }
 /* Récompense « Préparé » : parenthèse explicative sur sa propre ligne */
 .ses-reward-prepare .ses-reward-note { display: inline-block; margin-top: .1rem; }
+
+/* ===================== v2.3.86 ===================== */
+/* Badge « NEW » : en SUPERPOSITION dans l'angle supérieur gauche de la
+   languette — il ne pousse plus les icônes ni le texte de l'objet. */
+.inv-new-badge {
+  position: absolute; top: -8px; left: -6px; z-index: 3;
+  flex: 0 0 auto; margin: 0; pointer-events: none;
+  font-size: .55rem; font-weight: 800; letter-spacing: .05em; line-height: 1;
+  color: #fff; background: #d13b4e; border: 1px solid rgba(255,255,255,.45);
+  border-radius: 6px; padding: .14rem .3rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4), 0 0 6px rgba(209,59,78,.5);
+}
+/* Assistant de création — bonus d'Espèce : chaque caractéristique reprend sa
+   couleur habituelle (VIE violet, PV vert, ENDU turquoise, Dégâts rouge). */
+.hw-pick-bonus-line { font-weight: 800; }
+.hw-pick-bonus-line.hw-bonus-vie    { color: #a463d8; }
+.hw-pick-bonus-line.hw-bonus-pv     { color: #5fbf5f; }
+.hw-pick-bonus-line.hw-bonus-endu   { color: #4fc0a0; }
+.hw-pick-bonus-line.hw-bonus-damage { color: #e07070; }
+/* Combat : nom de l'aventurier en BLEU ACTION tant que son Action / Attaque
+   n'a pas été consommée ce tour. */
+.combat-card.side-hero.has-action .cc-head .roster-name,
+.ab-card.side-hero.has-action .ab-name .roster-name {
+  color: var(--action);
+  text-shadow: 0 0 6px rgba(77,142,209,.35);
+}

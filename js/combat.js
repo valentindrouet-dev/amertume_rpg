@@ -3529,6 +3529,8 @@
     if (c.klass) cls.push('klass-' + slug(c.klass));
     if (isEnemy && c.type) cls.push('type-' + c.type);
     // PYROMANE : bouton spécial ORBES (occupe les 2 lignes, à gauche de la grille).
+    // Nom en BLEU ACTION tant que l'action / l'attaque n'a pas été consommée.
+    if (!isEnemy && !dead && (!c.used.action || c.prepBonus)) cls.push('has-action');
     const orbIdx = (!isEnemy && Array.isArray(c.attacks)) ? c.attacks.findIndex(function (a) { return a.pyromaneOrb; }) : -1;
     if (orbIdx >= 0) cls.push('has-orbes');
     const pvText = (isEnemy && !known) ? '' : (c.pv + ' / ' + c.maxPv + ' PV');
@@ -3922,7 +3924,8 @@
     // lorsque le combattant est sélectionné.
     // Pastille bleue (coin haut-droit) : aventurier actif n'ayant pas encore
     // utilisé son Action / Attaque ce tour. Disparaît une fois l'action faite.
-    const actionDot = (!isEnemy && !dead && (!c.used.action || c.prepBonus))
+    const unspent = !isEnemy && !dead && (!c.used.action || c.prepBonus);
+    const actionDot = unspent
       ? '<span class="action-dot" title="Action / Attaque non utilisée"></span>' : '';
     // Pas d'avatar dans les vignettes de zone : toute la largeur va au nom / PV.
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
