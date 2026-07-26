@@ -2962,12 +2962,13 @@
     ];
   }
 
-  function renderCombatScene(box, scene, adv, ses) {
-    const zones = sceneZones(scene);
+  // Aperçu de la DISPOSITION d'un combat (zones, placement des combattants,
+  // barrières) — partagé par le combat de salle et les blocs de combat.
+  function combatPreviewHtml(zones, rawBarriers, ses) {
     // Barrières au nouveau format objet « min-max » (avec migration de l'ancien
     // tableau linéaire / du type « obstruante »).
     const barriers = (function () {
-      const raw = scene.barriers;
+      const raw = rawBarriers;
       const out = {};
       if (Array.isArray(raw)) {
         raw.forEach(function (b, i) {
@@ -3044,6 +3045,11 @@
         : 'grid-template-columns:1fr auto 1fr;grid-template-rows:1fr auto 1fr;');
     const preview = '<div class="combat-preview zc-' + nZones + '" style="' + gridStyle + '">' + zonesHtml + '</div>';
 
+    return preview;
+  }
+
+  function renderCombatScene(box, scene, adv, ses) {
+    const preview = combatPreviewHtml(sceneZones(scene), scene.barriers, ses);
     // Donjons : « Passer (victoire) » reste possible sans scène de suite — la salle
     // est alors marquée nettoyée et l'on reste dedans (sorties débloquées).
     const chF = findScene(adv, scene.id);
@@ -3163,10 +3169,17 @@
         return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; })
           .reduce(function (t, r) { return t + (r.count || 1); }, 0);
       }, 0);
-      slot.innerHTML = '<div class="ses-searchtest ses-fight">' +
+      // Disposition du combat AVANT de le lancer : zones, placement des
+      // combattants et barrières — exactement comme pour un combat de salle.
+      const zones = (blk.combat && blk.combat.combatZones && blk.combat.combatZones.length)
+        ? blk.combat.combatZones
+        : [{ name: 'Zone des aventuriers', monsterRefs: [], heroStart: true }, { name: 'Adversaires', monsterRefs: [] }];
+      slot.innerHTML = '<div class="ses-searchtest ses-fight ses-combat-block">' +
         '<div class="ses-st-title">' + title + '</div>' +
         (blk.content && blk.content.trim() ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(blk.content) + '</div>' : '') +
-        '<button type="button" class="ses-exit-btn ses-fight-go"' + (nFoes ? '' : ' disabled title="Aucun adversaire défini dans ce bloc."') + '>' +
+        (nFoes ? '<p class="hint">Disposition du combat (vous ne pouvez pas changer votre position de départ) :</p>' +
+          combatPreviewHtml(zones, (blk.combat || {}).barriers, ses) : '') +
+        '<button type="button" class="primary ses-fight-go"' + (nFoes ? '' : ' disabled title="Aucun adversaire défini dans ce bloc."') + '>' +
           '⚔ Lancer le combat' + (nFoes ? ' <span class="ses-fight-count">(' + nFoes + ' adversaire' + (nFoes > 1 ? 's' : '') + ')</span>' : '') +
         '</button>' +
       '</div>';

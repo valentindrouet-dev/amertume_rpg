@@ -4657,7 +4657,8 @@ label.tb-chain-item > .tb-chain-name {
 
 /* ===================== v2.3.89 — Blocs de combat jouables ===================== */
 .ses-searchtest.ses-fight { border-left-color: #d65c40; }
-.ses-fight-go { border-left-color: #d65c40 !important; }
+/* Bouton « Lancer le combat » d'un bloc de combat : marge au-dessus de l'aperçu. */
+.ses-fight .ses-fight-go { margin-top: .6rem; }
 .ses-fight-count { font-weight: 600; opacity: .85; font-size: .85em; }
 /* Éditeur : bandeau d'un bloc de combat */
 .adv-block-fight { border-left: 4px solid #d65c40; }
