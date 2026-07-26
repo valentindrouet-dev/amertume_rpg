@@ -45,10 +45,10 @@
   ];
   // Espèces jouables : chacune apporte un bonus fixe à la création.
   const SPECIES = [
-    { value: 'humain',  label: 'Humain',  bonus: 'VIE +1',        vie: 1, endu: 0, damage: 0, pvBonus: 0 },
-    { value: 'nain',    label: 'Nain',    bonus: 'PV +8',         vie: 0, endu: 0, damage: 0, pvBonus: 8 },
-    { value: 'goliath', label: 'Goliath', bonus: 'Dégâts +2',     vie: 0, endu: 0, damage: 2, pvBonus: 0 },
-    { value: 'elfe',    label: 'Elfe',    bonus: 'ENDU +1|Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0 },
+    { value: 'humain',  label: 'Humain',  icon: '🧑', bonus: 'VIE +1',        vie: 1, endu: 0, damage: 0, pvBonus: 0 },
+    { value: 'nain',    label: 'Nain',    icon: '⛏️', bonus: 'PV +8',         vie: 0, endu: 0, damage: 0, pvBonus: 8 },
+    { value: 'goliath', label: 'Goliath', icon: '🗿', bonus: 'Dégâts +2',     vie: 0, endu: 0, damage: 2, pvBonus: 0 },
+    { value: 'elfe',    label: 'Elfe',    icon: '🏹', bonus: 'ENDU +1|Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0 },
   ];
   // Couleur de chaque caractéristique — identique partout dans l'application.
   function statKeyOf(txt) {
@@ -60,6 +60,18 @@
     return '';
   }
   function speciesOf(v) { return SPECIES.find(function (x) { return x.value === v; }) || null; }
+  function genderOfDef(v) { return GENDERS.find(function (x) { return x.value === v; }) || null; }
+  // Pastilles d'identité (genre · espèce) affichées sur la fiche de l'onglet Groupe.
+  function identityTagsHtml(h) {
+    const g = genderOfDef(h && h.gender);
+    const sp = speciesOf(h && h.species);
+    if (!g && !sp) return '';
+    return '<span class="hero-ident">' +
+      (g ? '<span class="tag hero-gender" title="Genre">' + esc(g.label) + '</span>' : '') +
+      (sp ? '<span class="tag hero-species" title="Espèce — ' + esc(sp.bonus.split('|').join(' · ')) + '">' +
+        (sp.icon ? sp.icon + ' ' : '') + esc(sp.label) + '</span>' : '') +
+    '</span>';
+  }
   // ---- Accords selon le genre (utilisés partout dans l'application) ----
   // g : 'f' (elle) · 'm' (il) · 'a' (iel, accords neutres)
   // g : 'm' → il / lui · 'f' → elle / elle · 'a' (autre, défaut) → on
@@ -783,6 +795,7 @@
         '<div class="roster-head hero-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
           (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
+          identityTagsHtml(h) +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
           (player ? '' : '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>') +
           '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +

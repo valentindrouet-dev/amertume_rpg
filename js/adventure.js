@@ -1648,7 +1648,9 @@
         const done = !!blk.done;
         // Plier/déplier (état conservé sur le bloc) + coche « OK » (bloc terminé,
         // titre en vert), toujours visibles même replié.
-        const collapseBtn = '<button type="button" class="icon-btn block-collapse" data-bi="' + i + '" title="' + (collapsed ? 'Déplier' : 'Replier') + '">' + (collapsed ? '▸' : '▾') + '</button>';
+        const collapseBtn = '<button type="button" class="icon-btn block-collapse" data-bi="' + i + '" title="' + (collapsed ? 'Déplier' : 'Replier') + '">' + (collapsed ? '▸' : '▾') + '</button>' +
+          // Numéro du bloc : c'est la seule place où l'ordre est visible.
+          '<span class="adv-block-num" title="Bloc n° ' + (i + 1) + '">#' + (i + 1) + '</span>';
         const okLabel = '<label class="adv-block-ok" title="Marquer ce bloc comme terminé"><input type="checkbox" class="block-done" data-bi="' + i + '"' + (done ? ' checked' : '') + '> OK</label>';
         const tools = okLabel +
           '<button type="button" class="icon-btn block-up" data-bi="' + i + '" title="Monter"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
@@ -1873,12 +1875,36 @@
     // Blocs de texte
     // Plier/déplier (conservé sur le bloc) + coche OK (bloc terminé).
     box.querySelectorAll('.block-collapse').forEach(function (b) {
-      b.onclick = function () {
+      b.onclick = function (e) {
+        e.stopPropagation();
         const blk = scene.blocks[biOf(this)];
         blk.collapsed = !blk.collapsed;
         save(); renderBlocksEditor(scene, adv);
       };
     });
+    // Cliquer le BANDEAU du bloc le plie / le déplie — sauf sur les contrôles
+    // qu'il contient (coche OK, flèches, suppression, sélecteur de type).
+    box.querySelectorAll('.adv-block-row-head').forEach(function (head) {
+      head.addEventListener('click', function (e) {
+        if (e.target.closest('button, input, select, textarea, label')) return;
+        const row = head.closest('.adv-block-row');
+        if (!row) return;
+        const blk = scene.blocks[+row.getAttribute('data-bi')];
+        if (!blk) return;
+        blk.collapsed = !blk.collapsed;
+        save(); renderBlocksEditor(scene, adv);
+      });
+    });
+    // « Tout enrouler / tout dérouler » : une seule case pour toute la scène.
+    const allCb = document.getElementById('sm-collapse-all');
+    if (allCb) {
+      allCb.checked = scene.blocks.length > 0 && scene.blocks.every(function (b) { return !!b.collapsed; });
+      allCb.onchange = function () {
+        const v = this.checked;
+        scene.blocks.forEach(function (b) { b.collapsed = v; });
+        save(); renderBlocksEditor(scene, adv);
+      };
+    }
     box.querySelectorAll('.block-done').forEach(function (cb) {
       cb.onchange = function () {
         scene.blocks[biOf(this)].done = this.checked;

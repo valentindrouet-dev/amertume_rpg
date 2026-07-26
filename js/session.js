@@ -669,7 +669,7 @@
       const isCur = ses.currentSceneId === s.id;
       const isEntry = chapter.entryId === s.id;
       const title = s.title || 'Salle';
-      return '<div class="mmap-room' + (isCur ? ' mmap-current' : '') + '"' +
+      return '<div class="mmap-room' + (isCur ? ' mmap-current' : '') + '" data-scene="' + esc(s.id) + '"' +
         ' style="left:' + (pos[s.id][0] * CW + PAD) + 'px;top:' + (pos[s.id][1] * CH + PAD) + 'px;width:' + BW + 'px;height:' + BH + 'px"' +
         ' title="' + esc(title) + '">' +
         (opts.titles ? '<span class="mmap-room-title">' + (isEntry ? '🚪 ' : '') + esc(title) + '</span>' : (isEntry ? '🚪' : '')) +
@@ -1279,6 +1279,37 @@
     return { mode: mode, unlocked: !!(st && st.success) };
   }
   // ----- Donjon structuré : sorties & accès de la salle (connecteurs) -----
+  // ----- ROSE DES DIRECTIONS (remplace l'ancien bloc « Sorties & accès ») -----
+  // Grille FIXE de 3×3 : la salle courante au centre, les 8 directions autour.
+  // La forme ne change jamais : une direction sans sortie garde sa case, discrète
+  // et non cliquable. Toute la logique de sortie (connecteurs, verrous, passages
+  // secrets, événements de passage, demi-tour) est celle de l'ancien bloc.
+  const ROSE_CELLS = [
+    ['↖', 'NO'], ['⬆', 'N'], ['↗', 'NE'],
+    ['⬅', 'O'],  ['',  ''],  ['➡', 'E'],
+    ['↙', 'SO'], ['⬇', 'S'], ['↘', 'SE'],
+  ];
+  // Repositionne la rose sous la COLONNE PRINCIPALE et réserve la place en bas
+  // de page pour qu'elle ne recouvre jamais le contenu.
+  function placeCompass() {
+    const rose = document.getElementById('ses-compass');
+    if (!rose) return;
+    const root = document.getElementById('session-root');
+    const col = document.querySelector('.ses-scene-card');
+    const narrow = window.matchMedia('(max-width: 860px)').matches;
+    if (col && !narrow) {
+      const r = col.getBoundingClientRect();
+      rose.style.left = Math.round(r.left) + 'px';
+      rose.style.right = 'auto';
+      rose.style.width = Math.round(r.width) + 'px';
+    } else {
+      rose.style.left = ''; rose.style.right = ''; rose.style.width = '';
+    }
+    if (root) root.style.paddingBottom = (rose.offsetHeight + 18) + 'px';
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', placeCompass);
+  }
   function renderDungeonExits(box, chapter, scene, adv, ses, backOnly) {
     const links = (chapter && Array.isArray(chapter.links) ? chapter.links : []).filter(function (l) {
       if (l.from !== scene.id && l.to !== scene.id) return false;
@@ -1288,11 +1319,6 @@
       if (g.mode === 'hidden' && !g.unlocked) return false;
       return true;
     });
-    const sec = appendSection(box);
-    if (!links.length) {
-      sec.innerHTML = '<p class="hint">Aucune sortie reliée à cette salle.</p>';
-      return;
-    }
     const titleOf = function (id) {
       const f = findScene(adv, id);
       return f ? (f.scene.title || 'Salle') : 'Salle';
@@ -1307,51 +1333,86 @@
       // VERROUILLÉ non encore ouvert : bouton visible avec un cadenas, non franchissable.
       // backOnly (test obligatoire en attente) : seules les salles déjà visitées
       // restent accessibles — on peut faire demi-tour, pas avancer.
-      const lockedByTest = backOnly && (ses.visitedSceneIds || []).indexOf(e.other) < 0;
+      const lockedByTest = backOnly && !visited;
       const locked = (e.gate.mode === 'locked' && !e.gate.unlocked) || lockedByTest;
       // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
       // (pas d'indice sur les salles inconnues).
       const danger = visited && e.f && sceneHasCombat(e.f.scene) && !(ses.clearedScenes && ses.clearedScenes[e.other]);
-      return '<button class="ses-exit-btn' + (visited ? ' ses-exit-visited' : '') + (locked ? ' ses-exit-locked' : '') + '" data-to="' + esc(e.other) + '"' +
-        (locked ? ' disabled title="' + (lockedByTest
+      const name = visited ? titleOf(e.other) : '???';
+      const tip = locked
+        ? (lockedByTest
           ? 'Un test obligatoire doit être tenté avant d\'explorer plus loin (le demi-tour reste possible).'
-          : 'Verrouillé — réussissez le test de la salle pour l\'ouvrir.') + '"' : '') + '>' +
-        (locked ? '<span class="ses-exit-lock">🔒</span>' : '') +
-        (e.l.label ? '<span class="ses-exit-lbl">' + esc(e.l.label) + '</span>' : '') +
-        '<span class="ses-exit-to"><span class="ses-exit-dir">' + e.arrow + '</span> ' + (visited ? esc(titleOf(e.other)) + (danger ? ' ⚔️' : '') : '???') + '</span>' +
+          : 'Verrouillé — réussissez le test de la salle pour l\'ouvrir.')
+        : (e.l.label ? e.l.label + ' — ' + name : name);
+      return '<button type="button" class="rose-btn ses-exit-btn' + (visited ? ' ses-exit-visited' : '') +
+          (locked ? ' ses-exit-locked' : '') + '" data-to="' + esc(e.other) + '"' +
+          (locked ? ' disabled' : '') + ' title="' + esc(tip) + '">' +
+        '<span class="rose-arrow">' + (locked ? '🔒' : e.arrow) + '</span>' +
+        '<span class="rose-name">' + esc(name) + (danger ? ' ⚔️' : '') + '</span>' +
+        (e.l.label ? '<span class="rose-lbl">' + esc(e.l.label) + '</span>' : '') +
       '</button>';
     }
-    // Disposition « joystick » : chaque sortie occupe la case de sa direction sur
-    // une grille 3×3 (haut au centre-haut, gauche/droite au milieu, bas au
-    // centre-bas, diagonales dans les coins). Les cases sans sortie restent
-    // vides : la structure directionnelle est conservée.
-    const CELL = { '↖': '1/1', '⬆': '1/2', '↗': '1/3', '⬅': '2/1', '→': '2/2', '➡': '2/3', '↙': '3/1', '⬇': '3/2', '↘': '3/3' };
+    // Répartition des sorties dans les 8 cases directionnelles (le centre est
+    // réservé à la salle courante). Plusieurs sorties dans la même direction
+    // s'empilent DANS leur case : la grille reste 3×3 quoi qu'il arrive.
     const cells = {};
     exits.forEach(function (e) {
-      const c = CELL[e.arrow] || '2/2';
-      (cells[c] = cells[c] || []).push(exitBtnHtml(e));
+      const k = ROSE_CELLS.some(function (c) { return c[0] === e.arrow; }) ? e.arrow : '➡';
+      (cells[k] = cells[k] || []).push(exitBtnHtml(e));
     });
-    sec.innerHTML = '<div class="ses-exits">' +
-      '<div class="ses-exits-title">🚪 Sorties &amp; accès</div>' +
-      '<div class="ses-exits-grid">' +
-      Object.keys(cells).map(function (c) {
-        const rc = c.split('/');
-        return '<div class="ses-exit-cell" style="grid-row:' + rc[0] + ';grid-column:' + rc[1] + ';">' +
-          cells[c].join('') + '</div>';
-      }).join('') +
-      '</div></div>';
-    sec.querySelectorAll('.ses-exit-btn:not([disabled])').forEach(function (b) {
+    const gridHtml = ROSE_CELLS.map(function (c, i) {
+      if (i === 4) {
+        return '<div class="rose-cell rose-center" aria-current="true">' +
+          '<span class="rose-center-pin">📍</span>' +
+          '<span class="rose-center-name">' + esc(scene.title || 'Salle') + '</span>' +
+        '</div>';
+      }
+      const btns = cells[c[0]];
+      if (!btns || !btns.length) {
+        return '<div class="rose-cell rose-empty" aria-hidden="true"><span class="rose-empty-dir">' + c[1] + '</span></div>';
+      }
+      return '<div class="rose-cell rose-filled">' + btns.join('') + '</div>';
+    }).join('');
+
+    // La rose vit HORS du fil de la scène : barre fixe en bas d'écran.
+    const root = document.getElementById('session-root');
+    if (!root) return;
+    let rose = document.getElementById('ses-compass');
+    if (!rose) { rose = document.createElement('div'); rose.id = 'ses-compass'; root.appendChild(rose); }
+    rose.className = 'ses-compass';
+    rose.innerHTML = '<div class="ses-compass-inner">' +
+      '<div class="rose-grid">' + gridHtml + '</div>' +
+      (exits.length ? '' : '<p class="hint rose-none">Aucune sortie reliée à cette salle.</p>') +
+    '</div>';
+    placeCompass();
+
+    rose.querySelectorAll('.ses-exit-btn:not([disabled])').forEach(function (b) {
+      const to = b.getAttribute('data-to');
+      // Survol : la salle de destination se surligne sur la carte latérale.
+      b.addEventListener('mouseenter', function () { highlightMapRoom(to, true); });
+      b.addEventListener('mouseleave', function () { highlightMapRoom(to, false); });
       b.addEventListener('click', function () {
-        const to = b.getAttribute('data-to');
+        highlightMapRoom(to, false);
+        if (!Array.isArray(ses.choicesTaken)) ses.choicesTaken = [];
         ses.choicesTaken.push({ sceneId: scene.id, choiceLabel: b.textContent.trim(), targetSceneId: to });
         // Événement de passage sur ce connecteur : il s'intercale avant l'arrivée.
         const link = (chapter.links || []).find(function (l) {
           return (l.from === scene.id && l.to === to) || (l.from === to && l.to === scene.id);
         });
-        if (triggerLinkEvent(ses, adv, chapter, link, to)) return;
+        if (triggerLinkEvent(ses, adv, chapter, link, to)) { scrollPageTop(); return; }
         navigateTo(ses, adv, to);
+        scrollPageTop(); // la nouvelle salle se lit depuis le haut
       });
     });
+  }
+  // Remonte la page en haut après un déplacement.
+  function scrollPageTop() {
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+  }
+  // Surlignage d'une salle sur la mini-carte (survol d'une sortie de la rose).
+  function highlightMapRoom(sceneId, on) {
+    document.querySelectorAll('.mmap-room[data-scene="' + (window.CSS && CSS.escape ? CSS.escape(sceneId) : sceneId) + '"]')
+      .forEach(function (el) { el.classList.toggle('mmap-hover', !!on); });
   }
 
   // ----- Donjon aléatoire : enchaînement automatique vers la salle suivante -----

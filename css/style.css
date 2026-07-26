@@ -4396,13 +4396,6 @@ body.mode-player #item-list.roster-list { display: block; }
 
 /* ===================== v2.3.75 ===================== */
 /* Sorties du donjon en « joystick » : grille 3×3 directionnelle. */
-.ses-exits-grid {
-  display: grid; grid-template-columns: 1fr 1fr 1fr;
-  gap: .4rem; max-width: 46rem; margin-top: .4rem;
-  align-items: stretch; justify-items: stretch;
-}
-.ses-exit-cell { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
-.ses-exit-cell .ses-exit-btn { width: 100%; box-sizing: border-box; }
 /* Bouton de test : titre + compétence/difficulté sur UNE seule ligne. */
 .ses-choice-btn.skill-test .ssk-btn-meta { flex: 0 0 auto; margin-top: 0; margin-left: auto; }
 .ses-choice-btn.skill-test .ssk-btn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
@@ -4513,8 +4506,6 @@ body.mode-player #item-list.roster-list { display: block; }
 
 /* ===================== v2.3.84 ===================== */
 /* Joystick de sorties : colonne principale, centré sous les blocs de la scène. */
-.ses-exits-grid { margin-left: auto; margin-right: auto; max-width: 34rem; }
-.ses-exits-title { text-align: center; }
 /* Espèce : un bonus par ligne (l'Elfe en a deux) */
 .hw-pick { justify-content: flex-start; }
 .hw-pick-bonus { display: flex; flex-direction: column; align-items: center; gap: 0; line-height: 1.15; }
@@ -4592,4 +4583,78 @@ label.tb-chain-item > input[type="checkbox"] {
 label.tb-chain-item > .tb-chain-name {
   flex: 1 1 auto; min-width: 0; width: auto;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ===================== v2.3.88 — Rose des directions ===================== */
+/* Barre fixe en bas d'écran : grille 3×3 invariable (la salle courante au
+   centre, les 8 directions autour). Codes couleurs de l'aventure : brun sombre,
+   beige, bronze, texte crème. */
+.ses-compass {
+  position: fixed; bottom: 12px; left: 0; right: 0; z-index: 60;
+  display: flex; justify-content: center; pointer-events: none;
+}
+.ses-compass-inner {
+  pointer-events: auto; width: 100%; max-width: 34rem; box-sizing: border-box;
+  background: linear-gradient(180deg, #2f2418, #241b11);
+  border: 1px solid #6b5432; border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  padding: .5rem;
+}
+.rose-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr;
+  gap: .35rem;
+}
+.rose-cell {
+  display: flex; flex-direction: column; gap: .25rem;
+  min-width: 0; min-height: 46px; border-radius: 9px;
+}
+/* Case sans sortie : discrète, jamais cliquable — la forme reste identique. */
+.rose-empty {
+  align-items: center; justify-content: center;
+  border: 1px dashed rgba(190,160,110,.22); background: rgba(255,245,225,.03);
+  pointer-events: none;
+}
+.rose-empty-dir { font-size: .62rem; font-weight: 700; letter-spacing: .08em; color: rgba(228,214,188,.24); }
+/* Salle courante : identifiable, non cliquable. */
+.rose-center {
+  align-items: center; justify-content: center; text-align: center; gap: .1rem;
+  border: 1px solid #b4813c; background: rgba(180,129,60,.16);
+  color: #f2e6cf; padding: .2rem .3rem; pointer-events: none;
+}
+.rose-center-pin { font-size: .8rem; line-height: 1; }
+.rose-center-name {
+  font-size: .72rem; font-weight: 800; line-height: 1.1;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+/* Bouton de sortie */
+.rose-btn.ses-exit-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem;
+  width: 100%; min-height: 46px; box-sizing: border-box; flex: 1 1 auto;
+  padding: .28rem .3rem; text-align: center; cursor: pointer;
+  border: 1px solid rgba(0,0,0,.28); border-left: 1px solid rgba(0,0,0,.28);
+  border-radius: 9px; background: #e7e0d2; color: #2c2418;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.rose-btn.ses-exit-btn:hover:not([disabled]) { filter: brightness(1.06); border-color: #b4813c; }
+.rose-btn.ses-exit-visited { box-shadow: inset 0 0 0 1px rgba(106,171,106,.55), 0 1px 2px rgba(0,0,0,.25); }
+.rose-btn.ses-exit-locked { opacity: .5; cursor: not-allowed; border-style: dashed; }
+.rose-arrow { font-size: 1rem; line-height: 1; font-weight: 800; }
+.rose-name {
+  font-size: .7rem; font-weight: 700; line-height: 1.05; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.rose-lbl { font-size: .6rem; font-weight: 600; color: #5d4f38; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rose-none { margin: .3rem 0 0; text-align: center; font-size: .74rem; color: rgba(228,214,188,.6); }
+/* Salle survolée depuis la rose : surlignée sur la mini-carte. */
+.mmap-room.mmap-hover { outline: 2px solid #e2974a; outline-offset: 1px; box-shadow: 0 0 8px rgba(226,151,74,.6); }
+/* Mobile : presque toute la largeur, aucun défilement horizontal, cibles ≥ 44px. */
+@media (max-width: 860px) {
+  .ses-compass { left: 8px !important; right: 8px !important; width: auto !important; bottom: 8px; }
+  .ses-compass-inner { padding: .4rem; }
+  .rose-grid { gap: .3rem; }
+  .rose-cell, .rose-btn.ses-exit-btn { min-height: 44px; }
+  .rose-name, .rose-center-name { font-size: .68rem; }
 }
