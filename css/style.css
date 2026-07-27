@@ -4811,7 +4811,11 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 
 /* ===================== v2.4.09 — Bulles de combat ===================== */
 /* Même bulle que « Attaque dans le vide », déclinée par situation. */
-.cbt-toast-atk-hero { background: rgba(30,52,82,.94); color: #dbe9ff; border: 1px solid rgba(120,170,235,.65); box-shadow: 0 0 16px rgba(90,150,220,.35); }
+/* Attaque d'ARME d'un aventurier : gris acier. Action / talent : bleu acier. */
+.cbt-toast-atk-weapon { background: rgba(58,60,64,.94); color: #e6e8ea; border: 1px solid rgba(170,178,186,.6); box-shadow: 0 0 16px rgba(150,160,170,.28); }
+.cbt-toast-act-hero   { background: rgba(30,52,82,.94); color: #dbe9ff; border: 1px solid rgba(120,170,235,.65); box-shadow: 0 0 16px rgba(90,150,220,.35); }
+/* Orbes Mystiques du Pyromane : violet mystique. */
+.cbt-toast-orbe       { background: rgba(58,32,88,.95); color: #ecdcff; border: 1px solid rgba(176,124,236,.75); box-shadow: 0 0 20px rgba(160,100,230,.5); }
 .cbt-toast-atk-foe  { background: rgba(78,32,32,.94); color: #ffdcd4; border: 1px solid rgba(214,92,64,.7);  box-shadow: 0 0 16px rgba(214,92,64,.35); }
 .cbt-toast-crit     { background: rgba(88,62,10,.96); color: #ffe9a8; border: 1px solid rgba(240,196,64,.85); box-shadow: 0 0 22px rgba(240,196,64,.55); font-size: 1.05rem; }
 .cbt-toast-fail     { background: rgba(70,22,22,.96); color: #ffc9c9; border: 1px solid rgba(220,80,80,.8);  box-shadow: 0 0 18px rgba(220,80,80,.45); }

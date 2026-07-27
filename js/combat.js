@@ -1188,9 +1188,17 @@
     const dmgTerm = dmg > 0 ? '<span class="dplus">+</span><span class="dnum d-dmg" title="Dégâts">' + dmg + '</span>' : '';
     const diceStr = '<span class="ldice">(' + diceSeq(res.dice) + dmgTerm + ')</span>';
     const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
-    // Bulle : nom de l'attaque / de l'action jouée, aux couleurs du camp.
-    toast((attacker.side === 'hero' ? '⚔ ' : '☠ ') + attackLabel(atk),
-      attacker.side === 'hero' ? 'atk-hero' : 'atk-foe');
+    // Bulle d'annonce. Aventurier : une attaque d'ARME annonce sa portée (gris
+    // acier), une ACTION annonce son nom (bleu acier). Adversaire : nom de
+    // l'attaque, en rouge.
+    if (attacker.side === 'hero') {
+      // PYROMANE : « Orbes Mystiques » sans le nombre, en violet mystique.
+      if (atk.pyromaneOrb) toast('🔮 Orbes Mystiques', 'orbe');
+      else if (atk.special) toast('✦ ' + attackLabel(atk), 'act-hero');
+      else toast(atk.range === 'distance' ? '🏹 Attaque à distance !' : '⚔ Attaque au contact !', 'atk-weapon');
+    } else {
+      toast('☠ ' + attackLabel(atk), 'atk-foe');
+    }
     // Fusionne un déplacement effectué dans la même action (« se déplace … et attaque … »).
     let movePfx = '';
     if (movePrefix && movePrefix.iid === attacker.iid) {
