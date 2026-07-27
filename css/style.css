@@ -4855,6 +4855,10 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 /* ===================== v2.4.16 — Objets utilisables hors combat ===================== */
 .isheet-use { display: flex; align-items: center; gap: .6rem; margin-top: .8rem; flex-wrap: wrap; }
 .isheet-use .hint { margin: 0; font-size: .8rem; }
+.isheet-target { display: inline-flex !important; flex-direction: row !important; align-items: center; gap: .35rem; font-size: .85rem; }
+/* Cases à cocher des formulaires : la case reste À GAUCHE du libellé (les
+   étiquettes de formulaire, elles, empilent leur intitulé au-dessus du champ). */
+.form-row label.checkbox, .item-form > label.checkbox { flex-direction: row; align-items: center; }
 
 /* ===================== v2.4.17 — Butin unifié ===================== */
 /* Objets découverts, intégrés à la case Butin. */

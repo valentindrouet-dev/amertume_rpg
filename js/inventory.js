@@ -505,6 +505,12 @@
     $('#item-sheet-title').textContent = (i.parchEffect ? '📜 ' : '') + i.name;
     // Bouton « Utiliser » : objet utilisable hors combat, possédé par cet
     // aventurier, dans une partie en cours (et hors d'un combat).
+    // Bénéficiaires possibles : le porteur, ou tout le groupe si l'objet est
+    // « applicable sur tous les Aventuriers ».
+    const engaged = (window.Session && Session.engagedHeroIds) ? (Session.engagedHeroIds() || []) : [];
+    const targets = engaged.map(function (hid) {
+      return Store.state.heroes.find(function (x) { return x.id === hid; });
+    }).filter(Boolean);
     const usable = !!(sheetOwner && window.Session && Session.itemUsableOutOfCombat &&
       Session.itemUsableOutOfCombat(i) &&
       !(Session.combatModuleActive && Session.combatModuleActive()));
@@ -513,14 +519,23 @@
         itemSheetHtml(i) +
       '</div>' +
       (usable
-        ? '<div class="isheet-use"><button type="button" id="isheet-use-btn" class="primary">✨ Utiliser</button>' +
-          '<span class="hint">Objet consommé à l\'usage.</span></div>'
+        ? '<div class="isheet-use">' +
+            (i.anyHero && targets.length > 1
+              ? '<label class="isheet-target">Sur <select id="isheet-use-who">' + targets.map(function (t) {
+                  return '<option value="' + escapeHtml(t.id) + '"' + (t.id === sheetOwner ? ' selected' : '') + '>' +
+                    escapeHtml(t.name) + '</option>';
+                }).join('') + '</select></label>'
+              : '') +
+            '<button type="button" id="isheet-use-btn" class="primary">✨ Utiliser</button>' +
+            '<span class="hint">Objet consommé à l\'usage.</span>' +
+          '</div>'
         : '');
     const useBtn = document.getElementById('isheet-use-btn');
     if (useBtn) useBtn.addEventListener('click', function () {
       if (!confirm('Utiliser « ' + i.name + ' » ?\n\nL\'objet est consommé : il sera retiré de l\'inventaire.')) return;
       const advId = (window.Shell && Shell.getAdventureId) ? Shell.getAdventureId() : null;
-      const r = Session.useItemOutOfCombat(advId, sheetOwner, i.id);
+      const who = document.getElementById('isheet-use-who');
+      const r = Session.useItemOutOfCombat(advId, sheetOwner, i.id, who ? who.value : null);
       alert(r.message);
       if (r.ok) { modalEl.hidden = true; renderPlayer(advId); }
     });
@@ -611,6 +626,7 @@
     fillTalentEffectSelect();
     $('#f-obj-talent').value = isEdit ? (item.parchEffect || '') : '';
     $('#f-obj-outcombat').checked = isEdit ? !!item.outOfCombat : false;
+    $('#f-obj-anyhero').checked = isEdit ? !!item.anyHero : false;
     $('#f-obj-talent-val').value = isEdit && typeof item.parchVal === 'number' ? item.parchVal : 0;
     toggleObjEffectFields();
     weaponDicePool = isEdit ? Object.assign(D.emptyPool(), item.dice) : D.emptyPool();
@@ -729,6 +745,7 @@
       data.ammoColor = $('#f-obj-ammo-color').value || 'white';
       data.parchEffect = $('#f-obj-talent').value || '';
       data.outOfCombat = $('#f-obj-outcombat').checked;
+      data.anyHero = $('#f-obj-anyhero').checked;
       data.parchVal = Math.max(0, parseInt($('#f-obj-talent-val').value, 10) || 0);
       data.consumable = true; // munitions, parchemins et consommables se consomment à l'usage
       // Résumé d'effet : la valeur du champ fait foi, TELLE QUELLE (même vide).

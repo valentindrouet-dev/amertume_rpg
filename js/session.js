@@ -30,7 +30,18 @@
   }
 
   // ---------- Persistance ----------
-  function load() { sessions = Store.loadSessions(); }
+  // Recharge les parties depuis le stockage. IMPORTANT : `activeSession` est
+  // re-pointée sur la nouvelle instance de la même partie — sans cela, un écrit
+  // sur la partie rechargée resterait invisible pour tout ce qui lit
+  // `activeSession` (l'affichage montrait l'ancienne valeur jusqu'au rechargement
+  // de la page).
+  function load() {
+    sessions = Store.loadSessions();
+    if (activeSession) {
+      const m = sessions.find(function (s) { return s.id === activeSession.id; });
+      if (m) activeSession = m;
+    }
+  }
   // ---- Sauvegarde COURANTE (persistée) ----
   // La partie sur laquelle on joue est mémorisée hors mémoire vive : un
   // rafraîchissement ou un changement d'onglet reprend EXACTEMENT la même
@@ -4375,19 +4386,24 @@
   }
   // Utilise l'objet : applique l'effet à l'aventurier, puis retire 1 exemplaire
   // de son inventaire. Renvoie { ok, message }.
-  function useItemOutOfCombat(advId, heroId, itemId) {
+  // `targetId` (optionnel) : bénéficiaire de l'effet, pour un objet marqué
+  // « applicable sur tous les aventuriers ». Par défaut, le porteur.
+  function useItemOutOfCombat(advId, heroId, itemId, targetId) {
     load();
     const ses = sessionForAdv(advId);
     if (!ses) return { ok: false, message: 'Aucune partie en cours.' };
     const item = Store.state.items.find(function (x) { return x.id === itemId; });
+    const owner = heroId;
+    if (item && item.anyHero && targetId && (ses.heroIds || []).indexOf(targetId) >= 0) heroId = targetId;
     const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
     if (!item || !h) return { ok: false, message: 'Objet ou aventurier introuvable.' };
     const fx = outOfCombatEffect(item);
     if (!item.outOfCombat || !fx) {
       return { ok: false, message: 'Cet objet ne peut pas être utilisé hors d\'un combat.' };
     }
-    if (!ses.heroOwned || !ses.heroOwned[heroId] || !(Number(ses.heroOwned[heroId][itemId]) > 0)) {
-      return { ok: false, message: h.name + ' ne possède pas cet objet.' };
+    if (!ses.heroOwned || !ses.heroOwned[owner] || !(Number(ses.heroOwned[owner][itemId]) > 0)) {
+      const oh = Store.state.heroes.find(function (x) { return x.id === owner; });
+      return { ok: false, message: (oh ? oh.name : 'Cet aventurier') + ' ne possède pas cet objet.' };
     }
     if (!ses.heroStates) ses.heroStates = {};
     const st = ses.heroStates[heroId] || (ses.heroStates[heroId] = {});
@@ -4410,12 +4426,13 @@
       msg = h.name + ' récupère ' + (st.pv - cur) + ' PV (' + st.pv + '/' + maxPv + ').';
     }
     // Consommation : 1 exemplaire quitte l'inventaire personnel.
-    const left = (Number(ses.heroOwned[heroId][itemId]) || 1) - 1;
-    if (left > 0) ses.heroOwned[heroId][itemId] = left; else delete ses.heroOwned[heroId][itemId];
-    // Objet équipé : il est aussi retiré de l'emplacement s'il n'en reste plus.
-    if (left <= 0 && h.equipment) {
+    const left = (Number(ses.heroOwned[owner][itemId]) || 1) - 1;
+    if (left > 0) ses.heroOwned[owner][itemId] = left; else delete ses.heroOwned[owner][itemId];
+    // Objet équipé : il est aussi retiré de l'emplacement du PORTEUR s'il n'en reste plus.
+    const oh = Store.state.heroes.find(function (x) { return x.id === owner; });
+    if (left <= 0 && oh && oh.equipment) {
       ['mainG', 'mainD', 'armorId', 'objectId'].forEach(function (k) {
-        if (h.equipment[k] === itemId) h.equipment[k] = null;
+        if (oh.equipment[k] === itemId) oh.equipment[k] = null;
       });
       Store.save();
     }
