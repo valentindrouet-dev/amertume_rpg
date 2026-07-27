@@ -1760,8 +1760,9 @@
   function useAction(c) {
     if (!c) return;
     if (!c.used.action) {
-      // SURVITAMINÉ : la 1re Action ne consomme pas le tour (2 actions au total).
-      if (c.side === 'hero' && heroHasTalent(c, 'survitamine') && !c.actedOnce) c.actedOnce = true;
+      // SURVITAMINÉ / DOUBLE ACTION : la 1re Action ne consomme pas le tour
+      // (2 Actions au total). Effet commun aux aventuriers ET aux adversaires.
+      if (heroHasTalent(c, 'survitamine') && !c.actedOnce) c.actedOnce = true;
       else c.used.action = true;
     } else if (c.prepBonus) {
       // PRÉPARÉ : l'Action déjà dépensée → on puise dans le bonus (Action OU Mouvement).
@@ -1777,7 +1778,11 @@
     if (actionSpent(c)) return true;
     // Les actions de parchemin sont limitées par leur usage (1), pas par la règle
     // « pas 2× la même » (leurs index ne sont pas stables dans le temps).
-    if (!atk.isBase && !atk.fromParchment && Array.isArray(c.actedAtks) && c.actedAtks.indexOf(idx) >= 0) return true;
+    // Côté ADVERSAIRE, une attaque d'arme ordinaire (non spéciale) joue le rôle de
+    // l'Attaque de Base des aventuriers : elle reste répétable, si bien qu'un
+    // adversaire à Double Action peut frapper deux fois.
+    const repeatable = atk.isBase || atk.fromParchment || (c.side === 'monster' && !atk.special);
+    if (!repeatable && Array.isArray(c.actedAtks) && c.actedAtks.indexOf(idx) >= 0) return true;
     return false;
   }
   // Mémorise l'Action non-basique jouée ce tour (pour la règle « pas 2× la même »).
@@ -2165,8 +2170,14 @@
   const AI_STEP_MS = 550;
   function monstersActSequential(onDone) {
     clearHeroReactionMarks();
+    // Nouveau tour d'adversaires : la 2ᵉ Action de SURVITAMINÉ redevient disponible.
+    activeOf('monster').forEach(function (m) { m.actedOnce = false; });
     // PRÉPARÉ : un adversaire armé est activé une seconde fois (Action bonus).
-    const order = activationOrder().concat(activationOrder().filter(function (m) { return m.prepArmed; }));
+    // SURVITAMINÉ (Double Action) : l'adversaire est réactivé après que tout le
+    // monde a joué — il dispose bien de 2 Actions dans son tour.
+    const order = activationOrder()
+      .concat(activationOrder().filter(function (m) { return m.prepArmed; }))
+      .concat(activationOrder().filter(function (m) { return heroHasTalent(m, 'survitamine'); }));
     const myToken = aiToken; // si le combat change, cette séquence est abandonnée
     let i = 0;
     aiRunning = true;

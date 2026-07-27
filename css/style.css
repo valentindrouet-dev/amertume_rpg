@@ -4742,9 +4742,12 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
    joueur. Les compétences sont séparées des caractéristiques par une ligne, et
    présentées en cartouches à la couleur de la compétence (comme sur la fiche). */
 .hw-pick-skills { display: flex; flex-wrap: wrap; justify-content: center; gap: .25rem; margin-top: .45rem; }
+/* Cartouche CLAIR : la teinte de la compétence sert de bordure et de halo, mais
+   le fond reste ivoire — lisible sur le fond sombre de l'assistant. */
 .hw-pick-skill {
   font-size: .68rem; font-weight: 800; padding: .06rem .38rem; border-radius: 7px;
-  border: 1px solid rgba(0,0,0,.25); color: #2c2418; white-space: nowrap;
+  border: 1px solid currentColor; background: #efe6d2 !important;
+  white-space: nowrap;
 }
 /* Valeur de compétence améliorée par l'espèce : en orange, sans cartouche —
    la rangée garde sa largeur, les boutons − / + ne bougent plus. */
