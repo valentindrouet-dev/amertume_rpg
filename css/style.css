@@ -4804,3 +4804,7 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 @media (max-width: 860px) {
   .rose-cell, .rose-btn.ses-exit-btn { min-height: 44px; }
 }
+
+/* Barre de combat : rappel du résumé une fois le combat terminé. */
+.cb-right #cb-result { background: var(--accent, #d65c40); color: #fff; border-color: transparent; font-weight: 700; }
+.cb-right #cb-result:hover { filter: brightness(1.07); }

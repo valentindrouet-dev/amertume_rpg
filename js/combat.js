@@ -3266,7 +3266,12 @@
           (!c.outcome && c.phase === 'monsters' && !pendingReaction && !aiRunning
             ? '<button id="cb-mons-go" class="small enemy-turn-btn all-acted" title="Le tour des adversaires n\'est pas terminé — le relancer et passer au tour suivant">Reprendre le Tour →</button>'
             : '') +
-          '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
+          // Combat terminé : le résumé est aussi accessible depuis la barre (il
+          // reste doublé par le grand bouton sous le plateau).
+          (c.outcome
+            ? '<button id="cb-result" class="small result-btn">📊 Résultat du Combat</button>'
+            : '') +
+          '<button id="cb-end" class="ghost small" title="Abandonner ce combat : vos adversaires agiront une dernière fois et vous en subirez les conséquences">⚠️ Fuir le Combat</button>' +
         '</div>' +
       '</div>' +
       // Bandeau de choix au clic (talents « vous pouvez… ») : visible seulement
@@ -3325,13 +3330,15 @@
       }
     }
 
+    const cbRes = root.querySelector('#cb-result');
+    if (cbRes) cbRes.addEventListener('click', function () { endCombat(c.outcome !== 'defeat'); });
     const cbEnd = root.querySelector('#cb-end');
     if (cbEnd) cbEnd.addEventListener('click', function () {
       const isSession = combatKey === 'combat' && Store.state.sessionCombat;
       if (isSession) {
-        if (confirm('Terminer ce combat ? Vos adversaires agiront une dernière fois et vous subirez les conséquences d\'une défaite.')) forfeitCombat();
+        if (confirm('Fuir ce combat ? Vos adversaires agiront une dernière fois et vous subirez les conséquences d\'une défaite.')) forfeitCombat();
       } else {
-        if (confirm('Terminer et quitter ce combat ?')) endCombat(false);
+        if (confirm('Fuir et quitter ce combat ?')) endCombat(false);
       }
     });
     const cst = root.querySelector('#cb-start-turn');
