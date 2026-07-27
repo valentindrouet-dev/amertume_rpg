@@ -4855,3 +4855,7 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
    partout où l'objet est affiché (armurerie, inventaire, récompenses, fiche). */
 .is-parchment .inv-strip-name::before,
 .armory-card.is-parchment .roster-name::before { content: "📜 "; }
+
+/* ===================== v2.4.16 — Objets utilisables hors combat ===================== */
+.isheet-use { display: flex; align-items: center; gap: .6rem; margin-top: .8rem; flex-wrap: wrap; }
+.isheet-use .hint { margin: 0; font-size: .8rem; }

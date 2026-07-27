@@ -4199,6 +4199,8 @@
     ownedForHero: ownedForHero,
     engagedHeroIds: engagedHeroIds,
     restoreVie: restoreVie,
+    itemUsableOutOfCombat: itemUsableOutOfCombat,
+    useItemOutOfCombat: useItemOutOfCombat,
     savesWithHero: savesWithHero,
     adventureRunning: adventureRunning,
     consumeObject: consumeObject,
@@ -4325,11 +4327,98 @@
     save();
   }
   // Ids des aventuriers engagés dans la partie active (null si aucune partie lancée)
+  // ---- Objets utilisables HORS COMBAT ----
+  // Effets applicables hors d'un combat : soin en PV (objet « Soin ») et talents
+  // de soin embarqués sur un Parchemin (PV ou VIE). Le reste n'a pas de sens
+  // sans plateau de combat : l'objet n'est alors PAS consommé.
+  function outOfCombatEffect(item) {
+    if (!item) return null;
+    if (item.objEffect === 'heal') {
+      return { kind: 'pv', dice: Math.max(1, parseInt(item.objDice, 10) || 1) };
+    }
+    if (item.objEffect === 'talent') {
+      const key = item.parchEffect || '';
+      let effs = [];
+      if (key.indexOf('tal:') === 0) {
+        const t = (Store.loadParchTalents ? Store.loadParchTalents() : [])
+          .find(function (x) { return x.id === key.slice(4); });
+        if (t) effs = (Store.talentEffectList ? Store.talentEffectList(t) : []);
+      } else if (key) {
+        effs = [{ effect: key, val: item.parchVal || 0 }];
+      }
+      for (let i = 0; i < effs.length; i++) {
+        const e = effs[i];
+        const val = (typeof e.val === 'number' && e.val) ? e.val : (item.parchVal || 0);
+        if (e.effect === 'guerison') return { kind: 'vie', n: Math.max(1, val || 1) };
+        if (e.effect === 'soin_fixe') return { kind: 'pvFixe', n: Math.max(1, val || 1) };
+        if (e.effect === 'soin_des') return { kind: 'pv', dice: Math.max(1, val || 1) };
+        if (e.effect === 'soin_endu') return { kind: 'pvEndu', n: val || 0 };
+      }
+    }
+    return null;
+  }
+  // L'objet est-il proposable « à utiliser » hors combat ?
+  function itemUsableOutOfCombat(item) {
+    return !!(item && item.outOfCombat && outOfCombatEffect(item));
+  }
+  // Utilise l'objet : applique l'effet à l'aventurier, puis retire 1 exemplaire
+  // de son inventaire. Renvoie { ok, message }.
+  function useItemOutOfCombat(advId, heroId, itemId) {
+    load();
+    const ses = sessionForAdv(advId);
+    if (!ses) return { ok: false, message: 'Aucune partie en cours.' };
+    const item = Store.state.items.find(function (x) { return x.id === itemId; });
+    const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
+    if (!item || !h) return { ok: false, message: 'Objet ou aventurier introuvable.' };
+    const fx = outOfCombatEffect(item);
+    if (!item.outOfCombat || !fx) {
+      return { ok: false, message: 'Cet objet ne peut pas être utilisé hors d\'un combat.' };
+    }
+    if (!ses.heroOwned || !ses.heroOwned[heroId] || !(Number(ses.heroOwned[heroId][itemId]) > 0)) {
+      return { ok: false, message: h.name + ' ne possède pas cet objet.' };
+    }
+    if (!ses.heroStates) ses.heroStates = {};
+    const st = ses.heroStates[heroId] || (ses.heroStates[heroId] = {});
+    if (st.dead) return { ok: false, message: h.name + ' a quitté l\'aventure.' };
+    let msg = '';
+    if (fx.kind === 'vie') {
+      const r = restoreVie(heroId, fx.n, ses);
+      if (!r || !r.healed) return { ok: false, message: h.name + ' n\'a aucune VIE perdue à récupérer.' };
+      msg = h.name + ' récupère ' + r.healed + ' VIE (' + r.vie + '/' + r.maxVie + ').';
+    } else {
+      const eh = effectiveHero(ses, h);
+      const maxPv = Math.max(1, Combatants.heroPv(eh));
+      const cur = (typeof st.pv === 'number') ? st.pv : maxPv;
+      if (cur >= maxPv) return { ok: false, message: h.name + ' est déjà au maximum de ses PV.' };
+      let heal = 0;
+      if (fx.kind === 'pv') { for (let i = 0; i < fx.dice; i++) heal += 1 + Math.floor(Math.random() * 6); }
+      else if (fx.kind === 'pvFixe') heal = fx.n;
+      else if (fx.kind === 'pvEndu') heal = (eh.endu || 0) + (fx.n || 0);
+      st.pv = Math.min(maxPv, cur + heal);
+      msg = h.name + ' récupère ' + (st.pv - cur) + ' PV (' + st.pv + '/' + maxPv + ').';
+    }
+    // Consommation : 1 exemplaire quitte l'inventaire personnel.
+    const left = (Number(ses.heroOwned[heroId][itemId]) || 1) - 1;
+    if (left > 0) ses.heroOwned[heroId][itemId] = left; else delete ses.heroOwned[heroId][itemId];
+    // Objet équipé : il est aussi retiré de l'emplacement s'il n'en reste plus.
+    if (left <= 0 && h.equipment) {
+      ['mainG', 'mainD', 'armorId', 'objectId'].forEach(function (k) {
+        if (h.equipment[k] === itemId) h.equipment[k] = null;
+      });
+      Store.save();
+    }
+    save();
+    return { ok: true, message: msg + ' « ' + item.name + ' » est consommé.' };
+  }
+
   // GUÉRISON (talent) : rend `n` VIE perdue à un aventurier de la partie en cours.
   // La VIE est une statistique d'AVENTURE (perdue au coma) : elle vit dans la
   // session, pas dans le combat. Renvoie { healed, vie, maxVie } ou null.
-  function restoreVie(heroId, n) {
-    const ses = activeSession || sessionForAdv(null);
+  // `sesOpt` : session sur laquelle écrire. Indispensable quand l'appelant vient
+  // de recharger les sessions (les objets en mémoire diffèrent alors de
+  // `activeSession`, et une sauvegarde écraserait la modification).
+  function restoreVie(heroId, n, sesOpt) {
+    const ses = sesOpt || activeSession || sessionForAdv(null);
     if (!ses || !heroId) return null;
     const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
     if (!h) return null;

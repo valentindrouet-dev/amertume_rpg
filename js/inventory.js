@@ -252,7 +252,7 @@
     const singleStrip = function (h, i, checked, qtyBadge, isNew) {
       return '<label class="inv-strip-row cat-' + i.category + parchClass(i) + (checked ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
-        '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) +
+        '<div class="inv-strip" data-info="' + i.id + '" data-owner="' + h.id + '">' + itemStripHtml(i) +
           (isNew ? '<span class="inv-new-badge" title="Nouvel objet depuis votre dernière visite">NEW</span>' : '') +
           (qtyBadge > 1 ? '<span class="inv-qty-badge" title="' + qtyBadge + ' exemplaires">' + qtyBadge + '</span>' : '') +
         '</div>' +
@@ -388,7 +388,7 @@
       el.addEventListener('click', function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
-        openItemSheet(el.getAttribute('data-info'));
+        openItemSheet(el.getAttribute('data-info'), el.getAttribute('data-owner'));
       });
     });
     // ✕ : jeter un exemplaire de l'objet (confirmation).
@@ -491,18 +491,39 @@
     return html;
   }
 
-  function openItemSheet(id) {
+  // Aventurier propriétaire de l'objet dont la fiche est ouverte (mode Joueur) :
+  // c'est lui qui utilisera l'objet hors combat.
+  let sheetOwner = null;
+  function openItemSheet(id, ownerId) {
     const i = byId(id);
     if (!i) return;
+    sheetOwner = ownerId || null;
     const modalEl = $('#item-sheet-modal');
     if (!modalEl) return;
     // Titre de la fiche : 📜 devant le nom d'un Parchemin (le reste du code
     // couleur est porté par la classe is-parchment de la carte).
     $('#item-sheet-title').textContent = (i.parchEffect ? '📜 ' : '') + i.name;
+    // Bouton « Utiliser » : objet utilisable hors combat, possédé par cet
+    // aventurier, dans une partie en cours (et hors d'un combat).
+    const usable = !!(sheetOwner && window.Session && Session.itemUsableOutOfCombat &&
+      Session.itemUsableOutOfCombat(i) &&
+      !(Session.combatModuleActive && Session.combatModuleActive()));
     $('#item-sheet-body').innerHTML =
       '<div class="roster-card armory-card cat-' + i.category + parchClass(i) + ' item-sheet-card">' +
         itemSheetHtml(i) +
-      '</div>';
+      '</div>' +
+      (usable
+        ? '<div class="isheet-use"><button type="button" id="isheet-use-btn" class="primary">✨ Utiliser</button>' +
+          '<span class="hint">Objet consommé à l\'usage.</span></div>'
+        : '');
+    const useBtn = document.getElementById('isheet-use-btn');
+    if (useBtn) useBtn.addEventListener('click', function () {
+      if (!confirm('Utiliser « ' + i.name + ' » ?\n\nL\'objet est consommé : il sera retiré de l\'inventaire.')) return;
+      const advId = (window.Shell && Shell.getAdventureId) ? Shell.getAdventureId() : null;
+      const r = Session.useItemOutOfCombat(advId, sheetOwner, i.id);
+      alert(r.message);
+      if (r.ok) { modalEl.hidden = true; renderPlayer(advId); }
+    });
     modalEl.hidden = false;
   }
 
@@ -548,7 +569,7 @@
     list.querySelectorAll('.inv-strip[data-info]').forEach(function (el) {
       el.addEventListener('click', function (ev) {
         ev.preventDefault(); ev.stopPropagation();
-        openItemSheet(el.getAttribute('data-info'));
+        openItemSheet(el.getAttribute('data-info'), el.getAttribute('data-owner'));
       });
     });
   }
@@ -589,6 +610,7 @@
     $('#f-obj-ammo-color').value = isEdit ? (item.ammoColor || 'white') : 'white';
     fillTalentEffectSelect();
     $('#f-obj-talent').value = isEdit ? (item.parchEffect || '') : '';
+    $('#f-obj-outcombat').checked = isEdit ? !!item.outOfCombat : false;
     $('#f-obj-talent-val').value = isEdit && typeof item.parchVal === 'number' ? item.parchVal : 0;
     toggleObjEffectFields();
     weaponDicePool = isEdit ? Object.assign(D.emptyPool(), item.dice) : D.emptyPool();
@@ -706,6 +728,7 @@
       data.objDice = Math.max(0, parseInt($('#f-obj-dice').value, 10) || 0);
       data.ammoColor = $('#f-obj-ammo-color').value || 'white';
       data.parchEffect = $('#f-obj-talent').value || '';
+      data.outOfCombat = $('#f-obj-outcombat').checked;
       data.parchVal = Math.max(0, parseInt($('#f-obj-talent-val').value, 10) || 0);
       data.consumable = true; // munitions, parchemins et consommables se consomment à l'usage
       // Résumé d'effet : la valeur du champ fait foi, TELLE QUELLE (même vide).
