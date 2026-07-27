@@ -1188,6 +1188,9 @@
     const dmgTerm = dmg > 0 ? '<span class="dplus">+</span><span class="dnum d-dmg" title="Dégâts">' + dmg + '</span>' : '';
     const diceStr = '<span class="ldice">(' + diceSeq(res.dice) + dmgTerm + ')</span>';
     const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
+    // Bulle : nom de l'attaque / de l'action jouée, aux couleurs du camp.
+    toast((attacker.side === 'hero' ? '⚔ ' : '☠ ') + attackLabel(atk),
+      attacker.side === 'hero' ? 'atk-hero' : 'atk-foe');
     // Fusionne un déplacement effectué dans la même action (« se déplace … et attaque … »).
     let movePfx = '';
     if (movePrefix && movePrefix.iid === attacker.iid) {
@@ -1198,6 +1201,7 @@
       movePrefix = null;
     }
     if (res.echec) {
+      toast(critToEchec ? '🛡 Critique annulé !' : '💢 Échec critique !', 'fail');
       const failTxt = critToEchec
         ? ' — <span class="lstate">' + esc(heroTalentName(target, 'crit_en_echec')) + '</span> : le <span class="lcrit">CRITIQUE</span> devient un <span class="lfail">Échec</span> !'
         : ' — <span class="lfail">Échec</span>.';
@@ -1263,6 +1267,7 @@
     if (res.pvLost > 0) pushFx({ type: res.critique ? 'crit' : 'hit', iid: target.iid, amount: res.pvLost, fromPct: fromPct, toPct: toPct });
     else if (res.critique) pushFx({ type: 'crit', iid: target.iid, amount: 0, fromPct: fromPct, toPct: toPct });
     if (res.pvHealed > 0) pushFx({ type: 'heal', iid: target.iid, amount: res.pvHealed, fromPct: fromPct, toPct: toPct });
+    if (res.critique) toast('💥 CRITIQUE !', 'crit');
     log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
         (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' ' + diceStr + ' : ' +
         (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' Dégâts infligés !' : 'aucun dégât.'),

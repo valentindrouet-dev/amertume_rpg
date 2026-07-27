@@ -4808,3 +4808,10 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 /* Barre de combat : rappel du résumé une fois le combat terminé. */
 .cb-right #cb-result { background: var(--accent, #d65c40); color: #fff; border-color: transparent; font-weight: 700; }
 .cb-right #cb-result:hover { filter: brightness(1.07); }
+
+/* ===================== v2.4.09 — Bulles de combat ===================== */
+/* Même bulle que « Attaque dans le vide », déclinée par situation. */
+.cbt-toast-atk-hero { background: rgba(30,52,82,.94); color: #dbe9ff; border: 1px solid rgba(120,170,235,.65); box-shadow: 0 0 16px rgba(90,150,220,.35); }
+.cbt-toast-atk-foe  { background: rgba(78,32,32,.94); color: #ffdcd4; border: 1px solid rgba(214,92,64,.7);  box-shadow: 0 0 16px rgba(214,92,64,.35); }
+.cbt-toast-crit     { background: rgba(88,62,10,.96); color: #ffe9a8; border: 1px solid rgba(240,196,64,.85); box-shadow: 0 0 22px rgba(240,196,64,.55); font-size: 1.05rem; }
+.cbt-toast-fail     { background: rgba(70,22,22,.96); color: #ffc9c9; border: 1px solid rgba(220,80,80,.8);  box-shadow: 0 0 18px rgba(220,80,80,.45); }
