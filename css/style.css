@@ -4806,8 +4806,15 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 }
 
 /* Barre de combat : rappel du résumé une fois le combat terminé. */
-.cb-right #cb-result { background: var(--accent, #d65c40); color: #fff; border-color: transparent; font-weight: 700; }
+/* Résumé du combat : même gabarit que les autres boutons de la barre (coins
+   arrondis, même hauteur), simplement mis en avant par la couleur d'accent. */
+.cb-right #cb-result {
+  background: var(--accent, #d65c40); color: #fff;
+  border: 1px solid var(--accent, #d65c40); border-radius: 8px; font-weight: 700;
+}
 .cb-right #cb-result:hover { filter: brightness(1.07); }
+/* Le grand bouton sous le plateau reprend le même gras. */
+#pc-finish.result-btn { font-weight: 700; }
 
 /* ===================== v2.4.09 — Bulles de combat ===================== */
 /* Même bulle que « Attaque dans le vide », déclinée par situation. */
