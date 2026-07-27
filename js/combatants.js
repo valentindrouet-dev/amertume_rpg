@@ -795,11 +795,13 @@
         '<div class="roster-head hero-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
           (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
-          identityTagsHtml(h) +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
           (player ? '' : '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>') +
           '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +
         '</div>' +
+        // Genre et espèce : ligne dédiée sous le nom et la classe (elles ne
+        // tenaient pas sur la même ligne).
+        identityTagsHtml(h) +
         '<div class="hero-stat-row">' +
           vieStatHtml(dh) +
           '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
@@ -1528,9 +1530,13 @@
     const rowHtml = function (t) {
       const on = monsterAdvTalentIds.indexOf(t.id) >= 0;
       const k = kindOf(t);
-      return '<label class="adv-eff-row"><input type="checkbox" class="adv-tal-check" data-id="' + esc(t.id) + '"' + (on ? ' checked' : '') + ' /> ' +
-        (k ? '<span class="tl-kind tl-kind-' + k + '">' + esc((ADV_KIND_LABEL[k] || k).slice(0, 4)) + '</span> ' : '') +
-        '<span class="adv-eff-name">' + esc(t.name || '(sans nom)') + '</span> ' +
+      // Case à cocher à GAUCHE du titre, description tronquée sur une seule ligne.
+      return '<label class="adv-eff-row adv-tal-row" title="' + esc((t.name || '') + (t.description ? ' — ' + t.description : '')) + '">' +
+        '<input type="checkbox" class="adv-tal-check" data-id="' + esc(t.id) + '"' + (on ? ' checked' : '') + ' />' +
+        '<span class="adv-tal-main">' +
+          (k ? '<span class="tl-kind tl-kind-' + k + '">' + esc((ADV_KIND_LABEL[k] || k).slice(0, 4)) + '</span>' : '') +
+          '<span class="adv-eff-name">' + esc(t.name || '(sans nom)') + '</span>' +
+        '</span>' +
         '<span class="adv-eff-desc">' + esc(t.description || '') + '</span></label>';
     };
     container.innerHTML = ADV_KIND_ORDER.map(function (grp) {

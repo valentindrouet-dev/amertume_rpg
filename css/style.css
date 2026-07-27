@@ -4708,3 +4708,22 @@ label.tb-chain-item > .tb-chain-name {
 @media (prefers-reduced-motion: reduce) {
   .ses-sweep-out, .ses-sweep-in { animation: none; }
 }
+
+/* ===================== v2.4.00 ===================== */
+/* Onglet Groupe : genre et espèce sur leur propre ligne, sous le nom / la classe. */
+.hero-ident { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .45rem; }
+.hero-ident .tag { font-size: .72rem; }
+/* Sélecteur de talents adverses : case à gauche du titre, description sur une
+   seule ligne en dessous (tronquée par « … », intitulé complet en infobulle). */
+label.adv-eff-row.adv-tal-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  align-items: center; column-gap: .45rem; row-gap: 0; flex-wrap: nowrap;
+}
+label.adv-tal-row > input[type="checkbox"] { grid-column: 1; grid-row: 1 / span 2; align-self: center; margin: 0; }
+.adv-tal-main { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: .35rem; min-width: 0; }
+.adv-tal-main .adv-eff-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+label.adv-tal-row > .adv-eff-desc {
+  grid-column: 2; grid-row: 2; flex: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;
+}
+label.adv-tal-row > .adv-eff-desc:empty { display: none; }
