@@ -4306,6 +4306,40 @@
       amt(gained, 'heal') + ' PV' + detail + '.', 'heal');
     if (!atk.freeAction) useAction(c);
   }
+  // GUÉRISON : récupère de la VIE perdue. La VIE est une statistique d'AVENTURE
+  // (elle se perd au coma) : le soin est donc appliqué à la partie en cours, pas
+  // aux PV du combat. Sans partie (Combat Test) ou sans VIE perdue, l'action
+  // n'est pas consommée.
+  function applyVieHeal(c, atkIndex) {
+    const atk = c.attacks[atkIndex];
+    if (!atk) return;
+    if (cannotAct(c, atk, atkIndex)) return;
+    const label = attackLabel(atk);
+    if (!(global.Session && Session.restoreVie) || !Store.state.sessionCombat) {
+      log(cname(c) + ' utilise <span class="lwpn">' + nm(label) + '</span> — sans effet hors d\'une partie.', 'state');
+      toast('❤ Aucune VIE à récupérer', 'miss');
+      return;
+    }
+    const res = Session.restoreVie(c.templateId, atk.vieHeal || 1);
+    if (!res || res.dead || !res.healed) {
+      log(cname(c) + ' utilise <span class="lwpn">' + nm(label) + '</span> — aucune VIE perdue à récupérer.', 'state');
+      toast('❤ Aucune VIE à récupérer', 'miss');
+      return;
+    }
+    recordAction(c, atk, atkIndex);
+    applyPoison(c);            // POISON X : s'applique avant tout talent
+    if (c.status !== 'active') return;
+    pushFx({ type: 'heal', iid: c.iid, amount: 0, fromPct: pct(c.pv, c.maxPv), toPct: pct(c.pv, c.maxPv) });
+    log(cname(c) + ' utilise <span class="lwpn">' + nm(label) + '</span> et récupère ' +
+      amt(res.healed, 'heal') + ' VIE (' + res.vie + '/' + res.maxVie + ').', 'heal');
+    toast('❤ +' + res.healed + ' VIE', 'act-hero');
+    if (!atk.freeAction) useAction(c);
+  }
+  function execHeroVieHeal(c, atkIndex) {
+    applyVieHeal(c, atkIndex);
+    pendingAttack = null;
+    checkOutcome(); Store.save(); render();
+  }
   function execHeroSelfHeal(c, atkIndex) {
     applySelfHeal(c, atkIndex);
     pendingAttack = null;
@@ -4321,6 +4355,7 @@
     if (!atk.orbeShare) pendingOrbeShare = null;
     pendingDesignate = null;
     // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
+    if (atk.vieHeal) { execHeroVieHeal(c, i); return; }
     if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }
     // DÉPHASAGE / ASSAUT (auto-ciblés) : se résolvent immédiatement, sans ciblage.
     if (atk.dephasage || atk.assaut) { execHeroAttack(c, i, null); return; }

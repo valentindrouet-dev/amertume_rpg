@@ -4198,6 +4198,7 @@
     effectiveHero: activeEffectiveHero,
     ownedForHero: ownedForHero,
     engagedHeroIds: engagedHeroIds,
+    restoreVie: restoreVie,
     savesWithHero: savesWithHero,
     adventureRunning: adventureRunning,
     consumeObject: consumeObject,
@@ -4324,6 +4325,25 @@
     save();
   }
   // Ids des aventuriers engagés dans la partie active (null si aucune partie lancée)
+  // GUÉRISON (talent) : rend `n` VIE perdue à un aventurier de la partie en cours.
+  // La VIE est une statistique d'AVENTURE (perdue au coma) : elle vit dans la
+  // session, pas dans le combat. Renvoie { healed, vie, maxVie } ou null.
+  function restoreVie(heroId, n) {
+    const ses = activeSession || sessionForAdv(null);
+    if (!ses || !heroId) return null;
+    const h = Store.state.heroes.find(function (x) { return x.id === heroId; });
+    if (!h) return null;
+    if (!ses.heroStates) ses.heroStates = {};
+    const st = ses.heroStates[heroId] || (ses.heroStates[heroId] = {});
+    // Un aventurier définitivement éliminé ne revient pas par ce talent.
+    if (st.dead) return { healed: 0, vie: 0, maxVie: 0, dead: true };
+    const g = ses.levelGains ? ses.levelGains[heroId] : null;
+    const maxVie = (h.vie || 0) + ((g && g.vie) || 0);
+    const lost = -Math.min(0, st.viePenalty || 0);
+    const healed = Math.max(0, Math.min(Math.max(1, n || 1), lost));
+    if (healed > 0) { st.viePenalty = (st.viePenalty || 0) + healed; save(); }
+    return { healed: healed, vie: maxVie + (st.viePenalty || 0), maxVie: maxVie, dead: false };
+  }
   function engagedHeroIds() {
     return (activeSession && Array.isArray(activeSession.heroIds)) ? activeSession.heroIds.slice() : null;
   }

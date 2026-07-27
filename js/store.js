@@ -620,6 +620,8 @@
       desc: 'Action : vous récupérez X dés de soin (🟩).' },
     { effect: 'regeneration', name: 'Régénération', kind: 'passive', cat: 'soin', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'PV / tour',
       desc: 'À la fin de chaque tour, vous récupérez X PV (valeur fixe ou dés, ex. 1d6).' },
+    { effect: 'guerison', name: 'Guérison', kind: 'action', cat: 'soin', hasVal: true, defaultVal: 1, valLabel: 'VIE rendue',
+      desc: 'Action : vous récupérez X VIE perdue (jamais au-delà de votre VIE de départ).' },
     { effect: 'reanimation', name: 'Réanimation', kind: 'reaction', cat: 'soin', hasVal: true, valDice: true, defaultVal: 5, valLabel: 'PV rendus',
       desc: 'Réaction — un adversaire meurt dans la zone d\'un allié au coma : relevez cet allié à X PV.' },
     { effect: 'renforcement', name: 'Renforcement', kind: 'upgrade', cat: 'soin', hasVal: false,

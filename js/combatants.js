@@ -524,6 +524,9 @@
         case 'soin_endu':
         case 'soin_des':
           return Object.assign(common, { selfHeal: t.effect, healVal: t.val || 0, targets: 'self' });
+        case 'guerison':
+          // Récupère de la VIE perdue (statistique d'aventure, pas de combat).
+          return Object.assign(common, { vieHeal: Math.max(1, parseInt(t.val, 10) || 1), targets: 'self', useOwnDamage: false });
         case 'attaque_furieuse':
           // 1 attaque normale ; le chaînage sur kill est géré par le moteur de combat.
           return Object.assign(common, { range: baseRange(), chainOnKill: true });
