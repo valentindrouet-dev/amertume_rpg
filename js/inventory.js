@@ -320,13 +320,14 @@
       // Valeur marchande : propre aux Trésors (un Objet Rare ne se vend pas).
       const tValue = function (t) { return t.kind === 'rare' ? 0 : Math.max(0, Math.round(Number(t.value) || 0)); };
       const totalValue = loot.treasures.reduce(function (n, t) { return n + tValue(t) * (t.qty || 1); }, 0);
+      // La valeur en Or n'apparaît PAS sur la languette : seule la somme totale
+      // est rappelée en haut, à côté de l'Or du groupe.
       const tStrip = function (t) {
-        const v = tValue(t);
         return '<div class="inv-strip-row cat-' + (t.kind === 'rare' ? 'rare' : 'treasure') + '">' +
-          '<div class="inv-strip"><span class="inv-strip-name">' + (t.kind === 'rare' ? '🗝️ ' : '💎 ') + escapeHtml(t.name) + '</span>' +
-            '<span class="inv-strip-val inv-strip-eff">' + (t.kind === 'rare'
-              ? 'Objet Rare · non vendable'
-              : 'Trésor' + (v > 0 ? ' · ' + v + ' Or l\'unité' : '')) + '</span>' +
+          '<div class="inv-strip" title="' + (t.kind === 'rare' ? 'Objet Rare — ne se vend pas'
+            : 'Trésor' + (tValue(t) > 0 ? ' — ' + tValue(t) + ' Or l\'unité' : '')) + '">' +
+            '<span class="inv-strip-name">' + (t.kind === 'rare' ? '🗝️ ' : '💎 ') + escapeHtml(t.name) + '</span>' +
+            '<span class="inv-strip-val inv-strip-eff">' + (t.kind === 'rare' ? 'Objet Rare' : 'Trésor') + '</span>' +
             ((t.qty || 1) > 1 ? '<span class="inv-qty-badge" title="' + t.qty + ' exemplaires">' + t.qty + '</span>' : '') +
           '</div>' +
           '<button type="button" class="inv-treasure-del" data-tid="' + t.id + '" title="Jeter un exemplaire">✕</button>' +
