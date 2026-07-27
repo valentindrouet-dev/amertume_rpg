@@ -2228,11 +2228,6 @@
   }
 
 
-  function monsterAI() {
-    if (aiRunning) return;
-    monstersActSequential(function () { Store.save(); render(); });
-  }
-
   // MENACE (maîtrise) : un aventurier de la zone du Sbire (ou de l'Élite) l'oblige
   // à le prendre pour cible.
   function heroMenaces(h, m) {
@@ -3266,6 +3261,11 @@
           (pendingReaction
             ? '<button id="cb-resume" class="small enemy-turn-btn all-acted">Reprendre le Tour →</button>'
             : '') +
+          // Tour adverse interrompu (rechargement de la page en pleine phase
+          // adverse, par exemple) : un seul bouton pour le relancer et enchaîner.
+          (!c.outcome && c.phase === 'monsters' && !pendingReaction && !aiRunning
+            ? '<button id="cb-mons-go" class="small enemy-turn-btn all-acted" title="Le tour des adversaires n\'est pas terminé — le relancer et passer au tour suivant">Reprendre le Tour →</button>'
+            : '') +
           '<button id="cb-end" class="ghost small">Terminer le combat</button>' +
         '</div>' +
       '</div>' +
@@ -3344,6 +3344,13 @@
       const rh = byId(pendingReaction);
       if (rh) { rh.tookDamage = false; rh.lastAttacker = null; }
       resumeMonsterTurn();
+    });
+    const cmg = root.querySelector('#cb-mons-go');
+    if (cmg) cmg.addEventListener('click', function () {
+      monstersActSequential(function () {
+        if (combat().outcome) { Store.save(); render(); return; }
+        endTurn(); // états de fin de tour, fuites, puis tour suivant
+      });
     });
     const ct = root.querySelector('#cancel-target');
     if (ct) ct.addEventListener('click', function () { pendingAttack = null; render(); });
@@ -4800,15 +4807,9 @@
       box.querySelector('#pc-finish').addEventListener('click', function () { endCombat(won); });
       return;
     }
-    if (c.phase === 'heroes') {
-      box.innerHTML = ''; // bouton "Tour des Adversaires" déplacé dans la barre de combat
-    } else {
-      box.innerHTML =
-        '<button id="pc-ai" class="primary">▶ Activer les adversaires (auto)</button>' +
-        '<button id="pc-endturn" class="ghost">Fin du tour de combat ⟳</button>';
-      box.querySelector('#pc-ai').addEventListener('click', monsterAI);
-      box.querySelector('#pc-endturn').addEventListener('click', endTurn);
-    }
+    // Toutes les commandes de phase vivent dans la barre de combat, en haut :
+    // rien sous le plateau (les anciens boutons « Activer les adversaires » /
+    // « Fin du tour » y faisaient doublon).
   }
 
   function renderLog() {
