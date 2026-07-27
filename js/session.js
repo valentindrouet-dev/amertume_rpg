@@ -801,9 +801,13 @@
         var chainedFrom = chainParentOf(scene, blk);
         parts.push('<div class="ses-test-slot' + (chainedFrom ? ' ses-test-chained' : '') + '" data-tb="' + esc(blk.id) + '"></div>');
       } else {
-        // Bloc de texte révélé par une chaîne : masqué tant qu'elle ne s'est pas déclenchée.
+        // Bloc de texte révélé par une chaîne : masqué tant qu'elle ne s'est pas
+        // déclenchée, puis affiché comme conséquence (flèche ↳, décalage et
+        // animation de révélation, exactement comme un test enchaîné).
         if (ses && testChainHidden(scene, blk, ses)) return;
-        parts.push('<div class="scene-block scene-block-' + (blk.type || 'narrative') + '" data-tb="' + esc(blk.id || '') + '">' +
+        const txtChained = chainParentOf(scene, blk);
+        parts.push('<div class="scene-block scene-block-' + (blk.type || 'narrative') +
+          (txtChained ? ' ses-test-chained' : '') + '" data-tb="' + esc(blk.id || '') + '">' +
           fmtSceneText(blk.content || '') + '</div>');
       }
     });
@@ -3633,11 +3637,17 @@
     // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
     // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
     function cardHtml(h) {
+      // Un aventurier engagé dans une sauvegarde en cours ne peut pas être
+      // supprimé : il faut d'abord supprimer la sauvegarde correspondante.
+      const inSaves = savesWithHero(h.id);
+      const delBtn = inSaves.length
+        ? '<button type="button" class="ghost small grp-del-btn" disabled title="Engagé dans : ' +
+            esc(inSaves.join(', ')) + '. Supprimez d\'abord cette sauvegarde (onglet Sauvegardes).">✕</button>'
+        : '<button type="button" class="ghost small grp-del-btn" data-grp-del="' + h.id + '" title="Supprimer">✕</button>';
       return '<div class="hero-pick-card-wrap">' +
         '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
           Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
-        '</label>' +
-        '<button type="button" class="ghost small grp-del-btn" data-grp-del="' + h.id + '" title="Supprimer">✕</button>' +
+        '</label>' + delBtn +
       '</div>';
     }
 
@@ -3696,6 +3706,11 @@
         const id = b.getAttribute('data-grp-del');
         const h = Store.state.heroes.find(function (x) { return x.id === id; });
         if (!h) return;
+        const inSaves = savesWithHero(id);
+        if (inSaves.length) {
+          alert('« ' + h.name + ' » est engagé dans : ' + inSaves.join(', ') +
+            '.\n\nSupprimez d\'abord cette ou ces sauvegardes (onglet Sauvegardes).'); return;
+        }
         if (!confirm('Supprimer l\'aventurier « ' + h.name + ' » ?')) return;
         Store.state.heroes = Store.state.heroes.filter(function (x) { return x.id !== id; });
         delete setupSel[id];
@@ -3904,6 +3919,19 @@
                   '<span class="tag">' + prog + ' scène(s)</span> ' +
                   '<span class="tag">XP : ' + (s.party ? s.party.xp : 0) + '</span>' +
                 '</div>' +
+                // Aventuriers engagés dans cette partie (ils ne peuvent pas être
+                // supprimés tant que la sauvegarde existe).
+                (function () {
+                  const names = (s.heroIds || []).map(function (hid) {
+                    const h = Store.state.heroes.find(function (x) { return x.id === hid; });
+                    return h ? h.name : null;
+                  }).filter(Boolean);
+                  return names.length
+                    ? '<div class="ses-save-heroes">👥 ' + names.map(function (n) {
+                        return '<span class="tag ses-save-hero">' + esc(n) + '</span>';
+                      }).join(' ') + '</div>'
+                    : '<div class="ses-save-heroes hint">Aucun aventurier engagé.</div>';
+                })() +
                 '<div style="display:flex;gap:.4rem;margin-top:.35rem">' +
                   '<button class="primary ses-resume" data-id="' + s.id + '">Reprendre</button>' +
                   '<button class="danger ses-end" data-id="' + s.id + '">Supprimer</button>' +
@@ -4160,6 +4188,8 @@
     effectiveHero: activeEffectiveHero,
     ownedForHero: ownedForHero,
     engagedHeroIds: engagedHeroIds,
+    savesWithHero: savesWithHero,
+    adventureRunning: adventureRunning,
     consumeObject: consumeObject,
     ownedCount: ownedCount,
     discardItem: discardItem,
@@ -4287,6 +4317,19 @@
   function engagedHeroIds() {
     return (activeSession && Array.isArray(activeSession.heroIds)) ? activeSession.heroIds.slice() : null;
   }
+  // Sauvegardes ACTIVES dans lesquelles un aventurier est engagé : tant qu'il en
+  // reste une, l'aventurier ne peut pas être supprimé (il fait partie d'une
+  // partie en cours). Renvoie les noms des sauvegardes concernées.
+  function savesWithHero(heroId) {
+    load();
+    return sessions.filter(function (s) {
+      return s.status === 'active' && Array.isArray(s.heroIds) && s.heroIds.indexOf(heroId) >= 0;
+    }).map(function (s) {
+      return s.title || ('Partie du ' + new Date(s.startedAt).toLocaleDateString('fr-FR'));
+    });
+  }
+  // Une partie est-elle EN COURS (aventure ouverte dans l'onglet Aventure) ?
+  function adventureRunning() { return !!(activeSession && activeSession.status === 'active'); }
   // Butin de groupe (Or + trésors) de la partie active d'une aventure — pour
   // l'affichage du bloc « Or, Trésors et Objets Rares » de l'onglet Inventaire.
   function partyLoot(advId) {

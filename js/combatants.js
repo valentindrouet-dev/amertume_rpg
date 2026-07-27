@@ -801,6 +801,14 @@
       list.innerHTML = '<p class="empty">Aucun aventurier. Clique sur « + Nouvel Aventurier ».</p>';
       return;
     }
+    // Règles de suppression : aucune suppression pendant une aventure en cours ;
+    // sinon, un aventurier engagé dans une sauvegarde reste protégé.
+    const delLock = {
+      running: !!(global.Session && Session.adventureRunning && Session.adventureRunning()),
+      savesOf: function (id) {
+        return (global.Session && Session.savesWithHero) ? Session.savesWithHero(id) : [];
+      },
+    };
     list.innerHTML = heroes.map(function (h) {
       const dh = displayHero(h);
       const gear = heroGear(h).map(function (it) { return it.name; });
@@ -810,7 +818,17 @@
           (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
           (player ? '' : '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>') +
-          '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>' +
+          // Suppression IMPOSSIBLE pendant une aventure, et tant que l'aventurier
+          // est engagé dans une sauvegarde (il faut d'abord supprimer celle-ci).
+          (function () {
+            if (delLock.running) return '';
+            const saves = delLock.savesOf(h.id);
+            if (saves.length) {
+              return '<button class="ghost small del-btn" disabled title="Engagé dans : ' +
+                esc(saves.join(', ')) + '. Supprimez d\'abord cette sauvegarde (onglet Sauvegardes).">✕</button>';
+            }
+            return '<button class="ghost small del-btn" data-del-hero="' + h.id + '" title="Supprimer">✕</button>';
+          })() +
         '</div>' +
         // Genre et espèce : ligne dédiée sous le nom et la classe (elles ne
         // tenaient pas sur la même ligne).
@@ -851,6 +869,14 @@
         const id = b.getAttribute('data-del-hero');
         const h = Store.state.heroes.find(function (x) { return x.id === id; });
         if (!h) return;
+        if (global.Session && Session.adventureRunning && Session.adventureRunning()) {
+          alert('Impossible de supprimer un aventurier pendant une aventure en cours.'); return;
+        }
+        const inSaves = (global.Session && Session.savesWithHero) ? Session.savesWithHero(id) : [];
+        if (inSaves.length) {
+          alert('« ' + h.name + ' » est engagé dans : ' + inSaves.join(', ') +
+            '.\n\nSupprimez d\'abord cette ou ces sauvegardes (onglet Sauvegardes).'); return;
+        }
         if (!confirm('Supprimer l\'aventurier « ' + h.name + ' » ?')) return;
         Store.state.heroes = Store.state.heroes.filter(function (x) { return x.id !== id; });
         Store.save(); renderHeroes();
@@ -1027,11 +1053,18 @@
           return '<button type="button" class="hw-pick' + (wiz.species === sp.value ? ' selected' : '') + '" data-species="' + sp.value + '">' +
             '<span class="hw-pick-name">' + esc(sp.label) + '</span>' +
             // Bonus multiples : une ligne chacun (séparateur « | »).
-            '<span class="hw-pick-bonus">' + speciesBonusList(sp).map(function (x) {
-              const sk = SKILLS.find(function (n) { return x.indexOf(n) === 0; });
-              return '<span class="hw-pick-bonus-line ' +
-                (sk ? 'hw-bonus-skill skill-' + skillSlug(sk) : 'hw-bonus-' + statKeyOf(x)) + '">' + esc(x) + '</span>';
-            }).join('') + '</span></button>';
+            // Bonus de caractéristiques, puis — après une ligne d'espace — les
+            // bonus de compétence, en cartouches à la couleur de la compétence.
+            '<span class="hw-pick-bonus">' +
+              String(sp.bonus || '').split('|').filter(Boolean).map(function (x) {
+                return '<span class="hw-pick-bonus-line hw-bonus-' + statKeyOf(x) + '">' + esc(x) + '</span>';
+              }).join('') +
+              (Object.keys(sp.skills || {}).length
+                ? '<span class="hw-pick-skills">' + Object.keys(sp.skills).map(function (k) {
+                    return '<span class="hw-pick-skill skill-' + skillSlug(k) + '">' + esc(k) + ' +' + sp.skills[k] + '</span>';
+                  }).join('') + '</span>'
+                : '') +
+            '</span></button>';
         }).join('') + '</div>';
       const inp = $('#hw-name');
       inp.oninput = function () { wiz.name = this.value; updateWizNav(); };
@@ -1244,9 +1277,12 @@
               '<span class="hw-skill-name">' + s + '</span>' +
               '<div class="hw-stat-ctrl">' +
                 '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="-1"' + (v <= 0 ? ' disabled' : '') + '>−</button>' +
-                '<span class="hw-skill-val' + (v > 0 ? ' on' : '') + '">+' + v + '</span>' +
-                (sb ? '<span class="hw-skill-sp" title="Bonus d\'espèce — ' + esc(spName) + '">+' + sb + ' espèce</span>' +
-                      '<span class="hw-skill-tot" title="Total à la création">= +' + (v + sb) + '</span>' : '') +
+                // Valeur AFFICHÉE = points du joueur + bonus d'espèce, en orange
+                // quand l'espèce y contribue (aucun cartouche : la rangée garde
+                // exactement la même largeur, les boutons ne bougent plus).
+                '<span class="hw-skill-val' + (v + sb > 0 ? ' on' : '') + (sb ? ' from-species' : '') + '"' +
+                  (sb ? ' title="Dont +' + sb + ' apporté par l\'espèce (' + esc(spName) + ')"' : '') +
+                  '>+' + (v + sb) + '</span>' +
                 '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="1"' + (v >= 2 || rem <= 0 ? ' disabled' : '') + '>+</button>' +
               '</div>' +
             '</div>' +

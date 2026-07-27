@@ -671,7 +671,11 @@
       // (on peut viser une zone au lieu d'une vignette — utile contre les invisibles).
       const atkr = pendingAttack ? byId(pendingAttack.iid) : null;
       const zoneAttackable = !!(atkr && !pendingMove && zoneAttackReach(atkr, zi));
-      html += '<div class="combat-zone' + (movable ? ' movable' : '') + (zoneAttackable ? ' zone-attackable' : '') + '" data-zone="' + zi + '"' +
+      // Infobulle de ciblage : remplace l'ancien bandeau (qui faisait sauter la page).
+      const zTip = zoneAttackable
+        ? ' title="Cliquez cette zone pour y frapper' + (anyInvisibleFoe() ? ' — de quoi débusquer un invisible (Perception 2)' : '') + '"'
+        : '';
+      html += '<div class="combat-zone' + (movable ? ' movable' : '') + (zoneAttackable ? ' zone-attackable' : '') + '" data-zone="' + zi + '"' + zTip +
         ' style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';">' +
         '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
         '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
@@ -3262,14 +3266,9 @@
             (activeChoice.allowSkip ? '<button id="choice-skip" class="ghost xs">Passer</button>' : '') +
           '</div>'
         : '') +
-      // CIBLAGE en cours : rappel que les ZONES en surbrillance sont visables
-      // (indispensable pour atteindre un adversaire invisible).
-      (pendingAttack && !pendingMove
-        ? '<div class="combat-choicebar cbt-aimbar">' +
-            '<span class="choicebar-msg">🎯 Clique un adversaire <b>ou une zone en surbrillance</b>' +
-            (anyInvisibleFoe() ? ' — viser une zone permet de débusquer un <b>invisible</b> (Perception 2)' : '') +
-            '</span></div>'
-        : '') +
+      // (Pas de bandeau de ciblage : son apparition / disparition faisait sauter
+      // la page en hauteur. Les zones visables sont déjà mises en surbrillance,
+      // et leur infobulle rappelle qu'on peut y débusquer un invisible.)
       // Plateau + journal : le journal occupe une colonne à droite (assez large
       // pour lire, sans empiéter sur les zones) ; sur écran étroit il repasse
       // au-dessus du plateau en version compacte.

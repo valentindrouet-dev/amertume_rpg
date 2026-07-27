@@ -1243,8 +1243,10 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .ses-scene-blocks { display: flex; flex-direction: column; gap: .5rem; margin: .65rem 0 .6rem; }
 /* Test découlant d'un test préalable : décalage à droite + flèche ↳ + trait de
    liaison, pour bien le distinguer comme sous-test enchaîné. */
-.ses-test-slot.ses-test-chained { margin-left: 1.9rem; position: relative; }
-.ses-test-slot.ses-test-chained::before {
+.ses-test-slot.ses-test-chained,
+.scene-block.ses-test-chained { margin-left: 1.9rem; position: relative; }
+.ses-test-slot.ses-test-chained::before,
+.scene-block.ses-test-chained::before {
   content: "↳"; position: absolute; left: -1.5rem; top: .5rem;
   font-size: 1.15rem; color: var(--accent-2, #e2974a); font-weight: 800;
 }
@@ -4736,13 +4738,18 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   color: #f0c9bd; font-size: .85rem; line-height: 1.35;
 }
 
-/* Assistant : bonus de compétence apportés par l'espèce, cumulés aux points du joueur. */
-.hw-bonus-skill { color: #e2d3b4; }
-.hw-skill-sp {
-  font-size: .68rem; font-weight: 800; padding: .05rem .3rem; border-radius: 6px;
-  background: rgba(226,151,74,.2); border: 1px solid rgba(226,151,74,.5); color: #e2974a; white-space: nowrap;
+/* Assistant : bonus de compétence apportés par l'espèce, cumulés aux points du
+   joueur. Les compétences sont séparées des caractéristiques par une ligne, et
+   présentées en cartouches à la couleur de la compétence (comme sur la fiche). */
+.hw-pick-skills { display: flex; flex-wrap: wrap; justify-content: center; gap: .25rem; margin-top: .45rem; }
+.hw-pick-skill {
+  font-size: .68rem; font-weight: 800; padding: .06rem .38rem; border-radius: 7px;
+  border: 1px solid rgba(0,0,0,.25); color: #2c2418; white-space: nowrap;
 }
-.hw-skill-tot { font-size: .82rem; font-weight: 800; color: #2c2418; white-space: nowrap; }
+/* Valeur de compétence améliorée par l'espèce : en orange, sans cartouche —
+   la rangée garde sa largeur, les boutons − / + ne bougent plus. */
+.hw-skill-row[class*="skill-"] .hw-skill-val.from-species,
+.hw-skill-val.from-species { color: #c26a12; }
 
 /* ===================== v2.4.03 — Jonction des barrières ===================== */
 /* Chaque barrière déborde jusqu'au CENTRE de la grille : deux barrières
@@ -4768,3 +4775,9 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .zone-sep-diag-wrap { z-index: 1; }
 .zone-sep-diag { width: calc(var(--sep-reach, 15px) * 1.6); height: 14px; border-radius: 7px; }
 .zone-sep-diag .zone-sep-lbl { display: none; }
+
+/* Sauvegardes : aventuriers engagés dans chaque partie. */
+.ses-save-heroes { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin-top: .35rem; font-size: .8rem; color: var(--muted); }
+.ses-save-hero { font-size: .74rem; }
+/* Bouton de suppression verrouillé (aventurier engagé dans une sauvegarde). */
+.del-btn[disabled], .grp-del-btn[disabled] { opacity: .35; cursor: not-allowed; }
