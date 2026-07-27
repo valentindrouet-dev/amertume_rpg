@@ -3016,6 +3016,33 @@
   }
 
   // Zones d'une scène de combat (migration de l'ancien format plat si besoin)
+  // Résout la fiche d'un adversaire référencé dans une zone : par id, puis, à
+  // défaut (id périmé après un partage / import / duplication), par NOM — même
+  // règle que le moteur de combat, pour que l'aperçu ne mente jamais sur ce qui
+  // sera réellement engagé.
+  function monsterTplForRef(ref) {
+    if (!ref) return null;
+    let t = ref.monsterId ? Store.state.monsters.find(function (m) { return m.id === ref.monsterId; }) : null;
+    if (!t && ref.monName) {
+      const nm = String(ref.monName).trim().toLowerCase();
+      t = Store.state.monsters.find(function (m) { return (m.name || '').trim().toLowerCase() === nm; }) || null;
+    }
+    return t;
+  }
+  // Références d'adversaires d'un jeu de zones, avec le total réellement jouable
+  // et la liste de celles qui ne se résolvent pas (fiche supprimée / renommée).
+  function zonesFoeInfo(zones) {
+    let total = 0; const missing = [];
+    (zones || []).forEach(function (z) {
+      (z.monsterRefs || []).forEach(function (r) {
+        if (!r.monsterId && !r.monName) return;
+        const m = monsterTplForRef(r);
+        if (m) total += Math.max(1, r.count || 1);
+        else missing.push(r.monName || r.monsterId || '?');
+      });
+    });
+    return { total: total, missing: missing };
+  }
   function sceneZones(scene) {
     if (Array.isArray(scene.combatZones) && scene.combatZones.length) return scene.combatZones;
     const refs = (scene.monsterRefs || []).filter(function (r) { return r.monsterId; });
@@ -3065,12 +3092,17 @@
     const nZones = Math.max(1, zones.length);
     const zPos = Z_POS[nZones] || Z_POS[1];
     let zonesHtml = zones.map(function (z, zi) {
-      const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).map(function (r) {
-        const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
-        const t = m ? (m.type === 'standard' ? 'sbire' : m.type) : 'sbire';
+      const mons = (z.monsterRefs || []).filter(function (r) { return r.monsterId || r.monName; }).map(function (r) {
+        const m = monsterTplForRef(r);
+        // Fiche introuvable : on le DIT, au lieu d'afficher un « ? » muet et de
+        // lancer ensuite un combat sans adversaire.
+        if (!m) {
+          return previewChip('⚠ ' + (r.monName || 'Adversaire introuvable'), 'pv-foe pv-foe-missing');
+        }
+        const t = m.type === 'standard' ? 'sbire' : m.type;
         const n = Math.max(1, r.count || 1);
         let out = '';
-        for (let k = 0; k < n; k++) out += previewChip((m ? m.name : '?') + (n > 1 ? ' ' + (k + 1) : ''), 'pv-foe ztype-' + t);
+        for (let k = 0; k < n; k++) out += previewChip(m.name + (n > 1 ? ' ' + (k + 1) : ''), 'pv-foe ztype-' + t);
         return out;
       }).join('');
       const heroesHtml = z.heroStart
@@ -3202,9 +3234,9 @@
     const foes = [];
     zones.forEach(function (z) {
       (z.monsterRefs || []).forEach(function (r) {
-        if (!r.monsterId) return;
-        const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
-        foes.push((m ? m.name : '?') + (r.count > 1 ? ' ×' + r.count : ''));
+        if (!r.monsterId && !r.monName) return;
+        const m = monsterTplForRef(r);
+        foes.push((m ? m.name : '⚠ ' + (r.monName || 'introuvable')) + (r.count > 1 ? ' ×' + r.count : ''));
       });
     });
     const sec = appendSection(box);
@@ -3228,10 +3260,8 @@
     const state = ses.searchTests[blk.id];
     const title = '⚔️ ' + esc(blk.label || 'Combat');
     if (!state || !state.done) {
-      const nFoes = ((blk.combat && blk.combat.combatZones) || []).reduce(function (n, z) {
-        return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; })
-          .reduce(function (t, r) { return t + (r.count || 1); }, 0);
-      }, 0);
+      const info = zonesFoeInfo((blk.combat && blk.combat.combatZones) || []);
+      const nFoes = info.total;
       // Disposition du combat AVANT de le lancer : zones, placement des
       // combattants et barrières — exactement comme pour un combat de salle.
       const zones = (blk.combat && blk.combat.combatZones && blk.combat.combatZones.length)
@@ -3240,8 +3270,14 @@
       slot.innerHTML = '<div class="ses-searchtest ses-fight ses-combat-block">' +
         '<div class="ses-st-title">' + title + '</div>' +
         (blk.content && blk.content.trim() ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(blk.content) + '</div>' : '') +
-        (nFoes ? '<p class="hint">Disposition du combat (vous ne pouvez pas changer votre position de départ) :</p>' +
-          combatPreviewHtml(zones, (blk.combat || {}).barriers, ses) : '') +
+        (nFoes || info.missing.length
+          ? '<p class="hint">Disposition du combat (vous ne pouvez pas changer votre position de départ) :</p>' +
+            combatPreviewHtml(zones, (blk.combat || {}).barriers, ses) : '') +
+        (info.missing.length
+          ? '<p class="ses-foe-missing">⚠ ' + info.missing.length + ' adversaire' + (info.missing.length > 1 ? 's' : '') +
+            ' de ce combat ' + (info.missing.length > 1 ? 'sont introuvables' : 'est introuvable') +
+            ' dans le Bestiaire (' + esc(info.missing.join(', ')) + ') — resélectionnez-' +
+            (info.missing.length > 1 ? 'les' : 'le') + ' dans l\'éditeur du bloc.</p>' : '') +
         '<button type="button" class="primary ses-fight-go"' + (nFoes ? '' : ' disabled title="Aucun adversaire défini dans ce bloc."') + '>' +
           '⚔ Lancer le combat' + (nFoes ? ' <span class="ses-fight-count">(' + nFoes + ' adversaire' + (nFoes > 1 ? 's' : '') + ')</span>' : '') +
         '</button>' +
@@ -3263,11 +3299,14 @@
   function launchBlockCombat(blk, scene, adv, ses) {
     const cfg = blk.combat || {};
     const zones = cfg.combatZones || [];
-    const monsterCount = zones.reduce(function (n, z) {
-      return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; })
-        .reduce(function (t, r) { return t + (r.count || 1); }, 0);
-    }, 0);
-    if (!monsterCount) { alert('Aucun adversaire défini pour ce combat.'); return; }
+    const info = zonesFoeInfo(zones);
+    if (!info.total) {
+      alert(info.missing.length
+        ? 'Les adversaires de ce combat sont introuvables dans le Bestiaire (' + info.missing.join(', ') +
+          ').\n\nRouvrez le bloc de combat dans l\'éditeur de salle et resélectionnez-les.'
+        : 'Aucun adversaire défini pour ce combat.');
+      return;
+    }
     const fighters = (ses.heroIds || []).filter(function (hid) {
       return !(ses.heroStates && ses.heroStates[hid] && ses.heroStates[hid].dead);
     });

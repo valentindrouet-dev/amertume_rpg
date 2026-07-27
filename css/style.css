@@ -4727,3 +4727,11 @@ label.adv-tal-row > .adv-eff-desc {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;
 }
 label.adv-tal-row > .adv-eff-desc:empty { display: none; }
+
+/* Adversaire configuré dont la fiche est introuvable dans le Bestiaire. */
+.pv-chip.pv-foe-missing { background: #6b2f2f; color: #ffd9d9; border-color: #b45252; }
+.ses-foe-missing {
+  margin: .5rem 0 0; padding: .45rem .6rem; border-radius: 8px;
+  background: rgba(214,92,64,.14); border-left: 3px solid #d65c40;
+  color: #f0c9bd; font-size: .85rem; line-height: 1.35;
+}
