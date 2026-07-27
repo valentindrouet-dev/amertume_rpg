@@ -4871,3 +4871,7 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   .rp-line { flex-wrap: wrap; }
   .rp-line .inv-strip-row, .rp-line .rp-hero, .rp-line .stp-hero { flex-basis: 100%; max-width: 100%; }
 }
+
+/* Languette d'objet dans une récompense : cliquable (ouvre son descriptif). */
+.rp-line .inv-strip[data-info] { cursor: pointer; }
+.rp-line .inv-strip[data-info]:hover { filter: brightness(1.05); }

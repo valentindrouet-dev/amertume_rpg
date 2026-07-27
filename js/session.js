@@ -581,6 +581,15 @@
       });
     });
 
+    // Languettes d'objet des récompenses : le clic ouvre le descriptif de l'objet
+    // (même mini-fenêtre que dans l'inventaire).
+    root.addEventListener('click', function (e) {
+      const strip = e.target.closest ? e.target.closest('.inv-strip[data-info]') : null;
+      if (!strip || !root.contains(strip)) return;
+      if (e.target.closest('select, button, input')) return;
+      if (global.Inventory && Inventory.openItemSheet) Inventory.openItemSheet(strip.getAttribute('data-info'));
+    });
+
     // Blocs de test interactifs, insérés dans le fil du texte de la scène.
     wireTestBlocks(scene, adv, ses);
 
@@ -2446,7 +2455,7 @@
         const qtyShow = roll.iq[realIdx] || 1;
         return '<div class="rp-line">' +
           '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + (it && it.parchEffect ? ' is-parchment' : '') + '">' +
-            '<div class="inv-strip">' + strip + '</div>' +
+            '<div class="inv-strip" data-info="' + esc(r.itemId) + '" title="Voir le descriptif">' + strip + '</div>' +
             (qtyShow > 1 ? '<span class="rp-qty">×' + qtyShow + '</span>' : '') +
           '</div>' +
           (state.claimed ? '<span class="tag">Récupéré</span>' : (heroes.length ? '<select class="stp-hero" data-tb="' + esc(block.id) + '" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '')) +
@@ -3427,7 +3436,7 @@
       const qtyShow = roll.iq[realIdx] || 1;
       return '<div class="rp-line">' +
         '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + (it && it.parchEffect ? ' is-parchment' : '') + '">' +
-          '<div class="inv-strip">' + strip + '</div>' +
+          '<div class="inv-strip" data-info="' + esc(r.itemId) + '" title="Voir le descriptif">' + strip + '</div>' +
           (qtyShow > 1 ? '<span class="rp-qty">×' + qtyShow + '</span>' : '') +
         '</div>' +
         (heroes.length ? '<select class="rp-hero" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '') +
