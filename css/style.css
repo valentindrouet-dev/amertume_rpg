@@ -4735,3 +4735,11 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   background: rgba(214,92,64,.14); border-left: 3px solid #d65c40;
   color: #f0c9bd; font-size: .85rem; line-height: 1.35;
 }
+
+/* Assistant : bonus de compétence apportés par l'espèce, cumulés aux points du joueur. */
+.hw-bonus-skill { color: #e2d3b4; }
+.hw-skill-sp {
+  font-size: .68rem; font-weight: 800; padding: .05rem .3rem; border-radius: 6px;
+  background: rgba(226,151,74,.2); border: 1px solid rgba(226,151,74,.5); color: #e2974a; white-space: nowrap;
+}
+.hw-skill-tot { font-size: .82rem; font-weight: 800; color: #2c2418; white-space: nowrap; }

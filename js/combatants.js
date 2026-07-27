@@ -45,11 +45,24 @@
   ];
   // Espèces jouables : chacune apporte un bonus fixe à la création.
   const SPECIES = [
-    { value: 'humain',  label: 'Humain',  icon: '🧑', bonus: 'VIE +1',        vie: 1, endu: 0, damage: 0, pvBonus: 0 },
-    { value: 'nain',    label: 'Nain',    icon: '⛏️', bonus: 'PV +8',         vie: 0, endu: 0, damage: 0, pvBonus: 8 },
-    { value: 'goliath', label: 'Goliath', icon: '🗿', bonus: 'Dégâts +2',     vie: 0, endu: 0, damage: 2, pvBonus: 0 },
-    { value: 'elfe',    label: 'Elfe',    icon: '🏹', bonus: 'ENDU +1|Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0 },
+    // `skills` : bonus de compétence de départ, CUMULÉS avec les points répartis
+    // par le joueur (un +2 Force choisi sur un Goliath donne bien +3 au total).
+    { value: 'humain',  label: 'Humain',  icon: '🧑', bonus: 'VIE +1',        vie: 1, endu: 0, damage: 0, pvBonus: 0,
+      skills: { 'Perception': 1, 'Savoir': 1 } },
+    { value: 'nain',    label: 'Nain',    icon: '⛏️', bonus: 'PV +8',         vie: 0, endu: 0, damage: 0, pvBonus: 8,
+      skills: { 'Robustesse': 1, 'Technique': 1 } },
+    { value: 'goliath', label: 'Goliath', icon: '🗿', bonus: 'Dégâts +2',     vie: 0, endu: 0, damage: 2, pvBonus: 0,
+      skills: { 'Force': 1, 'Robustesse': 1 } },
+    { value: 'elfe',    label: 'Elfe',    icon: '🏹', bonus: 'ENDU +1|Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0,
+      skills: { 'Agilité': 1, 'Mysticisme': 1 } },
   ];
+  // Libellé complet des bonus d'une espèce (caractéristiques + compétences).
+  function speciesBonusList(sp) {
+    if (!sp) return [];
+    const out = String(sp.bonus || '').split('|').filter(Boolean);
+    Object.keys(sp.skills || {}).forEach(function (k) { out.push(k + ' +' + sp.skills[k]); });
+    return out;
+  }
   // Couleur de chaque caractéristique — identique partout dans l'application.
   function statKeyOf(txt) {
     const t = (txt || '').toLowerCase();
@@ -68,7 +81,7 @@
     if (!g && !sp) return '';
     return '<span class="hero-ident">' +
       (g ? '<span class="tag hero-gender" title="Genre">' + esc(g.label) + '</span>' : '') +
-      (sp ? '<span class="tag hero-species" title="Espèce — ' + esc(sp.bonus.split('|').join(' · ')) + '">' +
+      (sp ? '<span class="tag hero-species" title="Espèce — ' + esc(speciesBonusList(sp).join(' · ')) + '">' +
         (sp.icon ? sp.icon + ' ' : '') + esc(sp.label) + '</span>' : '') +
     '</span>';
   }
@@ -1014,8 +1027,10 @@
           return '<button type="button" class="hw-pick' + (wiz.species === sp.value ? ' selected' : '') + '" data-species="' + sp.value + '">' +
             '<span class="hw-pick-name">' + esc(sp.label) + '</span>' +
             // Bonus multiples : une ligne chacun (séparateur « | »).
-            '<span class="hw-pick-bonus">' + sp.bonus.split('|').map(function (x) {
-              return '<span class="hw-pick-bonus-line hw-bonus-' + statKeyOf(x) + '">' + esc(x) + '</span>';
+            '<span class="hw-pick-bonus">' + speciesBonusList(sp).map(function (x) {
+              const sk = SKILLS.find(function (n) { return x.indexOf(n) === 0; });
+              return '<span class="hw-pick-bonus-line ' +
+                (sk ? 'hw-bonus-skill skill-' + skillSlug(sk) : 'hw-bonus-' + statKeyOf(x)) + '">' + esc(x) + '</span>';
             }).join('') + '</span></button>';
         }).join('') + '</div>';
       const inp = $('#hw-name');
@@ -1071,7 +1086,7 @@
       }
       body.innerHTML =
         '<p class="hint">Répartissez vos <b>3 points</b> entre les caractéristiques.' +
-        (sp.label ? '<br><span class="hw-species-note">Espèce ' + esc(sp.label) + ' : <b>' + esc(sp.bonus.split('|').join(' · ')) + '</b> déjà appliqué.</span>' : '') +
+        (sp.label ? '<br><span class="hw-species-note">Espèce ' + esc(sp.label) + ' : <b>' + esc(speciesBonusList(sp).join(' · ')) + '</b> déjà appliqué.</span>' : '') +
         '<br><b>' + rem + '</b> point' + (rem > 1 ? 's' : '') + ' restant' + (rem > 1 ? 's' : '') + '.</p>' +
         '<div class="hw-stat-list2">' +
           statRow('damage', 'DÉGÂTS <small>(+1 / point)</small>', 1, dmg, wiz.statBonuses.damage) +
@@ -1213,10 +1228,16 @@
     } else {
       const total = wizSkillTotal();
       const rem = 3 - total;
+      const spSkills = (speciesOf(wiz.species) || {}).skills || {};
+      const spName = (speciesOf(wiz.species) || {}).label || '';
       body.innerHTML = '<p class="hint">Répartissez vos <b>3 points</b> de compétence (max <b>2</b> dans une même).' +
-        '<br><b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + '.</p>' +
+        '<br><b>' + rem + '</b> restant' + (rem > 1 ? 's' : '') + '.' +
+        (Object.keys(spSkills).length
+          ? '<br><span class="hw-species-note">Les bonus de votre espèce (' + esc(spName) + ') s\'ajoutent à vos points.</span>'
+          : '') + '</p>' +
         '<div class="hw-skill-list2">' + SKILLS.map(function (s) {
           const v = wiz.skills[s] || 0;
+          const sb = spSkills[s] || 0;
           // Languette colorée (taille uniforme) + description JUSTE EN DESSOUS.
           return '<div class="hw-skill-cell">' +
             '<div class="hw-skill-row skill-' + skillSlug(s) + '">' +
@@ -1224,6 +1245,8 @@
               '<div class="hw-stat-ctrl">' +
                 '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="-1"' + (v <= 0 ? ' disabled' : '') + '>−</button>' +
                 '<span class="hw-skill-val' + (v > 0 ? ' on' : '') + '">+' + v + '</span>' +
+                (sb ? '<span class="hw-skill-sp" title="Bonus d\'espèce — ' + esc(spName) + '">+' + sb + ' espèce</span>' +
+                      '<span class="hw-skill-tot" title="Total à la création">= +' + (v + sb) + '</span>' : '') +
                 '<button type="button" class="hw-skill-pm" data-skill="' + s + '" data-dir="1"' + (v >= 2 || rem <= 0 ? ' disabled' : '') + '>+</button>' +
               '</div>' +
             '</div>' +
@@ -1268,7 +1291,13 @@
   function wizNext() {
     if (!wiz || $('#hw-next').disabled) return;
     if (wiz.step < WIZ_STEPS.length - 1) { wiz.step++; renderWizard(); return; }
-    const skills = {}; SKILLS.forEach(function (s) { if (wiz.skills[s]) skills[s] = wiz.skills[s]; });
+    // Compétences = points répartis par le joueur + bonus de l'espèce (cumulatifs).
+    const spSk = (speciesOf(wiz.species) || {}).skills || {};
+    const skills = {};
+    SKILLS.forEach(function (s) {
+      const v = (wiz.skills[s] || 0) + (spSk[s] || 0);
+      if (v) skills[s] = v;
+    });
     const eq = {
       mainG: wiz.equipment.mainG || null, mainD: wiz.equipment.mainD || null,
       armorId: wiz.equipment.armorId || null, objectId: null, twoH: false,
