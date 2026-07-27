@@ -589,6 +589,9 @@
     if (!bar) return { type: null, diff: 'moyen' };
     if (bar.type === 'mur' || bar.type === 'infranchissable') return { type: 'block', diff: 'moyen' };
     if (bar.type === 'difficile') return { type: 'difficile', diff: bar.difficulty || 'moyen' };
+    // INSTABLE : on franchit toujours, mais un test d'Agilité 1 raté fait arriver
+    // AU SOL dans la zone visée.
+    if (bar.type === 'instable') return { type: 'instable', diff: 'facile' };
     return { type: null, diff: 'moyen' };
   }
   // Le tir est bloqué uniquement par un MUR.
@@ -639,8 +642,10 @@
     { pair: [0, 2], row: 2, col: 1, dir: 'h' },
     { pair: [1, 3], row: 2, col: 3, dir: 'h' },
   ];
-  const BARRIER_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile' };
-  const BARRIER_NAME = { infranchissable: 'INFRANCHISSABLE', mur: 'MUR', difficile: 'DIFFICILE' };
+  const BARRIER_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile',
+    instable: '🌀 Instable' };
+  const BARRIER_NAME = { infranchissable: 'INFRANCHISSABLE', mur: 'MUR', difficile: 'DIFFICILE',
+    instable: 'INSTABLE' };
   // Nom affiché d'une barrière : nom personnalisé (MJ) sinon libellé du type.
   function barrierDisplayName(bar) {
     return (bar && bar.name && bar.name.trim()) ? bar.name.trim() : (BARRIER_NAME[bar && bar.type] || '');
@@ -789,6 +794,26 @@
       }
       log(cname(c) + ' franchit une <span class="lstate">barrière difficile</span> (Agilité ' +
         t.succ + '/' + t.need + ') — <span class="lcrit">réussite</span> !', 'state');
+    }
+    // INSTABLE (ex. sol glissant) : le passage se fait toujours, mais un test
+    // d'Agilité 1 raté fait arriver AU SOL dans la zone d'arrivée.
+    if (mb.type === 'instable') {
+      if (canSkipDifficult(c)) {
+        log(cname(c) + ' traverse un <span class="lstate">terrain instable</span> sans encombre (' +
+          (c.side === 'monster' ? 'AGILE' : 'Pieds Sûrs') + ').', 'state');
+      } else {
+        const ti = acrobaticsTest(c, mb.diff);
+        if (!ti.passed) {
+          c.states.auSol = true;
+          pushFx({ type: 'state', iid: c.iid });
+          toast('🌀 Terrain instable !', 'miss');
+          log(cname(c) + ' traverse un <span class="lstate">terrain instable</span> (Agilité ' +
+            ti.succ + '/' + ti.need + ') — <span class="lfail">échec</span> : ' + gPro(c) + ' arrive <span class="lstate">Au sol</span>.', 'state');
+        } else {
+          log(cname(c) + ' traverse un <span class="lstate">terrain instable</span> (Agilité ' +
+            ti.succ + '/' + ti.need + ') — <span class="lcrit">réussite</span> !', 'state');
+        }
+      }
     }
     // ACROBATIE : franchir une barrière DIFFICILE amorce +1 dé noir sur le coup suivant.
     if (mb.type === 'difficile' && c.side === 'hero' && heroHasTalent(c, 'acrobatie')) c.acrobatiePrimed = true;
@@ -4046,7 +4071,7 @@
       // visée — le déplacement a lieu même s'il n'y a personne à y frapper.
       const atkVoid = attacker.attacks[pendingAttack.atkIndex];
       if (atkVoid && atkVoid.range === 'contact' && attacker.zone !== zi &&
-          crossCheck(attacker, zi) !== 'block') {
+          moveBarrier(attacker.zone, zi).type !== 'block') {
         doMove(attacker, zi);
       }
       log(cname(attacker) + ' frappe dans le vide : aucune cible dans <span class="lstate">' + esc(zname(zi)) + '</span>.', 'state');
@@ -4062,7 +4087,7 @@
       // corps dans la zone visée, même sans y trouver la cible invisible.
       const atkLost = attacker.attacks[pendingAttack.atkIndex];
       if (atkLost && atkLost.range === 'contact' && attacker.zone !== zi &&
-          crossCheck(attacker, zi) !== 'block') {
+          moveBarrier(attacker.zone, zi).type !== 'block') {
         doMove(attacker, zi);
       }
       log(cname(attacker) + ' fouille <span class="lstate">' + esc(zname(zi)) + '</span> à l\'aveugle ' +

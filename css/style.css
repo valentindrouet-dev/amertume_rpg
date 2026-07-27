@@ -4887,3 +4887,11 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 /* Rose : accès réservé au MJ (verrouillé ou dissimulé), franchissable par lui. */
 .rose-btn.ses-exit-mj { border-color: #a06ad0; box-shadow: inset 0 0 0 1px rgba(160,106,208,.35); }
 .rose-btn.ses-exit-mj .rose-name { font-style: italic; }
+
+/* Barrière INSTABLE (ex. sol glissant) : franchissable, mais on peut y tomber. */
+.zone-sep.barrier-instable,
+.zone-sep-diag.barrier-instable {
+  background: repeating-linear-gradient(45deg, #6fa9b8, #6fa9b8 6px, #57909f 6px, #57909f 12px);
+}
+.zone-barrier-tag.barrier-instable { background: #6fa9b8; }
+.combat-zone.barrier-left.barrier-instable, .preview-zone.barrier-left.barrier-instable { border-left: 4px solid #6fa9b8; }

@@ -2364,6 +2364,9 @@
     const lbl = state.success
       ? ((block.label || '').trim() || 'Action 1')
       : ((block.altLabel || '').trim() || 'Action 2');
+    // Le titre du bloc porte déjà le nom de l'Action 1 : on ne répète rien quand
+    // c'est elle qui a été jouée. Seule une Action 2 distincte est précisée.
+    if (!lbl || lbl === (block.label || '').trim()) return '';
     return '<span class="ses-st-verdict chosen">' + esc(lbl) + '</span>';
   }
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
@@ -2390,7 +2393,7 @@
       const rareBtnCompact = (!ok && !state.validated) ? rareResolveButtonHtml(ses, block) : '';
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-compact ' +
         (block.actionMode ? 'ses-st-action-box' : (ok || state.validated ? 'ses-st-success-box' : 'ses-st-fail-box')) + '">' +
-        '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + ' — ' + verdict + '</div>' +
+        '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (verdict ? ' — ' + verdict : '') + '</div>' +
         narr +
         rareBtnCompact +
       '</div>';
@@ -2445,8 +2448,11 @@
         }
       }
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ' + (block.actionMode ? 'ses-st-action-box' : 'ses-st-fail-box') + '">' +
-        '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') +
-          ' — ' + (block.actionMode ? actionVerdictHtml(block, state) : '<span class="ses-st-verdict fail">Échec</span>') + '</div>' +
+        (function () {
+          const v = block.actionMode ? actionVerdictHtml(block, state) : '<span class="ses-st-verdict fail">Échec</span>';
+          return '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag +
+            (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + (v ? ' — ' + v : '') + '</div>';
+        })() +
         (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '') +
         groupResultsHtml(state) +
         fxMsgsHtml(state) +
@@ -2556,7 +2562,7 @@
       : '';
     slot.innerHTML = '<div class="ses-searchtest ses-st-done ' +
       (block.actionMode ? 'ses-st-action-box' : (rescued ? 'ses-st-rescued-box' : 'ses-st-success-box')) + '">' +
-      '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — ' + verdict + '</div>' +
+      '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + (verdict ? ' — ' + verdict : '') + '</div>' +
       narrative +
       rescueBanner +
       groupResultsHtml(state) +
@@ -3179,8 +3185,10 @@
       return '<div class="pv-chip ' + cls + '"><span class="pv-chip-av">' + esc(initial) + '</span>' +
         '<span class="pv-chip-name">' + esc(name) + '</span></div>';
     }
-    const B_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile' };
-    const B_NAME = { infranchissable: 'INFRANCHISSABLE', mur: 'MUR', difficile: 'DIFFICILE' };
+    const B_LABEL = { infranchissable: '⛔ Infranchissable', mur: '🧱 Mur', difficile: '⛰ Difficile',
+      instable: '🌀 Instable' };
+    const B_NAME = { infranchissable: 'INFRANCHISSABLE', mur: 'MUR', difficile: 'DIFFICILE',
+      instable: 'INSTABLE' };
     // Nom affiché sur la barrière : nom personnalisé du MJ, sinon libellé du type.
     const barName = function (bar) { return (bar && bar.name && bar.name.trim()) ? bar.name.trim() : (B_NAME[bar && bar.type] || ''); };
     const Z_POS = { 1: [[1, 1]], 2: [[1, 1], [1, 3]], 3: [[1, 1], [1, 3], [3, 1]], 4: [[1, 1], [1, 3], [3, 1], [3, 3]] };

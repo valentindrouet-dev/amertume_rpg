@@ -2267,6 +2267,7 @@
     { key: 'none', label: 'Aucune barrière' },
     { key: 'infranchissable', label: 'Infranchissable (tir possible)' },
     { key: 'difficile', label: 'Difficile (test d\'Agilité)' },
+    { key: 'instable', label: 'Instable (Agilité 1, sinon on arrive Au sol)' },
     { key: 'mur', label: 'Mur (ni déplacement ni tir)' },
   ];
   function barrierKeyOf(a, b) { const lo = Math.min(a, b), hi = Math.max(a, b); return lo + '-' + hi; }
