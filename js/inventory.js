@@ -218,6 +218,10 @@
     if (sep) sep.textContent = '✋ ' + handsUsed(normEq(h)) + '/2 · 🛡 DEF ' + Combatants.heroDef(h);
   }
 
+  // Un objet porteur d'un effet de PARCHEMIN a son propre code couleur
+  // (brun beige), distinct des objets ordinaires (verts).
+  function parchClass(i) { return (i && i.parchEffect) ? ' is-parchment' : ''; }
+
   function renderPlayer(advId) {
     const list = $('#item-list');
     if (!list) return;
@@ -246,7 +250,7 @@
     // Nb d'exemplaires fraîchement acquis PAR CET AVENTURIER pour cet objet.
     const newCount = function (h, i) { return Number(newIds[h.id + '|' + i.id]) || 0; };
     const singleStrip = function (h, i, checked, qtyBadge, isNew) {
-      return '<label class="inv-strip-row cat-' + i.category + (checked ? ' equipped' : '') + '">' +
+      return '<label class="inv-strip-row cat-' + i.category + parchClass(i) + (checked ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
         '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) +
           (isNew ? '<span class="inv-new-badge" title="Nouvel objet depuis votre dernière visite">NEW</span>' : '') +
@@ -425,7 +429,7 @@
       if (i.usesAmmo) subMeta.push('munitions');
       if (i.effects) subMeta.push('⚡ ' + escapeHtml(i.effects));
     }
-    return '<div class="roster-card armory-card cat-' + i.category + '">' +
+    return '<div class="roster-card armory-card cat-' + i.category + parchClass(i) + '">' +
       '<div class="roster-head">' +
         '<span class="roster-name">' + escapeHtml(i.name) + '</span>' +
       '</div>' +
@@ -469,7 +473,8 @@
     const traits = (i.traits || []).map(function (t) {
       return '<span class="tag">' + (t === 'jetable' ? 'Jetable' : t === 'vicieuse' ? 'Vicieuse' : t) + '</span>';
     }).join('');
-    let html = '<div class="isheet-cat cat-' + i.category + '">' + escapeHtml(CAT_LABEL[i.category] || i.category) + '</div>';
+    let html = '<div class="isheet-cat cat-' + i.category + parchClass(i) + '">' +
+      escapeHtml(i.parchEffect ? 'Parchemin' : (CAT_LABEL[i.category] || i.category)) + '</div>';
     if (isWeapon) {
       html += '<div class="isheet-line">' + poolBadges(i.dice) +
         ' <span class="isheet-avg">moy. ' + avgOf(i.dice) + '</span></div>';
@@ -493,7 +498,7 @@
     if (!modalEl) return;
     $('#item-sheet-title').textContent = i.name;
     $('#item-sheet-body').innerHTML =
-      '<div class="roster-card armory-card cat-' + i.category + ' item-sheet-card">' +
+      '<div class="roster-card armory-card cat-' + i.category + parchClass(i) + ' item-sheet-card">' +
         itemSheetHtml(i) +
       '</div>';
     modalEl.hidden = false;
@@ -505,7 +510,7 @@
 
     // Languette admin : pas de case à cocher, bouton édition à droite
     function adminStrip(i) {
-      return '<div class="inv-strip-row cat-' + i.category + '">' +
+      return '<div class="inv-strip-row cat-' + i.category + parchClass(i) + '">' +
         '<div class="inv-strip" data-info="' + i.id + '">' + itemStripHtml(i) + '</div>' +
         (canEdit ? '<button class="inv-strip-edit" data-edit="' + i.id + '" title="Éditer">✎</button>' : '') +
       '</div>';

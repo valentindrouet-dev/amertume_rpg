@@ -4834,3 +4834,19 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 /* Butin : valeur affichée sous le nom du trésor, total dans l'en-tête. */
 .ses-loot-value { font-weight: 600; font-size: .85em; opacity: .85; }
 .inv-treasure-value { margin-left: .35rem; }
+
+/* Objets PARCHEMIN (porteurs d'un effet de parchemin) : brun beige, pour les
+   distinguer des objets ordinaires (verts). */
+.armory-card.is-parchment,
+.armory-card.cat-object.is-parchment,
+.armory-card.cat-misc.is-parchment,
+.armory-card.cat-ammo.is-parchment {
+  border-left-color: #8a6d4a; background: linear-gradient(180deg, #efe4cf, #e2d4b8);
+}
+.inv-strip-row.is-parchment .inv-strip,
+.inv-strip-row.cat-object.is-parchment .inv-strip,
+.inv-strip-row.cat-misc.is-parchment .inv-strip,
+.inv-strip-row.cat-ammo.is-parchment .inv-strip {
+  border-left-color: #8a6d4a; background: linear-gradient(180deg, #efe4cf, #e2d4b8);
+}
+.isheet-cat.is-parchment { background: rgba(138,109,74,.18); color: #6b5432; border-color: #8a6d4a; }
