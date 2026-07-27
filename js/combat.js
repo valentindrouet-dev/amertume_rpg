@@ -247,14 +247,22 @@
   // Résout la fiche d'un adversaire référencé dans une zone : par id, puis, à
   // défaut (id périmé après un partage / import / duplication / recréation), par
   // NOM. Évite les combats « vides » où un adversaire configuré n'apparaît pas.
+  function monNorm(s) {
+    return String(s == null ? '' : s).toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '');
+  }
   function monsterTplFor(ref) {
     if (!ref) return null;
-    let t = ref.monsterId ? Store.state.monsters.find(function (m) { return m.id === ref.monsterId; }) : null;
+    const find = function (pred) {
+      return Store.findMonster ? Store.findMonster(pred) : (Store.state.monsters.find(pred) || null);
+    };
+    let t = ref.monsterId ? find(function (m) { return m.id === ref.monsterId; }) : null;
     if (!t && ref.monName) {
-      const nm = String(ref.monName).trim().toLowerCase();
-      t = Store.state.monsters.find(function (m) { return (m.name || '').trim().toLowerCase() === nm; }) || null;
+      const nm = monNorm(ref.monName);
+      t = find(function (m) { return monNorm(m.name) === nm; });
     }
-    return t;
+    return t || null;
   }
   // Assemble les combattants en plaçant chacun dans sa zone
   function buildCombat(heroObjs, cfg) {
@@ -673,7 +681,9 @@
       if (e.pair[0] >= n || e.pair[1] >= n) return;
       const bar = bars[e.pair[0] + '-' + e.pair[1]];
       if (!bar || !bar.type || bar.type === 'none') return;
-      html += '<div class="zone-sep zone-sep-' + e.dir + ' barrier-' + bar.type + '"' +
+      // Extension vers la case centrale (jonction pleine entre barrières).
+      const ext = e.dir === 'v' ? (e.row === 1 ? 'down' : 'up') : (e.col === 1 ? 'right' : 'left');
+      html += '<div class="zone-sep zone-sep-' + e.dir + ' sep-ext-' + ext + ' barrier-' + bar.type + '"' +
         ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';"' +
         ' title="' + esc(barrierDisplayName(bar)) + ' — ' + (BARRIER_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
         '<span class="zone-sep-lbl">' + esc(barrierDisplayName(bar)) + '</span></div>';

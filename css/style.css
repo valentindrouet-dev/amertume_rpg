@@ -4743,3 +4743,28 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   background: rgba(226,151,74,.2); border: 1px solid rgba(226,151,74,.5); color: #e2974a; white-space: nowrap;
 }
 .hw-skill-tot { font-size: .82rem; font-weight: 800; color: #2c2418; white-space: nowrap; }
+
+/* ===================== v2.4.03 — Jonction des barrières ===================== */
+/* Chaque barrière déborde jusqu'au CENTRE de la grille : deux barrières
+   perpendiculaires forment un angle plein et se lisent comme une seule ligne
+   qui entoure la zone, au lieu de se toucher du bout. La portée vaut la
+   gouttière de la grille plus une demi-épaisseur de barrière. */
+.combat-preview { --sep-reach: 15px; }
+.combat-zones-grid { --sep-reach: 23px; }
+@media (max-width: 1400px) { .combat-zones-grid { --sep-reach: 15px; } }
+.zone-sep { border-radius: 7px; z-index: 2; }
+.zone-sep.sep-ext-down  { margin-bottom: calc(var(--sep-reach, 15px) * -1); }
+.zone-sep.sep-ext-up    { margin-top: calc(var(--sep-reach, 15px) * -1); }
+.zone-sep.sep-ext-right { margin-right: calc(var(--sep-reach, 15px) * -1); }
+.zone-sep.sep-ext-left  { margin-left: calc(var(--sep-reach, 15px) * -1); }
+/* Le libellé reste centré sur la portion VISIBLE entre les deux zones. */
+.zone-sep.sep-ext-down .zone-sep-lbl  { margin-bottom: var(--sep-reach, 15px); }
+.zone-sep.sep-ext-up .zone-sep-lbl    { margin-top: var(--sep-reach, 15px); }
+.zone-sep.sep-ext-right .zone-sep-lbl { margin-right: var(--sep-reach, 15px); }
+.zone-sep.sep-ext-left .zone-sep-lbl  { margin-left: var(--sep-reach, 15px); }
+/* Diagonale : petit segment net qui comble exactement le carrefour, passé SOUS
+   les barrières droites (il n'en dépasse plus deux moignons). Son nom reste
+   accessible en infobulle. */
+.zone-sep-diag-wrap { z-index: 1; }
+.zone-sep-diag { width: calc(var(--sep-reach, 15px) * 1.6); height: 14px; border-radius: 7px; }
+.zone-sep-diag .zone-sep-lbl { display: none; }

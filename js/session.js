@@ -3020,14 +3020,24 @@
   // défaut (id périmé après un partage / import / duplication), par NOM — même
   // règle que le moteur de combat, pour que l'aperçu ne mente jamais sur ce qui
   // sera réellement engagé.
+  // Normalisation d'un nom pour la comparaison : minuscules, sans accents, sans
+  // ponctuation ni espaces (y compris les espaces insécables d'un copier-coller).
+  function normName(s) {
+    return String(s == null ? '' : s).toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '');
+  }
   function monsterTplForRef(ref) {
     if (!ref) return null;
-    let t = ref.monsterId ? Store.state.monsters.find(function (m) { return m.id === ref.monsterId; }) : null;
+    const find = function (pred) {
+      return Store.findMonster ? Store.findMonster(pred) : (Store.state.monsters.find(pred) || null);
+    };
+    let t = ref.monsterId ? find(function (m) { return m.id === ref.monsterId; }) : null;
     if (!t && ref.monName) {
-      const nm = String(ref.monName).trim().toLowerCase();
-      t = Store.state.monsters.find(function (m) { return (m.name || '').trim().toLowerCase() === nm; }) || null;
+      const nm = normName(ref.monName);
+      t = find(function (m) { return normName(m.name) === nm; });
     }
-    return t;
+    return t || null;
   }
   // Références d'adversaires d'un jeu de zones, avec le total réellement jouable
   // et la liste de celles qui ne se résolvent pas (fiche supprimée / renommée).
@@ -3120,7 +3130,10 @@
       if (e.pair[0] >= nZones || e.pair[1] >= nZones) return;
       const bar = barriers[e.pair[0] + '-' + e.pair[1]];
       if (!bar) return;
-      zonesHtml += '<div class="zone-sep zone-sep-' + e.dir + ' barrier-' + bar.type + '"' +
+      // Sens d'extension vers la case centrale : deux barrières perpendiculaires
+      // se rejoignent alors en un angle plein, au lieu de se toucher du bout.
+      const ext = e.dir === 'v' ? (e.row === 1 ? 'down' : 'up') : (e.col === 1 ? 'right' : 'left');
+      zonesHtml += '<div class="zone-sep zone-sep-' + e.dir + ' sep-ext-' + ext + ' barrier-' + bar.type + '"' +
         ' style="grid-row:' + e.row + ';grid-column:' + e.col + ';" title="' + (B_LABEL[bar.type] || '').replace(/^[^ ]+ /, '') + '">' +
         '<span class="zone-sep-lbl">' + esc(barName(bar)) + '</span></div>';
     });

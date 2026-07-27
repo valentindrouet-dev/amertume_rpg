@@ -284,6 +284,19 @@
     }
   }
 
+  // Recherche d'un adversaire TOLÉRANTE au multi-onglets : `state` est chargé une
+  // seule fois au démarrage de la page, donc une fiche créée dans une AUTRE fenêtre
+  // n'y figure pas. En cas d'échec, on relit le stockage et on rapatrie la fiche.
+  function findMonster(pred) {
+    let m = (state.monsters || []).find(pred);
+    if (m) return m;
+    try {
+      const fresh = load();
+      const f = (fresh.monsters || []).find(pred);
+      if (f) { state.monsters.push(f); return f; }
+    } catch (e) {}
+    return null;
+  }
   function save() {
     try {
       global.localStorage.setItem(KEY, JSON.stringify(state));
@@ -956,6 +969,7 @@
 
   global.Store = {
     uid: uid,
+    findMonster: findMonster,
     fillTalentTags: fillTalentTags,
     fillTalentTagsHtml: fillTalentTagsHtml,
     rollAmount: rollAmount,
