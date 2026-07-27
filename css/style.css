@@ -4784,3 +4784,23 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .ses-save-hero { font-size: .74rem; }
 /* Bouton de suppression verrouillé (aventurier engagé dans une sauvegarde). */
 .del-btn[disabled], .grp-del-btn[disabled] { opacity: .35; cursor: not-allowed; }
+
+/* ===================== v2.4.06 — Rose plus compacte ===================== */
+.rose-title {
+  font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+  color: #c9ae7c; text-align: center; margin: 0 0 .3rem; line-height: 1;
+}
+/* Boutons et cases réduits en hauteur : la rose prend moins de place à l'écran. */
+.rose-cell { min-height: 32px; }
+.rose-btn.ses-exit-btn { min-height: 32px; padding: .12rem .3rem; }
+.rose-arrow { font-size: .88rem; }
+.rose-name { font-size: .68rem; }
+.rose-center { padding: .1rem .3rem; }
+.rose-center-pin { font-size: .72rem; }
+.rose-center-name { font-size: .68rem; -webkit-line-clamp: 1; }
+.ses-compass-inner { padding: .4rem; }
+.rose-grid { gap: .28rem; }
+/* Mobile : cibles tactiles conservées à 44 px. */
+@media (max-width: 860px) {
+  .rose-cell, .rose-btn.ses-exit-btn { min-height: 44px; }
+}

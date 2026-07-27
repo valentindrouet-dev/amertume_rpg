@@ -1434,6 +1434,7 @@
     if (!rose) { rose = document.createElement('div'); rose.id = 'ses-compass'; root.appendChild(rose); }
     rose.className = 'ses-compass';
     rose.innerHTML = '<div class="ses-compass-inner">' +
+      '<div class="rose-title">🚪 Salles &amp; Accès</div>' +
       '<div class="rose-grid">' + gridHtml + '</div>' +
       (exits.length ? '' : '<p class="hint rose-none">Aucune sortie reliée à cette salle.</p>') +
     '</div>';
