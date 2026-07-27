@@ -1018,8 +1018,11 @@
   // HTML des lignes de récompense Or/Trésors (encadré « Butin » doré et festif).
   // `roll` = tirage mis en cache (rewardRoll) : on affiche la valeur RÉELLE tirée
   // (« +11 Or ») plutôt que la variable en dés.
-  function treasureRewardHtml(o, roll) {
-    if (!hasTreasureReward(o)) return '';
+  // `itemRows` (optionnel) : languettes des objets découverts, intégrées à la
+  // MÊME case que l'Or et les trésors — il n'y a plus d'encadré « Découverte »
+  // séparé.
+  function treasureRewardHtml(o, roll, itemRows) {
+    if (!hasTreasureReward(o) && !itemRows) return '';
     let rows = '';
     if (rewardAmountSet(o.goldReward)) {
       const goldShow = roll ? roll.gold : Math.round(Number(o.goldReward) || 0);
@@ -1036,7 +1039,8 @@
           (val > 0 ? ' <span class="ses-loot-value">(' + val + ' Or l\'unité)</span>' : '') + '</div>';
     });
     return '<div class="ses-reward-block ses-reward-gold">' +
-      '<div class="ses-loot-head">✨ Butin !</div>' + rows + '</div>';
+      '<div class="ses-loot-head">✨ Butin</div>' + rows +
+      (itemRows ? '<div class="rp-list ses-loot-items">' + itemRows + '</div>' : '') + '</div>';
   }
 
   // PRÉPARÉ : marque tous les aventuriers engagés comme Préparés pour le prochain
@@ -2432,6 +2436,7 @@
       rewardHtml += '<div class="ses-reward-block ses-reward-xp"><div class="ses-reward-title">✦ Expérience <strong>+' + xpShow + ' XP</strong>' +
         (Store.isDiceExpr(block.xpReward) ? ' <small>(' + esc(String(block.xpReward).trim()) + ')</small>' : '') + '</div></div>';
     }
+    let itemRowsHtml = '';
     if (lines.length) {
       const rows = lines.map(function (r) {
         const it = Store.state.items.find(function (x) { return x.id === r.itemId; });
@@ -2440,19 +2445,19 @@
         const realIdx = (block.itemRewards || []).indexOf(r);
         const qtyShow = roll.iq[realIdx] || 1;
         return '<div class="rp-line">' +
-          '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
+          '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + (it && it.parchEffect ? ' is-parchment' : '') + '">' +
             '<div class="inv-strip">' + strip + '</div>' +
             (qtyShow > 1 ? '<span class="rp-qty">×' + qtyShow + '</span>' : '') +
           '</div>' +
           (state.claimed ? '<span class="tag">Récupéré</span>' : (heroes.length ? '<select class="stp-hero" data-tb="' + esc(block.id) + '" data-idx="' + realIdx + '">' + heroOpts + '</select>' : '')) +
         '</div>';
       }).join('');
-      rewardHtml += '<div class="ses-reward-block ses-reward-items"><div class="ses-reward-title">🎁 Découverte</div><div class="rp-list">' + rows + '</div></div>';
+      itemRowsHtml = rows;
     }
     if ((block.deedReward || '').trim()) {
       rewardHtml += '<div class="ses-reward-block ses-reward-deed"><div class="ses-reward-title">🏆 Haut Fait <strong>' + esc(block.deedReward.trim()) + '</strong></div></div>';
     }
-    rewardHtml += treasureRewardHtml(block, rewardRoll(ses, block.id, block));
+    rewardHtml += treasureRewardHtml(block, rewardRoll(ses, block.id, block), itemRowsHtml);
     rewardHtml += winEffectHtml(block, scene);
     // Passage débloqué : même bouton que les « Sorties & accès » des donjons.
     // Un combat imposé par ce test verrouille toute sortie : pas de bouton passage.
@@ -3421,7 +3426,7 @@
       const realIdx = (scene.itemRewards || []).indexOf(r);
       const qtyShow = roll.iq[realIdx] || 1;
       return '<div class="rp-line">' +
-        '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + '">' +
+        '<div class="inv-strip-row cat-' + (it ? it.category : 'object') + (it && it.parchEffect ? ' is-parchment' : '') + '">' +
           '<div class="inv-strip">' + strip + '</div>' +
           (qtyShow > 1 ? '<span class="rp-qty">×' + qtyShow + '</span>' : '') +
         '</div>' +
@@ -3439,14 +3444,12 @@
         '<div class="ses-reward-title">✦ Expérience <strong>+' + xp + ' XP</strong></div>' +
       '</div>';
     }
-    if (lines.length) {
-      html += '<div class="ses-reward-block ses-reward-items">' +
-        '<div class="ses-reward-title">🎁 Équipement</div>' +
-        '<div class="rp-list">' + rowsHtml + '</div>' +
-        '<p class="hint">Choisis le destinataire de chaque objet ; l\'attribution se fait en cliquant sur « Continuer ».</p>' +
-      '</div>';
-    }
-    html += treasureRewardHtml(scene, rewardRoll(ses, scene.id, scene));
+    // Les objets rejoignent la case « Butin » (plus d'encadré séparé).
+    html += treasureRewardHtml(scene, rewardRoll(ses, scene.id, scene),
+      lines.length
+        ? rowsHtml + '<p class="hint ses-loot-hint">Choisissez le destinataire de chaque objet ; ' +
+          'l\'attribution se fait en cliquant sur « Continuer ».</p>'
+        : '');
     html += winEffectHtml(scene, scene);
     sec.innerHTML = html;
   }

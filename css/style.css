@@ -1080,25 +1080,21 @@ main { padding: 1.5rem 1.25rem 3rem; }
 }
 .inv-treasure-del:hover { color: #d65c40; }
 /* Encadré « ✨ Butin ! » : doré, brillant, valorisant — couleur par type de loot. */
+/* Case « Butin » : encadré sobre (plus de halo ni de reflet en diagonale). */
 .ses-reward-block.ses-reward-gold {
   position: relative; overflow: hidden;
-  border: 1px solid rgba(230,190,90,.6); border-left: 4px solid #e6be5a;
-  background: linear-gradient(135deg, rgba(230,190,90,.16), rgba(230,190,90,.04) 45%, rgba(255,236,170,.14));
-  box-shadow: 0 0 14px rgba(230,190,90,.22), inset 0 0 22px rgba(255,220,120,.07);
-}
-.ses-reward-block.ses-reward-gold::after {
-  content: ""; position: absolute; top: -60%; left: -35%; width: 45%; height: 240%;
-  background: linear-gradient(115deg, transparent, rgba(255,240,190,.18), transparent);
-  transform: rotate(10deg); pointer-events: none;
+  border: 1px solid rgba(230,190,90,.45); border-left: 4px solid #e6be5a;
+  background: rgba(230,190,90,.07);
+  box-shadow: none;
 }
 .ses-loot-head {
   font-weight: 800; font-size: 1.02rem; letter-spacing: .04em; text-transform: uppercase;
-  color: #f4d97a; text-shadow: 0 0 8px rgba(244,217,122,.45); margin-bottom: .3rem;
+  color: #f4d97a; margin-bottom: .3rem;
 }
 .ses-reward-gold .ses-reward-title { margin-bottom: .15rem; }
-.ses-loot-gold { color: #f4d97a; text-shadow: 0 0 6px rgba(244,217,122,.35); }
-.ses-loot-treasure { color: #7cd0e8; text-shadow: 0 0 6px rgba(124,208,232,.3); }
-.ses-loot-rare { color: #e08ae0; text-shadow: 0 0 6px rgba(224,138,224,.3); }
+.ses-loot-gold { color: #f4d97a; }
+.ses-loot-treasure { color: #7cd0e8; }
+.ses-loot-rare { color: #e08ae0; }
 .ses-reward-gold .ses-reward-title strong { color: inherit; }
 /* Badge « 🔒 Obligatoire » des tests de compétence imposés. */
 .ses-st-mandatory {
@@ -4859,3 +4855,19 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 /* ===================== v2.4.16 — Objets utilisables hors combat ===================== */
 .isheet-use { display: flex; align-items: center; gap: .6rem; margin-top: .8rem; flex-wrap: wrap; }
 .isheet-use .hint { margin: 0; font-size: .8rem; }
+
+/* ===================== v2.4.17 — Butin unifié ===================== */
+/* Objets découverts, intégrés à la case Butin. */
+.ses-loot-items { margin-top: .45rem; display: flex; flex-direction: column; gap: .35rem; }
+.ses-loot-hint { margin: .35rem 0 0; }
+/* Languette d'objet et menu du destinataire sur UNE seule ligne. */
+.rp-line { flex-wrap: nowrap; }
+.rp-line .stp-hero, .rp-line .rp-hero {
+  flex: 0 1 11rem; max-width: 11rem; min-width: 0;
+  font-size: .85rem; padding: .25rem .4rem;
+}
+.ses-searchtest .stp-hero { flex: 0 1 11rem; }
+@media (max-width: 560px) {
+  .rp-line { flex-wrap: wrap; }
+  .rp-line .inv-strip-row, .rp-line .rp-hero, .rp-line .stp-hero { flex-basis: 100%; max-width: 100%; }
+}
