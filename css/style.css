@@ -4879,3 +4879,11 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 /* Languette d'objet dans une récompense : cliquable (ouvre son descriptif). */
 .rp-line .inv-strip[data-info] { cursor: pointer; }
 .rp-line .inv-strip[data-info]:hover { filter: brightness(1.05); }
+
+/* ===================== v2.4.22 ===================== */
+/* Bloc ACTION résolu : ni réussite ni échec, juste l'option choisie. */
+.ses-st-action-box { border-left: 4px solid #b07a2e; }
+.ses-st-verdict.chosen { color: #2c2418; background: rgba(226,151,74,.9); }
+/* Rose : accès réservé au MJ (verrouillé ou dissimulé), franchissable par lui. */
+.rose-btn.ses-exit-mj { border-color: #a06ad0; box-shadow: inset 0 0 0 1px rgba(160,106,208,.35); }
+.rose-btn.ses-exit-mj .rose-name { font-style: italic; }

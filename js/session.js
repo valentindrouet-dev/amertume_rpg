@@ -617,7 +617,12 @@
 
     // Mini-carte cliquable (donjon structuré).
     const mmap = document.getElementById('ses-minimap');
-    if (mmap) mmap.addEventListener('click', function () { openDungeonMapModal(chapter, ses); });
+    if (mmap) {
+      mmap.addEventListener('click', function () { openDungeonMapModal(chapter, ses); });
+      // La salle en cours doit TOUJOURS être visible : on fait défiler la
+      // mini-carte pour la centrer (sans toucher au défilement de la page).
+      scrollMapToCurrent(mmap);
+    }
 
     renderSceneActions(scene, adv, ses, chapter);
     // Animation de révélation des blocs débloqués par le dernier jet.
@@ -711,6 +716,16 @@
       '<svg class="mmap-svg" width="' + W + '" height="' + H + '">' + stubs + lines + '</svg>' + rooms + '</div>';
   }
 
+  // Centre le conteneur d'une carte sur la salle courante (.mmap-current).
+  function scrollMapToCurrent(box) {
+    if (!box) return;
+    const cur = box.querySelector('.mmap-room.mmap-current');
+    if (!cur) return;
+    const bw = box.clientWidth, bh = box.clientHeight;
+    box.scrollTop = Math.max(0, cur.offsetTop + cur.offsetHeight / 2 - bh / 2);
+    box.scrollLeft = Math.max(0, cur.offsetLeft + cur.offsetWidth / 2 - bw / 2);
+  }
+
   // Fenêtre flottante avec la carte entière du donjon.
   function openDungeonMapModal(chapter, ses) {
     let m = document.getElementById('dmap-view-modal');
@@ -729,6 +744,7 @@
       '<p class="hint">🚪 entrée du donjon · salle encadrée = position actuelle · seules les salles déjà explorées apparaissent.</p>' +
     '</div>';
     m.hidden = false;
+    scrollMapToCurrent(m.querySelector('.dmap-view-scroll'));
     document.getElementById('dmap-view-close').onclick = function () { m.hidden = true; };
     m.onclick = function (ev) { if (ev.target === m) m.hidden = true; };
   }
@@ -1408,12 +1424,15 @@
     window.addEventListener('resize', placeCompass);
   }
   function renderDungeonExits(box, chapter, scene, adv, ses, backOnly) {
+    // MJ : les accès DISSIMULÉS restent visibles et franchissables (repérés en
+    // violet). En partie partagée, les joueurs ne les voient pas.
+    const mj = isMJ();
     const links = (chapter && Array.isArray(chapter.links) ? chapter.links : []).filter(function (l) {
       if (l.from !== scene.id && l.to !== scene.id) return false;
       // DISSIMULÉ : invisible tant que son test de révélation n'est pas réussi.
       // VERROUILLÉ : reste affiché (cadenas), même verrou non levé.
       const g = linkGate(l, ses);
-      if (g.mode === 'hidden' && !g.unlocked) return false;
+      if (g.mode === 'hidden' && !g.unlocked) return mj;
       return true;
     });
     const titleOf = function (id) {
@@ -1431,20 +1450,27 @@
       // backOnly (test obligatoire en attente) : seules les salles déjà visitées
       // restent accessibles — on peut faire demi-tour, pas avancer.
       const lockedByTest = backOnly && !visited;
-      const locked = (e.gate.mode === 'locked' && !e.gate.unlocked) || lockedByTest;
+      const closed = (e.gate.mode === 'locked' && !e.gate.unlocked) || lockedByTest;
+      const hidden = e.gate.mode === 'hidden' && !e.gate.unlocked;
+      // Passe-droit MJ : un accès verrouillé ou dissimulé reste franchissable.
+      const locked = closed && !mj;
+      const mjOnly = mj && (closed || hidden);
       // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
       // (pas d'indice sur les salles inconnues).
       const danger = visited && e.f && sceneHasCombat(e.f.scene) && !(ses.clearedScenes && ses.clearedScenes[e.other]);
-      const name = visited ? titleOf(e.other) : '???';
+      const name = (visited || mj) ? titleOf(e.other) : '???';
       const tip = locked
         ? (lockedByTest
           ? 'Un test obligatoire doit être tenté avant d\'explorer plus loin (le demi-tour reste possible).'
           : 'Verrouillé — réussissez le test de la salle pour l\'ouvrir.')
+        : mjOnly
+        ? ('MJ — accès ' + (hidden ? 'dissimulé' : 'verrouillé') + ' : franchissable en mode MJ uniquement.' +
+           (e.l.label ? ' (' + e.l.label + ')' : ''))
         : (e.l.label ? e.l.label + ' — ' + name : name);
       return '<button type="button" class="rose-btn ses-exit-btn' + (visited ? ' ses-exit-visited' : '') +
-          (locked ? ' ses-exit-locked' : '') + '" data-to="' + esc(e.other) + '"' +
+          (locked ? ' ses-exit-locked' : '') + (mjOnly ? ' ses-exit-mj' : '') + '" data-to="' + esc(e.other) + '"' +
           (locked ? ' disabled' : '') + ' title="' + esc(tip) + '">' +
-        '<span class="rose-arrow">' + (locked ? '🔒' : e.arrow) + '</span>' +
+        '<span class="rose-arrow">' + (locked ? '🔒' : mjOnly ? (hidden ? '👁' : '🗝') : e.arrow) + '</span>' +
         '<span class="rose-name">' + esc(name) + (danger ? ' ⚔️' : '') + '</span>' +
         (e.l.label ? '<span class="rose-lbl">' + esc(e.l.label) + '</span>' : '') +
       '</button>';
@@ -2332,6 +2358,14 @@
     return html;
   }
 
+  // BLOC ACTION : choisir l'Action 1 ou l'Action 2 n'est ni une réussite ni un
+  // échec — ce sont deux options. On affiche donc le nom de l'action jouée.
+  function actionVerdictHtml(block, state) {
+    const lbl = state.success
+      ? ((block.label || '').trim() || 'Action 1')
+      : ((block.altLabel || '').trim() || 'Action 2');
+    return '<span class="ses-st-verdict chosen">' + esc(lbl) + '</span>';
+  }
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
     const mTag = block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '';
     const stIcon = block.writeMode ? '✍️ ' : '';
@@ -2343,7 +2377,9 @@
     if (state.entryId != null && ses.entryId != null && state.entryId !== ses.entryId) {
       const ok = !!state.success;
       const rescuedC = state.validated && state.wasFail;
-      const verdict = rescuedC
+      const verdict = block.actionMode
+        ? actionVerdictHtml(block, state)
+        : rescuedC
         ? '<span class="ses-st-verdict rescued">↩ Rattrapé</span>'
         : (ok ? '<span class="ses-st-verdict success">Réussite</span>' : '<span class="ses-st-verdict fail">Échec</span>');
       const narr = (rescuedC || !ok)
@@ -2353,7 +2389,7 @@
       // désormais l'Objet Rare qui le résout, on propose quand même de l'utiliser.
       const rareBtnCompact = (!ok && !state.validated) ? rareResolveButtonHtml(ses, block) : '';
       slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-compact ' +
-        (ok || state.validated ? 'ses-st-success-box' : 'ses-st-fail-box') + '">' +
+        (block.actionMode ? 'ses-st-action-box' : (ok || state.validated ? 'ses-st-success-box' : 'ses-st-fail-box')) + '">' +
         '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + ' — ' + verdict + '</div>' +
         narr +
         rareBtnCompact +
@@ -2408,8 +2444,9 @@
           retryHtml = '<div class="hint">🔁 Retentable après une montée de niveau du groupe.</div>';
         }
       }
-      slot.innerHTML = '<div class="ses-searchtest ses-st-done ses-st-fail-box">' +
-        '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — <span class="ses-st-verdict fail">Échec</span></div>' +
+      slot.innerHTML = '<div class="ses-searchtest ses-st-done ' + (block.actionMode ? 'ses-st-action-box' : 'ses-st-fail-box') + '">' +
+        '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') +
+          ' — ' + (block.actionMode ? actionVerdictHtml(block, state) : '<span class="ses-st-verdict fail">Échec</span>') + '</div>' +
         (block.failText ? '<div class="scene-block scene-block-narrative">' + fmtSceneText(block.failText) + '</div>' : '') +
         groupResultsHtml(state) +
         fxMsgsHtml(state) +
@@ -2506,7 +2543,9 @@
     // Parent « rattrapé » par un test enchaîné : il avait échoué, mais un test
     // ultérieur l'a débloqué. On garde son récit d'échec + un bandeau distinct.
     const rescued = state.validated && state.wasFail;
-    const verdict = rescued
+    const verdict = block.actionMode
+      ? actionVerdictHtml(block, state)
+      : rescued
       ? '<span class="ses-st-verdict rescued">↩ Rattrapé</span>'
       : '<span class="ses-st-verdict success">Réussite</span>';
     const narrative = rescued
@@ -2515,7 +2554,8 @@
     const rescueBanner = rescued
       ? '<div class="ses-st-rescue">↳ Situation débloquée grâce au test « ' + esc(state.validatedBy || 'enchaîné') + ' ».</div>'
       : '';
-    slot.innerHTML = '<div class="ses-searchtest ses-st-done ' + (rescued ? 'ses-st-rescued-box' : 'ses-st-success-box') + '">' +
+    slot.innerHTML = '<div class="ses-searchtest ses-st-done ' +
+      (block.actionMode ? 'ses-st-action-box' : (rescued ? 'ses-st-rescued-box' : 'ses-st-success-box')) + '">' +
       '<div class="ses-st-title">' + stIcon + esc(stLabel) + mTag + (state.group ? ' <span class="ses-st-group-tag">👥 GROUPE</span>' : '') + ' — ' + verdict + '</div>' +
       narrative +
       rescueBanner +
