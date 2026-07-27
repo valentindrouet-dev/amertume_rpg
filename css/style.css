@@ -4850,3 +4850,8 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   border-left-color: #8a6d4a; background: linear-gradient(180deg, #efe4cf, #e2d4b8);
 }
 .isheet-cat.is-parchment { background: rgba(138,109,74,.18); color: #6b5432; border-color: #8a6d4a; }
+
+/* 📜 devant le nom d'un objet Parchemin — posé par le style, donc présent
+   partout où l'objet est affiché (armurerie, inventaire, récompenses, fiche). */
+.is-parchment .inv-strip-name::before,
+.armory-card.is-parchment .roster-name::before { content: "📜 "; }

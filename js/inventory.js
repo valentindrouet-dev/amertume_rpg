@@ -496,7 +496,9 @@
     if (!i) return;
     const modalEl = $('#item-sheet-modal');
     if (!modalEl) return;
-    $('#item-sheet-title').textContent = i.name;
+    // Titre de la fiche : 📜 devant le nom d'un Parchemin (le reste du code
+    // couleur est porté par la classe is-parchment de la carte).
+    $('#item-sheet-title').textContent = (i.parchEffect ? '📜 ' : '') + i.name;
     $('#item-sheet-body').innerHTML =
       '<div class="roster-card armory-card cat-' + i.category + parchClass(i) + ' item-sheet-card">' +
         itemSheetHtml(i) +
