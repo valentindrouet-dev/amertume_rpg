@@ -2381,8 +2381,8 @@
     }
   }
 
-  // Début du tour des aventuriers : réinitialise les réactions et applique
-  // les talents passifs « par tour » (Régénération).
+  // Début du tour des aventuriers : réinitialise les réactions et les marqueurs
+  // de tour (la Régénération, elle, s'applique en FIN de tour).
   // afterPretour = true → freeMoveReady déjà consommé/utilisé en Pré-Tour.
   function startHeroTurn(afterPretour) {
     activeOf('hero').forEach(function (h) {
@@ -2398,21 +2398,29 @@
       h.tookDamage = false; h.lastAttacker = null;
       // PAS LÉGER (maîtrise) : 1 mouvement gratuit disponible ce tour (sauf si Pré-Tour déjà joué).
       if (!afterPretour) h.freeMoveReady = heroHasTalent(h, 'pas_leger');
-      const regen = heroTalentVal(h, 'regeneration');
-      if (regen > 0 && h.pv < h.maxPv) {
-        const before = h.pv;
-        h.pv = Math.min(h.maxPv, h.pv + regen);
-        if (h.pv > before) {
-          pushFx({ type: 'heal', iid: h.iid, amount: h.pv - before, fromPct: pct(before, h.maxPv), toPct: pct(h.pv, h.maxPv) });
-          log(cname(h) + ' régénère ' + (h.pv - before) + ' PV.', 'state');
-        }
-      }
+    });
+  }
+
+  // RÉGÉNÉRATION : à la FIN de chaque tour, le porteur du talent récupère X PV
+  // (valeur fixe ou expression de dés, ex. « 1d6 » — tirée à chaque tour).
+  // L'effet est commun aux aventuriers et aux adversaires.
+  function applyRegeneration() {
+    if (!combat()) return;
+    combat().combatants.forEach(function (c) {
+      if (c.status !== 'active' || c.pv >= c.maxPv) return;
+      const regen = heroTalentVal(c, 'regeneration');
+      if (regen <= 0) return;
+      const before = c.pv;
+      c.pv = Math.min(c.maxPv, c.pv + regen);
+      if (c.pv <= before) return;
+      pushFx({ type: 'heal', iid: c.iid, amount: c.pv - before, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
+      log(cname(c) + ' régénère <span class="dnum d-green">' + (c.pv - before) + '</span> PV en fin de tour.', 'state');
     });
   }
 
   function endTurn() {
     pendingAttack = null; stateMenuFor = null;
-    applyEndOfTurnStates(); // FEU : 1 dé noir pour chaque combattant en feu
+    applyEndOfTurnStates(); // FEU, puis RÉGÉNÉRATION
     if (combat().outcome) { Store.save(); render(); return; }
     doFlee();
     if (combat().outcome) { Store.save(); render(); return; }
@@ -2615,6 +2623,8 @@
       if (c.side === 'monster' && c.pv <= 0 && !c.killedBy) c.killedBy = null;
       checkComa(c);
     });
+    // Le Feu brûle d'abord, la Régénération soigne ensuite les survivants.
+    applyRegeneration();
     checkOutcome();
   }
 

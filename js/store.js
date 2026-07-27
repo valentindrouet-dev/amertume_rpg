@@ -606,7 +606,7 @@
     { effect: 'soin_des', name: 'Convalescence', kind: 'action', cat: 'soin', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dés de soin 🟩',
       desc: 'Action : vous récupérez X dés de soin (🟩).' },
     { effect: 'regeneration', name: 'Régénération', kind: 'passive', cat: 'soin', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'PV / tour',
-      desc: 'Vous récupérez X PV au début de chacun de vos tours.' },
+      desc: 'À la fin de chaque tour, vous récupérez X PV (valeur fixe ou dés, ex. 1d6).' },
     { effect: 'reanimation', name: 'Réanimation', kind: 'reaction', cat: 'soin', hasVal: true, valDice: true, defaultVal: 5, valLabel: 'PV rendus',
       desc: 'Réaction — un adversaire meurt dans la zone d\'un allié au coma : relevez cet allié à X PV.' },
     { effect: 'renforcement', name: 'Renforcement', kind: 'upgrade', cat: 'soin', hasVal: false,
