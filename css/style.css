@@ -4826,3 +4826,11 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .cbt-toast-atk-foe  { background: rgba(78,32,32,.94); color: #ffdcd4; border: 1px solid rgba(214,92,64,.7);  box-shadow: 0 0 16px rgba(214,92,64,.35); }
 .cbt-toast-crit     { background: rgba(88,62,10,.96); color: #ffe9a8; border: 1px solid rgba(240,196,64,.85); box-shadow: 0 0 22px rgba(240,196,64,.55); font-size: 1.05rem; }
 .cbt-toast-fail     { background: rgba(70,22,22,.96); color: #ffc9c9; border: 1px solid rgba(220,80,80,.8);  box-shadow: 0 0 18px rgba(220,80,80,.45); }
+
+/* ===================== v2.4.12 — Valeur des trésors ===================== */
+/* Éditeur : valeur en Or d'un trésor (les Objets Rares n'en ont pas). */
+.tr-val-lbl { display: inline-flex; align-items: center; gap: .2rem; font-size: .82rem; color: var(--muted); white-space: nowrap; }
+.tr-novalue { font-size: .74rem; font-style: italic; color: var(--muted); white-space: nowrap; }
+/* Butin : valeur affichée sous le nom du trésor, total dans l'en-tête. */
+.ses-loot-value { font-weight: 600; font-size: .85em; opacity: .85; }
+.inv-treasure-value { margin-left: .35rem; }

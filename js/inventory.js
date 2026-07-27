@@ -313,10 +313,16 @@
     // ---- Or, Trésors et Objets Rares (butin de groupe, sous l'équipement) ----
     const loot = (window.Session && Session.partyLoot) ? Session.partyLoot(advId) : null;
     if (loot) {
+      // Valeur marchande : propre aux Trésors (un Objet Rare ne se vend pas).
+      const tValue = function (t) { return t.kind === 'rare' ? 0 : Math.max(0, Math.round(Number(t.value) || 0)); };
+      const totalValue = loot.treasures.reduce(function (n, t) { return n + tValue(t) * (t.qty || 1); }, 0);
       const tStrip = function (t) {
+        const v = tValue(t);
         return '<div class="inv-strip-row cat-' + (t.kind === 'rare' ? 'rare' : 'treasure') + '">' +
           '<div class="inv-strip"><span class="inv-strip-name">' + (t.kind === 'rare' ? '🗝️ ' : '💎 ') + escapeHtml(t.name) + '</span>' +
-            '<span class="inv-strip-val inv-strip-eff">' + (t.kind === 'rare' ? 'Objet Rare' : 'Trésor') + '</span>' +
+            '<span class="inv-strip-val inv-strip-eff">' + (t.kind === 'rare'
+              ? 'Objet Rare · non vendable'
+              : 'Trésor' + (v > 0 ? ' · ' + v + ' Or l\'unité' : '')) + '</span>' +
             ((t.qty || 1) > 1 ? '<span class="inv-qty-badge" title="' + t.qty + ' exemplaires">' + t.qty + '</span>' : '') +
           '</div>' +
           '<button type="button" class="inv-treasure-del" data-tid="' + t.id + '" title="Jeter un exemplaire">✕</button>' +
@@ -324,7 +330,9 @@
       };
       html += '<div class="inv-treasure-box">' +
         '<div class="inv-hero-sep inv-treasure-head">💰 Or, Trésors et Objets Rares' +
-          '<span class="inv-gold-pill">🪙 ' + (loot.gold || 0) + ' Or</span></div>' +
+          '<span class="inv-gold-pill">🪙 ' + (loot.gold || 0) + ' Or</span>' +
+          (totalValue > 0 ? '<span class="inv-gold-pill inv-treasure-value" title="Valeur marchande totale des trésors (hors Objets Rares)">💎 ' + totalValue + ' Or</span>' : '') +
+        '</div>' +
         (loot.treasures.length
           ? '<div class="inv-treasure-list">' + loot.treasures.map(tStrip).join('') + '</div>'
           : '<p class="empty" style="padding:.2rem 0 .6rem">Aucun trésor pour l\'instant.</p>') +

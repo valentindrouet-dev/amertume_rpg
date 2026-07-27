@@ -960,12 +960,19 @@
     if (!Array.isArray(ses.treasures)) ses.treasures = [];
   }
   // Ajoute un trésor nommé (kind: 'treasure' | 'rare') — cumul par nom+type.
-  function addTreasure(ses, name, qty, kind) {
+  // `value` = valeur en Or d'UN exemplaire. Réservée aux TRÉSORS : un Objet Rare
+  // ne se vend pas (il sert à l'aventure) et n'a donc jamais de valeur.
+  function addTreasure(ses, name, qty, kind, value) {
     ensureLoot(ses);
     const k = kind === 'rare' ? 'rare' : 'treasure';
+    const val = k === 'rare' ? 0 : Math.max(0, Math.round(Number(value) || 0));
     const ex = ses.treasures.find(function (t) { return t.name === name && t.kind === k; });
-    if (ex) ex.qty = (ex.qty || 1) + qty;
-    else ses.treasures.push({ id: Store.uid(), name: name, qty: qty, kind: k });
+    if (ex) {
+      ex.qty = (ex.qty || 1) + qty;
+      if (val > 0) ex.value = val; // la dernière valeur connue fait foi
+    } else {
+      ses.treasures.push({ id: Store.uid(), name: name, qty: qty, kind: k, value: val });
+    }
   }
   // Tire UNE SEULE FOIS les récompenses en dés d'une source (scène ou bloc), et
   // met le résultat en cache sur la session (clé = id de la source). Ainsi les
@@ -992,7 +999,7 @@
     (o.treasureRewards || []).forEach(function (r, i) {
       if (!r || !r.name) return;
       const q = roll.tq[i] || 0;
-      if (q > 0) addTreasure(ses, r.name, q, r.kind);
+      if (q > 0) addTreasure(ses, r.name, q, r.kind, r.value);
     });
     if (roll.gold > 0 || (o.treasureRewards || []).some(function (r) { return r && r.name; })) {
       document.dispatchEvent(new CustomEvent('inventory-new-item'));
@@ -1022,9 +1029,11 @@
       if (!r || !r.name || !rewardAmountSet(r.qty == null ? 1 : r.qty)) return;
       const q = roll ? (roll.tq[i] || 0) : (r.qty == null ? 1 : r.qty);
       const qShow = (q > 1) ? ' ×' + esc(String(q)) : '';
+      const val = Math.max(0, Math.round(Number(r.value) || 0));
       rows += r.kind === 'rare'
         ? '<div class="ses-reward-title ses-loot-rare">🗝️ Objet Rare — <strong>' + esc(r.name) + qShow + '</strong></div>'
-        : '<div class="ses-reward-title ses-loot-treasure">💎 Trésor — <strong>' + esc(r.name) + qShow + '</strong></div>';
+        : '<div class="ses-reward-title ses-loot-treasure">💎 Trésor — <strong>' + esc(r.name) + qShow + '</strong>' +
+          (val > 0 ? ' <span class="ses-loot-value">(' + val + ' Or l\'unité)</span>' : '') + '</div>';
     });
     return '<div class="ses-reward-block ses-reward-gold">' +
       '<div class="ses-loot-head">✨ Butin !</div>' + rows + '</div>';

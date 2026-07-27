@@ -2439,6 +2439,11 @@
         '<span class="tr-kind">' + (r.kind === 'rare' ? '🗝️' : '💎') + '</span>' +
         '<input type="text" class="tr-name" value="' + esc(r.name || '') + '" placeholder="' + (r.kind === 'rare' ? 'Nom de l\'Objet Rare (ex : Clé du Dragon)' : 'Nom du Trésor (ex : Saphir)') + '" />' +
         '<label class="tr-qty-lbl">×<input type="text" class="tr-qty" value="' + esc(r.qty == null ? 1 : r.qty) + '" style="width:60px" title="Quantité fixe ou en dés (ex : 2, 1d3, 2d6)" /></label>' +
+        // Valeur marchande : propre aux TRÉSORS. Un Objet Rare ne se vend pas
+        // (il sert à l'aventure), donc pas de champ pour lui.
+        (r.kind === 'rare'
+          ? '<span class="tr-novalue" title="Un Objet Rare ne se vend pas : il sert à l\'aventure">non vendable</span>'
+          : '<label class="tr-val-lbl">🪙<input type="text" class="tr-val" value="' + esc(r.value == null ? 0 : r.value) + '" style="width:70px" title="Valeur en Or d\'UN exemplaire (0 = sans valeur marchande)" /> Or</label>') +
         '<button type="button" class="icon-btn tr-del">✕</button>' +
       '</div>';
     }).join('');
@@ -2455,7 +2460,7 @@
       this.value = obj.goldReward;
     };
     box.querySelector('.tr-add-tre').onclick = function () {
-      obj.treasureRewards.push({ name: '', qty: 1, kind: 'treasure' });
+      obj.treasureRewards.push({ name: '', qty: 1, kind: 'treasure', value: 0 });
       renderTreasureRewards(boxId, obj);
     };
     box.querySelector('.tr-add-rare').onclick = function () {
@@ -2469,6 +2474,11 @@
         const v = this.value.trim();
         obj.treasureRewards[i].qty = Store.isDiceExpr(v) ? v : Math.max(1, Math.round(parseInt(v, 10) || 1));
         this.value = obj.treasureRewards[i].qty;
+      };
+      const vEl = line.querySelector('.tr-val');
+      if (vEl) vEl.onchange = function () {
+        obj.treasureRewards[i].value = Math.max(0, Math.round(parseInt(this.value, 10) || 0));
+        this.value = obj.treasureRewards[i].value;
       };
       line.querySelector('.tr-del').onclick = function () {
         obj.treasureRewards.splice(i, 1);
