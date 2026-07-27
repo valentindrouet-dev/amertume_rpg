@@ -70,7 +70,18 @@
     list.sort(function (a, b) { return (b.startedAt || 0) - (a.startedAt || 0); });
     return list[0] || null;
   }
-  function save() { Store.saveSessions(sessions); }
+  // Enregistre les parties. Garde-fou : si `activeSession` n'est plus l'instance
+  // presente dans `sessions` (elle a pu etre remplacee par un rechargement), on
+  // la réinjecte — sans quoi toute modification faite sur elle serait perdue à
+  // l'enregistrement (un trésor supprimé « revenait » au passage suivant).
+  function save() {
+    if (activeSession) {
+      const i = sessions.findIndex(function (s) { return s.id === activeSession.id; });
+      if (i < 0) sessions.push(activeSession);
+      else if (sessions[i] !== activeSession) sessions[i] = activeSession;
+    }
+    Store.saveSessions(sessions);
+  }
 
   // ---------- Montées de niveau (par session, décorrélées de l'Admin) ----------
   // Garantit la présence des champs de progression sur une session (anciennes
