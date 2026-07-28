@@ -4988,3 +4988,83 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .mon-sheet .talent-badge .tl-kind {
   background: rgba(255,255,255,.24); color: var(--text); border-color: transparent;
 }
+
+/* ============================================================
+   v2.4.32 — Blocs DIALOGUE
+   Éditeur : une carte par réplique (portrait rond, locuteur, texte).
+   Jeu : bulles de discussion dévoilées une à une, puis les choix.
+   ============================================================ */
+.adv-block-dialogue { border-left: 4px solid #6fa8c7; }
+.dlg-lines {
+  display: flex; flex-direction: column; gap: .45rem;
+  margin: .1rem 0 .5rem; padding: .5rem .55rem;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(111,168,199,.07);
+}
+.dlg-lines-head { font-size: .74rem; font-weight: 800; letter-spacing: .03em; color: var(--muted); }
+.dlg-lines-head small { font-weight: 500; opacity: .8; }
+.dlg-title-lbl, .dlg-next-lbl { display: flex; align-items: center; gap: .4rem; font-size: .78rem; }
+.dlg-title-lbl input, .dlg-next-lbl input { flex: 1 1 auto; min-width: 0; }
+.dlg-line {
+  display: grid; grid-template-columns: auto 1fr auto; gap: .5rem; align-items: start;
+  padding: .45rem; border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(0,0,0,.16);
+}
+.dlg-line-av {
+  width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+  border: 2px solid rgba(111,168,199,.55); background: rgba(255,255,255,.08);
+  display: flex; align-items: center; justify-content: center;
+}
+.dlg-line-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dlg-av-ph { font-size: 1.1rem; opacity: .7; }
+.dlg-line-fields { min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
+.dlg-line-fields textarea { width: 100%; }
+.dlg-line-tools { display: flex; flex-direction: column; align-items: center; gap: .15rem; }
+.dlg-line-num { font-size: .68rem; font-weight: 700; color: var(--muted); }
+.dlg-add { align-self: flex-start; }
+
+/* --- En jeu --- */
+.ses-dialogue {
+  display: flex; flex-direction: column; gap: .5rem;
+  padding: .6rem .65rem; border: 1px solid var(--border); border-radius: 12px;
+  border-left: 4px solid #6fa8c7; background: rgba(111,168,199,.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.ses-dlg-head { font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.ses-dlg-lines { display: flex; flex-direction: column; gap: .5rem; }
+.ses-dlg-line { display: flex; gap: .55rem; align-items: flex-start; }
+.ses-dlg-av {
+  width: 46px; height: 46px; flex: 0 0 46px; border-radius: 50%; overflow: hidden;
+  border: 2px solid rgba(111,168,199,.6); background: rgba(255,255,255,.08);
+  display: flex; align-items: center; justify-content: center;
+}
+.ses-dlg-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ses-dlg-av-ph { font-size: 1.15rem; opacity: .75; }
+/* La bulle : coin pointé vers le portrait. */
+.ses-dlg-bubble {
+  position: relative; flex: 1 1 auto; min-width: 0;
+  padding: .5rem .65rem; border: 1px solid var(--border);
+  border-radius: 12px 12px 12px 4px; background: rgba(255,255,255,.09);
+}
+.ses-dlg-bubble::before {
+  content: ""; position: absolute; left: -7px; top: 14px;
+  border: 6px solid transparent; border-right-color: rgba(255,255,255,.09);
+}
+.ses-dlg-speaker { font-weight: 800; font-size: .82rem; color: #9fcbe2; margin-bottom: .1rem; }
+.ses-dlg-text { font-size: .9rem; line-height: 1.45; }
+.ses-dlg-text p { margin: 0 0 .3rem; }
+.ses-dlg-text p:last-child { margin-bottom: 0; }
+.ses-dlg-new { animation: dlgIn .28s ease-out; }
+@keyframes dlgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ses-dlg-new { animation: none; } }
+.ses-dlg-next { display: flex; justify-content: flex-end; }
+.ses-dlg-next button { min-height: 34px; }
+.ses-dlg-choices { display: flex; flex-direction: column; gap: .35rem; }
+/* Les choix d'un dialogue : pas de 🎲, ce ne sont pas des jets. */
+.ses-dialogue .ses-choice-btn.skill-test::before { content: none; }
+.ses-dlg-done { padding-bottom: .5rem; margin-bottom: .35rem; }
+@media (max-width: 620px) {
+  .dlg-line { grid-template-columns: auto 1fr; }
+  .dlg-line-tools { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; }
+  .ses-dlg-av, .ses-dlg-av img { width: 38px; height: 38px; flex-basis: 38px; }
+}

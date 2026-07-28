@@ -1963,9 +1963,43 @@
     if (go) go.addEventListener('click', submit);
     if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
   }
+  // ---- Blocs DIALOGUE ----
+  // Un bloc Dialogue est un bloc Action habillé en bulles : les répliques se
+  // dévoilent une à une (bouton « suite »), puis les choix apparaissent avec
+  // exactement les mêmes conséquences qu'une Action (récompenses, chaînes, etc.).
+  function dialogueLinesOf(block) {
+    return (Array.isArray(block.lines) ? block.lines : []).filter(function (l) {
+      return l && ((l.text || '').trim() || (l.speaker || '').trim());
+    });
+  }
+  // Nombre de répliques déjà dévoilées (au moins 1, jamais plus que le total).
+  function dialogueShown(ses, block) {
+    const total = dialogueLinesOf(block).length;
+    if (!total) return 0;
+    const n = (ses.dialogueSteps && ses.dialogueSteps[block.id]) || 1;
+    return Math.max(1, Math.min(total, n));
+  }
+  function dialogueBubblesHtml(block, shown) {
+    const lines = dialogueLinesOf(block);
+    if (!lines.length) return '';
+    return '<div class="ses-dlg-lines">' + lines.slice(0, shown).map(function (l, i) {
+      const av = (l.avatar || '').trim();
+      return '<div class="ses-dlg-line' + (i === shown - 1 && shown > 1 ? ' ses-dlg-new' : '') + '">' +
+        '<div class="ses-dlg-av">' + (av
+          ? '<img src="' + esc(av) + '" alt="" loading="lazy" />'
+          : '<span class="ses-dlg-av-ph">🗣</span>') + '</div>' +
+        '<div class="ses-dlg-bubble">' +
+          ((l.speaker || '').trim() ? '<div class="ses-dlg-speaker">' + esc(l.speaker) + '</div>' : '') +
+          '<div class="ses-dlg-text">' + fmtSceneText(l.text || '') + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+
   function renderTestBlock(slot, block, scene, adv, ses) {
     if (!ses.searchTests) ses.searchTests = {};
     const state = ses.searchTests[block.id];
+    if (block.dialogueMode) { renderDialogueBlock(slot, block, scene, adv, ses, state); return; }
     if (!state) {
       if (block.writeMode) { renderWriteBlock(slot, block, scene, adv, ses); return; }
       const isAction = !!block.actionMode;
@@ -1979,6 +2013,44 @@
       return;
     }
     renderTestBlockResult(slot, block, scene, adv, ses, state);
+  }
+
+  // Rendu d'un bloc Dialogue : les bulles, puis soit le bouton « suite », soit
+  // les choix, soit — une fois le choix fait — le résultat habituel d'une Action.
+  function renderDialogueBlock(slot, block, scene, adv, ses, state) {
+    const lines = dialogueLinesOf(block);
+    const total = lines.length;
+    const shown = state ? total : dialogueShown(ses, block);
+    const head = '<div class="ses-dlg-head">💬 ' + esc(block.dialogueTitle || 'Dialogue') + '</div>';
+    if (state) {
+      // Choix effectué : le dialogue reste lisible au-dessus du résultat.
+      const inner = document.createElement('div');
+      renderTestBlockResult(inner, block, scene, adv, ses, state);
+      slot.innerHTML = '<div class="ses-dialogue ses-dlg-done">' + head + dialogueBubblesHtml(block, shown) + '</div>';
+      slot.appendChild(inner.firstElementChild || inner);
+      return;
+    }
+    const more = shown < total;
+    slot.innerHTML = '<div class="ses-dialogue">' + head + dialogueBubblesHtml(block, shown) +
+      (more
+        ? '<div class="ses-dlg-next"><button class="ghost small ses-dlg-more">' +
+            esc((block.nextLabel || '').trim() || 'Suite…') + ' ▸</button></div>'
+        : '<div class="ses-dlg-choices">' +
+            (block.mandatory ? '<div class="ses-st-title"><span class="ses-st-mandatory">🔒 Obligatoire</span></div>' : '') +
+            variantButtonsHtml(ses, block, scene, null) +
+          '</div>') +
+    '</div>';
+    if (more) {
+      const btn = slot.querySelector('.ses-dlg-more');
+      if (btn) btn.addEventListener('click', function () {
+        if (!ses.dialogueSteps) ses.dialogueSteps = {};
+        ses.dialogueSteps[block.id] = shown + 1;
+        save();
+        renderDialogueBlock(slot, block, scene, adv, ses, ses.searchTests[block.id]);
+      });
+    } else {
+      wireVariantButtons(slot, ses, adv, scene, block, null);
+    }
   }
 
   // Mode de nouvelle tentative d'un bloc de test (rétro-compat ancien booléen).
@@ -2384,8 +2456,11 @@
   }
   function renderTestBlockResult(slot, block, scene, adv, ses, state) {
     const mTag = block.mandatory ? ' <span class="ses-st-mandatory">🔒 Obligatoire</span>' : '';
-    const stIcon = block.writeMode ? '✍️ ' : '';
-    const stLabel = block.label || (block.writeMode ? 'Écriture' : block.actionMode ? 'Action' : 'Test de compétence');
+    const stIcon = block.writeMode ? '✍️ ' : block.dialogueMode ? '💬 ' : '';
+    // Dialogue : le titre du résultat rappelle la réplique choisie.
+    const stLabel = block.dialogueMode
+      ? ((state.success ? block.label : (block.altLabel || block.label)) || 'Dialogue')
+      : block.label || (block.writeMode ? 'Écriture' : block.actionMode ? 'Action' : 'Test de compétence');
     // Résultat obtenu lors d'une ENTRÉE ANTÉRIEURE (on est revenu dans la salle) :
     // version COMPACTE — on GARDE le titre, le verdict et le TEXTE narratif, mais on
     // masque les récompenses (XP, objets, Hauts Faits) et les résultats chiffrés.

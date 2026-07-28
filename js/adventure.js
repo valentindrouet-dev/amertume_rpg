@@ -1279,6 +1279,18 @@
       scene.blocks.push(b);
       renderBlocksEditor(scene, adv);
     };
+    const addDlg = document.getElementById('sm-add-dialogue');
+    if (addDlg) addDlg.onclick = function () {
+      // Bloc DIALOGUE : un bloc Action habillé en bulles de discussion. Les
+      // répliques se dévoilent une à une, puis les choix s'affichent avec les
+      // mêmes conséquences que n'importe quel bloc Action.
+      const b = newTestBlock();
+      b.actionMode = true;
+      b.dialogueMode = true;
+      b.lines = [newDialogueLine()];
+      scene.blocks.push(b);
+      renderBlocksEditor(scene, adv);
+    };
     const addFight = document.getElementById('sm-add-fight');
     if (addFight) addFight.onclick = function () {
       scene.blocks.push(newFightBlock());
@@ -1601,6 +1613,16 @@
       successText: '', failText: '', xpReward: 0, itemRewards: [], targetSceneId: null, reqSkill: '', reqVal: 0,
       retry: false, failEffect: { kind: 'none', val: 1, state: 'affaibli', slot: 'randhand', text: '' } };
   }
+  // Une réplique d'un bloc Dialogue : locuteur, portrait (lien d'image) et texte.
+  function newDialogueLine() {
+    return { id: Store.uid(), speaker: '', avatar: '', text: '' };
+  }
+  // Répliques d'un bloc Dialogue, toujours sous forme de tableau non vide.
+  function dialogueLines(blk) {
+    if (!Array.isArray(blk.lines) || !blk.lines.length) blk.lines = [newDialogueLine()];
+    blk.lines.forEach(function (l) { if (!l.id) l.id = Store.uid(); });
+    return blk.lines;
+  }
   // Bloc COMBAT jouable : un combat posé dans le fil de la salle. Un bloc test ou
   // action peut le révéler, et il révèle à son tour d'autres blocs selon l'issue.
   function newFightBlock() {
@@ -1640,6 +1662,39 @@
     const one = which === 'success' ? blk.chainSuccessId : blk.chainFailId;
     return one ? [one] : [];
   }
+  // Éditeur des répliques d'un bloc Dialogue : une carte par réplique, avec
+  // l'aperçu rond du portrait à gauche, le lien de l'image, le nom du locuteur
+  // et le texte, plus les boutons de réordonnancement / suppression.
+  function dialogueLinesEditorHtml(blk, i) {
+    const lines = dialogueLines(blk);
+    return '<div class="dlg-lines">' +
+      '<div class="dlg-lines-head">💬 Répliques <small>(dévoilées une à une en jeu)</small></div>' +
+      '<label class="dlg-title-lbl">Titre du dialogue <input type="text" class="dlg-title" data-bi="' + i + '" value="' + esc(blk.dialogueTitle || '') + '" placeholder="Dialogue" /></label>' +
+      lines.map(function (l, li) {
+        const av = (l.avatar || '').trim();
+        return '<div class="dlg-line" data-bi="' + i + '" data-li="' + li + '">' +
+          '<div class="dlg-line-av" title="Aperçu du portrait">' +
+            (av ? '<img src="' + esc(av) + '" alt="" />' : '<span class="dlg-av-ph">🗣</span>') +
+          '</div>' +
+          '<div class="dlg-line-fields">' +
+            '<div class="form-row" style="grid-template-columns:1fr 2fr">' +
+              '<label>Locuteur <input type="text" class="dlg-speaker" data-bi="' + i + '" data-li="' + li + '" value="' + esc(l.speaker || '') + '" placeholder="Ex : Le Gardien" /></label>' +
+              '<label title="Adresse d\'une image (https://…). Elle est affichée dans une pastille ronde à gauche de la bulle.">Portrait (lien image) <input type="text" class="dlg-avatar" data-bi="' + i + '" data-li="' + li + '" value="' + esc(av) + '" placeholder="https://exemple.com/portrait.png" /></label>' +
+            '</div>' +
+            '<textarea class="dlg-text" data-bi="' + i + '" data-li="' + li + '" rows="2" placeholder="Réplique — **gras** et *italique* possibles">' + esc(l.text || '') + '</textarea>' +
+          '</div>' +
+          '<div class="dlg-line-tools">' +
+            '<span class="dlg-line-num">#' + (li + 1) + '</span>' +
+            '<button type="button" class="icon-btn dlg-up" data-bi="' + i + '" data-li="' + li + '" title="Monter"' + (li === 0 ? ' disabled' : '') + '>↑</button>' +
+            '<button type="button" class="icon-btn dlg-down" data-bi="' + i + '" data-li="' + li + '" title="Descendre"' + (li === lines.length - 1 ? ' disabled' : '') + '>↓</button>' +
+            '<button type="button" class="icon-btn dlg-del" data-bi="' + i + '" data-li="' + li + '" title="Supprimer cette réplique"' + (lines.length < 2 ? ' disabled' : '') + '>✕</button>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+      '<button type="button" class="ghost small dlg-add" data-bi="' + i + '">+ Réplique</button>' +
+      '<label class="dlg-next-lbl">Bouton « suite » <input type="text" class="dlg-nextlabel" data-bi="' + i + '" value="' + esc(blk.nextLabel || '') + '" placeholder="Suite…" /></label>' +
+    '</div>';
+  }
   function renderBlocksEditor(scene, adv) {
     const box = document.getElementById('sm-blocks');
     if (!box) return;
@@ -1663,9 +1718,9 @@
         return '<div class="tb-chain-list">' + others.map(function (b) {
           const n = scene.blocks.indexOf(b) + 1;
           const nm = (b.label || '').trim() ||
-            (b.type === 'fight' ? 'Combat' : b.type === 'test' ? (b.skill ? 'Test ' + b.skill : 'Test')
+            (b.type === 'fight' ? 'Combat' : b.dialogueMode ? 'Dialogue' : b.type === 'test' ? (b.skill ? 'Test ' + b.skill : 'Test')
             : (b.content || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Texte');
-          const ico = b.type === 'fight' ? '⚔️ ' : b.type === 'test' ? (b.actionMode ? '⚡ ' : '🔍 ') : '📝 ';
+          const ico = b.type === 'fight' ? '⚔️ ' : b.type === 'test' ? (b.dialogueMode ? '💬 ' : b.actionMode ? '⚡ ' : '🔍 ') : '📝 ';
           const full = '#' + n + ' · ' + ico + nm;
           return '<label class="tb-chain-item" title="' + esc(full) + '"><input type="checkbox" class="tb-chain-cb" ' +
             'data-bi="' + i + '" data-which="' + which + '" value="' + esc(b.id) + '"' +
@@ -1710,17 +1765,22 @@
           // (issue « échec », optionnelle).
           const isAction = !!blk.actionMode;
           const isWrite = !!blk.writeMode;
-          return '<div class="adv-block-row adv-block-test' + (isWrite ? ' adv-block-write' : '') + (done ? ' adv-block-done' : '') + (collapsed ? ' collapsed' : '') + '" data-bi="' + i + '">' +
+          const isDlg = !!blk.dialogueMode;
+          return '<div class="adv-block-row adv-block-test' + (isWrite ? ' adv-block-write' : '') + (isDlg ? ' adv-block-dialogue' : '') + (done ? ' adv-block-done' : '') + (collapsed ? ' collapsed' : '') + '" data-bi="' + i + '">' +
             '<div class="adv-block-row-head">' +
               collapseBtn +
-              '<span class="adv-block-test-tag">' + (isWrite
+              '<span class="adv-block-test-tag">' + (isDlg
+                ? '💬 Dialogue' + (blk.label ? ' · ' + esc(blk.label) : '')
+                : isWrite
                 ? '✍️ Écriture' + (blk.label ? ' · ' + esc(blk.label) : '')
                 : isAction
                 ? '⚡ Action' + (blk.label ? ' · ' + esc(blk.label) : '')
                 : '🔍 Test' + (blk.label ? ' · ' + esc(blk.label) : ' de compétence')) + '</span>' + tools +
             '</div>' +
             bodyOpen +
-            '<input type="text" class="tb-label" data-bi="' + i + '" placeholder="' + (isWrite ? 'Intitulé (ex : L\'énigme du gardien)' : isAction ? 'Intitulé de l\'Action 1 (ex : Boire à la fontaine)' : 'Intitulé du bouton (ex : Fouiller la zone)') + '" value="' + esc(blk.label || '') + '" />' +
+            // DIALOGUE : les répliques, dévoilées une à une en jeu.
+            (isDlg ? dialogueLinesEditorHtml(blk, i) : '') +
+            '<input type="text" class="tb-label" data-bi="' + i + '" placeholder="' + (isDlg ? 'Intitulé du Choix 1 (ex : « Nous acceptons ta proposition »)' : isWrite ? 'Intitulé (ex : L\'énigme du gardien)' : isAction ? 'Intitulé de l\'Action 1 (ex : Boire à la fontaine)' : 'Intitulé du bouton (ex : Fouiller la zone)') + '" value="' + esc(blk.label || '') + '" />' +
             // ÉCRITURE : description (énigme), consigne, mot(s) attendu(s).
             (isWrite
               ? '<textarea class="tb-writedesc" data-bi="' + i + '" rows="2" placeholder="Description / énigme présentée aux aventuriers (ex : « Je brille la nuit et guide les marins. Que suis-je ? »)">' + esc(blk.writeDesc || '') + '</textarea>' +
@@ -1751,7 +1811,7 @@
                 '</div>'
               : '<div class="form-row tb-alt-row" style="grid-template-columns:1fr 1fr auto">' +
                 (isAction
-                  ? '<label>Action 2 (optionnelle — applique la « conséquence de l\'échec ») <input type="text" class="tb-altlabel" data-bi="' + i + '" value="' + esc(blk.altLabel || '') + '" placeholder="Ex : Briser la fontaine" /></label>' +
+                  ? '<label>' + (isDlg ? 'Choix 2' : 'Action 2') + ' (optionnel' + (isDlg ? '' : 'le') + ' — applique la « conséquence de l\'échec ») <input type="text" class="tb-altlabel" data-bi="' + i + '" value="' + esc(blk.altLabel || '') + '" placeholder="' + (isDlg ? 'Ex : « Tu mens, créature »' : 'Ex : Briser la fontaine') + '" /></label>' +
                     '<span></span>'
                   : '<label>Compétence alternative <select class="tb-altskill" data-bi="' + i + '">' +
                       '<option value="">— Aucune —</option>' +
@@ -1768,8 +1828,8 @@
                   '<option value="one"' + (blk.groupMode === 'one' ? ' selected' : '') + '>au moins un aventurier réussit</option>' +
                 '</select></label>'
               : '') +
-            '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="' + (isWrite ? 'Texte de réussite (bonne réponse)' : isAction ? 'Texte affiché après l\'Action 1' : 'Texte de réussite') + '">' + esc(blk.successText || '') + '</textarea>' +
-            '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="' + (isWrite ? 'Texte d\'échec (mauvaise réponse)' : isAction ? 'Texte affiché après l\'Action 2' : 'Texte d\'échec') + '">' + esc(blk.failText || '') + '</textarea>' +
+            '<textarea class="tb-success" data-bi="' + i + '" rows="2" placeholder="' + (isDlg ? 'Texte affiché après le Choix 1' : isWrite ? 'Texte de réussite (bonne réponse)' : isAction ? 'Texte affiché après l\'Action 1' : 'Texte de réussite') + '">' + esc(blk.successText || '') + '</textarea>' +
+            '<textarea class="tb-fail" data-bi="' + i + '" rows="2" placeholder="' + (isDlg ? 'Texte affiché après le Choix 2' : isWrite ? 'Texte d\'échec (mauvaise réponse)' : isAction ? 'Texte affiché après l\'Action 2' : 'Texte d\'échec') + '">' + esc(blk.failText || '') + '</textarea>' +
             '<div class="tb-reward-head">Récompense en cas de réussite · Conséquence de l\'échec <small>(valeurs fixes ou en dés : « 3 », « 2d6 », « 1d6+2 »)</small></div>' +
             '<div class="tb-rf-row">' +
               '<label class="tb-xp-lbl">XP <input type="text" class="tb-xp" data-bi="' + i + '" value="' + esc(blk.xpReward == null ? 0 : blk.xpReward) + '" style="width:70px" placeholder="0 ou 1d6" title="XP fixe ou tirage de dés (ex : 5, 1d6, 2d6+1)" /></label>' +
@@ -1966,6 +2026,36 @@
     box.querySelectorAll('.block-content').forEach(function (ta) {
       ta.oninput = function () { scene.blocks[biOf(this)].content = this.value; };
     });
+    // Blocs de dialogue : répliques (locuteur / portrait / texte) et réordonnancement.
+    const liOf = function (el) { return parseInt(el.getAttribute('data-li'), 10); };
+    const dlgLine = function (el) { return dialogueLines(scene.blocks[biOf(el)])[liOf(el)]; };
+    box.querySelectorAll('.dlg-speaker').forEach(function (el) { el.oninput = function () { dlgLine(this).speaker = this.value; }; });
+    box.querySelectorAll('.dlg-text').forEach(function (el) { el.oninput = function () { dlgLine(this).text = this.value; }; });
+    box.querySelectorAll('.dlg-avatar').forEach(function (el) {
+      // Le portrait est aussi un aperçu : on redessine pour voir la pastille.
+      el.onchange = function () { dlgLine(this).avatar = this.value.trim(); renderBlocksEditor(scene, adv); };
+    });
+    box.querySelectorAll('.dlg-title').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].dialogueTitle = this.value; }; });
+    box.querySelectorAll('.dlg-nextlabel').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].nextLabel = this.value; }; });
+    box.querySelectorAll('.dlg-add').forEach(function (el) {
+      el.onclick = function () { dialogueLines(scene.blocks[biOf(this)]).push(newDialogueLine()); renderBlocksEditor(scene, adv); };
+    });
+    box.querySelectorAll('.dlg-del').forEach(function (el) {
+      el.onclick = function () {
+        const lines = dialogueLines(scene.blocks[biOf(this)]);
+        if (lines.length > 1) lines.splice(liOf(this), 1);
+        renderBlocksEditor(scene, adv);
+      };
+    });
+    const dlgMove = function (el, d) {
+      const lines = dialogueLines(scene.blocks[biOf(el)]);
+      const li = liOf(el), j = li + d;
+      if (j < 0 || j >= lines.length) return;
+      const tmp = lines[li]; lines[li] = lines[j]; lines[j] = tmp;
+      renderBlocksEditor(scene, adv);
+    };
+    box.querySelectorAll('.dlg-up').forEach(function (el) { el.onclick = function () { dlgMove(this, -1); }; });
+    box.querySelectorAll('.dlg-down').forEach(function (el) { el.onclick = function () { dlgMove(this, 1); }; });
     // Blocs de test
     box.querySelectorAll('.tb-label').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].label = this.value; }; });
     box.querySelectorAll('.tb-writedesc').forEach(function (el) { el.oninput = function () { scene.blocks[biOf(this)].writeDesc = this.value; }; });
