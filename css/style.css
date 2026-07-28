@@ -4670,9 +4670,14 @@ label.tb-chain-item > .tb-chain-name {
 .sm-collapse-all { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; color: var(--muted); cursor: pointer; }
 
 /* ===================== v2.3.94 ===================== */
-/* Bloc de combat révélé mais pas encore mené : le reste de la salle est gelé. */
-.ses-test-slot.ses-slot-frozen { opacity: .55; }
-.ses-test-slot.ses-slot-frozen button { cursor: not-allowed; }
+/* Bloc de combat révélé mais pas encore mené : seuls les CONTRÔLES sont gelés —
+   les textes des blocs restent parfaitement lisibles. */
+.ses-test-slot.ses-slot-frozen { opacity: 1; }
+.ses-test-slot.ses-slot-frozen button,
+.ses-test-slot.ses-slot-frozen select,
+.ses-test-slot.ses-slot-frozen input {
+  opacity: .45; filter: grayscale(.75); cursor: not-allowed;
+}
 
 /* ===================== v2.3.98 ===================== */
 /* Rose : pastille de localisation À GAUCHE du nom de la salle. */
@@ -4895,3 +4900,20 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 }
 .zone-barrier-tag.barrier-instable { background: #6fa9b8; }
 .combat-zone.barrier-left.barrier-instable, .preview-zone.barrier-left.barrier-instable { border-left: 4px solid #6fa9b8; }
+
+/* ===================== v2.4.24 ===================== */
+/* Combat engagé : lueur rouge sourde et pulsée sur le bloc de combat. */
+.ses-searchtest.ses-fight:not(.ses-st-done) {
+  border-left-color: #d65c40;
+  box-shadow: 0 0 0 1px rgba(214,92,64,.35), 0 0 16px rgba(198,62,40,.28);
+  animation: ses-fight-glow 2.6s ease-in-out infinite;
+}
+@keyframes ses-fight-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(214,92,64,.30), 0 0 12px rgba(198,62,40,.22); }
+  50%      { box-shadow: 0 0 0 1px rgba(214,92,64,.50), 0 0 24px rgba(214,92,64,.42); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ses-searchtest.ses-fight:not(.ses-st-done) { animation: none; }
+}
+/* Rose désactivée par un combat : sorties grisées, sans halo. */
+.rose-btn.ses-exit-locked { filter: grayscale(.7); }

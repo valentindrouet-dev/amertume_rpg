@@ -1234,8 +1234,10 @@
       // Un test obligatoire NON narratif laisse le demi-tour possible : les sorties
       // s'affichent, mais seules les salles DÉJÀ VISITÉES sont franchissables.
       const backOnly = navBlocked && resolved && !forcedPending && !fightPending && !narrativeTestPending(scene, ses);
-      if (mode === 'dungeon' && (!navBlocked || backOnly) && !scene.isTransition) {
-        renderDungeonExits(box, ch, scene, adv, ses, backOnly);
+      // Combat engagé : la rose reste AFFICHÉE, mais toutes ses sorties sont
+      // désactivées (plus lisible qu'une rose vide).
+      if (mode === 'dungeon' && (!navBlocked || backOnly || fightPending) && !scene.isTransition) {
+        renderDungeonExits(box, ch, scene, adv, ses, backOnly, fightPending);
       }
       if (mode === 'random' && !navBlocked && !hasChoices && !scene.nextSceneId && !scene.isTransition) renderRandomNext(box, ch, scene, adv, ses);
     }
@@ -1423,7 +1425,9 @@
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', placeCompass);
   }
-  function renderDungeonExits(box, chapter, scene, adv, ses, backOnly) {
+  // `allLocked` : un combat est engagé dans la salle — toutes les sorties sont
+  // affichées mais désactivées.
+  function renderDungeonExits(box, chapter, scene, adv, ses, backOnly, allLocked) {
     // MJ : les accès DISSIMULÉS restent visibles et franchissables (repérés en
     // violet). En partie partagée, les joueurs ne les voient pas.
     const mj = isMJ();
@@ -1449,18 +1453,20 @@
       // VERROUILLÉ non encore ouvert : bouton visible avec un cadenas, non franchissable.
       // backOnly (test obligatoire en attente) : seules les salles déjà visitées
       // restent accessibles — on peut faire demi-tour, pas avancer.
-      const lockedByTest = backOnly && !visited;
+      const lockedByTest = (backOnly && !visited) || allLocked;
       const closed = (e.gate.mode === 'locked' && !e.gate.unlocked) || lockedByTest;
       const hidden = e.gate.mode === 'hidden' && !e.gate.unlocked;
       // Passe-droit MJ : un accès verrouillé ou dissimulé reste franchissable.
-      const locked = closed && !mj;
-      const mjOnly = mj && (closed || hidden);
+      const locked = allLocked || (closed && !mj);
+      const mjOnly = !allLocked && mj && (closed || hidden);
       // ⚔️ seulement pour une salle déjà visitée dont le combat n'est pas résolu
       // (pas d'indice sur les salles inconnues).
       const danger = visited && e.f && sceneHasCombat(e.f.scene) && !(ses.clearedScenes && ses.clearedScenes[e.other]);
       const name = (visited || mj) ? titleOf(e.other) : '???';
       const tip = locked
-        ? (lockedByTest
+        ? (allLocked
+          ? 'Un combat est engagé dans cette salle — menez-le avant de vous déplacer.'
+          : lockedByTest
           ? 'Un test obligatoire doit être tenté avant d\'explorer plus loin (le demi-tour reste possible).'
           : 'Verrouillé — réussissez le test de la salle pour l\'ouvrir.')
         : mjOnly
@@ -1470,7 +1476,7 @@
       return '<button type="button" class="rose-btn ses-exit-btn' + (visited ? ' ses-exit-visited' : '') +
           (locked ? ' ses-exit-locked' : '') + (mjOnly ? ' ses-exit-mj' : '') + '" data-to="' + esc(e.other) + '"' +
           (locked ? ' disabled' : '') + ' title="' + esc(tip) + '">' +
-        '<span class="rose-arrow">' + (locked ? '🔒' : mjOnly ? (hidden ? '👁' : '🗝') : e.arrow) + '</span>' +
+        '<span class="rose-arrow">' + (allLocked ? '⚔' : locked ? '🔒' : mjOnly ? (hidden ? '👁' : '🗝') : e.arrow) + '</span>' +
         '<span class="rose-name">' + esc(name) + (danger ? ' ⚔️' : '') + '</span>' +
         (e.l.label ? '<span class="rose-lbl">' + esc(e.l.label) + '</span>' : '') +
       '</button>';
