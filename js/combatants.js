@@ -2007,55 +2007,81 @@
       list.innerHTML = '<p class="empty">Aucun monstre.</p>';
       return;
     }
-    list.innerHTML = monsters.map(function (m) {
-      const advLabel = adventureLabelById(m.advId);
+    // Bestiaire en COLONNES par type (Sbires · Alphas · Solitaires · Boss), design
+    // des onglets Classes / Talents Adv. : une vignette = un nom. Le clic déplie
+    // la fiche sous la vignette (stats, attaques, talents).
+    const byType = { standard: [], alpha: [], solitaire: [], boss: [] };
+    monsters.forEach(function (m) { (byType[m.type] || byType.standard).push(m); });
+    const COLS = [
+      { key: 'standard', label: 'Sbires' },
+      { key: 'alpha', label: 'Alphas' },
+      { key: 'solitaire', label: 'Solitaires' },
+      { key: 'boss', label: 'Boss' },
+    ];
+    function monStrip(m) {
       const open = monExpanded[m.id] === true;
-      return '<div class="roster-card mon-card type-' + m.type + (monSelected[m.id] ? ' mon-selected' : '') + (open ? '' : ' roster-collapsed') + '" data-mon-card="' + m.id + '">' +
-        '<div class="roster-head">' +
-          '<button class="roster-toggle" data-toggle-monster="' + m.id + '" title="' + (open ? 'Replier' : 'Déplier') + '" aria-expanded="' + open + '">' + (open ? '▾' : '▸') + '</button>' +
+      const advLabel = adventureLabelById(m.advId);
+      const tags = [];
+      if (m.family) tags.push(esc(m.family));
+      if (m.rapide) tags.push('Rapide');
+      if (m.esquive) tags.push('Esq. 6+');
+      return '<div class="mon-row-wrap' + (monSelected[m.id] ? ' mon-selected' : '') + '" data-mon-card="' + m.id + '">' +
+        '<div class="inv-strip-row mon-row type-' + m.type + '">' +
           (monSelectMode ? '<input type="checkbox" class="mon-check" data-mon="' + m.id + '"' + (monSelected[m.id] ? ' checked' : '') + ' />' : '') +
-          '<span class="roster-name">' + esc(m.name) + '</span>' +
-          '<span class="tag type">' + (TYPE_LABEL[m.type] || m.type) + '</span>' +
-          '<span class="roster-head-extra">' +
-            (advLabel ? '<span class="tag tag-chapter">📖 ' + esc(advLabel) + '</span>' : '') +
-            (m.family ? '<span class="tag">' + esc(m.family) + '</span>' : '') +
-            (m.rapide ? '<span class="tag">Rapide</span>' : '') +
-            (m.esquive ? '<span class="tag">Esq. 6+</span>' : '') +
-          '</span>' +
-          '<button class="icon-btn mon-tool" data-edit-monster="' + m.id + '" title="Éditer">✎</button>' +
-          '<button class="icon-btn mon-tool" data-dup-monster="' + m.id + '" title="Dupliquer">⧉</button>' +
-          '<button class="icon-btn mon-tool del-btn" data-del-monster="' + m.id + '" title="Supprimer">✕</button>' +
-        '</div>' +
-        '<div class="roster-body">' +
-          '<div class="stat-pills">' +
-            '<span class="stat-pill">❤ <b>' + m.pv + '</b></span>' +
-            '<span class="stat-pill">🛡 <b>' + monsterTotalDef(m) + '</b></span>' +
-            '<span class="stat-pill">⚔ <b>' + m.damage + '</b></span>' +
-            '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
-            '<span class="stat-pill">🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</span>' +
+          // Le type est porté par la COLONNE : la vignette n'affiche que le nom,
+          // qui dispose ainsi de toute la largeur.
+          '<div class="inv-strip mon-strip" data-toggle-monster="' + m.id + '" title="' + esc(m.name) + ' — voir la fiche" aria-expanded="' + open + '">' +
+            '<span class="inv-strip-name">' + esc(m.name) + '</span>' +
+            '<span class="inv-strip-val mon-strip-caret">' + (open ? '▾' : '▸') + '</span>' +
           '</div>' +
-          '<div class="roster-section">' +
-            '<div class="roster-label">Attaques</div>' +
-            '<div class="atk-badges">' + attacksSummary(monsterCombatAttacks(m)) + '</div>' +
-          '</div>' +
-          (advTalentsSummary(m) ? '<div class="roster-section"><div class="roster-label">Talents adverses</div><div class="talent-badges">' + advTalentsSummary(m) + '</div></div>' : '') +
-          (m.notes ? '<div class="roster-notes">' + esc(m.notes) + '</div>' : '') +
+          '<button class="inv-strip-edit" data-edit-monster="' + m.id + '" title="Éditer">✎</button>' +
+          '<button class="inv-strip-edit" data-dup-monster="' + m.id + '" title="Dupliquer">⧉</button>' +
+          '<button class="inv-strip-edit del-btn" data-del-monster="' + m.id + '" title="Supprimer">✕</button>' +
         '</div>' +
+        // Fiche dépliée : 3 lignes — caractéristiques, attaques, talents.
+        (open
+          ? '<div class="mon-sheet">' +
+              '<div class="mon-sheet-line mon-sheet-stats">' +
+                '<span class="stat-pill">❤ <b>' + m.pv + '</b> PV</span>' +
+                '<span class="stat-pill">🛡 <b>' + monsterTotalDef(m) + '</b> DEF</span>' +
+                '<span class="stat-pill">⚔ <b>' + m.damage + '</b> Dégâts</span>' +
+                '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
+                '<span class="stat-pill">🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</span>' +
+              '</div>' +
+              '<div class="mon-sheet-line">' +
+                '<span class="mon-sheet-lbl">Attaques</span>' +
+                '<span class="mon-sheet-val atk-badges">' + attacksSummary(monsterCombatAttacks(m)) + '</span>' +
+              '</div>' +
+              '<div class="mon-sheet-line">' +
+                '<span class="mon-sheet-lbl">Talents</span>' +
+                '<span class="mon-sheet-val talent-badges">' + (advTalentsSummary(m) || '<span class="hint">—</span>') + '</span>' +
+              '</div>' +
+              (advLabel || tags.length
+                ? '<div class="mon-sheet-line mon-sheet-meta">' +
+                    (advLabel ? '<span class="tag tag-chapter">📖 ' + esc(advLabel) + '</span>' : '') +
+                    tags.map(function (t) { return '<span class="tag">' + t + '</span>'; }).join('') +
+                  '</div>'
+                : '') +
+              (m.notes ? '<div class="mon-sheet-line roster-notes">' + esc(m.notes) + '</div>' : '') +
+            '</div>'
+          : '') +
       '</div>';
-    }).join('');
+    }
+    list.innerHTML = '<div class="tal-cols mon-cols">' + COLS.filter(function (c) { return byType[c.key].length; })
+      .map(function (c) {
+        return '<div class="tal-col">' +
+          '<div class="tal-col-hdr mon-col-hdr type-' + c.key + '">' +
+            '<span class="tal-col-name">' + esc(c.label) + '</span>' +
+            '<span class="tag">' + byType[c.key].length + '</span>' +
+          '</div>' +
+          '<div class="tal-col-body">' + byType[c.key].map(monStrip).join('') + '</div>' +
+        '</div>';
+      }).join('') + '</div>';
     list.querySelectorAll('[data-toggle-monster]').forEach(function (b) {
       b.addEventListener('click', function (e) {
         e.stopPropagation();
         const id = b.getAttribute('data-toggle-monster');
         monExpanded[id] = !(monExpanded[id] === true);
-        renderMonsters();
-      });
-    });
-    // Clic n'importe où sur une vignette REPLIÉE (hors bouton / case à cocher) → déplie.
-    list.querySelectorAll('.mon-card.roster-collapsed').forEach(function (card) {
-      card.addEventListener('click', function (e) {
-        if (e.target.closest('button') || e.target.closest('input')) return;
-        monExpanded[card.getAttribute('data-mon-card')] = true;
         renderMonsters();
       });
     });

@@ -4936,3 +4936,40 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 }
 /* Rose désactivée par un combat : sorties grisées, sans halo. */
 .rose-btn.ses-exit-locked { filter: grayscale(.7); }
+
+/* ===================== v2.4.30 — Bestiaire en colonnes ===================== */
+/* Une colonne par type (Sbires · Alphas · Solitaires · Boss), vignettes au même
+   gabarit que les Classes / Talents Adv. : un nom, et la fiche se déplie dessous. */
+#monster-list.roster-list { display: block; }
+.mon-cols { margin-top: .4rem; }
+.mon-col-hdr.type-standard  { color: #b9b2a4; border-bottom-color: rgba(185,178,164,.5); }
+.mon-col-hdr.type-alpha     { color: #d8a24a; border-bottom-color: rgba(216,162,74,.5); }
+.mon-col-hdr.type-solitaire { color: #d97b5a; border-bottom-color: rgba(217,123,90,.5); }
+.mon-col-hdr.type-boss      { color: #b98ae0; border-bottom-color: rgba(185,138,224,.5); }
+.mon-row-wrap { display: flex; flex-direction: column; }
+.mon-row .mon-strip { cursor: pointer; }
+.mon-strip-caret { color: var(--muted); font-size: .8rem; }
+.mon-row .inv-strip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mon-row .mon-strip:hover { filter: brightness(1.05); }
+.mon-row .mon-check { flex: 0 0 auto; align-self: center; margin-right: .1rem; }
+.mon-row-wrap.mon-selected .inv-strip { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+/* Couleur de la languette selon le type du monstre. */
+.inv-strip-row.mon-row.type-standard  .inv-strip { border-left-color: #b9b2a4; }
+.inv-strip-row.mon-row.type-alpha     .inv-strip { border-left-color: #d8a24a; }
+.inv-strip-row.mon-row.type-solitaire .inv-strip { border-left-color: #d97b5a; }
+.inv-strip-row.mon-row.type-boss      .inv-strip { border-left-color: #b98ae0; }
+/* Fiche dépliée : une ligne par bloc d'information. */
+.mon-sheet {
+  margin: .25rem 0 .5rem .5rem; padding: .45rem .6rem;
+  border-left: 2px solid var(--border); border-radius: 0 8px 8px 0;
+  background: rgba(255,255,255,.03); display: flex; flex-direction: column; gap: .35rem;
+}
+.mon-sheet-line { display: flex; align-items: flex-start; gap: .4rem; flex-wrap: wrap; }
+.mon-sheet-lbl {
+  flex: 0 0 4.6rem; font-size: .68rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted); padding-top: .15rem;
+}
+.mon-sheet-val { flex: 1 1 0; min-width: 0; display: flex; flex-wrap: wrap; gap: .3rem; }
+.mon-sheet .stat-pill { font-size: .74rem; }
+.mon-sheet .atk-badge { font-size: .76rem; }
+.mon-sheet-meta { gap: .3rem; }
