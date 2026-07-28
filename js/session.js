@@ -1286,11 +1286,11 @@
   }
   // Petite animation de « rencontre » : secousse de l'écran + flash rouge d'alerte,
   // pour signaler un événement surprenant sur un connecteur.
-  function playEncounterFx() {
+  function playEncounterFx(label) {
     try {
       const flash = document.createElement('div');
       flash.className = 'ses-encounter-flash';
-      flash.innerHTML = '<div class="ses-encounter-badge">⚠ Événement !</div>';
+      flash.innerHTML = '<div class="ses-encounter-badge">' + esc(label || '⚠ Événement !') + '</div>';
       document.body.appendChild(flash);
       const main = document.querySelector('#session-root') || document.querySelector('main') || document.body;
       main.classList.add('ses-encounter-shake');
@@ -2179,6 +2179,13 @@
       const b = (scene.blocks || []).find(function (x) { return x.id === id; });
       return b && !testChainHidden(scene, b, ses);
     }).concat([block.id]);
+    // BLOC DE COMBAT révélé par ce jet : même secousse d'écran que les
+    // rencontres d'événement entre deux salles.
+    const combatRevealed = justRevealedIds.some(function (id) {
+      const b = (scene.blocks || []).find(function (x) { return x.id === id; });
+      return b && b.type === 'fight';
+    });
+    if (combatRevealed) playEncounterFx('⚔ Un combat se déclenche !');
     render();
   }
   // Ids des blocs à animer au prochain rendu de scène (transitoire, non persisté).
@@ -2867,6 +2874,9 @@
     ses.entryId = (ses.entryId || 0) + 1;
     if (ses.visitedSceneIds.indexOf(sceneId) === -1) ses.visitedSceneIds.push(sceneId);
     save();
+    // Salle contenant un BLOC DE COMBAT visible et pas encore mené : même
+    // secousse d'écran que les rencontres d'événement entre deux salles.
+    if (fightBlockPending(found.scene, ses)) playEncounterFx('⚔ Un combat se déclenche !');
     render();
   }
 

@@ -230,6 +230,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .die-blue   { background: var(--die-blue);   color: #fff; }
 .die-green  { background: var(--die-green);  color: #11240f; }
 .die-black  { background: var(--die-black);  color: #eee; }
+.die-pink   { background: var(--die-pink);   color: #fff; }
 .die-yellow { background: var(--die-yellow); color: #2c2706; }
 
 /* badges/mini reprennent une bordure colorée */
@@ -266,6 +267,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .mini-die.die-blue { background: var(--die-blue); color: #fff; }
 .mini-die.die-green { background: var(--die-green); color: #122; }
 .mini-die.die-black { background: var(--die-black); color: #eee; }
+.mini-die.die-pink  { background: var(--die-pink); color: #fff; }
 .mini-die.die-yellow { background: var(--die-yellow); color: #222; }
 .hist-sum { font-weight: 600; }
 .hist-sum.crit { color: var(--accent-2); }
@@ -361,9 +363,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .cc-states { display: flex; flex-wrap: wrap; align-content: flex-start; gap: .35rem;
   margin-bottom: .5rem; min-height: 1.15rem; }
 .cc-states:empty { margin-bottom: .5rem; }
-.state-badge { font-size: .72rem; padding: .12rem .45rem; border-radius: 14px; border: 1px solid; }
-.state-badge.neg { color: var(--bad); border-color: var(--bad); background: rgba(200,83,60,.1); }
-.state-badge.pos { color: var(--good); border-color: var(--good); background: rgba(111,174,111,.1); }
+/* Cartouches d'état : fond CLAIR et texte en gras, lisibles sur les vignettes. */
+.state-badge { font-size: .72rem; font-weight: 800; padding: .12rem .45rem; border-radius: 14px; border: 1px solid; }
+.state-badge.neg { color: #7d221a; border-color: var(--bad); background: #f4ded8; }
+.state-badge.pos { color: #2c5a2c; border-color: var(--good); background: #e0eed8; }
 .state-add { font-size: .72rem; color: var(--muted); cursor: pointer; border: 1px dashed var(--border); border-radius: 14px; padding: .12rem .45rem; }
 .state-add:hover { color: var(--accent-2); border-color: var(--accent-2); }
 
@@ -442,6 +445,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .die-sq.die-blue   { background: var(--die-blue); }
 .die-sq.die-green  { background: var(--die-green); }
 .die-sq.die-black  { background: var(--die-black); }
+.die-sq.die-pink   { background: var(--die-pink); }
 .die-sq.die-yellow { background: var(--die-yellow); }
 .die-sq.die-red::after, .die-sq.die-blue::after, .die-sq.die-black::after { background: rgba(255, 255, 255, .6); }
 .die-sq.die-black { border-color: rgba(255, 255, 255, .32); }
