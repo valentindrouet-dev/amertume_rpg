@@ -492,9 +492,9 @@
       desc: 'Action : infligez les dés indiqués à X adversaires d\'une même zone (contact ou distance).' },
     { effect: 'assaut_mobile', name: 'Assaut Mobile', kind: 'action', cat: 'attaque', hasVal: false,
       desc: 'Action : 1 mouvement gratuit + 1 attaque.' },
-    { effect: 'frappe_puissante', name: 'Frappe Puissante', kind: 'action', cat: 'attaque', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+    { effect: 'frappe_puissante', name: 'Frappe Puissante', kind: 'action', cat: 'attaque', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       desc: 'Action : 1 attaque de contact à +X Dégâts.' },
-    { effect: 'tir_charge', name: 'Tir Chargé', kind: 'action', cat: 'attaque', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+    { effect: 'tir_charge', name: 'Tir Chargé', kind: 'action', cat: 'attaque', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       desc: 'Action : 1 attaque à distance à +X Dégâts.' },
     { effect: 'frappe_tournoyante', name: 'Frappe Tournoyante', kind: 'action', cat: 'attaque', hasVal: false,
       desc: 'Action : frappez TOUS les adversaires de votre zone.' },
@@ -511,20 +511,20 @@
     { effect: 'eclipse', name: 'Éclipse', kind: 'action', cat: 'attaque', hasVal: false,
       desc: 'Action : téléportez-vous dans une autre zone (franchit tout, même les MURS) et effectuez 1 attaque.' },
     // 💥 BONUS DE DÉGÂTS — passifs et améliorations offensifs
-    { effect: 'frappe_lourde', name: 'Frappe Lourde', kind: 'passive', cat: 'degats', hasVal: true, defaultVal: 1, valLabel: 'Dégâts bonus',
+    { effect: 'frappe_lourde', name: 'Frappe Lourde', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 1, valLabel: 'Dégâts bonus',
       desc: '+X Dégâts à toutes vos attaques.' },
-    { effect: 'maitre_contact', name: 'Maître au Contact', kind: 'passive', cat: 'degats', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+    { effect: 'maitre_contact', name: 'Maître au Contact', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       desc: '+X Dégâts à vos attaques de contact.' },
-    { effect: 'maitre_distance', name: 'Maître à Distance', kind: 'passive', cat: 'degats', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+    { effect: 'maitre_distance', name: 'Maître à Distance', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       desc: '+X Dégâts à vos attaques à distance.' },
-    { effect: 'tueur_au_sol', name: 'Tueur au Sol', kind: 'passive', cat: 'degats', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+    { effect: 'tueur_au_sol', name: 'Tueur au Sol', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       desc: '+X Dégâts contre une cible AU SOL.' },
-    { effect: 'tueur_affaibli', name: 'Achèvement', kind: 'passive', cat: 'degats', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+    { effect: 'tueur_affaibli', name: 'Achèvement', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       desc: '+X Dégâts contre une cible AFFAIBLI.' },
-    { effect: 'tueur_etat', name: 'Prédateur d\'État', kind: 'passive', cat: 'degats', hasVal: true, defaultVal: 2, valLabel: 'Dégâts bonus',
+    { effect: 'tueur_etat', name: 'Prédateur d\'État', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'brise', 'faille', 'poison', 'auSol', 'affaibli'],
       desc: '+X Dégâts contre une cible affectée par l\'état choisi.' },
-    { effect: 'meute', name: 'Meute', kind: 'passive', cat: 'degats', hasVal: true, defaultVal: 1, valLabel: 'Dégâts / allié',
+    { effect: 'meute', name: 'Meute', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 1, valLabel: 'Dégâts / allié',
       desc: '+X Dégâts par allié présent dans la zone de la cible.' },
     { effect: 'assassinat', name: 'Assassinat', kind: 'passive', cat: 'degats', hasVal: false,
       hasChoice: true, choiceLabel: 'Double … / cible',
@@ -598,7 +598,8 @@
       desc: 'Votre Contre-Attaque est utilisable 2 fois par tour adverse.' },
     { effect: 'riposte_distance', name: 'Riposte à Distance', kind: 'upgrade', cat: 'riposte', hasVal: false,
       desc: 'Votre Contre-Attaque fonctionne aussi contre les attaques à distance.' },
-    { effect: 'execution', name: 'Exécution', kind: 'reaction', cat: 'riposte', hasVal: false,
+    { effect: 'execution', name: 'Exécution', kind: 'reaction', cat: 'riposte', hasVal: true, valDice: true, defaultVal: 0,
+      valLabel: 'Dégâts (0 = votre bonus de Dégâts)',
       desc: 'Réaction — avant qu\'un adversaire de votre zone ne fuie : il subit votre bonus de Dégâts.' },
     // 🛡️ DÉFENSE & PROTECTION
     { effect: 'cuirasse', name: 'Cuirasse', kind: 'passive', cat: 'protection', hasVal: true, valDice: true, defaultVal: 1, valLabel: 'Réduction',
@@ -626,8 +627,9 @@
       desc: 'Action : aucun Dégât ni état subi durant le prochain tour adverse.' },
     { effect: 'dernier_souffle', name: 'Dernier Souffle', kind: 'passive', cat: 'protection', hasVal: false,
       desc: '1×/combat : vous ignorez les Dégâts qui vous feraient tomber au coma.' },
-    { effect: 'epines', name: 'Épines', kind: 'passive', cat: 'protection', hasVal: false,
-      desc: 'Tout adversaire qui arrive dans votre zone subit votre bonus de Dégâts.' },
+    { effect: 'epines', name: 'Épines', kind: 'passive', cat: 'protection', hasVal: true, valDice: true, defaultVal: 0,
+      valLabel: 'Dégâts (0 = votre bonus de Dégâts)',
+      desc: 'Tout adversaire qui arrive dans votre zone subit X Dégâts (fixe ou dés ; 0 = votre bonus de Dégâts).' },
     // ❤️ SOINS & SURVIE
     { effect: 'soin_fixe', name: 'Premiers Soins', kind: 'action', cat: 'soin', hasVal: true, valDice: true, defaultVal: 3, valLabel: 'PV rendus',
       desc: 'Action : vous récupérez X PV.' },
@@ -662,13 +664,16 @@
       desc: '+1 dé noir à l\'attaque effectuée juste après avoir franchi une barrière DIFFICILE.' },
     { effect: 'ignore_opportunite', name: 'Insaisissable', kind: 'passive', cat: 'mouvement', hasVal: false,
       desc: 'Vous ignorez les Dégâts des attaques d\'opportunité (tir en zone occupée, ou sortie de zone).' },
-    { effect: 'attaque_opportunite', name: 'Attaque d\'Opportunité', kind: 'passive', cat: 'mouvement', hasVal: false,
+    { effect: 'attaque_opportunite', name: 'Attaque d\'Opportunité', kind: 'passive', cat: 'mouvement', hasVal: true, valDice: true, defaultVal: 0,
+      valLabel: 'Dégâts (0 = votre bonus de Dégâts)',
       desc: 'Vous infligez votre bonus de Dégâts à tout adversaire qui quitte votre zone ou y tire à distance.' },
-    { effect: 'frayeur', name: 'Frayeur', kind: 'action', cat: 'mouvement', hasVal: false,
+    { effect: 'frayeur', name: 'Frayeur', kind: 'action', cat: 'mouvement', hasVal: true, defaultVal: 1,
+      valLabel: 'Nb de cibles', hasScope: true,
       desc: 'Action : un adversaire de votre zone doit fuir vers une autre zone (il subit les attaques d\'opportunité).' },
     { effect: 'a_bout_portant', name: 'À Bout Portant', kind: 'upgrade', cat: 'mouvement', hasVal: false,
       desc: 'Tirer à distance dans la zone d\'un adversaire ne déclenche pas d\'attaque d\'opportunité.' },
     { effect: 'charge_devastatrice', name: 'Charge Dévastatrice', kind: 'mastery', cat: 'mouvement', hasVal: true, defaultVal: 1, valLabel: 'Nb de cibles', hasScope: true,
+      hasDice: true, defaultDice: {},
       desc: 'Votre bonus de Dégâts frappe X adversaires quand vous arrivez dans leur zone.' },
     // 🤝 ALLIÉS & GARDE
     { effect: 'gardien', name: 'Gardien', kind: 'mastery', cat: 'groupe', hasVal: true, defaultVal: 1, valLabel: 'Nb d\'alliés Gardés',
@@ -782,11 +787,11 @@
   function talentEffectList(t) {
     if (t && Array.isArray(t.effects) && t.effects.length) {
       return t.effects.filter(function (e) { return e && e.effect; }).map(function (e) {
-        return { effect: canonicalEffect(e.effect), val: e.val || 0, dice: e.dice || null, range: e.range || null, choice: e.choice || null, scope: e.scope || 'count' };
+        return { effect: canonicalEffect(e.effect), val: e.val || 0, dice: e.dice || null, range: e.range || null, choice: e.choice || null, scope: e.scope || 'count', side: e.side || null };
       });
     }
     if (t && t.effect) {
-      return [{ effect: canonicalEffect(t.effect), val: t.val || 0, dice: t.dice || null, range: t.range || null, choice: t.choice || null, scope: t.scope || 'count' }];
+      return [{ effect: canonicalEffect(t.effect), val: t.val || 0, dice: t.dice || null, range: t.range || null, choice: t.choice || null, scope: t.scope || 'count', side: t.side || null }];
     }
     return [];
   }

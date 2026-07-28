@@ -3475,10 +3475,25 @@ body.mode-player #item-list.roster-list { display: block; }
   border-radius: 6px; width: 1.9rem; height: 1.9rem; cursor: pointer; font-weight: 700;
 }
 .tl-eff-del:hover { background: rgba(190,70,70,.3); }
-.tl-eff-params { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .45rem; }
-.tl-eff-params > label { display: flex; align-items: center; gap: .35rem; margin: 0; font-size: .85rem; }
-.tl-eff-params .tl-eff-val { width: 4.5rem; }
-.tl-eff-dice-wrap { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+/* Paramètres d'un effet : grille de champs uniformes, libellé au-dessus de son
+   contrôle. Aucun chevauchement possible : chaque champ occupe sa cellule, les
+   dés passent sur une ligne pleine largeur. */
+.tl-eff-params {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: .5rem .7rem; align-items: start; margin-top: .5rem;
+}
+.tl-eff-params .tl-eff-kind { grid-column: 1 / -1; justify-self: start; }
+.tl-eff-field {
+  display: flex !important; flex-direction: column !important; gap: .22rem;
+  margin: 0; min-width: 0; font-size: .85rem;
+}
+.tl-eff-lbl {
+  font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tl-eff-field input, .tl-eff-field select { width: 100%; box-sizing: border-box; min-height: 2rem; }
+.tl-eff-dice-wrap { grid-column: 1 / -1; }
+.tl-eff-dice-wrap .tl-eff-dice { display: flex; flex-wrap: wrap; gap: .4rem; }
 .tl-eff-dice.dice-steppers { display: flex; flex-wrap: wrap; gap: .3rem; }
 
 /* ----- Maîtrise (nouvelle catégorie d'effet, doré) ----- */

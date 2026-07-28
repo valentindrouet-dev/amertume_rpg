@@ -28,7 +28,7 @@
   const KIND_SHORT = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT', espece: 'ESP', parchemin: 'PAR' };
   const KIND_ORDER = ['action', 'reaction', 'passive', 'critique', 'garde', 'upgrade', 'mastery', 'espece', 'parchemin'];
   // Libellés lisibles des valeurs de choix (les états internes → noms affichés).
-  const CHOICE_LABELS = { feu: 'Feu', auSol: 'Au sol', affaibli: 'Affaibli', brise: 'Brisé', faille: 'Faille', poison: 'Poison', sbire: 'Sbires', elite: 'Alpha / Solitaire / Boss' };
+  const CHOICE_LABELS = { '': '— Aucun —', feu: 'Feu', auSol: 'Au sol', affaibli: 'Affaibli', brise: 'Brisé', faille: 'Faille', poison: 'Poison', sbire: 'Sbires', elite: 'Alpha / Solitaire / Boss' };
 
   let classes = [];
   let generics = [];
@@ -469,31 +469,33 @@
         '<div class="tl-eff-optlist"></div>' +
       '</div>' +
       '<p class="tl-eff-seldesc hint" hidden></p>' +
+      // Paramètres : une grille de champs uniformes — libellé AU-DESSUS de son
+      // contrôle, champs alignés, les dés sur leur propre ligne pleine largeur.
       '<div class="tl-eff-params">' +
         '<span class="tl-eff-kind"></span>' +
-        '<label class="tl-eff-val-wrap" hidden><span class="tl-eff-val-label">Valeur X</span>' +
+        '<label class="tl-eff-field tl-eff-val-wrap" hidden><span class="tl-eff-lbl tl-eff-val-label">Valeur X</span>' +
           '<input type="text" class="tl-eff-val" inputmode="numeric" value="' + esc(e.val != null ? e.val : 0) + '" /></label>' +
-        '<label class="tl-eff-range-wrap" hidden>Portée ' +
-          '<select class="tl-eff-range">' +
-            '<option value="contact"' + (e.range === 'contact' ? ' selected' : '') + '>Au contact</option>' +
-            '<option value="distance"' + (e.range === 'distance' ? ' selected' : '') + '>À distance</option>' +
-          '</select></label>' +
-        '<div class="tl-eff-dice-wrap" hidden><span class="tl-eff-dice-label">Dés de dégâts</span>' +
-          '<div class="tl-eff-dice dice-steppers"></div></div>' +
-        '<label class="tl-eff-choice-wrap" hidden><span class="tl-eff-choice-label">Choix</span>' +
-          '<select class="tl-eff-choice"></select></label>' +
-        '<label class="tl-eff-scope-wrap" hidden>Cibles ' +
+        '<label class="tl-eff-field tl-eff-scope-wrap" hidden><span class="tl-eff-lbl">Cibles</span>' +
           '<select class="tl-eff-scope">' +
             '<option value="count">Nombre X</option>' +
             '<option value="zone">Toute la zone</option>' +
             '<option value="all">Tout le combat</option>' +
           '</select></label>' +
-        '<label class="tl-eff-side-wrap" hidden>Camp ' +
+        '<label class="tl-eff-field tl-eff-side-wrap" hidden><span class="tl-eff-lbl">Camp visé</span>' +
           '<select class="tl-eff-side">' +
             '<option value="foes">Adversaires</option>' +
             '<option value="allies">Alliés</option>' +
             '<option value="both">Tout le monde</option>' +
           '</select></label>' +
+        '<label class="tl-eff-field tl-eff-range-wrap" hidden><span class="tl-eff-lbl">Portée</span>' +
+          '<select class="tl-eff-range">' +
+            '<option value="contact"' + (e.range === 'contact' ? ' selected' : '') + '>Au contact</option>' +
+            '<option value="distance"' + (e.range === 'distance' ? ' selected' : '') + '>À distance</option>' +
+          '</select></label>' +
+        '<label class="tl-eff-field tl-eff-choice-wrap" hidden><span class="tl-eff-lbl tl-eff-choice-label">Choix</span>' +
+          '<select class="tl-eff-choice"></select></label>' +
+        '<div class="tl-eff-field tl-eff-dice-wrap" hidden><span class="tl-eff-lbl tl-eff-dice-label">Dés de dégâts</span>' +
+          '<div class="tl-eff-dice dice-steppers"></div></div>' +
       '</div>';
     list.appendChild(row);
     // Choix mémorisé (compétence, état…) pour réafficher la sélection à l'édition.

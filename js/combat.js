@@ -873,7 +873,13 @@
     c.zone = zi;
     pushFx({ type: 'move', iid: c.iid });
     if (!silent) logMove(c, zi);
-    if (c.side === 'hero') chargeOnEnter(c);
+    if (c.side === 'hero') {
+      chargeOnEnter(c);
+      // ÉPINES adverses : un aventurier qui arrive dans la zone d'un porteur se
+      // pique aussi (les déplacements des adversaires passent, eux, par l'IA
+      // qui appelle déjà epinesOnArrival).
+      epinesOnArrival(c);
+    }
   }
 
   // CHARGE DÉVASTATRICE (maîtrise) : en arrivant dans une zone, l'aventurier
@@ -909,10 +915,14 @@
       }
     }
     if (!heroHasTalent(c, 'charge_devastatrice')) return;
+    const tCharge = c.talents.find(function (x) { return x.effect === 'charge_devastatrice'; });
     const scope = heroTalentScope(c, 'charge_devastatrice');
     const n = heroTalentVal(c, 'charge_devastatrice');
+    // Dés propres au talent (facultatifs) : tirés PAR CIBLE ; sinon bonus de Dégâts.
+    const chargeDice = (tCharge && tCharge.dice && D.DICE_ORDER.some(function (k) { return tCharge.dice[k] > 0; }))
+      ? Object.assign(D.emptyPool(), tCharge.dice) : null;
     const dmg = c.damage || 0;
-    if (dmg <= 0) return;
+    if (dmg <= 0 && !chargeDice) return;
     // Cibles selon la portée : Nombre X (zone), Toute la zone, Tout le combat.
     let foes;
     if (scope === 'all') {
@@ -926,6 +936,10 @@
     foes.forEach(function (m) {
       // BLINDAGE : absorbe les dégâts de charge.
       if (absorbBlindage(m, 'la charge')) return;
+      const dmg = chargeDice
+        ? Math.max(0, (D.resolve(chargeDice, { def: 0, damage: 0, turn: combat().turn }).pvLost || 0))
+        : (c.damage || 0);
+      if (dmg <= 0) return;
       const before = m.pv;
       m.pv = Math.max(0, m.pv - dmg);
       m.dmgTaken += dmg; revealOnDamage(m, dmg); c.dmgDealt += dmg;
@@ -1014,7 +1028,8 @@
   // (Bousculade) : inflige son bonus de dégâts, absorbé par un éventuel Blindage.
   function heroOpportunity(hero, monster, why) {
     if (!hero || hero.status !== 'active' || hero.states.affaibli) return;
-    const dmg = hero.damage || 0;
+    const tv = heroTalentVal(hero, 'attaque_opportunite');
+    const dmg = tv > 0 ? tv : (hero.damage || 0);
     if (dmg <= 0 || monster.status !== 'active') return;
     if (absorbBlindage(monster, 'l\'attaque d\'opportunité')) return;
     const before = monster.pv;
@@ -1153,7 +1168,8 @@
     // ASSASSINAT (passif) : double le bonus de dégâts contre la cible choisie.
     const assassin = assassinatEffect(attacker, target);
     const assassinBonus = (assassin === 'bonus') ? baseDmg : 0;
-    const dmg = baseDmg + assassinBonus + talentBonus + (atk.bonusDmg || 0);
+    const dmg = baseDmg + assassinBonus + talentBonus +
+      Math.max(0, Math.round(Store.rollAmount(atk.bonusDmg || 0)));
     // BRISÉ et AU SOL : DEF = 0
     let def = (target.states.auSol || target.states.brise) ? 0 : target.def;
     // ÉPUISEMENT (passif) : chaque aventurier doté du talent dans la zone de la cible
@@ -1683,7 +1699,8 @@
     if (!m || m.side !== 'monster' || m.status !== 'active') return false;
     activeOf('hero').filter(function (h) { return h.zone === m.zone && heroHasTalent(h, 'execution'); }).forEach(function (h) {
       if (m.status !== 'active') return;
-      const dmg = h.damage || 0;
+      const tvx = heroTalentVal(h, 'execution');
+      const dmg = tvx > 0 ? tvx : (h.damage || 0);
       if (dmg <= 0) return;
       // Réaction : le joueur décide s'il exécute l'adversaire avant sa fuite.
       log('<b class="lreact">Exécution ?</b> ' + cname(m) + ' va fuir : ' + cname(h) + ' peut lui infliger ' + amt(dmg, 'dmg') + ' Dégâts.', 'state');
@@ -1765,24 +1782,27 @@
   function getHeroTalentDmgBonus(attacker, target, atk) {
     if (!Array.isArray(attacker.talents)) return 0;
     let bonus = 0;
+    // Valeur du talent : nombre fixe OU expression de dés (« 1d4 »), tirée à
+    // CHAQUE coup via rollAmount.
+    const v = function (t, dflt) { return Math.max(0, Math.round(Store.rollAmount(t.val == null ? (dflt || 0) : t.val))); };
     attacker.talents.forEach(function (t) {
       if (t.kind !== 'passive') return;
       switch (t.effect) {
-        case 'frappe_lourde': bonus += t.val || 0; break;
-        case 'maitre_distance': if (atk && atk.range === 'distance') bonus += t.val || 0; break;
-        case 'maitre_contact': if (atk && atk.range === 'contact') bonus += t.val || 0; break;
-        case 'tueur_au_sol': if (target.states.auSol) bonus += t.val || 0; break;
-        case 'tueur_affaibli': if (target.states.affaibli) bonus += t.val || 0; break;
+        case 'frappe_lourde': bonus += v(t); break;
+        case 'maitre_distance': if (atk && atk.range === 'distance') bonus += v(t); break;
+        case 'maitre_contact': if (atk && atk.range === 'contact') bonus += v(t); break;
+        case 'tueur_au_sol': if (target.states.auSol) bonus += v(t); break;
+        case 'tueur_affaibli': if (target.states.affaibli) bonus += v(t); break;
         case 'tueur_etat': {
           const st = t.choice;
-          if (st && target.states && (st === 'poison' ? target.states.poison > 0 : !!target.states[st])) bonus += t.val || 0;
+          if (st && target.states && (st === 'poison' ? target.states.poison > 0 : !!target.states[st])) bonus += v(t);
           break;
         }
         case 'meute': {
           const allies = combat().combatants.filter(function (c) {
             return c.side === attacker.side && c.status === 'active' && c.iid !== attacker.iid && c.zone === target.zone;
           }).length;
-          bonus += allies * (t.val || 1);
+          bonus += allies * v(t, 1);
           break;
         }
       }
@@ -1835,18 +1855,22 @@
   // ÉPINES (passif) : un adversaire qui arrive dans la zone d'un aventurier doté du
   // talent subit son bonus de dégâts.
   function epinesOnArrival(m) {
-    if (!m || m.side !== 'monster' || m.status !== 'active') return;
-    activeOf('hero').forEach(function (h) {
+    if (!m || m.status !== 'active') return;
+    // Symétrique : tout combattant du camp OPPOSÉ au nouvel arrivant, porteur
+    // d'Épines dans la même zone, le pique — adversaires porteurs compris.
+    const other = m.side === 'monster' ? 'hero' : 'monster';
+    activeOf(other).forEach(function (h) {
       if (h.zone !== m.zone || !heroHasTalent(h, 'epines')) return;
-      const dmg = h.damage || 0;
+      const tv = heroTalentVal(h, 'epines');
+      const dmg = tv > 0 ? tv : (h.damage || 0);
       if (dmg <= 0 || m.status !== 'active') return;
       if (absorbBlindage(m, 'Épines')) return;
       const before = m.pv;
       m.pv = Math.max(0, m.pv - dmg); m.dmgTaken += dmg; revealOnDamage(m, dmg); h.dmgDealt += dmg;
       pushFx({ type: 'hit', iid: m.iid, amount: dmg, fromPct: pct(before, m.maxPv), toPct: pct(m.pv, m.maxPv) });
       log('<b class="lopp">Épines !</b> ' + cname(h) + ' inflige ' + amt(dmg, 'dmg') + ' Dégâts à ' + cname(m) + ' qui arrive dans sa zone.', 'dchoc');
-      if (m.pv <= 0 && !m.killedBy) m.killedBy = h.iid;
-      checkMonsterTalents(m, dmg);
+      if (m.side === 'monster' && m.pv <= 0 && !m.killedBy) m.killedBy = h.iid;
+      if (m.side === 'monster') checkMonsterTalents(m, dmg);
       checkComa(m);
     });
   }
@@ -4187,17 +4211,29 @@
     // les attaques d'opportunité (doMove les déclenche). Aucun dégât direct.
     if (atk.frayeur) {
       if (!target || target.zone !== attacker.zone) { if (!atk.freeAction) useAction(attacker); return; }
-      const dests = zones().map(function (z, i) { return i; }).filter(function (i) {
-        return i !== target.zone && moveBarrier(target.zone, i).type !== 'block';
+      // FRAYEUR à X cibles / toute la zone : la cible cliquée fuit d'abord, puis
+      // les autres occupants adverses de la zone jusqu'au quota.
+      const foesHere = combat().combatants.filter(function (x) {
+        return x.side !== attacker.side && x.status === 'active' && x.zone === attacker.zone && x.iid !== target.iid;
       });
-      if (!dests.length) {
-        log(cname(target) + ' est ' + gAgr(target, 'terrifié') + ' mais <span class="lstate">ne peut fuir nulle part</span>.', 'state');
-      } else {
+      const quota = atk.frayeurScope === 'zone' || atk.frayeurScope === 'all'
+        ? 1 + foesHere.length
+        : Math.max(1, atk.frayeurCount || 1);
+      const victims = [target].concat(foesHere).slice(0, quota);
+      victims.forEach(function (v) {
+        if (v.status !== 'active' || v.zone !== attacker.zone) return;
+        const dests = zones().map(function (z, i) { return i; }).filter(function (i) {
+          return i !== v.zone && moveBarrier(v.zone, i).type !== 'block';
+        });
+        if (!dests.length) {
+          log(cname(v) + ' est ' + gAgr(v, 'terrifié') + ' mais <span class="lstate">ne peut fuir nulle part</span>.', 'state');
+          return;
+        }
         const dest = dests[Math.floor(Math.random() * dests.length)];
-        log('<b class="lopp">Frayeur !</b> ' + cname(attacker) + ' terrifie ' + cname(target) +
+        log('<b class="lopp">Frayeur !</b> ' + cname(attacker) + ' terrifie ' + cname(v) +
           ' qui fuit vers <span class="lstate">' + esc(zname(dest)) + '</span>.', 'state');
-        doMove(target, dest);
-      }
+        doMove(v, dest);
+      });
       if (!atk.freeAction) useAction(attacker);
       return;
     }

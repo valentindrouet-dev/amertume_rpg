@@ -461,6 +461,7 @@
           range: e.range || null,
           choice: e.choice || null,
           scope: e.scope || 'count', // 'count' | 'zone' | 'all'
+          side: e.side || null,      // 'foes' | 'allies' | 'both' (effets de zone)
         });
       });
     });
@@ -557,6 +558,7 @@
           // FRAYEUR : action pure — la cible désignée dans la zone doit fuir
           // ailleurs (attaques d'opportunité déclenchées côté moteur).
           return Object.assign(common, { range: 'contact', frayeur: true, useOwnDamage: false,
+            frayeurCount: Math.max(1, t.val || 1), frayeurScope: t.scope || 'count',
             dice: D.emptyPool(), effects: Store.noStates() });
         case 'pyromane':
           // Orbe Mystique : 1 dé bleu, à distance, action gratuite réutilisable.
