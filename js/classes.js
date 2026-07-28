@@ -417,6 +417,13 @@
       row.querySelector('.tl-eff-val-label').textContent = (eff.valLabel || 'Valeur X') +
         (eff.valDice ? ' (fixe ou dés, ex. 1d6)' : '');
     }
+    // Camp visé (adversaires / alliés / tout le monde) pour les effets de zone.
+    const sideWrap = row.querySelector('.tl-eff-side-wrap');
+    const sideSel = sideWrap ? sideWrap.querySelector('.tl-eff-side') : null;
+    if (sideWrap) {
+      sideWrap.hidden = !(eff && eff.hasSide);
+      if (eff && eff.hasSide && sideSel) sideSel.value = row._side || eff.defaultSide || 'foes';
+    }
     rangeWrap.hidden = !(eff && eff.hasRange);
     diceWrap.hidden = !(eff && eff.hasDice);
     // Choix paramétrable (compétence, état infligé…) : peuple et affiche le select.
@@ -481,11 +488,18 @@
             '<option value="zone">Toute la zone</option>' +
             '<option value="all">Tout le combat</option>' +
           '</select></label>' +
+        '<label class="tl-eff-side-wrap" hidden>Camp ' +
+          '<select class="tl-eff-side">' +
+            '<option value="foes">Adversaires</option>' +
+            '<option value="allies">Alliés</option>' +
+            '<option value="both">Tout le monde</option>' +
+          '</select></label>' +
       '</div>';
     list.appendChild(row);
     // Choix mémorisé (compétence, état…) pour réafficher la sélection à l'édition.
     row._choice = e.choice || '';
     row._scope = e.scope || 'count';
+    row._side = e.side || '';
     // Pool de dés propre à la ligne (référence mutée par les steppers)
     row._pool = Object.assign(emptyPool(), e.dice || {});
     if (Inventory && Inventory.buildDiceSteppers) {
@@ -507,6 +521,8 @@
     if (choiceSel) choiceSel.addEventListener('change', function () { row._choice = choiceSel.value; });
     const scopeSel2 = row.querySelector('.tl-eff-scope');
     if (scopeSel2) scopeSel2.addEventListener('change', function () { row._scope = scopeSel2.value; syncEffectRow(row); });
+    const sideSel2 = row.querySelector('.tl-eff-side');
+    if (sideSel2) sideSel2.addEventListener('change', function () { row._side = sideSel2.value; syncEffectRow(row); });
     syncEffectRow(row);
     return row;
   }
@@ -563,6 +579,7 @@
         const cs = row.querySelector('.tl-eff-choice');
         e.choice = (cs && cs.value) || (meta.choices && meta.choices[0]) || '';
       }
+      if (meta.hasSide) e.side = row.querySelector('.tl-eff-side').value || 'foes';
       if (meta.hasScope) {
         const ss = row.querySelector('.tl-eff-scope');
         e.scope = (ss && ss.value) || 'count';

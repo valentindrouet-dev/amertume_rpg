@@ -675,7 +675,8 @@
       // ATTAQUE DE ZONE : toutes les zones atteignables sont mises en surbrillance
       // (on peut viser une zone au lieu d'une vignette — utile contre les invisibles).
       const atkr = pendingAttack ? byId(pendingAttack.iid) : null;
-      const zoneAttackable = !!(atkr && !pendingMove && zoneAttackReach(atkr, zi));
+      const zoneAttackable = !!(atkr && !pendingMove &&
+        (pendingAttack.blastZone || zoneAttackReach(atkr, zi)));
       // Infobulle de ciblage : remplace l'ancien bandeau (qui faisait sauter la page).
       const zTip = zoneAttackable
         ? ' title="Cliquez cette zone pour y frapper' + (anyInvisibleFoe() ? ' — de quoi débusquer un invisible (Perception 2)' : '') + '"'
@@ -1670,6 +1671,8 @@
         ? cname(c) + ' <span class="lvanq">est ' + gAgr(c, 'vaincu') + ' !</span>'
         : cname(c) + ' <span class="lcoma">tombe dans le coma…</span>');
       if (c.side === 'hero' && combatKey === 'combat') applyHeroComaVieLoss(c);
+      // MORT EXPLOSIVE : le souffle part au moment où le porteur tombe.
+      mortExplosive(c);
     }
   }
 
@@ -4055,6 +4058,8 @@
   function attackZone(zi) {
     const attacker = byId(pendingAttack.iid);
     if (!attacker || attacker.status !== 'active') { pendingAttack = null; render(); return; }
+    // ATTAQUE DE ZONE à distance : la zone cliquée reçoit le souffle.
+    if (pendingAttack.blastZone) { execZoneBlast(attacker, pendingAttack.atkIndex, zi); return; }
     const foeSide = attacker.side === 'hero' ? 'monster' : 'hero';
     const inZone = combat().combatants.filter(function (m) {
       return m.side === foeSide && m.status === 'active' && m.zone === zi;
@@ -4331,6 +4336,104 @@
       amt(gained, 'heal') + ' PV' + detail + '.', 'heal');
     if (!atk.freeAction) useAction(c);
   }
+  // ---- EXPLOSION DE ZONE (Attaque de Zone / Mort Explosive) ----
+  // Souffle générique : des dés (couleurs au choix) frappent les combattants
+  // d'une zone — X cibles, toute la zone ou tout le combat —, du camp adverse,
+  // allié ou des deux, avec un état facultatif. La DEF n'intervient pas (c'est
+  // un effet de souffle, comme le Feu).
+  const BLAST_STATE_LABEL = { affaibli: 'Affaibli', auSol: 'Au sol', feu: 'Feu', poison: 'Poison', brise: 'Brisé', faille: 'Faille' };
+  function blastTargets(src, cfg, zi) {
+    const all = combat().combatants.filter(function (c) {
+      if (c.status !== 'active' || c.iid === src.iid) return false;
+      if (cfg.scope !== 'all' && c.zone !== zi) return false;
+      if (cfg.side === 'allies') return c.side === src.side;
+      if (cfg.side === 'both') return true;
+      return c.side !== src.side;
+    });
+    if (cfg.scope === 'count') return all.slice(0, Math.max(1, cfg.val || 1));
+    return all;
+  }
+  function zoneBlast(src, cfg, zi) {
+    const targets = blastTargets(src, cfg, zi);
+    if (!targets.length) {
+      log(cname(src) + ' déclenche <span class="lwpn">' + nm(cfg.name || 'une explosion') +
+        '</span> — personne dans <span class="lstate">' + esc(zname(zi)) + '</span>.', 'state');
+      return 0;
+    }
+    const pool = Object.assign(D.emptyPool(), cfg.dice || {});
+    let touched = 0;
+    targets.forEach(function (t) {
+      if (t.status !== 'active') return;
+      // BLINDAGE : absorbe entièrement le souffle (consomme une source).
+      if (absorbBlindage(t, cfg.name || 'l\'explosion')) return;
+      const res = D.resolve(pool, { def: 0, damage: 0, turn: combat().turn });
+      const flat = Math.max(0, Store.rollAmount(cfg.val0 || 0));
+      const dmg = Math.max(0, (res.pvLost || 0) + flat);
+      const before = t.pv;
+      if (dmg > 0) {
+        t.pv = Math.max(0, t.pv - dmg);
+        t.dmgTaken += dmg; revealOnDamage(t, dmg);
+        src.dmgDealt += dmg;
+        pushFx({ type: 'hit', iid: t.iid, amount: dmg, fromPct: pct(before, t.maxPv), toPct: pct(t.pv, t.maxPv) });
+      }
+      let stTxt = '';
+      if (cfg.state && t.status === 'active') {
+        if (cfg.state === 'poison') t.states.poison = (t.states.poison || 0) + 1;
+        else t.states[cfg.state] = true;
+        pushFx({ type: 'state', iid: t.iid });
+        stTxt = ' + <span class="lstate">' + esc(BLAST_STATE_LABEL[cfg.state] || cfg.state) + '</span>';
+      }
+      log(cname(src) + ' — <span class="lwpn">' + nm(cfg.name || 'Explosion') + '</span> touche ' + cname(t) +
+        ' : ' + amt(dmg, 'dmg') + ' Dégâts' + stTxt + '.', 'attack');
+      if (t.side === 'monster' && t.pv <= 0 && !t.killedBy) t.killedBy = src.iid;
+      checkComa(t);
+      touched++;
+    });
+    return touched;
+  }
+  // Configuration de souffle portée par un talent (Attaque de Zone / Mort Explosive).
+  function blastCfg(t, fallbackName) {
+    return {
+      name: t.name || fallbackName,
+      dice: t.dice || { white: 2 },
+      val: Math.max(1, parseInt(t.val, 10) || 1),   // nb de cibles (scope 'count')
+      val0: 0,
+      scope: t.scope || 'count',
+      side: t.side || 'foes',
+      state: t.state || t.choice || '',
+      range: t.range || 'contact',
+    };
+  }
+  // MORT EXPLOSIVE : déclenchée quand le porteur tombe (coma / mort).
+  function mortExplosive(c) {
+    if (!c || c._blasted) return;
+    const t = Array.isArray(c.talents) ? c.talents.find(function (x) { return x.effect === 'mort_explosive'; }) : null;
+    if (!t) return;
+    c._blasted = true;               // une seule explosion par combattant
+    const cfg = blastCfg(t, 'Mort Explosive');
+    if (cfg.range === 'distance') cfg.scope = 'all';   // « une autre zone » → tout le combat
+    toast('💥 ' + (t.name || 'Mort Explosive'), 'crit');
+    log('<b class="lopp">' + nm(t.name || 'Mort Explosive') + ' !</b> ' + cname(c) + ' explose en tombant.', 'state');
+    zoneBlast(c, cfg, c.zone);
+    checkOutcome();
+  }
+
+  // ATTAQUE DE ZONE : consomme l'action puis déclenche le souffle sur la zone.
+  function execZoneBlast(c, atkIndex, zi) {
+    const atk = c.attacks[atkIndex];
+    if (!atk || !atk.zoneBlast) return;
+    if (cannotAct(c, atk, atkIndex)) return;
+    recordAction(c, atk, atkIndex);
+    applyPoison(c);
+    if (c.status !== 'active') { pendingAttack = null; checkOutcome(); Store.save(); render(); return; }
+    const cfg = blastCfg(Object.assign({ name: attackLabel(atk) }, atk.zoneBlast), 'Attaque de Zone');
+    toast('💥 ' + attackLabel(atk), 'act-hero');
+    zoneBlast(c, cfg, zi);
+    if (!atk.freeAction) useAction(c);
+    pendingAttack = null;
+    checkOutcome(); Store.save(); render();
+  }
+
   // GUÉRISON : récupère de la VIE perdue. La VIE est une statistique d'AVENTURE
   // (elle se perd au coma) : le soin est donc appliqué à la partie en cours, pas
   // aux PV du combat. Sans partie (Combat Test) ou sans VIE perdue, l'action
@@ -4379,6 +4482,15 @@
     // Cliquer un AUTRE bouton met fin à la répartition des Orbes Partagés / désignation Gardien.
     if (!atk.orbeShare) pendingOrbeShare = null;
     pendingDesignate = null;
+    // ATTAQUE DE ZONE : au contact, le souffle part dans SA zone ; à distance,
+    // on choisit la zone visée (clic sur une zone du plateau).
+    if (atk.zoneBlast) {
+      if (atk.range === 'distance') {
+        pendingAttack = { iid: c.iid, atkIndex: i, blastZone: true };
+        render(); return;
+      }
+      execZoneBlast(c, i, c.zone); return;
+    }
     // Action de soin (auto-ciblée) : se résout immédiatement, sans ciblage.
     if (atk.vieHeal) { execHeroVieHeal(c, i); return; }
     if (atk.selfHeal) { execHeroSelfHeal(c, i); return; }

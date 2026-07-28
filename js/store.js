@@ -470,7 +470,24 @@
     // ⚔️ ATTAQUES SPÉCIALES — actions qui frappent
     { effect: 'double_attaque', name: 'Double Attaque', kind: 'action', cat: 'attaque', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles', hasScope: true,
       desc: 'Action : frappez X adversaires d\'une même zone avec les Dégâts de votre arme.' },
+    { effect: 'attaque_zone', name: 'Attaque de Zone', kind: 'action', cat: 'attaque',
+      hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles', hasScope: true,
+      hasDice: true, defaultDice: { white: 2 }, hasRange: true, defaultRange: 'contact',
+      hasSide: true, defaultSide: 'foes',
+      hasChoice: true, choiceLabel: 'État infligé (facultatif)',
+      choices: ['', 'feu', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
+      desc: 'Action : infligez les dés indiqués dans une zone — à X cibles, à toute la zone ou à tout le combat, ' +
+        'aux adversaires, aux alliés ou à tout le monde, avec un état au choix.' },
+    { effect: 'mort_explosive', name: 'Mort Explosive', kind: 'passive', cat: 'attaque',
+      hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles', hasScope: true,
+      hasDice: true, defaultDice: { red: 2 }, hasRange: true, defaultRange: 'contact',
+      hasSide: true, defaultSide: 'foes',
+      hasChoice: true, choiceLabel: 'État infligé (facultatif)',
+      choices: ['', 'feu', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
+      desc: 'En mourant, vous infligez les dés indiqués — à X cibles, à toute la zone ou à tout le combat, ' +
+        'aux adversaires, aux alliés ou à tout le monde, avec un état au choix.' },
     { effect: 'salve_zone', name: 'Salve de Zone', kind: 'action', cat: 'attaque', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles', hasScope: true,
+      legacy: 'attaque_zone',
       hasDice: true, defaultDice: { white: 2 }, hasRange: true, defaultRange: 'contact',
       desc: 'Action : infligez les dés indiqués à X adversaires d\'une même zone (contact ou distance).' },
     { effect: 'assaut_mobile', name: 'Assaut Mobile', kind: 'action', cat: 'attaque', hasVal: false,
@@ -584,7 +601,7 @@
     { effect: 'execution', name: 'Exécution', kind: 'reaction', cat: 'riposte', hasVal: false,
       desc: 'Réaction — avant qu\'un adversaire de votre zone ne fuie : il subit votre bonus de Dégâts.' },
     // 🛡️ DÉFENSE & PROTECTION
-    { effect: 'cuirasse', name: 'Cuirasse', kind: 'passive', cat: 'protection', hasVal: true, defaultVal: 1, valLabel: 'Réduction',
+    { effect: 'cuirasse', name: 'Cuirasse', kind: 'passive', cat: 'protection', hasVal: true, valDice: true, defaultVal: 1, valLabel: 'Réduction',
       desc: 'Réduit de X les Dégâts que vous subissez (minimum 0).' },
     { effect: 'esquive_innee', name: 'Esquive Innée', kind: 'upgrade', cat: 'protection', hasVal: false,
       desc: 'Vous gagnez Esquive : un 6+ annule tous les Dégâts d\'une attaque subie.' },

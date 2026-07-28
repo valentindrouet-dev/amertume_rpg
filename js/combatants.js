@@ -480,7 +480,8 @@
     talents.filter(function (t) { return t.kind === 'action' || t.effect === 'pyromane'; }).forEach(function (t) {
       if (!merged[t.effect]) {
         merged[t.effect] = { id: t.id, name: t.name, effect: t.effect, kind: 'action',
-          val: 0, dice: null, range: null, choice: t.choice || null, scope: t.scope || 'count' };
+          val: 0, dice: null, range: null, choice: t.choice || null, scope: t.scope || 'count',
+          side: t.side || 'foes' };
         order.push(t.effect);
       }
       const m = merged[t.effect];
@@ -490,6 +491,7 @@
       if (!m.dice && t.dice) m.dice = t.dice;
       if (!m.range && t.range) m.range = t.range;
       if (t.scope && t.scope !== 'count') m.scope = t.scope;
+      if (t.side) m.side = t.side;
     });
     return order.map(function (eff) {
       const t = merged[eff];
@@ -501,6 +503,18 @@
           if (t.scope === 'zone') return Object.assign(common, { targets: 'all', zoneOnly: true });
           if (t.scope === 'all') return Object.assign(common, { targets: 'all' });
           return Object.assign(common, { multiTarget: Math.max(2, t.val || 2), sameZone: true });
+        case 'attaque_zone':
+          // Souffle de zone : résolu par le moteur (cibles, camp, état), pas par
+          // la chaîne d'attaque classique.
+          return Object.assign(common, {
+            zoneBlast: {
+              dice: t.dice ? Object.assign(D.emptyPool(), t.dice) : Object.assign(D.emptyPool(), { white: 2 }),
+              val: t.val || 2, scope: t.scope || 'count', side: t.side || 'foes',
+              state: t.choice || '', range: t.range || 'contact',
+            },
+            targets: 'self', useOwnDamage: false,
+            range: t.range === 'distance' ? 'distance' : 'contact',
+          });
         case 'salve_zone': {
           const dist = t.range === 'distance';
           const sdice = t.dice ? Object.assign(D.emptyPool(), t.dice) : Object.assign(D.emptyPool(), { white: 2 });
