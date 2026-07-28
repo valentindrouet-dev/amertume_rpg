@@ -423,12 +423,16 @@
     if (sideWrap) {
       sideWrap.hidden = !(eff && eff.hasSide);
       if (eff && eff.hasSide && sideSel) {
-        // Anciennes valeurs RELATIVES ('foes'/'allies'/'both') : on présélectionne
-        // l'équivalent absolu le plus probable ; la valeur n'est réécrite qu'à
-        // l'enregistrement du talent.
-        const v = row._side || eff.defaultSide || 'monsters';
+        // Défaut selon le GROUPE du talent : un talent d'adversaire vise les
+        // Aventuriers, tous les autres visent les Adversaires. Modifiable à la
+        // main ; une valeur déjà choisie ou enregistrée est conservée.
+        const grpSel = document.getElementById('tl-f-group');
+        const dflt = (grpSel && grpSel.value === 'adversary') ? 'heroes' : 'monsters';
+        // Anciennes valeurs RELATIVES ('foes'/'allies'/'both') : équivalent absolu
+        // le plus probable ; la valeur n'est réécrite qu'à l'enregistrement.
+        const v = row._side || dflt;
         sideSel.value = v === 'foes' ? 'monsters' : v === 'allies' ? 'heroes' : v === 'both' ? 'all' : v;
-        if (!sideSel.value) sideSel.value = 'monsters';
+        if (!sideSel.value) sideSel.value = dflt;
       }
     }
     rangeWrap.hidden = !(eff && eff.hasRange);
@@ -547,6 +551,13 @@
     $('#tl-f-id').value = t.id;
     $('#tl-f-name').value = t.name || '';
     $('#tl-f-group').innerHTML = groupOptions(ref || 'generic');
+    // Le camp visé PAR DÉFAUT dépend du groupe : re-synchronise les lignes
+    // d'effet dont le camp n'a pas été fixé à la main.
+    $('#tl-f-group').onchange = function () {
+      document.querySelectorAll('#tl-f-effects .tl-eff-row').forEach(function (row) {
+        if (!row._side) syncEffectRow(row);
+      });
+    };
     $('#tl-f-level').value = t.level || 1;
     $('#tl-f-usage').value = t.usage || 'both';
     if ($('#tl-f-kind')) $('#tl-f-kind').value = t.kindOverride || '';
