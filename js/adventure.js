@@ -31,6 +31,7 @@
   let sagas = [];        // Grandes Aventures : { id, title, adventureIds:[] }
   let homeOrder = [];    // ordre d'accueil : [{ type:'saga'|'adv', id }]
   let collapsedChapters = {}; // { chapterId: true } — état enroulé dans l'éditeur
+  const dmapView = {};        // { chapterId: {left, top} } — cadrage de la carte de donjon
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
   // Niveaux de difficulté des tests (nombre de réussites requises).
   const DIFF_LEVELS = [['auto', 'Automatique (0)'], ['facile', 'Facile (1)'], ['moyen', 'Moyen (2)'], ['difficile', 'Difficile (3)'], ['tresdifficile', 'Très Difficile (4)'], ['insurmontable', 'Insurmontable (5)'], ['impossible', 'Impossible (6)']];
@@ -642,6 +643,12 @@
   function renderChapters(a) {
     const box = $('#adv-chapters');
     if (!box) return;
+    // Reconstruction complète de la liste : la page peut « sauter » en haut le
+    // temps que le contenu retrouve sa hauteur. On restaure le défilement.
+    const pageY = window.scrollY;
+    const restorePage = function () {
+      if (window.scrollY !== pageY) window.scrollTo(0, pageY);
+    };
     if (!a.chapters.length) {
       box.innerHTML = '<p class="empty">Aucun chapitre.</p>';
       return;
@@ -781,6 +788,7 @@
       if (!collapsedChapters[ch.id] && chMode(ch) === 'dungeon') renderDungeonEditor(a, ch);
       if (!collapsedChapters[ch.id] && chMode(ch) === 'random') renderRandomEventsEditor(a, ch);
     });
+    restorePage();
   }
 
   // ---- Donjon aléatoire : événements de passage (entre les salles) ----
@@ -965,6 +973,13 @@
     const box = document.getElementById('dmap-' + ch.id);
     if (!box) return;
     ensureDungeonData(ch);
+    // La carte est entièrement reconstruite à chaque rendu : on mémorise le
+    // cadrage courant pour le restaurer, sinon toute fermeture de fenêtre
+    // d'édition ramène la vue en haut à gauche de la carte.
+    const prevScroll = box.querySelector('.dmap-scroll');
+    const keepView = prevScroll
+      ? { left: prevScroll.scrollLeft, top: prevScroll.scrollTop }
+      : (dmapView[ch.id] || null);
     const byId = {};
     ch.scenes.forEach(function (s) { byId[s.id] = s; });
     const titleOf = function (id) { const s = byId[id]; return s ? (s.title || '(sans titre)') : '?'; };
@@ -1065,6 +1080,14 @@
 
     // ----- Câblage -----
     const scroll = box.querySelector('.dmap-scroll');
+    if (scroll) {
+      if (keepView) { scroll.scrollLeft = keepView.left; scroll.scrollTop = keepView.top; }
+      // Cadrage retenu même si la carte est démontée entre deux rendus (repli du
+      // chapitre, retour depuis une autre vue).
+      scroll.addEventListener('scroll', function () {
+        dmapView[ch.id] = { left: scroll.scrollLeft, top: scroll.scrollTop };
+      });
+    }
     box.querySelector('.dmap-add').onclick = function () {
       const cell = dmapFreeCell(ch, 0, 0, null);
       const ns = newScene();
@@ -1246,6 +1269,9 @@
 
     const modal = document.getElementById('scene-modal');
     modal.removeAttribute('hidden');
+    // La modale est un conteneur défilant réutilisé : sans ça, elle rouvre à la
+    // position où on l'avait laissée (souvent tout en bas).
+    modal.scrollTop = 0;
     sceneCombatOpen = false; // la section combat se replie pour chaque nouvelle scène sans combat
 
     document.getElementById('sm-title').value = scene.title || '';
