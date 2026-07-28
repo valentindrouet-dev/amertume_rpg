@@ -4382,9 +4382,15 @@
     const all = combat().combatants.filter(function (c) {
       if (c.status !== 'active' || c.iid === src.iid) return false;
       if (cfg.scope !== 'all' && c.zone !== zi) return false;
+      // Camp visé ABSOLU : Aventuriers / Adversaires / tous les Combattants —
+      // indépendant du camp du porteur (aucune ambiguïté pour un talent
+      // d'adversaire). Rétro-compat des anciennes valeurs relatives :
+      // 'allies' = camp du porteur, 'foes' = camp opposé.
+      if (cfg.side === 'heroes') return c.side === 'hero';
+      if (cfg.side === 'monsters') return c.side === 'monster';
+      if (cfg.side === 'both' || cfg.side === 'all') return true;
       if (cfg.side === 'allies') return c.side === src.side;
-      if (cfg.side === 'both') return true;
-      return c.side !== src.side;
+      return c.side !== src.side; // 'foes' / défaut
     });
     if (cfg.scope === 'count') return all.slice(0, Math.max(1, cfg.val || 1));
     return all;

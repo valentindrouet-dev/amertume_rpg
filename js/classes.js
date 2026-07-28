@@ -422,7 +422,14 @@
     const sideSel = sideWrap ? sideWrap.querySelector('.tl-eff-side') : null;
     if (sideWrap) {
       sideWrap.hidden = !(eff && eff.hasSide);
-      if (eff && eff.hasSide && sideSel) sideSel.value = row._side || eff.defaultSide || 'foes';
+      if (eff && eff.hasSide && sideSel) {
+        // Anciennes valeurs RELATIVES ('foes'/'allies'/'both') : on présélectionne
+        // l'équivalent absolu le plus probable ; la valeur n'est réécrite qu'à
+        // l'enregistrement du talent.
+        const v = row._side || eff.defaultSide || 'monsters';
+        sideSel.value = v === 'foes' ? 'monsters' : v === 'allies' ? 'heroes' : v === 'both' ? 'all' : v;
+        if (!sideSel.value) sideSel.value = 'monsters';
+      }
     }
     rangeWrap.hidden = !(eff && eff.hasRange);
     diceWrap.hidden = !(eff && eff.hasDice);
@@ -482,10 +489,10 @@
             '<option value="all">Tout le combat</option>' +
           '</select></label>' +
         '<label class="tl-eff-field tl-eff-side-wrap" hidden><span class="tl-eff-lbl">Camp visé</span>' +
-          '<select class="tl-eff-side">' +
-            '<option value="foes">Adversaires</option>' +
-            '<option value="allies">Alliés</option>' +
-            '<option value="both">Tout le monde</option>' +
+          '<select class="tl-eff-side" title="Camp touché, quel que soit le porteur du talent">' +
+            '<option value="monsters">Adversaires</option>' +
+            '<option value="heroes">Aventuriers</option>' +
+            '<option value="all">Tous les Combattants</option>' +
           '</select></label>' +
         '<label class="tl-eff-field tl-eff-range-wrap" hidden><span class="tl-eff-lbl">Portée</span>' +
           '<select class="tl-eff-range">' +
@@ -581,7 +588,7 @@
         const cs = row.querySelector('.tl-eff-choice');
         e.choice = (cs && cs.value) || (meta.choices && meta.choices[0]) || '';
       }
-      if (meta.hasSide) e.side = row.querySelector('.tl-eff-side').value || 'foes';
+      if (meta.hasSide) e.side = row.querySelector('.tl-eff-side').value || 'monsters';
       if (meta.hasScope) {
         const ss = row.querySelector('.tl-eff-scope');
         e.scope = (ss && ss.value) || 'count';
