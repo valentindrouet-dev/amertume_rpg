@@ -2048,11 +2048,11 @@
                 '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
                 '<span class="stat-pill">🎯 ' + (MENACE_LABEL[m.menace] || m.menace) + '</span>' +
               '</div>' +
-              '<div class="mon-sheet-line">' +
+              '<div class="mon-sheet-line mon-sheet-block">' +
                 '<span class="mon-sheet-lbl">Attaques</span>' +
                 '<span class="mon-sheet-val atk-badges">' + attacksSummary(monsterCombatAttacks(m)) + '</span>' +
               '</div>' +
-              '<div class="mon-sheet-line">' +
+              '<div class="mon-sheet-line mon-sheet-block">' +
                 '<span class="mon-sheet-lbl">Talents</span>' +
                 '<span class="mon-sheet-val talent-badges">' + (advTalentsSummary(m) || '<span class="hint">—</span>') + '</span>' +
               '</div>' +

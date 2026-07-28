@@ -4973,3 +4973,18 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .mon-sheet .stat-pill { font-size: .74rem; }
 .mon-sheet .atk-badge { font-size: .76rem; }
 .mon-sheet-meta { gap: .3rem; }
+/* v2.4.31 — Attaques / Talents : titre sur sa propre ligne, contenu pleine largeur. */
+.mon-sheet-line.mon-sheet-block { flex-direction: column; align-items: stretch; gap: .2rem; }
+.mon-sheet-block > .mon-sheet-lbl { flex: 0 0 auto; padding-top: 0; }
+.mon-sheet-block > .mon-sheet-val { width: 100%; flex: 1 1 auto; }
+.mon-sheet-block > .mon-sheet-val > * { max-width: 100%; }
+/* Cartouches lisibles : fond plus clair. */
+.mon-sheet .tag,
+.mon-sheet .talent-badge {
+  background: rgba(255,255,255,.14);
+  border-color: rgba(255,255,255,.24);
+  color: var(--text);
+}
+.mon-sheet .talent-badge .tl-kind {
+  background: rgba(255,255,255,.24); color: var(--text); border-color: transparent;
+}
