@@ -583,6 +583,10 @@
     { effect: 'brasier', name: 'Déchaînement', kind: 'action', cat: 'etats', hasVal: false,
       hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'gele', 'poison', 'affaibli', 'brise', 'faille', 'auSol'],
       desc: 'Action : 1 attaque qui touche TOUS les adversaires affectés par l\'état choisi (FEU par défaut). Anciennement « Brasier ».' },
+    { effect: 'surcouche_etat', name: 'Surcouche Élémentaire', kind: 'upgrade', cat: 'etats',
+      hasVal: true, defaultVal: 2, valLabel: 'Crans infligés',
+      hasChoice: true, choiceLabel: 'État renforcé', choices: ['feu', 'gele', 'poison'],
+      desc: 'Toutes vos attaques et talents qui infligent l\'état choisi (cumulable) posent X crans au lieu de 1 (ex : FEU 2 au lieu de FEU 1).' },
     { effect: 'pas_echec_ausol', name: 'Coup de Grâce', kind: 'passive', cat: 'etats', hasVal: false,
       desc: 'Pas d\'Échec (double 1) contre les cibles AU SOL — les 1 comptent comme des Dégâts normaux.' },
     // 🎯 CRITIQUES — déclenchés par vos Critiques (double 6)

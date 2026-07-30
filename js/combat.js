@@ -764,6 +764,20 @@
     c.states[s] = stateVal(c, s) + (n == null ? 1 : Math.max(0, n));
     return c.states[s];
   }
+  // SURCOUCHE ÉLÉMENTAIRE : nombre de crans qu'une source pose quand elle
+  // inflige un état cumulable (1 par défaut ; X si elle porte le talent pour
+  // cet état). Fonctionne pour les aventuriers ET les adversaires.
+  function stackApplyN(src, state) {
+    if (!src || !Array.isArray(src.talents)) return 1;
+    let n = 1;
+    src.talents.forEach(function (t) {
+      if (t.effect !== 'surcouche_etat') return;
+      if ((t.choice || 'feu') !== state) return;
+      const v = Math.round(Store.rollAmount(t.val == null || t.val === 0 ? 2 : t.val)) || 2;
+      n = Math.max(n, Math.max(2, v));
+    });
+    return n;
+  }
   // Libellé affiché : les états cumulables portent leur valeur (« Feu 2 »).
   function stateBadgeLabel(c, s) {
     return isStackState(s) ? stateLabel(s) + ' ' + stateVal(c, s) : stateLabel(s);
@@ -1018,7 +1032,7 @@
         // AU SOL ne s'applique pas aux boss ni aux socles plus grands (cohérent avec applyStates).
         const blockAuSol = st === 'auSol' && (foe.type === 'boss' || SOCLE_RANK[foe.socle] > SOCLE_RANK[c.socle]);
         if (!blockAuSol) {
-          if (isStackState(st)) addStack(foe, st, 1);
+          if (isStackState(st)) addStack(foe, st, stackApplyN(c, st));
           else if (st === 'auSol') foe.states.auSol = true;
           else if (st === 'affaibli') foe.states.affaibli = true;
           pushFx({ type: 'state', iid: foe.iid });
@@ -1225,11 +1239,12 @@
     }
     list.forEach(function (s) {
       if (s === 'poison') {
-        target.states.poison = (target.states.poison || 0) + poisonVal;
+        // Surcouche (Poison) : chaque application pose X crans au lieu de 1.
+        target.states.poison = (target.states.poison || 0) + poisonVal + (stackApplyN(attacker, 'poison') - 1);
         log(cname(target) + ' subit <span class="lstate">Poison ' + target.states.poison + '</span>.', 'state');
       } else if (isStackState(s)) {
-        // Feu / Gelé : chaque application monte d'un cran.
-        const n = addStack(target, s, 1);
+        // Feu / Gelé : chaque application monte d'un cran (X avec Surcouche).
+        const n = addStack(target, s, stackApplyN(attacker, s));
         log(cname(target) + ' subit <span class="lstate">' + stateLabel(s) + ' ' + n + '</span>' +
           (s === 'gele' ? ' — plus de déplacement sans un test de Force ' + n + '.' : '.'), 'state');
       } else {
@@ -1459,7 +1474,7 @@
       const st = attacker.orbBuffState || 'feu';
       attacker.orbBuffState = null;
       let lbl = orbElementLabel(st);
-      if (isStackState(st)) lbl += ' ' + addStack(target, st, 1);
+      if (isStackState(st)) lbl += ' ' + addStack(target, st, stackApplyN(attacker, st));
       else target.states[st] = true;
       pushFx({ type: 'state', iid: target.iid });
       log(cname(target) + ' subit <span class="lstate">' + lbl + '</span> (Orbes Partagés).', 'state');
@@ -4600,7 +4615,7 @@
       }
       let stTxt = '';
       if (cfg.state && t.status === 'active') {
-        if (isStackState(cfg.state)) addStack(t, cfg.state, 1);
+        if (isStackState(cfg.state)) addStack(t, cfg.state, stackApplyN(src, cfg.state));
         else t.states[cfg.state] = true;
         pushFx({ type: 'state', iid: t.iid });
         stTxt = ' + <span class="lstate">' + esc(BLAST_STATE_LABEL[cfg.state] || cfg.state) +
