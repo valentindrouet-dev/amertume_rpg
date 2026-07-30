@@ -5085,3 +5085,8 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   font-size: .95rem; color: #bfe6f6; text-shadow: 0 0 6px rgba(111,182,216,.8);
   pointer-events: none;
 }
+
+/* v2.4.37 — ⭐ Maîtrise de départ d'une classe (onglet Classes). */
+.inv-strip-eye.tl-start { opacity: .55; }
+.inv-strip-eye.tl-start:hover { opacity: 1; }
+.inv-strip-eye.tl-start.on { opacity: 1; filter: drop-shadow(0 0 3px rgba(216,162,74,.8)); }

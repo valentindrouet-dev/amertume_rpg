@@ -221,6 +221,9 @@
   function talentStrip(t, ref, opts) {
     opts = opts || {};
     const kind = t.kind || (t.effect && effectMap()[t.effect] ? effectMap()[t.effect].kind : '');
+    // MAÎTRISE DE DÉPART : une seule par classe, accordée d'office à la création
+    // d'un aventurier de cette classe. Réservée aux Maîtrises de niveau 1.
+    const canStart = opts.classCol && kind === 'mastery' && (t.level || 1) <= 1;
     const right =
       (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT[kind] || kind) + '</span>' : '<span class="tl-kind tl-kind-none">Descriptif</span>') +
       // Les adversaires n'ont pas de niveau : on masque « Niv. x » (opts.hideLevel).
@@ -238,6 +241,13 @@
         '</div>' +
         // L'œil (masquer aux aventuriers) n'a pas de sens pour les talents
         // d'adversaires : on l'omet dans l'onglet Talents Adv. (opts.hideEye).
+        (canStart
+          ? '<button class="inv-strip-eye tl-start' + (t.startMastery ? ' on' : '') + '" data-start="' + esc(ref) + '" data-tid="' + esc(t.id) + '" ' +
+              'title="' + (t.startMastery
+                ? 'Maîtrise de DÉPART de cette classe — cliquer pour la retirer'
+                : 'Faire de ce talent la Maîtrise de DÉPART de la classe (accordée d\'office à la création)') + '">' +
+              (t.startMastery ? '⭐' : '☆') + '</button>'
+          : '') +
         (opts.hideEye ? '' :
           '<button class="inv-strip-eye' + (hidden ? ' off' : '') + '" data-eye="' + esc(ref) + '" data-tid="' + esc(t.id) + '" ' +
             'title="' + (hidden ? 'Talent masqué aux aventuriers — cliquer pour réactiver' : 'Masquer ce talent aux aventuriers') + '">' +
@@ -255,7 +265,7 @@
     box.innerHTML = '<div class="tal-cols">' + shown.map(function (g) {
       const items = sortTalents(g.list.filter(matches));
       // Colonne Parchemins : pas de niveau (accès via objet uniquement), pas d'œil.
-      const stripOpts = g.ref === 'parchment' ? { hideLevel: true, hideEye: true } : {};
+      const stripOpts = g.ref === 'parchment' ? { hideLevel: true, hideEye: true } : { classCol: g.key === 'class' };
       const strips = items.length
         ? items.map(function (t) { return talentStrip(t, g.ref, stripOpts); }).join('')
         : '<p class="inv-col-empty">—</p>';
@@ -281,6 +291,22 @@
         const t = g && g.list.find(function (x) { return x.id === el.getAttribute('data-tid'); });
         if (!t) return;
         t.hidden = !t.hidden;
+        persist();
+        renderColumns();
+      });
+    });
+    // ⭐ Maîtrise de départ : une seule par classe (les autres sont décochées).
+    box.querySelectorAll('.tl-start[data-start]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const g = groupByRef(el.getAttribute('data-start'));
+        if (!g) return;
+        const tid = el.getAttribute('data-tid');
+        const t = g.list.find(function (x) { return x.id === tid; });
+        if (!t) return;
+        const on = !t.startMastery;
+        g.list.forEach(function (x) { delete x.startMastery; });
+        if (on) t.startMastery = true;
         persist();
         renderColumns();
       });

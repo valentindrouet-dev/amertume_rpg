@@ -1018,6 +1018,19 @@
     if (c && Array.isArray(c.talents)) cls = c.talents.filter(function (t) { return !t.hidden && t.id && (t.level || 1) <= 1; });
     return gens.concat(cls);
   }
+  // Maîtrise de DÉPART d'une classe : celle marquée ⭐ par le MJ dans l'onglet
+  // Classes. Sans marquage, on prend la première Maîtrise de niveau 1 de la
+  // classe (et seulement en dernier recours une Maîtrise générique).
+  function startMasteryOf(klass) {
+    const c = Store.loadClasses().find(function (x) { return x.name === normKlass(klass); });
+    const cls = (c && Array.isArray(c.talents)) ? c.talents : [];
+    const lvl1 = function (t) { return !t.hidden && t.id && (t.level || 1) <= 1; };
+    const marked = cls.find(function (t) { return t.startMastery && lvl1(t); });
+    if (marked) return marked;
+    const clsMastery = cls.filter(lvl1).find(function (t) { return wizTalentKind(t) === 'mastery'; });
+    if (clsMastery) return clsMastery;
+    return Store.loadGenericTalents().filter(lvl1).find(function (t) { return wizTalentKind(t) === 'mastery'; }) || null;
+  }
   function wizTalentKind(t) {
     if (t.kind) return t.kind;
     const list = Store.talentEffectList(t);
@@ -1234,9 +1247,10 @@
         };
       });
     } else if (stepName === 'Talents') {
-      // Maîtrise de niveau 1 auto-ajoutée (ne peut pas être décochée)
-      const allTals = level1Talents(wiz.klass);
-      const masteryTal = allTals.find(function (t) { return wizTalentKind(t) === 'mastery'; });
+      // Maîtrise de DÉPART, auto-ajoutée et non décochable. Elle est désignée
+      // explicitement par le MJ (⭐ dans l'onglet Classes) ; à défaut on retombe
+      // sur la première Maîtrise de niveau 1 de la CLASSE, puis des génériques.
+      const masteryTal = startMasteryOf(wiz.klass);
       if (masteryTal && wiz.talents.indexOf(masteryTal.id) < 0) wiz.talents.push(masteryTal.id);
       // Trier : génériques d'abord, puis talents de classe (hors maîtrise auto)
       const gens = Store.loadGenericTalents().filter(function (t) { return !t.hidden && (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); });
