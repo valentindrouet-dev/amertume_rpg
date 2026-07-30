@@ -2992,19 +2992,30 @@
     function heroBlock(h, idx) {
       // Sépare les talents génériques et de classe pour l'affichage en deux sections.
       const taken = heroGains(ses, h.id).talents;
+      // Pool complet (génériques + classe) : sert aussi aux groupes exclusifs.
+      var allPool = Store.loadGenericTalents().slice();
+      try {
+        var cls = Store.loadClasses().find(function (x) { return x.name === kn(h.klass); });
+        if (cls && Array.isArray(cls.talents)) allPool = allPool.concat(cls.talents);
+      } catch (e) {}
+      // CHOIX EXCLUSIFS : une option déjà prise verrouille les autres du groupe.
+      const bstate = Store.branchState ? Store.branchState(allPool, taken) : null;
       // Arborescence : prérequis doit être acquis ; talent non encore pris.
       const okTalent = function (t) {
         return !t.hidden && t.id && (t.level || 1) <= newLevel && taken.indexOf(t.id) < 0 &&
           (!t.prereq || taken.indexOf(t.prereq) >= 0);
       };
-      const genTalents = Store.loadGenericTalents().filter(okTalent);
-      var clsTalents = [];
+      // Talent d'un groupe verrouillé : affiché grisé avec la raison, jamais masqué en silence.
+      const lockerOf = function (t) { return bstate ? bstate.lockedBy(t) : null; };
+      const gensAll = Store.loadGenericTalents().filter(okTalent);
+      var clsAll = [];
       try {
-        var cls = Store.loadClasses().find(function (x) { return x.name === kn(h.klass); });
-        if (cls && Array.isArray(cls.talents)) {
-          clsTalents = cls.talents.filter(okTalent);
-        }
+        if (cls && Array.isArray(cls.talents)) clsAll = cls.talents.filter(okTalent);
       } catch (e) {}
+      // Sépare disponibles / verrouillés par un choix exclusif antérieur.
+      const genTalents = gensAll.filter(function (t) { return !lockerOf(t); });
+      const clsTalents = clsAll.filter(function (t) { return !lockerOf(t); });
+      const lockedTalents = gensAll.concat(clsAll).filter(function (t) { return lockerOf(t); });
 
       const g = ses.levelGains ? (ses.levelGains[h.id] || {}) : {};
       const curEndu = (h.endu || 0) + (g.endu || 0);
@@ -3036,18 +3047,45 @@
       };
       function talentRows(list) {
         return list.map(function (t) {
+          // CHOIX EXCLUSIF : option d'un groupe non encore tranché → avertissement
+          // explicite sous le talent (prendre celui-ci exclut les rivales).
+          const rivals = (bstate && t.branch) ? bstate.rivals(t) : [];
+          const exclu = rivals.length
+            ? '<div class="tpe-exclusive">⚡ Choix définitif — renoncera à : ' +
+                rivals.map(function (r) { return esc(r.name); }).join(', ') + '</div>'
+            : '';
           return '<div class="lvl-tal-wrap">' +
             '<div class="tpe-row tpe-kind-' + (t.kind || 'none') + '" data-idx="' + idx + '" data-tal="' + esc(t.id) + '">' +
               '<input type="checkbox" class="lvl-tal-cb" aria-label="Sélectionner ' + esc(t.name) + '">' +
-              '<span class="tpe-name" title="Voir le descriptif">' + esc(t.name) + '</span>' +
+              '<span class="tpe-name" title="Voir le descriptif">' + esc(t.name) +
+                (t.branch ? ' <span class="tl-branch-tag">⑂ ' + esc(t.branch) + '</span>' : '') + '</span>' +
               '<span class="tpe-meta">' +
                 '<span class="tl-kind tl-kind-' + (t.kind || 'passive') + '">' + esc(KIND_SHORT(t.kind)) + '</span>' +
                 '<span class="tpe-lvl">Niv. ' + (t.level || 1) + '</span>' +
               '</span>' +
             '</div>' +
+            exclu +
             (t.description ? '<div class="tpe-desc" hidden>' + Store.fillTalentTagsHtml(t.description, lvlTagCtx) + '</div>' : '') +
           '</div>';
         }).join('');
+      }
+      // Talents fermés par un choix exclusif antérieur : visibles mais grisés,
+      // avec la raison — jamais retirés en silence.
+      function lockedRows(list) {
+        if (!list.length) return '';
+        return '<div class="lvl-tal-section lvl-tal-locked-sec">' +
+          '<div class="lvl-sec-sub">🔒 Fermés par un choix exclusif</div>' +
+          list.map(function (t) {
+            const c = lockerOf(t);
+            return '<div class="lvl-tal-wrap tal-locked-wrap">' +
+              '<div class="tpe-row tpe-locked" title="Verrouillé par le choix « ' + esc(c ? c.name : '') + ' »">' +
+                '<span class="tpe-lock">🔒</span>' +
+                '<span class="tpe-name">' + esc(t.name) + '</span>' +
+                '<span class="tpe-meta"><span class="tpe-lockedby">exclu par ' + esc(c ? c.name : '?') + '</span></span>' +
+              '</div>' +
+            '</div>';
+          }).join('') +
+        '</div>';
       }
       const noTalent = '<span class="hint" style="font-size:.8rem">Aucun talent disponible.</span>';
       const talHtml =
@@ -3058,7 +3096,8 @@
         '<div class="lvl-tal-section">' +
           '<div class="lvl-sec-sub">Talents de Classe</div>' +
           (clsTalents.length ? talentRows(clsTalents) : noTalent) +
-        '</div>';
+        '</div>' +
+        lockedRows(lockedTalents);
 
       // Compétences (niveaux impairs) : +1 dans 2 compétences DIFFÉRENTES.
       let skillHtml = '';

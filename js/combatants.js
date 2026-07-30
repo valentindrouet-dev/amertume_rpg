@@ -1265,22 +1265,39 @@
       const wVie = 3 + (wiz.statBonuses.vie || 0);
       const wTemp = { vie: wVie, endu: (wiz.statBonuses.endu || 0), damage: (wiz.statBonuses.damage || 0), klass: wiz.klass, pvBonus: 0, equipment: wiz.equipment };
       const wizTagCtx = { endu: wTemp.endu, damage: wTemp.damage, vie: wVie, pv: heroPv(wTemp), niveau: 1, orbes: 2 };
+      // CHOIX EXCLUSIFS : groupes de talents concurrents (⑂). Prendre une option
+      // verrouille les autres — y compris via la Maîtrise de départ automatique.
+      const wizPool = level1Talents(wiz.klass);
+      const bstate = Store.branchState ? Store.branchState(wizPool, wiz.talents) : null;
       function talRow(t, isAuto) {
         const kind = wizTalentKind(t);
         const sel = wiz.talents.indexOf(t.id) >= 0;
-        return '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + (sel ? ' wiz-tal-selected' : '') + '" data-tal="' + esc(t.id) + '" data-auto="' + (isAuto ? '1' : '0') + '">' +
+        const locker = (!sel && bstate) ? bstate.lockedBy(t) : null;
+        const rivals = (bstate && t.branch && !locker) ? bstate.rivals(t) : [];
+        const exclu = rivals.length
+          ? '<div class="tpe-exclusive">⚡ Choix définitif — renoncera à : ' +
+              rivals.map(function (r) { return esc(r.name); }).join(', ') + '</div>'
+          : '';
+        return '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + (sel ? ' wiz-tal-selected' : '') +
+            (locker ? ' tal-locked-row' : '') + '" data-tal="' + esc(t.id) + '" data-auto="' + (isAuto ? '1' : '0') +
+            '" data-locked="' + (locker ? '1' : '0') + '"' +
+            (locker ? ' title="Verrouillé par le choix « ' + esc(locker.name) + ' »"' : '') + '>' +
           (isAuto
             ? ''
-            : '<input type="checkbox" class="lvl-tal-cb inv-equip-cb" aria-label="Sélectionner ' + esc(t.name) + '"' + (sel ? ' checked' : '') + '>') +
+            : (locker
+              ? '<span class="tpe-lock">🔒</span>'
+              : '<input type="checkbox" class="lvl-tal-cb inv-equip-cb" aria-label="Sélectionner ' + esc(t.name) + '"' + (sel ? ' checked' : '') + '>')) +
           '<div class="inv-strip tal-strip">' +
-            '<span class="inv-strip-name">' + esc(t.name) + '</span>' +
+            '<span class="inv-strip-name">' + esc(t.name) +
+              (t.branch ? ' <span class="tl-branch-tag">⑂ ' + esc(t.branch) + '</span>' : '') + '</span>' +
             '<span class="inv-strip-val">' +
               (isAuto ? '<span class="lvl-tal-auto-badge">Auto</span>' : '') +
+              (locker ? '<span class="tpe-lockedby">exclu par ' + esc(locker.name) + '</span>' : '') +
               (kind ? '<span class="tl-kind tl-kind-' + kind + '">' + esc(KIND_SHORT_WIZ[kind] || kind) + '</span>' : '') +
             '</span>' +
           '</div>' +
-        '</div>' +
-        (t.description ? '<div class="lvl-tal-desc wiz-tal-desc">' + Store.fillTalentTagsHtml(t.description, wizTagCtx) + '</div>' : '');
+        '</div>' + exclu +
+        (t.description && !locker ? '<div class="lvl-tal-desc wiz-tal-desc">' + Store.fillTalentTagsHtml(t.description, wizTagCtx) + '</div>' : '');
       }
       const choiceRemaining = 1 - selCount;
       body.innerHTML = '<p class="hint">Le Talent de Maîtrise est automatiquement ajouté. Choisissez <b>1 talent</b> supplémentaire.' +
@@ -1294,6 +1311,7 @@
       body.querySelectorAll('.inv-strip-row[data-tal]').forEach(function (row) {
         row.addEventListener('click', function () {
           if (row.getAttribute('data-auto') === '1') return; // Maîtrise auto : non modifiable
+          if (row.getAttribute('data-locked') === '1') return; // verrouillé par un choix exclusif
           const id = row.getAttribute('data-tal');
           const idx = wiz.talents.indexOf(id);
           if (idx >= 0) {

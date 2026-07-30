@@ -757,6 +757,52 @@
   // LECTURE — aucune donnée enregistrée n'est réécrite ni supprimée. Un aventurier
   // ou une fiche de classe encore stockés en « Pyromane » sont lus comme Mystique.
   const KLASS_ALIASES = { 'Pyromane': 'Mystique' };
+  // ---------- Choix exclusifs (branches de talents) ----------
+  // Les talents portant le même `branch` sont des options concurrentes : en
+  // prendre un verrouille définitivement les autres. Les talents dérivés d'une
+  // option s'y rattachent par leur prérequis (chaîne suivie ici pour retrouver
+  // le groupe et l'option d'origine).
+  // Renvoie { branch, rootId } du talent (en remontant la chaîne de prérequis),
+  // ou null s'il n'appartient à aucun groupe exclusif.
+  function talentBranchOf(t, byId) {
+    let cur = t, guard = 0;
+    while (cur && guard++ < 20) {
+      if (cur.branch) return { branch: cur.branch, rootId: cur.id };
+      cur = cur.prereq ? byId[cur.prereq] : null;
+    }
+    return null;
+  }
+  // État des groupes exclusifs pour une liste de talents pris (ids) :
+  // { chosen: { branchName: talentPris }, verdict(t) → null | {lockedBy} | {isChoice, rivals[]} }
+  function branchState(allTalents, takenIds) {
+    const byId = {};
+    allTalents.forEach(function (t) { if (t && t.id) byId[t.id] = t; });
+    const chosen = {}; // branch → talent (option racine) déjà pris
+    (takenIds || []).forEach(function (id) {
+      const t = byId[id];
+      if (!t) return;
+      const b = talentBranchOf(t, byId);
+      if (b && !chosen[b.branch]) chosen[b.branch] = byId[b.rootId] || t;
+    });
+    return {
+      chosen: chosen,
+      // Pour un talent candidat : verrouillé par une option rivale déjà prise ?
+      lockedBy: function (t) {
+        const b = talentBranchOf(t, byId);
+        if (!b) return null;
+        const c = chosen[b.branch];
+        return (c && c.id !== b.rootId) ? c : null;
+      },
+      // Options rivales d'un talent (mêmes groupe, autre option), pour l'avertissement.
+      rivals: function (t) {
+        const b = talentBranchOf(t, byId);
+        if (!b) return [];
+        return allTalents.filter(function (x) {
+          return x && x.id !== b.rootId && x.branch === b.branch && !x.hidden;
+        });
+      },
+    };
+  }
   function normKlass(k) { return KLASS_ALIASES[k] || k || ''; }
   // Catalogue pour l'éditeur / la référence : les doublons historiques (legacy)
   // sont exclus — leurs clés restent résolues via les alias.
@@ -1051,6 +1097,8 @@
     effectCategories: effectCategories,
     canonicalEffect: canonicalEffect,
     normKlass: normKlass,
+    branchState: branchState,
+    talentBranchOf: talentBranchOf,
     talentEffectMap: talentEffectMap,
     talentEffectList: talentEffectList,
     loadMonsterTalents: loadMonsterTalents,

@@ -232,11 +232,12 @@
     // (même design que l'onglet Talents du mode Joueur), pas le nom complet du prérequis.
     const prereqName = t.prereq ? talentNameById(t.prereq) : '';
     const upgradeMark = prereqName ? '<span class="tpe-upgrade-arrow" title="Évolution de : ' + esc(prereqName) + '">↳</span> ' : '';
+    const branchMark = t.branch ? '<span class="tl-branch-tag" title="Choix exclusif : prendre ce talent verrouille les autres talents du groupe « ' + esc(t.branch) + ' »">⑂ ' + esc(t.branch) + '</span>' : '';
     const hidden = !!t.hidden;
     return '<div class="tal-row-wrap">' +
       '<div class="inv-strip-row tal-row tal-kind-' + (kind || 'none') + (hidden ? ' tal-hidden' : '') + '">' +
         '<div class="inv-strip tal-strip" data-desc-toggle="1" title="Voir le descriptif">' +
-          '<span class="inv-strip-name">' + upgradeMark + esc(t.name || '(sans nom)') + '</span>' +
+          '<span class="inv-strip-name">' + upgradeMark + esc(t.name || '(sans nom)') + branchMark + '</span>' +
           '<span class="inv-strip-val">' + right + '</span>' +
         '</div>' +
         // L'œil (masquer aux aventuriers) n'a pas de sens pour les talents
@@ -589,6 +590,15 @@
     if ($('#tl-f-kind')) $('#tl-f-kind').value = t.kindOverride || '';
     const prereqSel = $('#tl-f-prereq');
     if (prereqSel) prereqSel.innerHTML = prereqOptions(t.id, t.prereq || '');
+    // Groupe de choix exclusif : champ libre + datalist des groupes déjà utilisés.
+    const brInp = $('#tl-f-branch');
+    if (brInp) {
+      brInp.value = t.branch || '';
+      const known = {};
+      groups().forEach(function (g) { (g.list || []).forEach(function (x) { if (x.branch) known[x.branch] = true; }); });
+      const dl = $('#tl-branch-list');
+      if (dl) dl.innerHTML = Object.keys(known).sort().map(function (b) { return '<option value="' + esc(b) + '">'; }).join('');
+    }
     $('#tl-f-desc').value = t.description || '';
     $('#tl-f-delete').hidden = !existing;
     // Reconstruit les lignes d'effet à partir du talent (multi-effets ou ancien mono-effet)
@@ -655,6 +665,7 @@
       kind: kindOverride || (firstMeta ? firstMeta.kind : ''),
       val: (first && first.val != null) ? first.val : 0,
       prereq: (($('#tl-f-prereq') && $('#tl-f-prereq').value) || '') || null,
+      branch: (($('#tl-f-branch') && $('#tl-f-branch').value) || '').trim() || null,
       description: ($('#tl-f-desc').value || '').trim(),
       hidden: existingHidden,
     };

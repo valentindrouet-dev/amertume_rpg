@@ -5108,3 +5108,33 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 @media (hover: none) {
   .inv-strip-eye.tl-start { opacity: .3; visibility: visible; width: auto; padding: revert; margin: revert; }
 }
+
+/* ============================================================
+   v2.4.39 — Choix exclusifs de talents (branches ⑂)
+   ============================================================ */
+/* Étiquette de groupe exclusif sur la languette du talent. */
+.tl-branch-tag {
+  display: inline-block; margin-left: .3rem; padding: .02rem .4rem;
+  font-size: .66rem; font-weight: 800; letter-spacing: .02em;
+  border: 1px solid #b98ae0; border-radius: 10px;
+  color: #6a3fa8; background: rgba(185,138,224,.16); vertical-align: middle;
+}
+/* Avertissement sous une option non encore tranchée. */
+.tpe-exclusive {
+  margin: .1rem 0 .35rem .5rem; padding: .22rem .5rem;
+  font-size: .74rem; font-weight: 600; line-height: 1.35;
+  color: #8a5a12; background: rgba(216,162,74,.14);
+  border-left: 3px solid #d8a24a; border-radius: 0 6px 6px 0;
+}
+/* Talent fermé par un choix exclusif : grisé, raison affichée. */
+.tpe-row.tpe-locked, .tal-locked-row {
+  opacity: .55; cursor: not-allowed; filter: grayscale(.5);
+}
+.tal-locked-row .inv-strip { cursor: not-allowed; }
+.tpe-lock { flex: 0 0 auto; font-size: .85rem; margin-right: .15rem; }
+.tpe-lockedby {
+  font-size: .68rem; font-style: italic; color: var(--muted);
+  max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lvl-tal-locked-sec { margin-top: .4rem; }
+.lvl-tal-locked-sec .lvl-sec-sub { color: var(--muted); }
