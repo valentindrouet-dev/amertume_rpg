@@ -17,6 +17,8 @@
   let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
 
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+  // Nom de classe normalisé (Pyromane → Mystique), en lecture seule.
+  function kn(k) { return Store.normKlass ? Store.normKlass(k) : (k || ''); }
   const KIND_LABELS = { action: 'ACT', reaction: 'REAC', passive: 'PASS', critique: 'CRIT', garde: 'GARD', upgrade: 'AME', mastery: 'MAIT' };
   function KIND_SHORT(k) { return KIND_LABELS[k] || 'TAL'; }
 
@@ -293,7 +295,7 @@
           const skills = h.skills ? Object.keys(h.skills).filter(function (s) { return (h.skills[s] || 0) > 0; })
             .map(function (s) { return s + ' +' + h.skills[s]; }).join(', ') : '';
           return '<label class="setup-row"><input type="checkbox" data-hero="' + h.id + '">' +
-            '<span class="setup-name">' + esc(h.name) + (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
+            '<span class="setup-name">' + esc(h.name) + (h.klass ? ' <span class="setup-class">' + esc(kn(h.klass)) + '</span>' : '') + '</span>' +
             '<span class="stat-pills compact">' +
               '<span class="stat-pill">❤ ' + pv + '/' + maxPv + '</span>' +
               '<span class="stat-pill">🛡 ' + def + '</span>' +
@@ -926,7 +928,7 @@
       // Aventurier mort (conséquence de scène) : affiché grisé avec ☠.
       if (state.dead) {
         return '<div class="ses-hero-row ses-hero-dead">' +
-          '<span class="ses-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '" data-hero="' + h.id + '" title="Voir la fiche">☠ ' + esc(h.name) + '</span>' +
+          '<span class="ses-hero-name' + (h.klass ? ' klass-' + slug(kn(h.klass)) : '') + '" data-hero="' + h.id + '" title="Voir la fiche">☠ ' + esc(h.name) + '</span>' +
           '<span class="tag dead">' + heroAgree(h, 'Mort') + '</span>' +
         '</div>';
       }
@@ -934,7 +936,7 @@
       const maxPv = Combatants.heroPv(eh);
       const pct = Math.round((curPv / maxPv) * 100);
       return '<div class="ses-hero-row">' +
-        '<span class="ses-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '" data-hero="' + h.id + '" title="Voir la fiche">' + esc(h.name) + '</span>' +
+        '<span class="ses-hero-name' + (h.klass ? ' klass-' + slug(kn(h.klass)) : '') + '" data-hero="' + h.id + '" title="Voir la fiche">' + esc(h.name) + '</span>' +
         '<div class="pv-bar" style="flex:1;min-width:80px"><div class="pv-fill" style="width:' + pct + '%"></div>' +
           '<span class="pv-text">' + curPv + '/' + maxPv + '</span></div>' +
       '</div>';
@@ -2968,7 +2970,7 @@
     const gens = Store.loadGenericTalents().filter(function (t) { return !t.hidden && (t.level || 1) <= newLevel; });
     let cls = [];
     try {
-      const c = Store.loadClasses().find(function (x) { return x.name === h.klass; });
+      const c = Store.loadClasses().find(function (x) { return x.name === kn(h.klass); });
       if (c && Array.isArray(c.talents)) {
         cls = c.talents.filter(function (t) { return !t.hidden && t.id && (t.level || 1) <= newLevel; });
       }
@@ -2998,7 +3000,7 @@
       const genTalents = Store.loadGenericTalents().filter(okTalent);
       var clsTalents = [];
       try {
-        var cls = Store.loadClasses().find(function (x) { return x.name === h.klass; });
+        var cls = Store.loadClasses().find(function (x) { return x.name === kn(h.klass); });
         if (cls && Array.isArray(cls.talents)) {
           clsTalents = cls.talents.filter(okTalent);
         }
@@ -3076,8 +3078,8 @@
       }
       return '<div class="lvl-col" data-idx="' + idx + '">' +
         '<div class="lvl-col-head">' +
-          '<span class="lvl-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' + esc(h.name) + '</span>' +
-          (h.klass ? '<span class="class-badge klass-' + slug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
+          '<span class="lvl-hero-name' + (h.klass ? ' klass-' + slug(kn(h.klass)) : '') + '">' + esc(h.name) + '</span>' +
+          (h.klass ? '<span class="class-badge klass-' + slug(kn(h.klass)) + '">' + esc(kn(h.klass)) + '</span>' : '') +
         '</div>' +
         '<div class="lvl-sec-title">Caractéristique</div>' +
         '<div class="lvl-stat-choice">' + statHtml + '</div>' +
@@ -3305,7 +3307,7 @@
         return out;
       }).join('');
       const heroesHtml = z.heroStart
-        ? (partyHeroes.length ? partyHeroes.map(function (h) { return previewChip(h.name, 'pv-hero' + (h.klass ? ' klass-' + slug(h.klass) : '')); }).join('') : '<span class="pz-empty">🛡 Aventuriers</span>')
+        ? (partyHeroes.length ? partyHeroes.map(function (h) { return previewChip(h.name, 'pv-hero' + (h.klass ? ' klass-' + slug(kn(h.klass)) : '')); }).join('') : '<span class="pz-empty">🛡 Aventuriers</span>')
         : '';
       const body = (heroesHtml + mons) || '<span class="pz-empty">—</span>';
       const p = zPos[zi] || [1, 1];
@@ -4278,9 +4280,9 @@
           }).join('')
         : '<p class="inv-col-empty">Aucun talent débloqué. Montez de niveau pour en gagner.</p>';
       return '<div class="tal-hero-block">' +
-        '<div class="tal-hero-head' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' +
-          '<span class="tal-hero-name' + (h.klass ? ' klass-' + slug(h.klass) : '') + '">' + esc(h.name) + '</span>' +
-          (h.klass ? '<span class="tal-hero-class klass-' + slug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
+        '<div class="tal-hero-head' + (h.klass ? ' klass-' + slug(kn(h.klass)) : '') + '">' +
+          '<span class="tal-hero-name' + (h.klass ? ' klass-' + slug(kn(h.klass)) : '') + '">' + esc(h.name) + '</span>' +
+          (h.klass ? '<span class="tal-hero-class klass-' + slug(kn(h.klass)) + '">' + esc(kn(h.klass)) + '</span>' : '') +
           '<span class="tal-equip-count' + (equipped.length >= 6 ? ' full' : '') + '">' + equipped.length + '/6 équipés</span>' +
         '</div>' +
         '<div class="tal-col-body">' + body + '</div>' +

@@ -253,7 +253,7 @@
     'Déviant': 10, 'Apothicaire': 12, 'Artificier': 14, 'Chasseur': 16,
     'Destructeur': 16, 'Gardien': 18, 'Lamevent': 14, 'Mystique': 10,
   };
-  function classPv(h) { return CLASS_PV[h.klass] || 0; }
+  function classPv(h) { return CLASS_PV[normKlass(h.klass)] || 0; }
   function heroPv(h) { return Math.max(1, (h.vie || 0) * (h.endu || 0) + (h.pvBonus || 0) + classPv(h)); }
   // PV courants persistants (null/absent = pleins)
   function heroCurPv(h) {
@@ -341,8 +341,11 @@
   }
 
   // Slug CSS pour la couleur pastel de classe (retire les accents)
+  // Nom de classe normalisé (Pyromane → Mystique) : lecture seule, rien n'est
+  // réécrit dans le stockage.
+  function normKlass(k) { return Store.normKlass ? Store.normKlass(k) : (k || ''); }
   function classSlug(k) {
-    return (k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return normKlass(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   }
 
   // Attaques dérivées d'une liste d'armes (mêlée / distance, dés cumulés, effets de traits)
@@ -579,7 +582,8 @@
             dice: D.emptyPool(), targets: 'self', orbeShare: true });
         case 'brasier':
           // Frappe tous les adversaires affectés par FEU (filtrage par le moteur).
-          return Object.assign(common, { range: baseRange(), targets: 'all', brasier: true });
+          return Object.assign(common, { range: baseRange(), targets: 'all', brasier: true,
+            brasierState: t.choice || 'feu' });
         case 'frappe_puissante':
           return Object.assign(common, { range: 'contact', bonusDmg: t.val || 0 });
         case 'coup_renversant':
@@ -774,7 +778,7 @@
         (opts.selectable ? '<input type="checkbox" class="hero-pick-cb" data-hero="' + h.id + '"' + (opts.checked ? ' checked' : '') + '>' : '') +
         (opts.showAvatar ? '<div class="hpc-avatar" style="' + avatarStyle + '">' + esc(initials) + '</div>' : '') +
         '<span class="roster-name">' + esc(h.name) + '</span>' +
-        (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
+        (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(normKlass(h.klass)) + '</span>' : '') +
         (!opts.hideRapide && h.rapide ? '<span class="tag">Rapide</span>' : '') +
       '</div>' +
       '<div class="hero-stat-row">' +
@@ -838,7 +842,7 @@
       return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
         '<div class="roster-head hero-head">' +
           '<span class="roster-name">' + esc(h.name) + '</span>' +
-          (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(h.klass) + '</span>' : '') +
+          (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(normKlass(h.klass)) + '</span>' : '') +
           (h.rapide ? '<span class="tag">Rapide</span>' : '') +
           (player ? '' : '<button class="ghost small" data-edit-hero="' + h.id + '">Éditer</button>') +
           // Suppression IMPOSSIBLE pendant une aventure, et tant que l'aventurier
@@ -979,7 +983,7 @@
     const clsEl = $('#hero-sheet-class');
     if (clsEl) {
       clsEl.hidden = !h.klass;
-      clsEl.textContent = h.klass || '';
+      clsEl.textContent = normKlass(h.klass);
       clsEl.className = 'sheet-class-head class-badge' + (h.klass ? ' klass-' + classSlug(h.klass) : '');
     }
     // Carte aux couleurs de la classe, comme dans l'onglet Aventuriers
@@ -1009,7 +1013,8 @@
   function level1Talents(klass) {
     const gens = Store.loadGenericTalents().filter(function (t) { return !t.hidden && (t.level || 1) <= 1; });
     let cls = [];
-    const c = Store.loadClasses().find(function (x) { return x.name === klass; });
+    const kn = normKlass(klass);
+    const c = Store.loadClasses().find(function (x) { return x.name === kn; });
     if (c && Array.isArray(c.talents)) cls = c.talents.filter(function (t) { return !t.hidden && t.id && (t.level || 1) <= 1; });
     return gens.concat(cls);
   }
@@ -1099,7 +1104,12 @@
       });
       setTimeout(function () { inp.focus(); }, 0);
     } else if (stepName === 'Classe') {
-      const classes = Store.loadClasses().filter(function (c) { return PLAYABLE_CLASSES.indexOf(c.name) >= 0; });
+      // TOUTES les classes jouables sont proposées, même celles dont le MJ n'a
+      // pas encore enregistré de fiche (sinon une classe sans talents créés
+      // disparaîtrait purement et simplement de la création d'aventurier).
+      const stored = {};
+      Store.loadClasses().forEach(function (c) { if (c && c.name) stored[c.name] = c; });
+      const classes = PLAYABLE_CLASSES.map(function (n) { return stored[n] || { name: n, talents: [] }; });
       // Languette de la classe sélectionnée : nom + court descriptif.
       const desc = wiz.klass ? (CLASS_DESC[wiz.klass] || '') : '';
       const tab = wiz.klass
@@ -1230,7 +1240,7 @@
       if (masteryTal && wiz.talents.indexOf(masteryTal.id) < 0) wiz.talents.push(masteryTal.id);
       // Trier : génériques d'abord, puis talents de classe (hors maîtrise auto)
       const gens = Store.loadGenericTalents().filter(function (t) { return !t.hidden && (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); });
-      const klass = Store.loadClasses().find(function (x) { return x.name === wiz.klass; });
+      const klass = Store.loadClasses().find(function (x) { return x.name === normKlass(wiz.klass); });
       const clsTals = klass && Array.isArray(klass.talents)
         ? klass.talents.filter(function (t) { return !t.hidden && t.id && (t.level || 1) <= 1 && (!masteryTal || t.id !== masteryTal.id); })
         : [];
@@ -1566,7 +1576,7 @@
       ? list.map(function (h) {
           return '<div class="setup-row">' +
             '<span class="setup-name">' + esc(h.name) +
-              (h.klass ? ' <span class="setup-class">' + esc(h.klass) + '</span>' : '') + '</span>' +
+              (h.klass ? ' <span class="setup-class">' + esc(normKlass(h.klass)) + '</span>' : '') + '</span>' +
             '<span class="stat-pills compact"><span class="stat-pill">❤ ' + heroPv(h) + '</span>' +
               '<span class="stat-pill">⚔ ' + h.damage + '</span></span>' +
             '<button type="button" class="primary small pb-pick" data-id="' + h.id + '">Ajouter</button>' +
@@ -2403,6 +2413,7 @@
     clonePrebuilt: clonePrebuilt,
     heroGear: heroGear,
     normalizeEquip: normalizeEquip,
+    normKlass: normKlass,
     weaponAttacks: weaponAttacks,
     monsterCombatAttacks: monsterCombatAttacks,
     monsterTalentLabels: monsterTalentLabels,

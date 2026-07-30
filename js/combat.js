@@ -208,7 +208,7 @@
     });
     return {
       iid: 'H' + i + '-' + h.id.slice(-4),
-      side: 'hero', templateId: h.id, name: h.name, klass: h.klass || '', gender: h.gender || 'a', endu: (hero.endu || 1) + endurHard, imageUrl: h.imageUrl || null,
+      side: 'hero', templateId: h.id, name: h.name, klass: Combatants.normKlass(h.klass), gender: h.gender || 'a', endu: (hero.endu || 1) + endurHard, imageUrl: h.imageUrl || null,
       maxPv: Combatants.heroPv(hero) + renf, pv: Combatants.heroCurPv(hero) + renf,
       def: Combatants.heroDef(hero), damage: (hero.damage || 0) + surv, xp: 0, type: 'hero',
       menace: null, esquive: hasTalent('esquive_innee') || hasTalent('esquive_6') || false, rapide: !!h.rapide, socle: 'medium',
@@ -794,6 +794,11 @@
     return { passed: succ >= need, succ: succ, need: need };
   }
   function isGele(c) { return stateVal(c, 'gele') > 0; }
+  // La cible porte-t-elle l'état demandé ? (compteur > 0 pour les cumulables)
+  function hasState(c, s) {
+    if (!c || !c.states) return false;
+    return isStackState(s) ? stateVal(c, s) > 0 : !!c.states[s];
+  }
   // Tentative de dégel. Renvoie true si le combattant est entièrement libéré.
   // Consomme le mouvement de l'appelant (géré par l'appelant).
   function tryBreakGele(c) {
@@ -1264,8 +1269,10 @@
     if (heroHasTalent(attacker, 'force_blindee') && hasBlindage(attacker)) {
       pool.red = (pool.red || 0) + 1;
     }
-    // COMBUSTION : +1 dé bleu contre un adversaire affecté par FEU.
-    if (attacker.side === 'hero' && heroHasTalent(attacker, 'bonus_bleu_feu') && target.states && target.states.feu) {
+    // RÉSONANCE ÉLÉMENTAIRE : +1 dé bleu contre un adversaire affecté par l'état
+    // choisi (FEU par défaut, ce qui reprend l'ancienne « Combustion »).
+    if (attacker.side === 'hero' && heroHasTalent(attacker, 'bonus_bleu_feu') &&
+        hasState(target, heroTalentChoice(attacker, 'bonus_bleu_feu') || 'feu')) {
       pool.blue = (pool.blue || 0) + 1;
     }
     // ORBES PARTAGÉS : le buff de l'attaquant ajoute des dés bleus (et FEU) à cette attaque.
@@ -2816,16 +2823,26 @@
   }
 
   // POISON X : inflige X dégâts au combattant avant qu'il agisse (Attaque, Talent, Mouvement)
+  // AGGRAVATION : un aventurier vivant double les dégâts de l'état choisi subis
+  // par les adversaires (FEU en fin de tour, POISON avant d'agir).
+  function aggravates(state) {
+    return activeOf('hero').some(function (h) {
+      return heroHasTalent(h, 'feu_double') && (heroTalentChoice(h, 'feu_double') || 'feu') === state;
+    });
+  }
   function applyPoison(c) {
-    const dmg = (c.states && c.states.poison) || 0;
+    const lvl = (c.states && c.states.poison) || 0;
+    let dmg = lvl;
     if (!dmg || c.status !== 'active') return;
+    if (c.side === 'monster' && aggravates('poison')) dmg *= 2;
     // BLINDAGE : absorbe les dégâts de Poison.
     if (absorbBlindage(c, 'le Poison')) return;
     const before = c.pv;
     c.pv = Math.max(0, c.pv - dmg);
     c.dmgTaken += dmg; revealOnDamage(c, dmg);
     pushFx({ type: 'hit', iid: c.iid, amount: dmg, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
-    log(cname(c) + ' subit ' + amt(dmg, 'dmg') + ' (<span class="lstate">Poison ' + dmg + '</span>) avant d\'agir.', 'state');
+    log(cname(c) + ' subit ' + amt(dmg, 'dmg') + ' (<span class="lstate">Poison ' + lvl + '</span>' +
+      (dmg > lvl ? ', <span class="lstate">Aggravation</span> ×2' : '') + ') avant d\'agir.', 'state');
     checkComa(c);
   }
 
@@ -2841,8 +2858,8 @@
       // FEU N : N dés noirs de dégâts.
       let v = 0;
       for (let i = 0; i < feu; i++) v += 1 + Math.floor(Math.random() * 6);
-      // EMBRASEMENT : les dégâts de Feu des adversaires sont doublés en fin de tour.
-      if (c.side === 'monster' && activeOf('hero').some(function (h) { return heroHasTalent(h, 'feu_double'); })) v *= 2;
+      // AGGRAVATION (élément FEU) : les dégâts de Feu des adversaires sont doublés.
+      if (c.side === 'monster' && aggravates('feu')) v *= 2;
       const before = c.pv;
       c.pv = Math.max(0, c.pv - v);
       c.dmgTaken += v; revealOnDamage(c, v);
@@ -4363,8 +4380,11 @@
       : (target ? [target] : []);
     // DÉFLAGRATION à dispersion : tous les adversaires de la zone visée.
     if (deflagZone != null) targets = activeOf('monster').filter(function (t) { return t.zone === deflagZone && !shootBlocked(attacker.zone, t.zone); });
-    // BRASIER : ne touche que les adversaires affectés par FEU.
-    if (atk.brasier) targets = targets.filter(function (t) { return t.states && t.states.feu; });
+    // DÉCHAÎNEMENT : ne touche que les adversaires affectés par l'état choisi.
+    if (atk.brasier) {
+      const bst = atk.brasierState || 'feu';
+      targets = targets.filter(function (t) { return hasState(t, bst); });
+    }
     // Frappe Tournoyante : limitée aux adversaires de la zone de l'aventurier.
     if (atk.zoneOnly) targets = targets.filter(function (t) { return t.zone === attacker.zone; });
     // FRAYEUR : la cible de la zone fuit vers une autre zone accessible et subit

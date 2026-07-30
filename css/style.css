@@ -730,7 +730,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .roster-card.klass-deviant     { background: #e6dcef; }
 .roster-card.klass-gardien     { background: #d7e3f1; }
 .roster-card.klass-lamevent    { background: #d4ebe6; }
-.roster-card.klass-mystique    { background: #f6ddc6; }
+.roster-card.klass-mystique    { background: #e6dcf5; }
 
 /* En combat : carte sombre, mais bord gauche coloré par classe */
 .combat-card.klass-apothicaire { border-left-color: #7bbf6a !important; }
@@ -740,7 +740,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .combat-card.klass-deviant     { border-left-color: #9d7fc4 !important; }
 .combat-card.klass-gardien     { border-left-color: #6f9fd6 !important; }
 .combat-card.klass-lamevent    { border-left-color: #5cb6a6 !important; }
-.combat-card.klass-mystique    { border-left-color: #e08a4a !important; }
+.combat-card.klass-mystique    { border-left-color: #9b84d8 !important; }
 
 /* Séparateurs de l'armurerie */
 .armory-sep {
@@ -783,7 +783,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .lhero.klass-apothicaire { color: #8fd07e; } .lhero.klass-artificier { color: #e7bf63; }
 .lhero.klass-chasseur    { color: #8fd078; } .lhero.klass-destructeur { color: #e58368; }
 .lhero.klass-deviant     { color: #b79be0; } .lhero.klass-gardien     { color: #7fb0e6; }
-.lhero.klass-lamevent    { color: #6fcabb; } .lhero.klass-mystique    { color: #f0a262; }
+.lhero.klass-lamevent    { color: #6fcabb; } .lhero.klass-mystique    { color: #c4b0f0; }
 .lfoe { color: #cbb89e; }
 .lfoe.type-standard  { color: #bdb6a4; } .lfoe.type-alpha { color: #e2974a; }
 .lfoe.type-solitaire { color: #e58368; } .lfoe.type-boss  { color: #bd9be0; }
@@ -820,7 +820,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .setup-row.klass-deviant     { border-left-color: #9d7fc4; }
 .setup-row.klass-gardien     { border-left-color: #6f9fd6; }
 .setup-row.klass-lamevent    { border-left-color: #5cb6a6; }
-.setup-row.klass-mystique    { border-left-color: #e08a4a; }
+.setup-row.klass-mystique    { border-left-color: #9b84d8; }
 
 /* Sous-séparateurs d'armurerie (contact/distance) */
 .armory-subsep { font-size: .66rem; color: var(--muted); margin: .45rem 0 .1rem; }
@@ -874,7 +874,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 .combat-card.klass-deviant     { background: #e6dcef; }
 .combat-card.klass-gardien     { background: #d7e3f1; }
 .combat-card.klass-lamevent    { background: #d4ebe6; }
-.combat-card.klass-mystique    { background: #f6ddc6; }
+.combat-card.klass-mystique    { background: #e6dcf5; }
 
 /* Monstres selon la dangerosité (roster + combat) */
 .roster-card.type-standard, .combat-card.type-standard { background: #e7e3d8; border-left: 4px solid #8d8676 !important; }
@@ -1431,7 +1431,7 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 .roster-card.klass-deviant     .class-badge { background:#e0d2ef; border-color:#9d7fc4; color:#5a3b8c; }
 .roster-card.klass-gardien     .class-badge { background:#cddcf0; border-color:#6f9fd6; color:#2c5a93; }
 .roster-card.klass-lamevent    .class-badge { background:#c9e7e0; border-color:#5cb6a6; color:#1f6b5e; }
-.roster-card.klass-mystique    .class-badge { background:#f3d3b6; border-color:#e08a4a; color:#9a4f17; }
+.roster-card.klass-mystique    .class-badge { background:#ddd0f2; border-color:#9b84d8; color:#4b3184; }
 
 .hero-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin: .5rem 0 .2rem; }
 .hero-stat {
@@ -1507,7 +1507,7 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 .class-card.klass-apothicaire { border-left-color:#7bbf6a; } .class-card.klass-artificier { border-left-color:#d9a94a; }
 .class-card.klass-chasseur { border-left-color:#74b85e; } .class-card.klass-destructeur { border-left-color:#d36a52; }
 .class-card.klass-deviant { border-left-color:#9d7fc4; } .class-card.klass-gardien { border-left-color:#6f9fd6; }
-.class-card.klass-lamevent { border-left-color:#5cb6a6; } .class-card.klass-mystique { border-left-color:#e08a4a; }
+.class-card.klass-lamevent { border-left-color:#5cb6a6; } .class-card.klass-mystique { border-left-color:#9b84d8; }
 .class-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
 .class-name { font-family: "Georgia", serif; font-size: 1.1rem; font-weight: 600; margin-right: auto; }
 .class-talents { display: flex; flex-direction: column; gap: .4rem; }
@@ -1756,7 +1756,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ses-hero-name.klass-apothicaire { color: #4f8b4f; } .ses-hero-name.klass-artificier { color: #9a6c12; }
 .ses-hero-name.klass-chasseur { color: #2e6b1f; } .ses-hero-name.klass-destructeur { color: #b0432b; }
 .ses-hero-name.klass-deviant { color: #7c52a8; } .ses-hero-name.klass-gardien { color: #2c5a93; }
-.ses-hero-name.klass-lamevent { color: #1f6b5e; } .ses-hero-name.klass-mystique { color: #b85c1c; }
+.ses-hero-name.klass-lamevent { color: #1f6b5e; } .ses-hero-name.klass-mystique { color: #5b3fa0; }
 
 /* Fiche d'aventurier (lecture seule) aux couleurs de la classe */
 .hero-sheet-card { box-shadow: none; }
@@ -1895,7 +1895,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .pv-chip.pv-hero.klass-deviant     { background: #e6dcef; border-left-color: #9d7fc4; }
 .pv-chip.pv-hero.klass-gardien     { background: #d7e3f1; border-left-color: #6f9fd6; }
 .pv-chip.pv-hero.klass-lamevent    { background: #d4ebe6; border-left-color: #5cb6a6; }
-.pv-chip.pv-hero.klass-mystique    { background: #f6ddc6; border-left-color: #e08a4a; }
+.pv-chip.pv-hero.klass-mystique    { background: #e6dcf5; border-left-color: #9b84d8; }
 .pz-empty { color: var(--muted); font-size: .8rem; }
 /* Éditeur de barrières (éditeur de scène de combat) */
 .adv-barrier { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin: .25rem 0 .25rem .8rem;
@@ -2261,7 +2261,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .hw-class.klass-deviant     { background:#e6dcef; border-color:#9d7fc4; color:#5a3b8c; }
 .hw-class.klass-gardien     { background:#d7e3f1; border-color:#6f9fd6; color:#2c5a93; }
 .hw-class.klass-lamevent    { background:#d4ebe6; border-color:#5cb6a6; color:#1f6b5e; }
-.hw-class.klass-mystique    { background:#f6ddc6; border-color:#e08a4a; color:#8a3e10; }
+.hw-class.klass-mystique    { background:#e6dcf5; border-color:#9b84d8; color:#4b3184; }
 /* Languette de la classe sélectionnée (nom + descriptif). */
 .hw-class-tab { border-radius: 10px; padding: .6rem .8rem; margin-top: .5rem; border: 1px solid var(--border);
   border-left: 5px solid var(--accent-2); background: var(--panel-2); display: flex; flex-direction: column; gap: .25rem; }
@@ -2270,11 +2270,11 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .hw-class-tab.klass-destructeur { background:#f2d9d1; border-left-color:#d36a52; }
 .hw-class-tab.klass-gardien     { background:#d7e3f1; border-left-color:#6f9fd6; }
 .hw-class-tab.klass-lamevent    { background:#d4ebe6; border-left-color:#5cb6a6; }
-.hw-class-tab.klass-mystique    { background:#f6ddc6; border-left-color:#e08a4a; }
+.hw-class-tab.klass-mystique    { background:#e6dcf5; border-left-color:#9b84d8; }
 .hw-class-tab.klass-destructeur .hw-class-tab-name { color:#9a3320; }
 .hw-class-tab.klass-gardien     .hw-class-tab-name { color:#2c5a93; }
 .hw-class-tab.klass-lamevent    .hw-class-tab-name { color:#1f6b5e; }
-.hw-class-tab.klass-mystique    .hw-class-tab-name { color:#8a3e10; }
+.hw-class-tab.klass-mystique    .hw-class-tab-name { color:#4b3184; }
 /* Logo/titre cliquable → retour à l'accueil. */
 .brand-home-link { cursor: pointer; }
 .brand-home-link:hover h1 { text-decoration: underline; }
@@ -2285,7 +2285,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .hw-class.klass-deviant     .hw-class-pv { color:#7c52a8; }
 .hw-class.klass-gardien     .hw-class-pv { color:#2c5a93; }
 .hw-class.klass-lamevent    .hw-class-pv { color:#1f6b5e; }
-.hw-class.klass-mystique    .hw-class-pv { color:#b85c1c; }
+.hw-class.klass-mystique    .hw-class-pv { color:#5b3fa0; }
 .hw-skill { padding: .55rem; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-2);
   color: var(--text); cursor: pointer; font-weight: 600; }
 .hw-skill:hover { border-color: var(--accent-2); }
@@ -2491,8 +2491,8 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ab-card.klass-apothicaire{background:#dcefd0}.ab-card.klass-artificier{background:#f3e6c6}
 .ab-card.klass-chasseur{background:#d8f0cf}.ab-card.klass-destructeur{background:#f6d9d2}
 .ab-card.klass-deviant{background:#e6def4}.ab-card.klass-gardien{background:#d7e3f1}
-.ab-card.klass-lamevent{background:#d2f0e9}.ab-card.klass-mystique{background:#f6ddc6}
-.ab-card.klass-gardien{border-left-color:#6f9fd6}.ab-card.klass-mystique{border-left-color:#e08a4a}
+.ab-card.klass-lamevent{background:#d2f0e9}.ab-card.klass-mystique{background:#e6dcf5}
+.ab-card.klass-gardien{border-left-color:#6f9fd6}.ab-card.klass-mystique{border-left-color:#9b84d8}
 .ab-card.klass-deviant{border-left-color:#9d7fc4}.ab-card.klass-lamevent{border-left-color:#5cb6a6}
 .ab-card.klass-apothicaire{border-left-color:#7bbf6a}.ab-card.klass-artificier{border-left-color:#d9a94a}
 .ab-card.klass-chasseur{border-left-color:#74b85e}.ab-card.klass-destructeur{border-left-color:#d36a52}
@@ -2532,7 +2532,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ab-subline .class-tag.klass-deviant     { background: #8a6cb4 !important; }
 .ab-subline .class-tag.klass-gardien     { background: #5a86bd !important; }
 .ab-subline .class-tag.klass-lamevent    { background: #3ea692 !important; }
-.ab-subline .class-tag.klass-mystique    { background: #e08a4a !important; }
+.ab-subline .class-tag.klass-mystique    { background: #9b84d8 !important; }
 .ab-subline .type.ztype-standard   { background: #8d8676 !important; }
 .ab-subline .type.ztype-alpha      { background: #d98324 !important; }
 .ab-subline .type.ztype-solitaire  { background: #c0392b !important; }
@@ -2553,11 +2553,11 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
   flex: 0 0 auto; width: 92px; align-self: stretch; min-height: 64px; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; gap: 3px;
   border: 1px solid var(--border); border-radius: 7px; padding: .35rem .3rem;
-  background: #ed9d4f; color: #fff; cursor: pointer;
+  background: #9b84d8; color: #fff; cursor: pointer;
 }
 .ab-orbes:hover:not(:disabled) { filter: brightness(1.05); }
 .ab-orbes:disabled { opacity: .55; cursor: not-allowed; }
-.ab-orbes.selected { background: #df8326; box-shadow: 0 0 0 2px rgba(224,138,74,.5); }
+.ab-orbes.selected { background: #7f66c4; box-shadow: 0 0 0 2px rgba(155,132,216,.5); }
 .ab-orbes-title { font-weight: 800; font-size: 1.08rem; letter-spacing: .02em; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
 .ab-orbes-figs { display: inline-flex; align-items: center; justify-content: center; gap: .25rem; }
 .ab-orbes-figs .dice-row { gap: 3px; flex-wrap: nowrap; }
@@ -2698,7 +2698,7 @@ img.ab-atk-name {
 .combat-card.side-hero.selected.klass-deviant     { background: #ac8fd2 !important; }
 .combat-card.side-hero.selected.klass-gardien     { background: #7fabe0 !important; }
 .combat-card.side-hero.selected.klass-lamevent    { background: #6ac9b8 !important; }
-.combat-card.side-hero.selected.klass-mystique    { background: #eca06a !important; }
+.combat-card.side-hero.selected.klass-mystique    { background: #c0aeeb !important; }
 /* Repli si l'aventurier n'a pas de classe : or vif, très identifiable. */
 .combat-card.side-hero.selected { background: #f4cf5e !important; }
 
@@ -2793,7 +2793,7 @@ img.ab-atk-name {
 .combat-card.klass-deviant     .cc-avatar { background: rgba(157,127,196,.65); }
 .combat-card.klass-gardien     .cc-avatar { background: rgba(111,159,214,.65); }
 .combat-card.klass-lamevent    .cc-avatar { background: rgba(92,182,166,.65); }
-.combat-card.klass-mystique    .cc-avatar { background: rgba(224,138,74,.65); }
+.combat-card.klass-mystique    .cc-avatar { background: rgba(155,132,216,.65); }
 .combat-card.type-alpha     .cc-avatar { background: rgba(199,154,58,.65); }
 .combat-card.type-solitaire .cc-avatar { background: rgba(192,57,43,.65); }
 .combat-card.type-boss      .cc-avatar { background: rgba(138,92,196,.65); }
@@ -3732,7 +3732,7 @@ body.mode-player #item-list.roster-list { display: block; }
 .tal-hero-class.klass-deviant,     .tal-hero-name.klass-deviant     { color: #b79be0; }
 .tal-hero-class.klass-gardien,     .tal-hero-name.klass-gardien     { color: #7fb0e6; }
 .tal-hero-class.klass-lamevent,    .tal-hero-name.klass-lamevent    { color: #6fcabb; }
-.tal-hero-class.klass-mystique,    .tal-hero-name.klass-mystique    { color: #f0a262; }
+.tal-hero-class.klass-mystique,    .tal-hero-name.klass-mystique    { color: #c4b0f0; }
 .inv-strip-row.tal-row .tal-strip { flex: 1; min-width: 0; }
 
 /* ----- Encyclopédie : barre de tri + réordonnancement ----- */
@@ -3889,7 +3889,7 @@ body.mode-player #item-list.roster-list { display: block; }
 .tagv-vie    { color: #c48fe0; }  /* VIE (violet) */
 .tagv-pv     { color: #74c274; }  /* PV (vert des jauges) */
 .tagv-niveau { color: #d4af5a; }  /* NIVEAU (or) */
-.tagv-orbes  { color: #f0a262; }  /* ORBES (orange Mystique) */
+.tagv-orbes  { color: #c4b0f0; }  /* ORBES (améthyste Mystique) */
 
 /* ============ v2.3.06 : uniformisation boutons de test / conséquences / retry ============ */
 /* Le bouton de test a les mêmes dimensions que les boutons « Sorties & accès ». */

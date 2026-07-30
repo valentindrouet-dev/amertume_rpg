@@ -242,8 +242,6 @@
       });
       (parsed.heroes || []).forEach(function (h) {
         if (typeof h.klass === 'undefined') h.klass = '';
-        // Refonte v2.4.35 : la classe Pyromane devient le Mystique.
-        if (h.klass === 'Pyromane') h.klass = 'Mystique';
         if (!h.equipment) h.equipment = { weapons: [], armorId: null, shieldId: null };
         if (!Array.isArray(h.equipment.weapons)) h.equipment.weapons = [];
         if (!Array.isArray(h.attacks)) h.attacks = [];
@@ -416,13 +414,13 @@
     try {
       const raw = global.localStorage.getItem(CLS_KEY);
       const arr = raw ? JSON.parse(raw) : [];
-      // Refonte v2.4.35 : Pyromane → Mystique (talents de classe déjà créés).
-      let changed = false;
+      // Refonte v2.4.35 : Pyromane → Mystique. Renommage EN MÉMOIRE UNIQUEMENT —
+      // le stockage n'est jamais réécrit ici : les talents de classe déjà créés
+      // restent intacts et se rattachent simplement au Mystique.
       (Array.isArray(arr) ? arr : []).forEach(function (c) {
-        if (c && c.klass === 'Pyromane') { c.klass = 'Mystique'; changed = true; }
-        if (c && c.name === 'Pyromane') { c.name = 'Mystique'; changed = true; }
+        if (c && c.klass === 'Pyromane') c.klass = 'Mystique';
+        if (c && c.name === 'Pyromane') c.name = 'Mystique';
       });
-      if (changed) saveClasses(arr);
       return arr;
     } catch (e) { return []; }
   }
@@ -574,14 +572,17 @@
     { effect: 'ignore_def_etat', name: 'Faille Tactique', kind: 'upgrade', cat: 'etats', hasVal: false,
       hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'gele', 'affaibli', 'auSol', 'brise', 'faille', 'poison'],
       desc: 'Vos attaques ignorent la DEF des cibles affectées par l\'état choisi.' },
-    { effect: 'bonus_bleu_feu', name: 'Combustion', kind: 'upgrade', cat: 'etats', hasVal: false,
-      desc: '+1 dé bleu (Mystique) à vos attaques contre les cibles en FEU.' },
-    { effect: 'feu_double', name: 'Embrasement', kind: 'passive', cat: 'etats', hasVal: false,
-      desc: 'Les Dégâts de FEU subis par les adversaires en fin de tour sont doublés.' },
+    { effect: 'bonus_bleu_feu', name: 'Résonance Élémentaire', kind: 'upgrade', cat: 'etats', hasVal: false,
+      hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'gele', 'poison', 'affaibli', 'brise', 'faille', 'auSol'],
+      desc: '+1 dé bleu (Mystique) à vos attaques contre les cibles affectées par l\'état choisi (FEU par défaut). Anciennement « Combustion ».' },
+    { effect: 'feu_double', name: 'Aggravation', kind: 'passive', cat: 'etats', hasVal: false,
+      hasChoice: true, choiceLabel: 'État aggravé', choices: ['feu', 'poison'],
+      desc: 'Les Dégâts de l\'état choisi (FEU en fin de tour, POISON avant d\'agir) subis par les adversaires sont doublés. Anciennement « Embrasement ».' },
     { effect: 'epuisement', name: 'Épuisement', kind: 'passive', cat: 'etats', hasVal: false,
       desc: 'Les adversaires de votre zone subissent DEF −1.' },
-    { effect: 'brasier', name: 'Brasier', kind: 'action', cat: 'etats', hasVal: false,
-      desc: 'Action : 1 attaque qui touche TOUS les adversaires en FEU.' },
+    { effect: 'brasier', name: 'Déchaînement', kind: 'action', cat: 'etats', hasVal: false,
+      hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'gele', 'poison', 'affaibli', 'brise', 'faille', 'auSol'],
+      desc: 'Action : 1 attaque qui touche TOUS les adversaires affectés par l\'état choisi (FEU par défaut). Anciennement « Brasier ».' },
     { effect: 'pas_echec_ausol', name: 'Coup de Grâce', kind: 'passive', cat: 'etats', hasVal: false,
       desc: 'Pas d\'Échec (double 1) contre les cibles AU SOL — les 1 comptent comme des Dégâts normaux.' },
     // 🎯 CRITIQUES — déclenchés par vos Critiques (double 6)
@@ -752,6 +753,11 @@
   const EFFECT_ALIASES = {};
   TALENT_EFFECTS.forEach(function (e) { if (e.legacy) EFFECT_ALIASES[e.effect] = e.legacy; });
   function canonicalEffect(key) { return EFFECT_ALIASES[key] || key; }
+  // Refonte v2.4.35 : le Pyromane devient le Mystique. Le renommage est fait à la
+  // LECTURE — aucune donnée enregistrée n'est réécrite ni supprimée. Un aventurier
+  // ou une fiche de classe encore stockés en « Pyromane » sont lus comme Mystique.
+  const KLASS_ALIASES = { 'Pyromane': 'Mystique' };
+  function normKlass(k) { return KLASS_ALIASES[k] || k || ''; }
   // Catalogue pour l'éditeur / la référence : les doublons historiques (legacy)
   // sont exclus — leurs clés restent résolues via les alias.
   function talentEffects() {
@@ -1044,6 +1050,7 @@
     talentEffects: talentEffects,
     effectCategories: effectCategories,
     canonicalEffect: canonicalEffect,
+    normKlass: normKlass,
     talentEffectMap: talentEffectMap,
     talentEffectList: talentEffectList,
     loadMonsterTalents: loadMonsterTalents,
