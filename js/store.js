@@ -14,7 +14,7 @@
 
   // Raccourci pour décrire un pool de dés sans répéter toutes les couleurs
   function dice(obj) { return Object.assign(AmertumeDice.emptyPool(), obj || {}); }
-  function noStates() { return { affaibli: false, auSol: false, feu: false }; }
+  function noStates() { return { affaibli: false, auSol: false, feu: false, gele: false }; }
 
   /*
    * Catalogue d'équipement officiel (Amertume v4.s2).
@@ -475,7 +475,7 @@
       hasDice: true, defaultDice: { white: 2 }, hasRange: true, defaultRange: 'contact',
       hasSide: true, defaultSide: 'monsters',
       hasChoice: true, choiceLabel: 'État infligé (facultatif)',
-      choices: ['', 'feu', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
+      choices: ['', 'feu', 'gele', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
       desc: 'Action : infligez les dés indiqués dans une zone — à X cibles, à toute la zone ou à tout le combat, ' +
         'aux Aventuriers, aux Adversaires ou à tous les Combattants, avec un état au choix.' },
     { effect: 'mort_explosive', name: 'Mort Explosive', kind: 'passive', cat: 'attaque',
@@ -483,7 +483,7 @@
       hasDice: true, defaultDice: { red: 2 }, hasRange: true, defaultRange: 'contact',
       hasSide: true, defaultSide: 'monsters',
       hasChoice: true, choiceLabel: 'État infligé (facultatif)',
-      choices: ['', 'feu', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
+      choices: ['', 'feu', 'gele', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
       desc: 'En mourant, vous infligez les dés indiqués — à X cibles, à toute la zone ou à tout le combat, ' +
         'aux Aventuriers, aux Adversaires ou à tous les Combattants, avec un état au choix.' },
     { effect: 'salve_zone', name: 'Salve de Zone', kind: 'action', cat: 'attaque', hasVal: true, defaultVal: 2, valLabel: 'Nb de cibles', hasScope: true,
@@ -522,7 +522,7 @@
     { effect: 'tueur_affaibli', name: 'Achèvement', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
       desc: '+X Dégâts contre une cible AFFAIBLI.' },
     { effect: 'tueur_etat', name: 'Prédateur d\'État', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 2, valLabel: 'Dégâts bonus',
-      hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'brise', 'faille', 'poison', 'auSol', 'affaibli'],
+      hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'gele', 'brise', 'faille', 'poison', 'auSol', 'affaibli'],
       desc: '+X Dégâts contre une cible affectée par l\'état choisi.' },
     { effect: 'meute', name: 'Meute', kind: 'passive', cat: 'degats', hasVal: true, valDice: true, defaultVal: 1, valLabel: 'Dégâts / allié',
       desc: '+X Dégâts par allié présent dans la zone de la cible.' },
@@ -549,20 +549,20 @@
     { effect: 'attaque_enflammee', name: 'Attaque Enflammée', kind: 'action', cat: 'etats', hasVal: false,
       desc: 'Action : 1 attaque de contact qui inflige FEU.' },
     { effect: 'attaque_etat', name: 'Attaque Altérante', kind: 'action', cat: 'etats', hasVal: false,
-      hasChoice: true, choiceLabel: 'État infligé', choices: ['feu', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
+      hasChoice: true, choiceLabel: 'État infligé', choices: ['feu', 'gele', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
       desc: 'Action : 1 attaque de contact qui inflige l\'état choisi.' },
     { effect: 'arme_enflammee', name: 'Arme Enflammée', kind: 'upgrade', cat: 'etats', hasVal: false,
       desc: 'Vos attaques de contact infligent FEU.' },
     { effect: 'arme_affaiblissante', name: 'Arme Vampirique', kind: 'upgrade', cat: 'etats', hasVal: false,
       desc: 'Toutes vos attaques infligent AFFAIBLI.' },
     { effect: 'arme_etat', name: 'Arme Altérante', kind: 'upgrade', cat: 'etats', hasVal: false,
-      hasChoice: true, choiceLabel: 'État infligé', choices: ['feu', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
+      hasChoice: true, choiceLabel: 'État infligé', choices: ['feu', 'gele', 'auSol', 'affaibli', 'brise', 'faille', 'poison'],
       desc: 'Toutes vos attaques infligent l\'état choisi.' },
     { effect: 'charge_etat', name: 'Assaut Handicapant', kind: 'upgrade', cat: 'etats', hasVal: false,
-      hasChoice: true, choiceLabel: 'État infligé', choices: ['feu', 'auSol', 'affaibli'],
+      hasChoice: true, choiceLabel: 'État infligé', choices: ['feu', 'gele', 'auSol', 'affaibli'],
       desc: 'Vous infligez l\'état choisi en arrivant au contact d\'un adversaire.' },
     { effect: 'ignore_def_etat', name: 'Faille Tactique', kind: 'upgrade', cat: 'etats', hasVal: false,
-      hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'affaibli', 'auSol', 'brise', 'faille', 'poison'],
+      hasChoice: true, choiceLabel: 'État ciblé', choices: ['feu', 'gele', 'affaibli', 'auSol', 'brise', 'faille', 'poison'],
       desc: 'Vos attaques ignorent la DEF des cibles affectées par l\'état choisi.' },
     { effect: 'bonus_bleu_feu', name: 'Combustion', kind: 'upgrade', cat: 'etats', hasVal: false,
       desc: '+1 dé bleu (Mystique) à vos attaques contre les cibles en FEU.' },
@@ -617,7 +617,7 @@
     { effect: 'crit_en_echec', name: 'Mur Imbrisable', kind: 'passive', cat: 'protection', hasVal: false,
       desc: 'Les Critiques adverses contre vous deviennent des Échecs.' },
     { effect: 'immun_etat', name: 'Immunité', kind: 'upgrade', cat: 'protection', hasVal: false,
-      hasChoice: true, choiceLabel: 'État ignoré', choices: ['feu', 'affaibli', 'auSol', 'brise', 'faille', 'poison'],
+      hasChoice: true, choiceLabel: 'État ignoré', choices: ['feu', 'gele', 'affaibli', 'auSol', 'brise', 'faille', 'poison'],
       desc: 'Vous ne subissez jamais l\'état choisi.' },
     { effect: 'camouflage', name: 'Camouflage', kind: 'passive', cat: 'protection', hasVal: false,
       desc: 'Les attaques à distance ne peuvent pas vous cibler depuis une autre zone.' },

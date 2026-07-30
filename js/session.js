@@ -2274,7 +2274,7 @@
 
   // Applique la conséquence d'un échec au test (block.failEffect) et renvoie le
   // message à afficher dans l'encadré d'échec.
-  const FX_STATE_LABEL = { affaibli: 'Affaibli', auSol: 'Au sol', feu: 'Feu', poison: 'Poison', brise: 'Brisé', faille: 'Faille' };
+  const FX_STATE_LABEL = { affaibli: 'Affaibli', auSol: 'Au sol', feu: 'Feu', gele: 'Gelé', poison: 'Poison', brise: 'Brisé', faille: 'Faille' };
   // Drapeau posé par la conséquence « perte de PV » quand les dégâts sont létaux :
   // l'aventurier tombe au coma et le test devient une réussite automatique.
   let comaRescue = null;

@@ -165,10 +165,11 @@
     });
     // États en attente (conséquence d'un test de scène raté) : appliqués au
     // démarrage du combat, posés par session.js dans Store.state.pendingCombatStates.
-    const initStates = { affaibli: false, auSol: false, feu: false, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0, prepare: hasTalent('prepare_initial'), invisible: hasTalent('invisibilite') };
+    const initStates = { affaibli: false, auSol: false, feu: 0, gele: 0, blindage: hasTalent('blindage_initial'), onde: false, ciblage: false, brise: false, faille: false, garde: false, poison: 0, prepare: hasTalent('prepare_initial'), invisible: hasTalent('invisibilite') };
     const pendStates = (Store.state.pendingCombatStates && Store.state.pendingCombatStates[h.id]) || [];
     pendStates.forEach(function (k) {
-      if (k === 'poison') initStates.poison = (initStates.poison || 0) + 1;
+      // Feu / Gelé / Poison sont cumulables : chaque occurrence ajoute un cran.
+      if (STACK_STATES[k]) initStates[k] = (initStates[k] || 0) + 1;
       else if (k in initStates) initStates[k] = true;
     });
     return {
@@ -210,7 +211,7 @@
       attacks: attacks, attackUses: initUses(attacks),
       talents: advTalents,
       talentLabels: Combatants.monsterTalentLabels(m),
-      states: { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0, prepare: advTalents.some(function (t) { return t.effect === 'prepare_initial'; }), invisible: advTalents.some(function (t) { return t.effect === 'invisibilite'; }) },
+      states: { affaibli: false, auSol: false, feu: 0, gele: 0, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0, prepare: advTalents.some(function (t) { return t.effect === 'prepare_initial'; }), invisible: advTalents.some(function (t) { return t.effect === 'invisibilite'; }) },
       blindageCharges: 0,
       used: { action: false, move: false, object: false },
       zone: 0, status: 'active', analyzed: false,
@@ -713,6 +714,79 @@
   }
   // Agilité d'un combattant : aventurier → compétence ; adversaire → selon son type
   // (sbire 1, alpha/solitaire 2, boss 3).
+  // ---------- ÉTATS CUMULABLES ----------
+  // Feu, Gelé et Poison ne sont pas des drapeaux mais des COMPTEURS : chaque
+  // nouvelle application ajoute un cran (Feu 1 → Feu 2 → …). Les sauvegardes
+  // antérieures stockaient `feu: true` : lu comme 1.
+  const STACK_STATES = { feu: true, gele: true, poison: true };
+  function isStackState(s) { return !!STACK_STATES[s]; }
+  function stateVal(c, s) {
+    const v = c && c.states ? c.states[s] : 0;
+    if (v === true) return 1;
+    return v || 0;
+  }
+  function addStack(c, s, n) {
+    if (!c || !c.states) return 0;
+    c.states[s] = stateVal(c, s) + (n == null ? 1 : Math.max(0, n));
+    return c.states[s];
+  }
+  // Libellé affiché : les états cumulables portent leur valeur (« Feu 2 »).
+  function stateBadgeLabel(c, s) {
+    return isStackState(s) ? stateLabel(s) + ' ' + stateVal(c, s) : stateLabel(s);
+  }
+
+  // ---------- GELÉ ----------
+  // Gelé N empêche tout déplacement. Pour se libérer, le combattant tente un
+  // test de FORCE N : chaque réussite retire un cran de Gelé, et le test réussi
+  // (N réussites ou plus) le dégèle complètement.
+  function forceOf(c) {
+    if (c.side === 'monster') {
+      if (c.type === 'boss') return 3;
+      if (c.type === 'alpha' || c.type === 'solitaire') return 2;
+      return 1;
+    }
+    const tpl = Store.state.heroes.find(function (h) { return h.id === c.templateId; });
+    const base = (tpl && tpl.skills && tpl.skills['Force']) || 0;
+    const g = sessionGains && sessionGains[c.templateId];
+    return base + ((g && g.skills && g.skills['Force']) || 0);
+  }
+  function forceTest(c, need) {
+    let toRoll = 1 + forceOf(c), succ = 0, guard = 0;
+    while (toRoll > 0 && guard++ < 40) {
+      let nx = 0;
+      for (let i = 0; i < toRoll; i++) { const r = 1 + Math.floor(Math.random() * 6); if (r >= 4) succ++; if (r === 6) nx++; }
+      toRoll = nx;
+    }
+    return { passed: succ >= need, succ: succ, need: need };
+  }
+  function isGele(c) { return stateVal(c, 'gele') > 0; }
+  // Tentative de dégel. Renvoie true si le combattant est entièrement libéré.
+  // Consomme le mouvement de l'appelant (géré par l'appelant).
+  function tryBreakGele(c) {
+    const need = stateVal(c, 'gele');
+    if (need <= 0) return true;
+    const t = forceTest(c, need);
+    if (t.passed) {
+      c.states.gele = 0;
+      pushFx({ type: 'state', iid: c.iid });
+      toast('❄️ Libéré !', 'crit');
+      log(cname(c) + ' se libère de la <span class="lstate">Glace</span> (Force ' + t.succ + '/' + need +
+        ') — <span class="lcrit">réussite</span> !', 'state');
+      return true;
+    }
+    if (t.succ > 0) {
+      c.states.gele = Math.max(0, need - t.succ);
+      pushFx({ type: 'state', iid: c.iid });
+      log(cname(c) + ' lutte contre la <span class="lstate">Glace</span> (Force ' + t.succ + '/' + need +
+        ') — <span class="lfail">échec</span> : <span class="lstate">Gelé ' + c.states.gele + '</span>.', 'state');
+    } else {
+      log(cname(c) + ' lutte contre la <span class="lstate">Glace</span> (Force ' + t.succ + '/' + need +
+        ') — <span class="lfail">échec</span> : toujours <span class="lstate">Gelé ' + need + '</span>.', 'state');
+    }
+    toast('❄️ Toujours gelé (' + c.states.gele + ')', 'fail');
+    return false;
+  }
+
   function agilityOf(c) {
     if (c.side === 'monster') {
       if (c.type === 'boss') return 3;
@@ -905,7 +979,7 @@
         // AU SOL ne s'applique pas aux boss ni aux socles plus grands (cohérent avec applyStates).
         const blockAuSol = st === 'auSol' && (foe.type === 'boss' || SOCLE_RANK[foe.socle] > SOCLE_RANK[c.socle]);
         if (!blockAuSol) {
-          if (st === 'feu') foe.states.feu = true;
+          if (isStackState(st)) addStack(foe, st, 1);
           else if (st === 'auSol') foe.states.auSol = true;
           else if (st === 'affaibli') foe.states.affaibli = true;
           pushFx({ type: 'state', iid: foe.iid });
@@ -959,6 +1033,13 @@
     if (asAction) { if (actionSpent(c)) { pendingMove = null; arrivalTargetIid = null; render(); return; } }
     else if (c.used.move && !c.freeMoveReady && !(c.freeMoves > 0) && !c.prepBonus) { pendingMove = null; arrivalTargetIid = null; render(); return; }
     if (c.zone === zi) { pendingMove = null; arrivalTargetIid = null; render(); return; }
+    // GELÉ : aucun déplacement tant que le combattant n'est pas libéré (dernier
+    // rempart si un chemin d'accès contournait le bouton « Se libérer »).
+    if (isGele(c)) {
+      alert('Gelé ' + stateVal(c, 'gele') + ' — impossible de se déplacer. Utilisez « Se libérer » (test de Force ' +
+        stateVal(c, 'gele') + ').');
+      pendingMove = null; arrivalTargetIid = null; render(); return;
+    }
     // BARRIÈRES : bloque ou exige un test d'Agilité (Difficile) pour franchir.
     const cross = crossCheck(c, zi);
     if (cross === 'block') {
@@ -1077,6 +1158,7 @@
     if (atk.effects.brise) toApply.push('brise');
     if (atk.effects.faille) toApply.push('faille');
     if (atk.effects.feu) toApply.push('feu');
+    if (atk.effects.gele) toApply.push('gele');
     if (atk.effects.auSol) {
       const biggerTarget = SOCLE_RANK[target.socle] > SOCLE_RANK[attacker.socle];
       if (target.type !== 'boss' && !biggerTarget) toApply.push('auSol');
@@ -1106,6 +1188,11 @@
       if (s === 'poison') {
         target.states.poison = (target.states.poison || 0) + poisonVal;
         log(cname(target) + ' subit <span class="lstate">Poison ' + target.states.poison + '</span>.', 'state');
+      } else if (isStackState(s)) {
+        // Feu / Gelé : chaque application monte d'un cran.
+        const n = addStack(target, s, 1);
+        log(cname(target) + ' subit <span class="lstate">' + stateLabel(s) + ' ' + n + '</span>' +
+          (s === 'gele' ? ' — plus de déplacement sans un test de Force ' + n + '.' : '.'), 'state');
       } else {
         target.states[s] = true;
         log(cname(target) + ' subit <span class="lstate">' + stateLabel(s) + '</span>.', 'state');
@@ -1326,9 +1413,9 @@
     if (res.pvLost <= 0 && res.pvHealed <= 0) applyRegain(target, attacker);
     applyStates(attacker, target, atk);
     // ORBES PARTAGÉS : l'attaque dopée inflige aussi FEU.
-    if (orbBuffN > 0 && target.status === 'active' && !(target.states && target.states.feu)) {
-      target.states.feu = true; pushFx({ type: 'state', iid: target.iid });
-      log(cname(target) + ' subit <span class="lstate">Feu</span> (Orbes Partagés).', 'state');
+    if (orbBuffN > 0 && target.status === 'active') {
+      const nf = addStack(target, 'feu', 1); pushFx({ type: 'state', iid: target.iid });
+      log(cname(target) + ' subit <span class="lstate">Feu ' + nf + '</span> (Orbes Partagés).', 'state');
     }
     checkMonsterTalents(target, res.pvLost);
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
@@ -1634,7 +1721,7 @@
 
   function hasEffect(atk) {
     return atk.effects && (atk.effects.affaibli || atk.effects.auSol || atk.effects.feu ||
-      atk.effects.brise || atk.effects.faille || atk.effects.poison);
+      atk.effects.gele || atk.effects.brise || atk.effects.faille || atk.effects.poison);
   }
 
   function applyHeroComaVieLoss(combatant) {
@@ -2105,6 +2192,12 @@
 
   function actOneMonster(m) {
     if (actionSpent(m)) return;
+    // GELÉ : l'adversaire consacre son mouvement à tenter de se libérer (test de
+    // Force N). Il peut ensuite attaquer, mais sans changer de zone.
+    if (isGele(m)) {
+      m.used.move = true;
+      tryBreakGele(m);
+    }
     // AU SOL : l'adversaire utilise son mouvement pour se relever, puis attaque
     // normalement — mais sans pouvoir changer de zone (mouvement déjà consommé).
     if (m.states.auSol) {
@@ -2125,7 +2218,10 @@
     // HAPPE : avant d'attaquer, déplace de force un aventurier d'une autre zone dans la sienne.
     if (monsterTalent(m, 'pull_to_zone')) {
       // On ne happe pas un aventurier au travers d'une barrière infranchissable/obstruante.
-      const outsiders = heroes.filter(function (h) { return h.zone !== m.zone && moveBarrier(m.zone, h.zone).type !== 'block'; });
+      // Un aventurier GELÉ est pris dans la glace : impossible de le tirer à soi.
+      const outsiders = heroes.filter(function (h) {
+        return h.zone !== m.zone && !isGele(h) && moveBarrier(m.zone, h.zone).type !== 'block';
+      });
       if (outsiders.length) {
         const pulled = chooseFrom(m, outsiders);
         if (pulled) {
@@ -2616,6 +2712,7 @@
     affaibli: { l: 'Affaibli', neg: true }, auSol: { l: 'Au sol', neg: true }, feu: { l: 'Feu', neg: true },
     blindage: { l: 'Blindage', neg: false }, onde: { l: 'Onde', neg: false }, ciblage: { l: 'Ciblage', neg: false },
     brise: { l: 'Brisé', neg: true }, faille: { l: 'Faille', neg: true }, poison: { l: 'Poison', neg: true },
+    gele: { l: 'Gelé', neg: true },
     garde: { l: 'Gardé', neg: false }, prepare: { l: 'Préparé', neg: false },
     invisible: { l: 'Invisible', neg: false },
   };
@@ -2694,17 +2791,25 @@
   function applyEndOfTurnStates() {
     if (!combat()) return;
     combat().combatants.forEach(function (c) {
-      if (c.status !== 'active' || !c.states.feu) return;
-      // BLINDAGE : absorbe les dégâts de Feu (consomme une source).
-      if (absorbBlindage(c, 'le Feu')) return;
-      let v = 1 + Math.floor(Math.random() * 6);
+      const feu = stateVal(c, 'feu');
+      if (c.status !== 'active' || feu <= 0) return;
+      // BLINDAGE : absorbe les dégâts de Feu (consomme une source) — les flammes
+      // faiblissent quand même d'un cran.
+      if (absorbBlindage(c, 'le Feu')) { c.states.feu = feu - 1; return; }
+      // FEU N : N dés noirs de dégâts.
+      let v = 0;
+      for (let i = 0; i < feu; i++) v += 1 + Math.floor(Math.random() * 6);
       // EMBRASEMENT : les dégâts de Feu des adversaires sont doublés en fin de tour.
       if (c.side === 'monster' && activeOf('hero').some(function (h) { return heroHasTalent(h, 'feu_double'); })) v *= 2;
       const before = c.pv;
       c.pv = Math.max(0, c.pv - v);
       c.dmgTaken += v; revealOnDamage(c, v);
       pushFx({ type: 'hit', iid: c.iid, amount: v, fromPct: pct(before, c.maxPv), toPct: pct(c.pv, c.maxPv) });
-      log(cname(c) + ' subit <span class="dnum d-black">' + v + '</span> Dégâts (<span class="lstate">Feu</span>) en fin de tour.', 'state');
+      log(cname(c) + ' subit <span class="dnum d-black">' + v + '</span> Dégâts (<span class="lstate">Feu ' + feu +
+        '</span>, ' + feu + ' dé' + (feu > 1 ? 's' : '') + ' noir' + (feu > 1 ? 's' : '') + ') en fin de tour.', 'state');
+      // Les flammes s'éteignent peu à peu : −1 Feu à chaque fin de tour.
+      c.states.feu = feu - 1;
+      if (c.states.feu <= 0) log(cname(c) + ' n\'est plus en <span class="lstate">Feu</span>.', 'state');
       if (c.side === 'monster' && c.pv <= 0 && !c.killedBy) c.killedBy = null;
       checkComa(c);
     });
@@ -3787,12 +3892,12 @@
 
   function statesBadges(c) {
     return Object.keys(STATE_META).filter(function (s) {
-      if (s === 'poison') return c.states.poison > 0;
+      if (isStackState(s)) return stateVal(c, s) > 0;
       // PRÉPARÉ : badge visible tant que l'état est en attente OU armé pour le tour.
       if (s === 'prepare') return c.states.prepare || c.prepBonus;
       return c.states[s];
     }).map(function (s) {
-      const lbl = s === 'poison' ? ('Poison ' + c.states.poison) : stateLabel(s);
+      const lbl = stateBadgeLabel(c, s);
       return '<span class="state-badge ' + (STATE_META[s].neg ? 'neg' : 'pos') + '" data-state="' + s + '" data-iid="' + c.iid + '">' +
         lbl + '</span>';
     }).join('');
@@ -3935,8 +4040,16 @@
     const hasFreeMove = c.freeMoveReady || c.freeMoves > 0;
     // Pendant le Pré-Tour, seul le mouvement gratuit est disponible.
     const canMove = canAct || (canPretour && hasFreeMove && !usedMv);
+    // GELÉ N : plus aucun déplacement — le bouton devient « Se libérer », un test
+    // de Force N qui consomme le mouvement (chaque réussite retire un cran).
+    const geleN = stateVal(c, 'gele');
     // AU SOL : le bouton mouvement est remplacé par « Se relever » (consomme le mouvement)
-    const moveBtn = isAuSol
+    const moveBtn = geleN > 0
+      ? '<button class="ab-tool standup-chip do-unfreeze" type="button" data-iid="' + c.iid + '"' +
+          ((!canAct || usedMv) ? ' disabled' : '') +
+          ' title="Gelé ' + geleN + ' : utilise votre mouvement pour tenter un test de Force ' + geleN +
+            '. Chaque réussite retire un cran de Gelé.">❄️ Se libérer (F' + geleN + ')</button>'
+      : isAuSol
       ? '<button class="ab-tool standup-chip do-standup" type="button" data-iid="' + c.iid + '"' +
           ((!canAct || usedMv) ? ' disabled' : '') + ' title="Utilise votre mouvement pour vous relever (retire AU SOL)">Se relever</button>'
       : '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
@@ -3956,10 +4069,13 @@
   function renderCard(c) {
     // Garde-fous : un combattant persisté incomplet ne doit jamais faire planter
     // le rendu (sinon tout le plateau disparaît). On comble les sous-objets requis.
-    if (!c.states) c.states = { affaibli: false, auSol: false, feu: false, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0, invisible: false };
+    if (!c.states) c.states = { affaibli: false, auSol: false, feu: 0, gele: 0, blindage: false, onde: false, ciblage: false, brise: false, faille: false, poison: 0, invisible: false };
     if (c.states.brise === undefined) c.states.brise = false;
     if (c.states.faille === undefined) c.states.faille = false;
     if (c.states.poison === undefined) c.states.poison = 0;
+    // Rétro-compat : Feu était un booléen avant de devenir cumulable.
+    if (c.states.feu === true) c.states.feu = 1; else if (!c.states.feu) c.states.feu = 0;
+    if (c.states.gele === true) c.states.gele = 1; else if (!c.states.gele) c.states.gele = 0;
     if (!c.used) c.used = { action: false, move: false, object: false };
     if (!Array.isArray(c.attacks)) c.attacks = [];
     if (!Array.isArray(c.attackUses) || c.attackUses.length !== c.attacks.length) {
@@ -3976,7 +4092,9 @@
     if (selectedIid === c.iid) cls.push('selected');
     if (c.side === 'hero' && !dead && (!c.used.action || c.prepBonus)) cls.push('has-action');
     // Brûlure : halo de feu persistant tant que le combattant est en FEU.
-    if (VFX.brulure && !dead && c.states && c.states.feu) cls.push('on-fire');
+    if (VFX.brulure && !dead && stateVal(c, 'feu') > 0) cls.push('on-fire');
+    // GELÉ : liseré de glace sur la carte du combattant immobilisé.
+    if (!dead && stateVal(c, 'gele') > 0) cls.push('frozen');
     // PRÉ-TOUR : surligne en jaune les aventuriers ayant encore un talent de pré-tour à jouer.
     if (combat().phase === 'pretour' && c.side === 'hero' && !dead && c.freeMoveReady) cls.push('pretour-ready');
     // Cible valide pendant le ciblage au clic (attaque ou analyse)
@@ -4377,7 +4495,7 @@
   // d'une zone — X cibles, toute la zone ou tout le combat —, du camp adverse,
   // allié ou des deux, avec un état facultatif. La DEF n'intervient pas (c'est
   // un effet de souffle, comme le Feu).
-  const BLAST_STATE_LABEL = { affaibli: 'Affaibli', auSol: 'Au sol', feu: 'Feu', poison: 'Poison', brise: 'Brisé', faille: 'Faille' };
+  const BLAST_STATE_LABEL = { affaibli: 'Affaibli', auSol: 'Au sol', feu: 'Feu', gele: 'Gelé', poison: 'Poison', brise: 'Brisé', faille: 'Faille' };
   function blastTargets(src, cfg, zi) {
     const all = combat().combatants.filter(function (c) {
       if (c.status !== 'active' || c.iid === src.iid) return false;
@@ -4420,10 +4538,11 @@
       }
       let stTxt = '';
       if (cfg.state && t.status === 'active') {
-        if (cfg.state === 'poison') t.states.poison = (t.states.poison || 0) + 1;
+        if (isStackState(cfg.state)) addStack(t, cfg.state, 1);
         else t.states[cfg.state] = true;
         pushFx({ type: 'state', iid: t.iid });
-        stTxt = ' + <span class="lstate">' + esc(BLAST_STATE_LABEL[cfg.state] || cfg.state) + '</span>';
+        stTxt = ' + <span class="lstate">' + esc(BLAST_STATE_LABEL[cfg.state] || cfg.state) +
+          (isStackState(cfg.state) ? ' ' + stateVal(t, cfg.state) : '') + '</span>';
       }
       log(cname(src) + ' — <span class="lwpn">' + nm(cfg.name || 'Explosion') + '</span> touche ' + cname(t) +
         ' : ' + amt(dmg, 'dmg') + ' Dégâts' + stTxt + '.', 'attack');
@@ -5001,6 +5120,14 @@
         log(cname(c) + ' se relève (retire <span class="lstate">Au sol</span>).', 'state');
         pushFx({ type: 'state', iid: c.iid });
         Store.save(); render();
+      });
+      // GELÉ : tentative de dégel (test de Force), consomme le mouvement.
+      const unfreeze = root.querySelector('.do-unfreeze[data-iid="' + c.iid + '"]');
+      if (unfreeze) unfreeze.addEventListener('click', function () {
+        if (c.used.move) return;
+        c.used.move = true;
+        tryBreakGele(c);
+        Store.save(); render(); flushFx(); flushToasts();
       });
       // Mouvement : arme le déplacement, puis on clique la zone de destination
       const mv = root.querySelector('.do-move[data-iid="' + c.iid + '"]');

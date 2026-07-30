@@ -146,7 +146,8 @@
           '<label class="checkbox inline"><input type="checkbox" class="eff-own"> + Dégâts</label>' +
           '<label class="checkbox inline"><input type="checkbox" class="eff-affaibli"> Affaibli</label>' +
           '<label class="checkbox inline"><input type="checkbox" class="eff-ausol"> Au sol</label>' +
-          '<label class="checkbox inline"><input type="checkbox" class="eff-feu"> Feu</label>' +
+          '<label class="checkbox inline" title="Feu est cumulable : chaque application ajoute un cran (1 dé noir par cran en fin de tour, puis −1 Feu)."><input type="checkbox" class="eff-feu"> Feu</label>' +
+          '<label class="checkbox inline" title="Gelé est cumulable : plus aucun déplacement tant qu\'un test de Force égal au niveau de Gelé n\'est pas réussi."><input type="checkbox" class="eff-gele"> Gelé</label>' +
         '</div>' +
         '<div class="atk-effects atk-usage">' +
           '<label class="checkbox inline" title="0 = illimité">Utilisations / combat <input type="number" class="atk-uses-in" min="0" style="width:60px"></label>' +
@@ -159,6 +160,7 @@
       row.querySelector('.eff-affaibli').checked = !!atk.effects.affaibli;
       row.querySelector('.eff-ausol').checked = !!atk.effects.auSol;
       row.querySelector('.eff-feu').checked = !!atk.effects.feu;
+      row.querySelector('.eff-gele').checked = !!atk.effects.gele;
       row.querySelector('.atk-uses-in').value = atk.uses || 0;
       row.querySelector('.atk-free').checked = !!atk.freeAction;
 
@@ -171,6 +173,7 @@
       row.querySelector('.eff-affaibli').addEventListener('change', function (e) { atk.effects.affaibli = e.target.checked; });
       row.querySelector('.eff-ausol').addEventListener('change', function (e) { atk.effects.auSol = e.target.checked; });
       row.querySelector('.eff-feu').addEventListener('change', function (e) { atk.effects.feu = e.target.checked; });
+      row.querySelector('.eff-gele').addEventListener('change', function (e) { atk.effects.gele = e.target.checked; });
       row.querySelector('.atk-uses-in').addEventListener('input', function (e) { atk.uses = Math.max(0, parseInt(e.target.value, 10) || 0); });
       row.querySelector('.atk-free').addEventListener('change', function (e) { atk.freeAction = e.target.checked; });
       row.querySelector('.atk-del').addEventListener('click', function () {

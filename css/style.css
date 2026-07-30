@@ -5068,3 +5068,20 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   .dlg-line-tools { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; }
   .ses-dlg-av, .ses-dlg-av img { width: 38px; height: 38px; flex-basis: 38px; }
 }
+
+/* ============================================================
+   v2.4.34 — États cumulables : FEU N et GELÉ N
+   ============================================================ */
+/* Gelé : cartouche bleu glace, distincte des autres états négatifs. */
+.state-badge.neg[data-state="gele"] { color: #17485f; border-color: #6fb6d8; background: #dceff8; }
+.state-badge.neg[data-state="feu"]  { color: #7a2e10; border-color: #e08a4a; background: #fbe4d3; }
+/* Combattant pris dans la glace : liseré froid + légère désaturation. */
+.combat-card.frozen {
+  position: relative;
+  box-shadow: 0 0 0 2px rgba(111,182,216,.55), 0 0 12px rgba(111,182,216,.35);
+}
+.combat-card.frozen::after {
+  content: "❄"; position: absolute; top: .25rem; right: .3rem;
+  font-size: .95rem; color: #bfe6f6; text-shadow: 0 0 6px rgba(111,182,216,.8);
+  pointer-events: none;
+}

@@ -1583,7 +1583,7 @@
     { kind: 'deed',  label: 'Subit un Haut Fait' },
     { kind: 'combat', label: '⚔️ Démarrer un Combat' },
   ];
-  const FX_STATES = [['affaibli', 'Affaibli'], ['auSol', 'Au sol'], ['feu', 'Feu'], ['poison', 'Poison'], ['brise', 'Brisé'], ['faille', 'Faille']];
+  const FX_STATES = [['affaibli', 'Affaibli'], ['auSol', 'Au sol'], ['feu', 'Feu'], ['gele', 'Gelé'], ['poison', 'Poison'], ['brise', 'Brisé'], ['faille', 'Faille']];
   const FX_SLOTS = [['mainG', 'Main gauche'], ['mainD', 'Main droite'], ['randhand', '1 main aléatoire'], ['armor', 'Armure'], ['object', 'Objet équipé']];
   // Effets POSITIFS accordés en cas de réussite (test ou scène).
   const TEST_WIN_FX = [
