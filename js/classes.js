@@ -16,9 +16,9 @@
 
   // Toutes les classes connues (données préservées même pour les classes cachées)
   const CLASS_NAMES_ALL = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
-    'Gardien', 'Lamevent', 'Pyromane'];
+    'Gardien', 'Lamevent', 'Mystique'];
   // Classes actuellement affichées (sync avec PLAYABLE_CLASSES dans combatants.js)
-  const CLASS_NAMES = ['Destructeur', 'Gardien', 'Lamevent', 'Pyromane'];
+  const CLASS_NAMES = ['Destructeur', 'Gardien', 'Lamevent', 'Mystique'];
   const USAGE = [
     { value: 'both',   label: 'Combat & hors combat' },
     { value: 'combat', label: 'En combat' },

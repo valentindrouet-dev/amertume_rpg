@@ -14,16 +14,16 @@
     defHigh: 'DEF haute', dmgHigh: 'Dégâts hauts', ranged: 'À distance', isolated: 'Isolé' };
   const TYPE_LABEL = { standard: 'Sbire', solitaire: 'Solitaire', alpha: 'Alpha', boss: 'Boss' };
   const CLASSES = ['Apothicaire', 'Artificier', 'Chasseur', 'Destructeur', 'Déviant',
-    'Gardien', 'Lamevent', 'Pyromane'];
+    'Gardien', 'Lamevent', 'Mystique'];
   // Classes actuellement jouables (les autres existent en base mais sont cachées).
-  const PLAYABLE_CLASSES = ['Destructeur', 'Gardien', 'Lamevent', 'Pyromane'];
+  const PLAYABLE_CLASSES = ['Destructeur', 'Gardien', 'Lamevent', 'Mystique'];
   // Courts descriptifs de classe (affichés à la sélection dans l'assistant).
   // À compléter au fil des définitions fournies.
   const CLASS_DESC = {
     'Destructeur': 'L\'ivresse des batailles vous habite, et la rage vous envahit lorsque vous prenez les armes, afin d\'exterminer vos adversaires et de protéger vos coéquipiers.',
     'Gardien': 'Protecteur et esprit tactique de votre équipe, vous êtes le héraut des plus faibles et la robustesse incarnée. Défendez vos coéquipiers et arrachez la victoire grâce à votre esprit de stratège.',
     'Lamevent': 'Combattant redoutablement rapide, vous vous faufilez entre les adversaires pour leur infliger d\'innombrables coups et attaques.',
-    'Pyromane': 'Maître des arts mystiques et adeptes des brûlures extrêmes, vous manipulez des puissances qui, bien souvent, vous dépassent. Ce qui permet également d\'annihiler des hordes d\'adversaires facilement...',
+    'Mystique': 'Maître des arts mystiques, vous manipulez des puissances qui, bien souvent, vous dépassent. Vos Orbes annihilent des hordes d\'adversaires — et vous choisissez l\'élément qui les anime.',
   };
   const SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
   // Usage en jeu de chaque compétence (une ligne, affichée à la création).
@@ -251,7 +251,7 @@
   // Bonus de PV conféré par la classe
   const CLASS_PV = {
     'Déviant': 10, 'Apothicaire': 12, 'Artificier': 14, 'Chasseur': 16,
-    'Destructeur': 16, 'Gardien': 18, 'Lamevent': 14, 'Pyromane': 10,
+    'Destructeur': 16, 'Gardien': 18, 'Lamevent': 14, 'Mystique': 10,
   };
   function classPv(h) { return CLASS_PV[h.klass] || 0; }
   function heroPv(h) { return Math.max(1, (h.vie || 0) * (h.endu || 0) + (h.pvBonus || 0) + classPv(h)); }
@@ -481,7 +481,7 @@
     // Un talent de niveau supérieur peut ainsi renforcer un talent existant
     // (ex. « +1 Orbe de Feu » s'ajoute à l'effet de base).
     const merged = {}; const order = [];
-    talents.filter(function (t) { return t.kind === 'action' || t.effect === 'pyromane'; }).forEach(function (t) {
+    talents.filter(function (t) { return t.kind === 'action' || t.effect === 'orbes_mystiques'; }).forEach(function (t) {
       if (!merged[t.effect]) {
         merged[t.effect] = { id: t.id, name: t.name, effect: t.effect, kind: 'action',
           val: 0, dice: null, range: null, choice: t.choice || null, scope: t.scope || 'count',
@@ -563,11 +563,12 @@
           return Object.assign(common, { range: 'contact', frayeur: true, useOwnDamage: false,
             frayeurCount: Math.max(1, t.val || 1), frayeurScope: t.scope || 'count',
             dice: D.emptyPool(), effects: Store.noStates() });
-        case 'pyromane':
+        case 'orbes_mystiques':
           // Orbe Mystique : 1 dé bleu, à distance, action gratuite réutilisable.
           // Le nombre d'orbes/tour (uses) est ajusté selon le niveau par le moteur.
           return Object.assign(common, { range: 'distance', useOwnDamage: false,
-            dice: Object.assign(D.emptyPool(), { blue: 1 }), freeAction: true, uses: 2, pyromaneOrb: true });
+            dice: Object.assign(D.emptyPool(), { blue: 1 }), freeAction: true, uses: 2,
+            orbeMystique: true, pyromaneOrb: true });
         case 'deflagration':
           // Lance tous les orbes restants (dés bleus) sur une cible (dés calculés au moteur).
           return Object.assign(common, { range: 'distance', useOwnDamage: false,

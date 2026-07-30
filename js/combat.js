@@ -36,7 +36,32 @@
   let pendingReaction = null; // iid de l'aventurier dont une Réaction interrompt le tour des adversaires
   let aiResume = null;        // reprise de la séquence adverse en pause (Réaction)
   let pendingAnalyze = null;  // iid de l'aventurier en cours d'analyse (choisit une cible)
-  let pendingOrbeShare = null; // iid du Pyromane répartissant ses Orbes Partagés (clic sur alliés)
+  let pendingOrbeShare = null; // iid du Mystique répartissant ses Orbes Partagés (clic sur alliés)
+  // Attaque « Orbe » du Mystique. `pyromaneOrb` est l'ancien nom du marqueur :
+  // les combats déjà en cours au moment de la refonte restent jouables.
+  function isOrbAttack(a) { return !!(a && (a.orbeMystique || a.pyromaneOrb)); }
+  // Suffixe du nom de l'attaque selon l'élément des Orbes Élémentaires.
+  const ORB_ELEMENT_NAME = {
+    feu: 'de Feu', gele: 'de Glace', poison: 'de Poison',
+    affaibli: 'Débilitants', brise: 'Fracassants', faille: 'de Faille', auSol: 'de Choc',
+  };
+  function ORB_ELEMENT_SUFFIX(st) { return ORB_ELEMENT_NAME[st] || 'Mystiques'; }
+  // Choix (état) porté par un effet dans une liste de talents résolus.
+  // Élément des Orbes d'un combattant (Orbes Élémentaires) — 'feu' par défaut
+  // pour les anciens « Orbe de Feu », null si l'aventurier n'a pas le talent.
+  function orbElementOf(c) {
+    if (!c || !Array.isArray(c.attacks)) return null;
+    const a = c.attacks.find(isOrbAttack) || c.attacks.find(function (x) { return x && x.deflagration; });
+    return (a && a.orbElement) || null;
+  }
+  function orbElementLabel(st) {
+    const M = { feu: 'Feu', gele: 'Gelé', poison: 'Poison', affaibli: 'Affaibli', brise: 'Brisé', faille: 'Faille', auSol: 'Au sol' };
+    return M[st] || st;
+  }
+  function talentChoiceOf(talents, effect) {
+    const t = (talents || []).find(function (x) { return x.effect === effect; });
+    return t ? (t.choice || null) : null;
+  }
   let pendingDesignate = null; // iid du Gardien désignant ses alliés Gardés (clic sur alliés, Pré-Tour 1)
   // File de choix joueur au CLIC (remplace les pop-up prompt/confirm des talents
   // « vous pouvez… »). Chaque choix : { casterIid, prompt, isValidTarget(c), onPick(c), allowSkip }.
@@ -120,23 +145,32 @@
     const attacks = Combatants.heroCombatAttacks(hero);
     const talents = Combatants.resolveHeroTalents(Array.isArray(hero.chosenTalents) ? hero.chosenTalents : null);
     const hasTalent = function (e) { return talents.some(function (t) { return t.effect === e; }); };
-    // PYROMANE : nombre d'Orbes Mystiques par tour = 2 + 1 par niveau impair (3, 5, 7…).
+    // ORBES MYSTIQUES (Mystique) : nombre d'Orbes par tour = 2 + 1 par niveau impair (3, 5, 7…).
     // Le nom de l'attaque devient « X Orbes Mystiques » (varie avec le niveau).
-    // Les améliorations/maîtrises d'Orbe se cumulent ici (feu, double dé, bonus, perçant, critique).
-    if (hasTalent('pyromane')) {
+    // Les améliorations/maîtrises d'Orbe se cumulent ici (élément, double dé, bonus, perçant, critique).
+    if (hasTalent('orbes_mystiques')) {
       const orbs = 2 + Math.floor((Math.max(1, combatHeroLevel) - 1) / 2);
       const per = hasTalent('orbe_double') ? 2 : 1;
-      const orbFeu = hasTalent('orbe_feu'), orbBonus = hasTalent('orbe_bonus_dmg');
+      // ORBES ÉLÉMENTAIRES : l'état infligé est au choix (Feu par défaut, ce qui
+      // couvre l'ancien « Orbe de Feu » migré sans choix explicite).
+      const orbElem = hasTalent('orbe_element') ? (talentChoiceOf(talents, 'orbe_element') || 'feu') : null;
+      const orbBonus = hasTalent('orbe_bonus_dmg');
       const orbIgnoreDef = hasTalent('orbe_ignore_def'), orbCrit = hasTalent('orbe_critique');
       attacks.forEach(function (a) {
-        if (a.pyromaneOrb) {
+        if (isOrbAttack(a)) {
           a.uses = orbs;
           a.freeAction = true; // les Orbes sont GRATUITS : ne consomment jamais l'action du tour
-          a.name = orbs + ' Orbe' + (orbs > 1 ? 's' : '') + (orbFeu ? ' de Feu' : ' Mystique' + (orbs > 1 ? 's' : ''));
+          a.name = orbs + ' Orbe' + (orbs > 1 ? 's' : '') +
+            (orbElem ? ' ' + ORB_ELEMENT_SUFFIX(orbElem) : ' Mystique' + (orbs > 1 ? 's' : ''));
           a.dice = Object.assign(D.emptyPool(), { blue: per });
         }
-        if (a.pyromaneOrb || a.deflagration) {
-          if (orbFeu) { a.effects = a.effects || {}; a.effects.feu = true; }
+        if (isOrbAttack(a) || a.deflagration) {
+          if (orbElem) {
+            a.effects = a.effects || {};
+            if (orbElem === 'poison') a.effects.poison = (a.effects.poison || 0) + 1;
+            else a.effects[orbElem] = true;
+            a.orbElement = orbElem;
+          }
           if (orbBonus) a.useOwnDamage = true;
           if (orbIgnoreDef) a.orbIgnoreDef = true;
           a.orbNoCrit = !orbCrit;   // par défaut un Orbe ne fait pas de critique
@@ -1321,8 +1355,8 @@
     // acier), une ACTION annonce son nom (bleu acier). Adversaire : nom de
     // l'attaque, en rouge.
     if (attacker.side === 'hero') {
-      // PYROMANE : « Orbes Mystiques » sans le nombre, en violet mystique.
-      if (atk.pyromaneOrb) toast('🔮 Orbes Mystiques', 'orbe');
+      // MYSTIQUE : « Orbes Mystiques » sans le nombre, en violet mystique.
+      if (isOrbAttack(atk)) toast('🔮 Orbes Mystiques', 'orbe');
       else if (atk.special) toast('✦ ' + attackLabel(atk), 'act-hero');
       else toast(atk.range === 'distance' ? '🏹 Attaque à distance !' : '⚔ Attaque au contact !', 'atk-weapon');
     } else {
@@ -1414,8 +1448,14 @@
     applyStates(attacker, target, atk);
     // ORBES PARTAGÉS : l'attaque dopée inflige aussi FEU.
     if (orbBuffN > 0 && target.status === 'active') {
-      const nf = addStack(target, 'feu', 1); pushFx({ type: 'state', iid: target.iid });
-      log(cname(target) + ' subit <span class="lstate">Feu ' + nf + '</span> (Orbes Partagés).', 'state');
+      // L'état transmis suit l'élément des Orbes du Mystique (Feu par défaut).
+      const st = attacker.orbBuffState || 'feu';
+      attacker.orbBuffState = null;
+      let lbl = orbElementLabel(st);
+      if (isStackState(st)) lbl += ' ' + addStack(target, st, 1);
+      else target.states[st] = true;
+      pushFx({ type: 'state', iid: target.iid });
+      log(cname(target) + ' subit <span class="lstate">' + lbl + '</span> (Orbes Partagés).', 'state');
     }
     checkMonsterTalents(target, res.pvLost);
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
@@ -1563,7 +1603,7 @@
   // ORBES PARTAGÉS : répartit les Orbes Mystiques en buffs (+1 dé bleu & FEU sur la
   // prochaine attaque) sur différents aventuriers (choix du joueur).
   function triggerOrbeShare(attacker) {
-    const pi = attacker.attacks.findIndex(function (a) { return a.pyromaneOrb; });
+    const pi = attacker.attacks.findIndex(isOrbAttack);
     let orbs = pi >= 0 ? (attacker.attackUses[pi] || 0) : 0;
     if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour.'); return; }
     log('<b class="lreact">Orbes Partagés</b> : ' + cname(attacker) + ' répartit ses Orbes sur ses alliés.', 'state');
@@ -1573,10 +1613,12 @@
       const ally = playerPick('Orbes Partagés : sur quel aventurier ? (' + orbs + ' orbe(s) restant(s) — Annuler pour arrêter)', allies, plainName);
       if (!ally) break;
       ally.orbBuff = (ally.orbBuff || 0) + 1;
+      ally.orbBuffState = orbElementOf(attacker) || 'feu';
       if (pi >= 0) attacker.attackUses[pi] = Math.max(0, (attacker.attackUses[pi] || 0) - 1);
       orbs--;
       pushFx({ type: 'state', iid: ally.iid });
-      log(cname(ally) + ' reçoit <span class="lstate">+1 dé bleu &amp; Feu</span> sur sa prochaine attaque.', 'state');
+      log(cname(ally) + ' reçoit <span class="lstate">+1 dé bleu &amp; ' + orbElementLabel(ally.orbBuffState) +
+        '</span> sur sa prochaine attaque.', 'state');
     }
   }
 
@@ -3571,7 +3613,7 @@
   function bannerHtml() {
     if (pendingOrbeShare) {
       const ps = byId(pendingOrbeShare);
-      const pi = ps ? ps.attacks.findIndex(function (a) { return a.pyromaneOrb; }) : -1;
+      const pi = ps ? ps.attacks.findIndex(isOrbAttack) : -1;
       const orbs = (ps && pi >= 0) ? (ps.attackUses[pi] || 0) : 0;
       return '✦ <b>' + esc(ps ? ps.name : '') + '</b> — Orbes Partagés : <b>clique les alliés à doter</b> ' +
         '(<b>' + orbs + '</b> orbe(s) restant(s)). <button id="cancel-orbeshare" class="ghost xs">Terminer</button>';
@@ -3677,7 +3719,7 @@
       }
       const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
       // L'Orbe Mystique est rendu par le bouton spécial ORBES, pas dans les slots.
-      if (ai >= 0 && atks[ai].pyromaneOrb) return null;
+      if (ai >= 0 && isOrbAttack(atks[ai])) return null;
       if (ai >= 0) return abAttackBtn(c, atks[ai], ai, canAct);
       const r = reactions.find(function (x) { return x.t.id === t.id; });
       if (r) {
@@ -3693,7 +3735,7 @@
     }).filter(function (s) { return s !== null; });
   }
 
-  // Bouton spécial ORBES (Pyromane) : titre + dés de dégâts + nombre d'orbes restants.
+  // Bouton spécial ORBES (Mystique) : titre + dés de dégâts + nombre d'orbes restants.
   function orbesButtonHtml(c, idx, canAct) {
     const a = c.attacks[idx];
     const uses = (c.attackUses && c.attackUses[idx] != null) ? c.attackUses[idx] : 0;
@@ -3742,10 +3784,10 @@
     const cls = ['ab-card', 'side-' + c.side];
     if (c.klass) cls.push('klass-' + slug(c.klass));
     if (isEnemy && c.type) cls.push('type-' + c.type);
-    // PYROMANE : bouton spécial ORBES (occupe les 2 lignes, à gauche de la grille).
+    // MYSTIQUE : bouton spécial ORBES (occupe les 2 lignes, à gauche de la grille).
     // Nom en BLEU ACTION tant que l'action / l'attaque n'a pas été consommée.
     if (!isEnemy && !dead && (!c.used.action || c.prepBonus)) cls.push('has-action');
-    const orbIdx = (!isEnemy && Array.isArray(c.attacks)) ? c.attacks.findIndex(function (a) { return a.pyromaneOrb; }) : -1;
+    const orbIdx = (!isEnemy && Array.isArray(c.attacks)) ? c.attacks.findIndex(isOrbAttack) : -1;
     if (orbIdx >= 0) cls.push('has-orbes');
     const pvText = (isEnemy && !known) ? '' : (c.pv + ' / ' + c.maxPv + ' PV');
 
@@ -3775,7 +3817,7 @@
         (statesBadges(c) ? '<div class="ab-states-badges">' + statesBadges(c) + '</div>' : '') +
       '</div>';
 
-    // Bouton spécial ORBES (Pyromane) entre l'identité et la grille d'actions.
+    // Bouton spécial ORBES (Mystique) entre l'identité et la grille d'actions.
     if (orbIdx >= 0) html += orbesButtonHtml(c, orbIdx, canAct);
 
     // Grille d'actions : 2 lignes, remplissage colonne par colonne (cf. croquis).
@@ -3997,7 +4039,7 @@
     const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
     const depleted = uses === 0;
     // PRÉPARATION ARCANIQUE : un Orbe est lançable dès le Pré-Tour 1.
-    const orbPretour = a.pyromaneOrb && combat().phase === 'pretour' && combat().turn === 1 &&
+    const orbPretour = isOrbAttack(a) && combat().phase === 'pretour' && combat().turn === 1 &&
       heroHasTalent(c, 'orbe_pretour') && c.status === 'active' && !combat().outcome;
     // AU SOL : aucune attaque ni talent possible tant que le combattant n'est pas relevé
     const blocked = (!canAct && !orbPretour) || depleted || (!a.freeAction && usedA) || sameBlocked || (c.states && c.states.auSol);
@@ -4302,7 +4344,7 @@
     let deflagZone = null;
     // DÉFLAGRATION : lance tous les Orbes Mystiques restants (dés bleus) d'un coup.
     if (atk.deflagration) {
-      const pi = attacker.attacks.findIndex(function (a) { return a.pyromaneOrb; });
+      const pi = attacker.attacks.findIndex(isOrbAttack);
       const orbs = pi >= 0 ? (attacker.attackUses[pi] || 0) : 0;
       if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour pour la Déflagration.'); return; }
       const per = atk.orbPer || 1;
@@ -4660,7 +4702,7 @@
     // ORBES PARTAGÉS : on arme le ciblage des ALLIÉS (clic sur leurs vignettes),
     // sans pop-up. Re-clic = annuler.
     if (atk.orbeShare) {
-      const pi = c.attacks.findIndex(function (a) { return a.pyromaneOrb; });
+      const pi = c.attacks.findIndex(isOrbAttack);
       const orbs = pi >= 0 ? (c.attackUses[pi] || 0) : 0;
       if (orbs <= 0) { alert('Aucun Orbe Mystique disponible ce tour.'); return; }
       pendingOrbeShare = (pendingOrbeShare === c.iid) ? null : c.iid;
@@ -4731,7 +4773,7 @@
         log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span>… vierge (aucun effet).', 'move');
       } else {
         user.talents = (user.talents || []).concat(tals);
-        const actions = tals.filter(function (t) { return t.kind === 'action' || t.effect === 'pyromane'; });
+        const actions = tals.filter(function (t) { return t.kind === 'action' || t.effect === 'orbes_mystiques'; });
         const passives = tals.filter(function (t) { return actions.indexOf(t) < 0; });
         if (passives.length) {
           log(cname(user) + ' déroule <span class="lwpn">' + esc(obj.name) + '</span> : « ' +
@@ -4895,14 +4937,16 @@
         // 0bis) ORBES PARTAGÉS : clic sur la vignette d'un allié → +1 dé bleu & FEU.
         if (pendingOrbeShare && c.side === 'hero' && c.status === 'active' && c.iid !== pendingOrbeShare) {
           const caster = byId(pendingOrbeShare);
-          const pi = caster ? caster.attacks.findIndex(function (a) { return a.pyromaneOrb; }) : -1;
+          const pi = caster ? caster.attacks.findIndex(isOrbAttack) : -1;
           const orbs = (caster && pi >= 0) ? (caster.attackUses[pi] || 0) : 0;
           if (caster && orbs > 0 && !(c.orbBuff > 0)) {
             c.orbBuff = (c.orbBuff || 0) + 1;
+            c.orbBuffState = orbElementOf(caster) || 'feu';
             caster.attackUses[pi] = Math.max(0, orbs - 1);
             useAction(caster); // ORBES PARTAGÉS est une Action : elle consomme l'action dès le 1er allié doté
             pushFx({ type: 'state', iid: c.iid });
-            log(cname(c) + ' reçoit <span class="lstate">+1 dé bleu &amp; Feu</span> sur sa prochaine attaque (Orbes Partagés).', 'state');
+            log(cname(c) + ' reçoit <span class="lstate">+1 dé bleu &amp; ' + orbElementLabel(c.orbBuffState) +
+              '</span> sur sa prochaine attaque (Orbes Partagés).', 'state');
             if (caster.attackUses[pi] <= 0) pendingOrbeShare = null; // plus d'orbes : fin auto
             Store.save(); render();
           }
@@ -5063,7 +5107,7 @@
         pendingAnalyze = (pendingAnalyze === c.iid) ? null : c.iid;
         pendingAttack = null; pendingMove = null; render();
       });
-      // Bouton spécial ORBES (Pyromane) : arme le ciblage de l'Orbe (mono-cible).
+      // Bouton spécial ORBES (Mystique) : arme le ciblage de l'Orbe (mono-cible).
       root.querySelectorAll('.ab-orbes[data-iid="' + c.iid + '"]').forEach(function (b) {
         b.addEventListener('click', function () {
           if (b.disabled) return;

@@ -242,6 +242,8 @@
       });
       (parsed.heroes || []).forEach(function (h) {
         if (typeof h.klass === 'undefined') h.klass = '';
+        // Refonte v2.4.35 : la classe Pyromane devient le Mystique.
+        if (h.klass === 'Pyromane') h.klass = 'Mystique';
         if (!h.equipment) h.equipment = { weapons: [], armorId: null, shieldId: null };
         if (!Array.isArray(h.equipment.weapons)) h.equipment.weapons = [];
         if (!Array.isArray(h.attacks)) h.attacks = [];
@@ -413,7 +415,15 @@
   function loadClasses() {
     try {
       const raw = global.localStorage.getItem(CLS_KEY);
-      return raw ? JSON.parse(raw) : [];
+      const arr = raw ? JSON.parse(raw) : [];
+      // Refonte v2.4.35 : Pyromane → Mystique (talents de classe déjà créés).
+      let changed = false;
+      (Array.isArray(arr) ? arr : []).forEach(function (c) {
+        if (c && c.klass === 'Pyromane') { c.klass = 'Mystique'; changed = true; }
+        if (c && c.name === 'Pyromane') { c.name = 'Mystique'; changed = true; }
+      });
+      if (changed) saveClasses(arr);
+      return arr;
     } catch (e) { return []; }
   }
   function saveClasses(classes) {
@@ -462,7 +472,7 @@
     { key: 'soin',       icon: '❤️', label: 'Soins & survie' },
     { key: 'mouvement',  icon: '🏃', label: 'Mouvement & position' },
     { key: 'groupe',     icon: '🤝', label: 'Alliés & Garde' },
-    { key: 'orbes',      icon: '🔮', label: 'Orbes & Pyromancie' },
+    { key: 'orbes',      icon: '🔮', label: 'Orbes & Mysticisme' },
     { key: 'tempo',      icon: '⏱️', label: 'Tempo & initiative' },
     { key: 'aventure',   icon: '🧭', label: 'Hors combat' },
   ];
@@ -693,21 +703,22 @@
       desc: 'Les adversaires de votre zone du type choisi sont obligés de vous cibler.' },
     { effect: 'garde_secrete', name: 'Garde Secrète', kind: 'mastery', cat: 'groupe', hasVal: false,
       desc: 'Un allié GARDÉ qui conserve son Blindage jusqu\'à la fin du combat rapporte +2 XP au groupe.' },
-    // 🔮 ORBES & PYROMANCIE
-    { effect: 'pyromane', name: 'Pyromane', kind: 'mastery', cat: 'orbes', hasVal: false,
+    // 🔮 ORBES & MYSTICISME
+    { effect: 'orbes_mystiques', name: 'Orbes Mystiques', kind: 'mastery', cat: 'orbes', hasVal: false,
       desc: 'Chaque tour, lancez vos Orbes Mystiques (1 dé bleu, à distance, séparément) : 2 au départ, +1 par niveau impair.' },
     { effect: 'deflagration', name: 'Déflagration', kind: 'action', cat: 'orbes', hasVal: false,
       desc: 'Action : lancez tous vos Orbes Mystiques restants sur une même cible à distance.' },
     { effect: 'orbe_partage', name: 'Orbes Partagés', kind: 'action', cat: 'orbes', hasVal: false,
-      desc: 'Action : répartissez vos Orbes sur des alliés — chacun gagne +1 dé bleu et FEU à sa prochaine attaque.' },
+      desc: 'Action : répartissez vos Orbes sur des alliés — chacun gagne +1 dé bleu et l\'élément de vos Orbes (FEU par défaut) à sa prochaine attaque.' },
     { effect: 'orbe_pretour', name: 'Préparation Arcanique', kind: 'mastery', cat: 'orbes', hasVal: false,
       desc: 'Vos Orbes sont utilisables dès le Pré-Tour 1 (et restent disponibles au Tour 1).' },
     { effect: 'orbe_double', name: 'Orbes Renforcés', kind: 'mastery', cat: 'orbes', hasVal: false,
       desc: 'Vos Orbes lancent 2 dés bleus chacun.' },
     { effect: 'orbe_bonus_dmg', name: 'Maîtrise des Orbes', kind: 'mastery', cat: 'orbes', hasVal: false,
       desc: 'Votre bonus de Dégâts s\'ajoute aux Dégâts de vos Orbes.' },
-    { effect: 'orbe_feu', name: 'Orbe de Feu', kind: 'upgrade', cat: 'orbes', hasVal: false,
-      desc: 'Vos Orbes infligent FEU.' },
+    { effect: 'orbe_element', name: 'Orbes Élémentaires', kind: 'upgrade', cat: 'orbes', hasVal: false,
+      hasChoice: true, choiceLabel: 'Élément infligé', choices: ['feu', 'gele', 'poison', 'affaibli', 'brise', 'faille', 'auSol'],
+      desc: 'Vos Orbes infligent l\'état choisi (Feu, Glace, Poison…) au lieu d\'être de simples Orbes Mystiques.' },
     { effect: 'orbe_ignore_def', name: 'Orbe Perforant', kind: 'upgrade', cat: 'orbes', hasVal: false,
       desc: 'Vos Orbes ignorent la DEF des cibles.' },
     { effect: 'orbe_critique', name: 'Orbe Critique', kind: 'passive', cat: 'orbes', hasVal: false,
@@ -732,6 +743,10 @@
       desc: 'Doublon d\'Esquive Innée.' },
     { effect: 'devance_rapides', name: 'Réflexes Aiguisés', kind: 'passive', cat: 'tempo', hasVal: false, legacy: 'pretour_first',
       desc: 'Doublon d\'Initiative.' },
+    { effect: 'pyromane', name: 'Pyromane', kind: 'mastery', cat: 'orbes', hasVal: false, legacy: 'orbes_mystiques',
+      desc: 'Ancien nom des Orbes Mystiques.' },
+    { effect: 'orbe_feu', name: 'Orbe de Feu', kind: 'upgrade', cat: 'orbes', hasVal: false, legacy: 'orbe_element',
+      desc: 'Ancien nom des Orbes Élémentaires (élément : Feu).' },
   ];
   // Alias des clés historiques → clé canonique (rétro-compat des talents déjà créés).
   const EFFECT_ALIASES = {};
