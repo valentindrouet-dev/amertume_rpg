@@ -5086,7 +5086,25 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   pointer-events: none;
 }
 
-/* v2.4.37 — ⭐ Maîtrise de départ d'une classe (onglet Classes). */
-.inv-strip-eye.tl-start { opacity: .55; }
-.inv-strip-eye.tl-start:hover { opacity: 1; }
-.inv-strip-eye.tl-start.on { opacity: 1; filter: drop-shadow(0 0 3px rgba(216,162,74,.8)); }
+/* v2.4.38 — ⭐ Maîtrise de départ d'une classe (onglet Classes).
+   Discrète par principe : seule l'étoile ACTIVE est visible en permanence,
+   les autres n'apparaissent qu'au survol de leur languette. La liste des
+   talents reste ainsi aussi lisible qu'avant. */
+.inv-strip-eye.tl-start {
+  opacity: 0; visibility: hidden; width: 0; padding: 0; margin: 0;
+  transition: opacity .12s ease;
+}
+.tal-row:hover .inv-strip-eye.tl-start,
+.inv-strip-eye.tl-start:focus-visible {
+  opacity: .6; visibility: visible; width: auto; padding: revert; margin: revert;
+}
+.tal-row:hover .inv-strip-eye.tl-start:hover { opacity: 1; }
+/* Maîtrise de départ désignée : toujours visible, en doré. */
+.inv-strip-eye.tl-start.on {
+  opacity: 1; visibility: visible; width: auto; padding: revert; margin: revert;
+  filter: drop-shadow(0 0 3px rgba(216,162,74,.75));
+}
+/* Sans survol (tactile) : les étoiles restent accessibles, très atténuées. */
+@media (hover: none) {
+  .inv-strip-eye.tl-start { opacity: .3; visibility: visible; width: auto; padding: revert; margin: revert; }
+}
