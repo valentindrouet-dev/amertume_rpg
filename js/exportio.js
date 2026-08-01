@@ -278,6 +278,12 @@
     'th,td{border:1px solid #cdbda6;padding:4px 7px;text-align:left;vertical-align:top}',
     'th{background:#efe6d6}',
     '.cols{display:flex;gap:14px;flex-wrap:wrap}.cols>div{flex:1 1 260px}',
+    '.guide pre{background:#f3ece0;border:1px solid #cdbda6;border-radius:6px;padding:8px 10px;font-size:.76rem;overflow-x:auto;white-space:pre-wrap;page-break-inside:avoid}',
+    '.guide code{background:#f3ece0;border-radius:3px;padding:0 3px;font-size:.85em}',
+    '.guide blockquote{border-left:4px solid #b98ae0;margin:.6rem 0;padding:.3rem .8rem;background:#f6f0fa;font-size:.9rem}',
+    '.guide h1{page-break-before:always}.guide h1:first-child{page-break-before:auto}',
+    '.guide h2{page-break-after:avoid}.guide table{page-break-inside:auto}.guide tr{page-break-inside:avoid}',
+    '.guide li{font-size:.9rem;margin:.12rem 0}.guide p{font-size:.92rem;margin:.3rem 0}',
     '@media print{body{padding:0}}',
   ].join('\n');
   function openPrint(title, bodyHtml) {
@@ -576,6 +582,80 @@
     openPrint('Encyclopédie', h);
   }
 
+  // --- PDF du Guide IA : rendu imprimable du markdown GUIDE_IA.md ---
+  // Convertisseur Markdown minimal (titres, tableaux, code, listes, citations,
+  // gras/italique/`code`) — suffisant pour le guide, sans dépendance externe.
+  function mdInline(t) {
+    return esc(t)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/\*([^*]+)\*/g, '<i>$1</i>');
+  }
+  function mdToHtml(md) {
+    const lines = String(md).replace(/\r\n/g, '\n').split('\n');
+    let h = '', i = 0, inList = false, inQuote = false;
+    const closeAll = function () {
+      if (inList) { h += '</ul>'; inList = false; }
+      if (inQuote) { h += '</blockquote>'; inQuote = false; }
+    };
+    while (i < lines.length) {
+      const l = lines[i];
+      // bloc de code
+      if (/^```/.test(l)) {
+        closeAll();
+        let code = ''; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) { code += lines[i] + '\n'; i++; }
+        i++;
+        h += '<pre>' + esc(code) + '</pre>';
+        continue;
+      }
+      // tableau
+      if (/^\|/.test(l) && i + 1 < lines.length && /^\|[\s:|-]+\|?$/.test(lines[i + 1])) {
+        closeAll();
+        const heads = l.split('|').slice(1, -1).map(function (c) { return c.trim(); });
+        h += '<table><tr>' + heads.map(function (c) { return '<th>' + mdInline(c) + '</th>'; }).join('') + '</tr>';
+        i += 2;
+        while (i < lines.length && /^\|/.test(lines[i])) {
+          const cells = lines[i].split('|').slice(1, -1);
+          h += '<tr>' + cells.map(function (c) { return '<td>' + mdInline(c.trim()) + '</td>'; }).join('') + '</tr>';
+          i++;
+        }
+        h += '</table>';
+        continue;
+      }
+      if (/^---+\s*$/.test(l)) { closeAll(); h += '<hr>'; i++; continue; }
+      const hm = l.match(/^(#{1,4})\s+(.*)$/);
+      if (hm) { closeAll(); const n = hm[1].length; h += '<h' + n + '>' + mdInline(hm[2]) + '</h' + n + '>'; i++; continue; }
+      if (/^>\s?/.test(l)) {
+        if (inList) { h += '</ul>'; inList = false; }
+        if (!inQuote) { h += '<blockquote>'; inQuote = true; }
+        h += mdInline(l.replace(/^>\s?/, '')) + '<br>';
+        i++; continue;
+      }
+      const lm = l.match(/^\s*(?:[-*]|\d+\.)\s+(.*)$/);
+      if (lm) {
+        if (inQuote) { h += '</blockquote>'; inQuote = false; }
+        if (!inList) { h += '<ul>'; inList = true; }
+        h += '<li>' + mdInline(lm[1]) + '</li>';
+        i++; continue;
+      }
+      if (!l.trim()) { closeAll(); i++; continue; }
+      closeAll();
+      h += '<p>' + mdInline(l) + '</p>';
+      i++;
+    }
+    closeAll();
+    return h;
+  }
+  function guidePdf() {
+    fetch('GUIDE_IA.md').then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(function (md) {
+      openPrint('Guide IA — Amertüme', '<div class="guide">' + mdToHtml(md) + '</div>');
+    }).catch(function (e) { alert('Guide introuvable (' + e.message + ').'); });
+  }
+
   // ---------- Câblage ----------
   function readJSONFile(file, cb) {
     const r = new FileReader();
@@ -593,7 +673,7 @@
     };
     const PDFS = {
       'monsters': monstersPdf, 'items': itemsPdf, 'talents': talentsPdf,
-      'heroes': heroesPdf, 'tutorials': tutorialsPdf,
+      'heroes': heroesPdf, 'tutorials': tutorialsPdf, 'guide': guidePdf,
     };
     document.querySelectorAll('[data-json-export]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -630,6 +710,7 @@
     talentsPdf: talentsPdf,
     heroesPdf: heroesPdf,
     tutorialsPdf: tutorialsPdf,
+    guidePdf: guidePdf,
     exportGlobal: exportGlobal,
     importJSON: importJSON,
     buildAdventureBundle: buildAdventureBundle,
