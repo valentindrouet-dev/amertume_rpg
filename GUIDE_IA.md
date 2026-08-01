@@ -237,7 +237,7 @@ Tableau commun au chapitre, tiré quand le joueur emprunte un connecteur coché
 ### 5.1 Champs
 | Champ | Rôle |
 |---|---|
-| `type` | couleur/icône de la scène : `description`, `exploration`, `interaction`, `combat`, `reward`, `danger`, `repos`, `commerce`, `boss`, `temps`, `vide`, `fin` |
+| `type` | couleur/icône de la scène : `description`, `exploration`, `interaction`, `combat`, `reward`, `danger`, `repos`, `commerce`, `boss`, `temps`, `vide`, `fin` — ⚠️ voir la mise en garde sur `fin` ci-dessous |
 | `fait` | « Haut Fait » ajouté au journal du joueur en arrivant (optionnel) |
 | `mapX`, `mapY` | position sur la carte (donjons structurés uniquement) |
 | `roomRole` | donjon aléatoire : `normal` / `entry` / `exit` |
@@ -250,6 +250,16 @@ Tableau commun au chapitre, tiré quand le joueur emprunte un connecteur coché
 | `xpReward`, `goldReward` | récompenses à la fin de la scène (nombre ou `"1d6"`) |
 | `itemRewards` | `[{ "itemId": "...", "qty": 1 }]` — objets de l'Armurerie donnés |
 | `treasureRewards` | `[{ "name": "Gemme du désert", "qty": 1, "kind": "treasure", "value": 25 }]` — trésors créés à la volée. `kind` ∈ `"treasure"` (revendable, `value` = prix en or) ou `"rare"` (Objet Rare d'aventure, ne se vend pas, sert de clé — voir §6.7) |
+
+> ⚠️ **LE TYPE `fin` TERMINE TOTALEMENT L'AVENTURE.** Une scène `"type": "fin"`
+> affiche l'écran de fin de partie : plus aucune navigation, la session est
+> close. Ne l'utilise QUE dans deux cas :
+> 1. la **toute dernière scène de toute l'histoire** (dernier chapitre) ;
+> 2. une **fin tragique volontaire** (échec définitif : les aventuriers tombent
+>    dans le ravin, sont capturés sans retour…).
+> **JAMAIS à la fin d'un chapitre intermédiaire** : si l'action continue au
+> chapitre suivant, la scène de transition garde un type normal (`exploration`,
+> `repos`, `description`…) et pointe vers le chapitre suivant (règle du §4.1).
 
 ### 5.2 Zones de combat & barrières
 Un combat se joue sur **1 à 4 zones** disposées en grille. Format :
@@ -825,6 +835,8 @@ générer à la main.
    scène narrative a une sortie (`nextSceneId` / `choices` / `targetSceneId`
    retentable), la dernière scène de chaque chapitre pointe vers le chapitre
    suivant, et aucun échec de test ne peut bloquer définitivement le joueur.
+   Aucune scène `"type": "fin"` en dehors de la toute dernière scène de
+   l'histoire ou d'une fin tragique assumée — `fin` TERMINE l'aventure.
 8. **RÉCOMPENSES** : chaque gain annoncé dans un texte (or, objet, XP…) est
    porté par le champ structuré correspondant (§6.6bis) ; `xpReward` des tests
    suit le barème du §1.
