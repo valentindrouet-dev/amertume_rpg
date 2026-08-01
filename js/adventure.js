@@ -476,6 +476,8 @@
             (a.homeHidden ? '🙈' : '👁') + '</button>' +
           '<button class="ghost small adv-edit" data-id="' + a.id + '">Éditer</button>' +
           '<button class="ghost small adv-dup" data-id="' + a.id + '" title="Dupliquer cette aventure">⧉ Dupliquer</button>' +
+          '<button class="ghost small adv-json" data-id="' + a.id + '" title="Exporter cette aventure COMPLÈTE (blocs, connecteurs, monstres, objets et talents référencés) en JSON réimportable">📦</button>' +
+          '<button class="ghost small adv-pdf" data-id="' + a.id + '" title="Version imprimable / PDF : une page par salle avec tous les blocs">🖨</button>' +
           '<button class="icon-btn adv-del" data-id="' + a.id + '" title="Supprimer">✕</button>' +
         '</div>' +
       '</div>';
@@ -492,6 +494,12 @@
         a.homeHidden = !a.homeHidden;
         save(); renderList();
       });
+    });
+    box.querySelectorAll('.adv-json').forEach(function (b) {
+      b.addEventListener('click', function () { if (global.ExportIO) ExportIO.exportAdventure(b.getAttribute('data-id')); });
+    });
+    box.querySelectorAll('.adv-pdf').forEach(function (b) {
+      b.addEventListener('click', function () { if (global.ExportIO) ExportIO.adventurePdf(b.getAttribute('data-id')); });
     });
     box.querySelectorAll('.adv-dup').forEach(function (b) {
       b.addEventListener('click', function () { duplicateAdventure(b.getAttribute('data-id')); });

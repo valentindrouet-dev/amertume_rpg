@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amertüme Solo RPG</title>
-  <link rel="stylesheet" href="css/style.css?v=2.4.40" />
+  <link rel="stylesheet" href="css/style.css?v=2.4.41" />
 </head>
 <body class="mode-home">
   <!-- ============ PAGE D'ACCUEIL ============ -->
@@ -75,7 +75,11 @@
     <section id="tab-heroes" class="tab-panel">
       <div class="io-bar admin-only"><span class="io-label">Tableau CSV :</span>
         <button class="ghost small" data-export="heroes">⇩ Export</button>
-        <button class="ghost small" data-import="heroes">⇧ Import</button></div>
+        <button class="ghost small" data-import="heroes">⇧ Import</button>
+        <span class="io-label">· Sauvegarde :</span>
+        <button class="ghost small" data-json-export="heroes" title="Tous les aventuriers (JSON sans perte, réimportable)">📦 JSON</button>
+        <button class="ghost small" data-json-import="1">⇧ Import JSON</button>
+        <button class="ghost small" data-pdf-export="heroes" title="Version imprimable / PDF lisible">🖨 PDF</button></div>
       <div id="progress-root"></div>
       <div class="card">
         <div class="card-head">
@@ -94,7 +98,11 @@
     <section id="tab-bestiary" class="tab-panel">
       <div class="io-bar admin-only"><span class="io-label">Tableau CSV :</span>
         <button class="ghost small" data-export="monsters">⇩ Export</button>
-        <button class="ghost small" data-import="monsters">⇧ Import</button></div>
+        <button class="ghost small" data-import="monsters">⇧ Import</button>
+        <span class="io-label">· Sauvegarde :</span>
+        <button class="ghost small" data-json-export="monsters" title="Tous les monstres + talents adverses (JSON sans perte, réimportable)">📦 JSON</button>
+        <button class="ghost small" data-json-import="1">⇧ Import JSON</button>
+        <button class="ghost small" data-pdf-export="monsters" title="Version imprimable / PDF lisible">🖨 PDF</button></div>
       <div class="card">
         <div class="card-head">
           <h2>Bestiaire</h2>
@@ -139,7 +147,11 @@
       <div class="card">
         <div class="card-head">
           <h2>Talents Adverses</h2>
-          <button id="btn-add-talentadv" class="primary">+ Nouveau talent</button>
+          <div style="display:flex;gap:.4rem">
+            <button class="ghost small" data-json-export="talents" title="Sauvegarde JSON (classes + tous les talents)">📦 JSON</button>
+            <button class="ghost small" data-pdf-export="talents" title="Version imprimable / PDF">🖨 PDF</button>
+            <button id="btn-add-talentadv" class="primary">+ Nouveau talent</button>
+          </div>
         </div>
         <p class="hint">Crée ici les talents propres aux adversaires, avec leurs propres noms, à partir du <b>même pool d'effets</b> que les talents d'aventurier. Tu les attribues ensuite à tes monstres depuis leur fiche, dans le Bestiaire.</p>
         <div id="talentadv-list" class="talentadv-list"></div>
@@ -156,7 +168,12 @@
       <div class="card">
         <div class="card-head">
           <h2>Encyclopédie (Tutoriels)</h2>
-          <button id="btn-add-tutorial" class="primary">+ Nouvelle entrée</button>
+          <div style="display:flex;gap:.4rem">
+            <button class="ghost small" data-json-export="tutorials" title="Sauvegarde JSON réimportable">📦 JSON</button>
+            <button class="ghost small" data-json-import="1">⇧ Import JSON</button>
+            <button class="ghost small" data-pdf-export="tutorials" title="Version imprimable / PDF">🖨 PDF</button>
+            <button id="btn-add-tutorial" class="primary">+ Nouvelle entrée</button>
+          </div>
         </div>
         <p class="hint">Crée et édite ici les entrées de tutoriel visibles par les joueurs dans l'onglet <b>Tutoriel</b>. Utilise <b>⧉ Dupliquer</b> pour partir d'une copie d'une entrée existante.</p>
         <div id="tutorial-admin-root"></div>
@@ -167,7 +184,13 @@
     <section id="tab-adventures" class="tab-panel">
       <div class="io-bar admin-only"><span class="io-label">Tableau CSV :</span>
         <button class="ghost small" data-export="adventures">⇩ Export</button>
-        <button class="ghost small" data-import="adventures">⇧ Import</button></div>
+        <button class="ghost small" data-import="adventures">⇧ Import</button>
+        <span class="io-label">· Sauvegarde :</span>
+        <button class="ghost small" data-json-export="adventures" title="Toutes les aventures complètes (blocs, connecteurs, monstres, objets et talents référencés) en un seul fichier JSON réimportable.">📦 JSON complet</button>
+        <button class="ghost small" data-json-import="1" title="Importer une aventure, une sauvegarde d'onglet ou une sauvegarde globale (fichier .json)">⇧ Import JSON</button>
+        <span class="io-label">· Tout :</span>
+        <button class="ghost small" data-json-export="global" title="Sauvegarde GLOBALE : la totalité des données de l'application (aventures, bestiaire, armurerie, classes, sessions, réglages) pour tout restaurer sur un autre navigateur ou ordinateur.">🌍 Export GLOBAL</button>
+        <button class="ghost small" id="btn-guide-ia" title="Télécharger le guide complet du format de données (à partager à une IA pour générer une aventure importable)">📖 Guide IA</button></div>
       <div id="adventure-root"></div>
     </section>
 
@@ -188,6 +211,10 @@
 
     <!-- ============ CLASSES (Admin) ============ -->
     <section id="tab-classes" class="tab-panel">
+      <div class="io-bar admin-only"><span class="io-label">Sauvegarde :</span>
+        <button class="ghost small" data-json-export="talents" title="Classes + talents génériques, de classe, de parchemin et adverses (JSON sans perte, réimportable)">📦 JSON</button>
+        <button class="ghost small" data-json-import="1">⇧ Import JSON</button>
+        <button class="ghost small" data-pdf-export="talents" title="Version imprimable / PDF lisible">🖨 PDF</button></div>
       <div id="classes-root"></div>
     </section>
 
@@ -195,7 +222,11 @@
     <section id="tab-armory" class="tab-panel">
       <div class="io-bar admin-only"><span class="io-label">Tableau CSV :</span>
         <button class="ghost small" data-export="items">⇩ Export</button>
-        <button class="ghost small" data-import="items">⇧ Import</button></div>
+        <button class="ghost small" data-import="items">⇧ Import</button>
+        <span class="io-label">· Sauvegarde :</span>
+        <button class="ghost small" data-json-export="items" title="Tous les objets + talents de parchemin (JSON sans perte, réimportable)">📦 JSON</button>
+        <button class="ghost small" data-json-import="1">⇧ Import JSON</button>
+        <button class="ghost small" data-pdf-export="items" title="Version imprimable / PDF lisible">🖨 PDF</button></div>
       <div class="card">
         <div class="card-head">
           <h2 id="armory-title">Armurerie</h2>
@@ -766,22 +797,24 @@
   </div>
 
   <input id="io-file" type="file" accept=".csv,text/csv" hidden />
+  <input id="json-file" type="file" accept=".json,application/json" hidden />
 
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="js/dice.js?v=2.4.40"></script>
-  <script src="js/store.js?v=2.4.40"></script>
-  <script src="js/inventory.js?v=2.4.40"></script>
-  <script src="js/combatants.js?v=2.4.40"></script>
-  <script src="js/combat.js?v=2.4.40"></script>
-  <script src="js/classes.js?v=2.4.40"></script>
-  <script src="js/tutorial.js?v=2.4.40"></script>
-  <script src="js/adventure.js?v=2.4.40"></script>
-  <script src="js/session.js?v=2.4.40"></script>
-  <script src="js/dataio.js?v=2.4.40"></script>
-  <script src="js/share.js?v=2.4.40"></script>
-  <script src="js/shell.js?v=2.4.40"></script>
-  <script src="js/bugs.js?v=2.4.40"></script>
-  <script src="js/main.js?v=2.4.40"></script>
+  <script src="js/dice.js?v=2.4.41"></script>
+  <script src="js/store.js?v=2.4.41"></script>
+  <script src="js/inventory.js?v=2.4.41"></script>
+  <script src="js/combatants.js?v=2.4.41"></script>
+  <script src="js/combat.js?v=2.4.41"></script>
+  <script src="js/classes.js?v=2.4.41"></script>
+  <script src="js/tutorial.js?v=2.4.41"></script>
+  <script src="js/adventure.js?v=2.4.41"></script>
+  <script src="js/session.js?v=2.4.41"></script>
+  <script src="js/dataio.js?v=2.4.41"></script>
+  <script src="js/exportio.js?v=2.4.41"></script>
+  <script src="js/share.js?v=2.4.41"></script>
+  <script src="js/shell.js?v=2.4.41"></script>
+  <script src="js/bugs.js?v=2.4.41"></script>
+  <script src="js/main.js?v=2.4.41"></script>
 </body>
 </html>

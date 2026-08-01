@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.4.40';
+  const APP_VERSION = 'v2.4.41';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
@@ -196,6 +196,21 @@
     safe('session.init', Session.init);
     safe('share.init', Share.init);
     safe('dataio.init', DataIO.init);
+    safe('exportio.init', function () { if (window.ExportIO) ExportIO.init(); });
+    // 📖 Guide IA : télécharge le guide du format de données (fichier du dépôt).
+    const gb = document.getElementById('btn-guide-ia');
+    if (gb) gb.addEventListener('click', function () {
+      fetch('GUIDE_IA.md').then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      }).then(function (txt) {
+        const blob = new Blob([txt], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'GUIDE_IA_Amertume.md'; a.click();
+        URL.revokeObjectURL(url);
+      }).catch(function (e) { alert('Guide introuvable (' + e.message + ') — il est aussi dans le dépôt : GUIDE_IA.md'); });
+    });
     safe('shell.init', Shell.init);
     safe('bugs.init', Bugs.init);
     safe('share.wire', setupShare);
