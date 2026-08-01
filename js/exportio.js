@@ -220,6 +220,12 @@
       Store.saveParchTalents(list);
       stats.push('parchemins : +' + r.added + ' / ' + r.updated);
     }
+    // Tolérance : certaines IA rangent les pré-tirés sous `heroes` ou dans
+    // l'aventure elle-même (`adventure.prebuilts`) — on accepte les trois.
+    if (!Array.isArray(b.prebuilts) || !b.prebuilts.length) {
+      if (Array.isArray(b.heroes) && b.heroes.length) b.prebuilts = b.heroes;
+      else if (b.adventure && Array.isArray(b.adventure.prebuilts) && b.adventure.prebuilts.length) b.prebuilts = b.adventure.prebuilts;
+    }
     if (Array.isArray(b.prebuilts) && b.prebuilts.length) {
       const heroes = Store.state.heroes;
       const norm = function (x) {

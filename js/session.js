@@ -3898,6 +3898,7 @@
           '<div class="card-head"><h2>Créez votre groupe d\'aventuriers</h2></div>' +
           '<p class="hint">Avant de commencer « ' + esc(adv.title) + ' », créez au moins un aventurier. ' +
             'Vos aventuriers restent disponibles pour rejouer l\'aventure autant de fois que vous le souhaitez.</p>' +
+          '<p class="hint">💡 Cette aventure ne fournit pas d\'aventuriers pré-tirés. Si elle vient d\'un fichier importé qui en contient, ré-importez-le (Mode MJ → Aventures → ⇧ Import JSON) : ils apparaîtront ici.</p>' +
           '<div class="group-create-actions">' +
             '<button class="primary" id="grp-new">+ Nouvel Aventurier</button>' +
           '</div>' +
