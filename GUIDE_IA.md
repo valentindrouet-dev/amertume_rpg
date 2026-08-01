@@ -126,7 +126,7 @@
 
 ```json
 {
-  "id": "ch1", "title": "Les Dunes Hurlantes",
+  "id": "desert_ch1", "title": "Les Dunes Hurlantes",
   "mode": "linear",
   "scenes": [ ... ],
   "links": [],
@@ -152,7 +152,7 @@ Le joueur explore librement une **carte** de salles reliées par des
 
 ```json
 {
-  "id": "l1", "from": "sc_entree", "to": "sc_puits",
+  "id": "desert_l1", "from": "desert_sc_entree", "to": "desert_sc_puits",
   "label": "porte de fer rouillée",
   "eventSceneId": null,
   "eventRepeat": false,
@@ -183,7 +183,7 @@ Tableau commun au chapitre, tiré quand le joueur emprunte un connecteur coché
 
 ```json
 "randomEncounters": [
-  { "sceneId": "sc_embuscade", "chance": 25 }
+  { "sceneId": "desert_sc_embuscade", "chance": 25 }
 ]
 ```
 `chance` = pourcentage. Les scènes visées sont des scènes du chapitre (souvent
@@ -195,7 +195,7 @@ Tableau commun au chapitre, tiré quand le joueur emprunte un connecteur coché
 
 ```json
 {
-  "id": "sc_puits",
+  "id": "desert_sc_puits",
   "title": "Le Puits Asséché",
   "type": "exploration",
   "mapX": 1, "mapY": 0,
@@ -282,7 +282,7 @@ Un test de compétence avec bouton.
 
 ```json
 {
-  "id": "b_test", "type": "test",
+  "id": "desert_b_test", "type": "test",
   "label": "Fouiller le puits",
   "skill": "Perception", "difficulty": "moyen",
   "who": "best",
@@ -290,7 +290,7 @@ Un test de compétence avec bouton.
   "successText": "Vous trouvez une corde !",
   "failText": "Rien, sinon du sable.",
   "xpReward": 3,
-  "itemRewards": [ { "itemId": "it_corde", "qty": 1 } ],
+  "itemRewards": [ { "itemId": "desert_it_corde", "qty": 1 } ],
   "goldReward": 0,
   "treasureRewards": [],
   "deedReward": "A exploré le puits maudit",
@@ -342,7 +342,7 @@ l'« Action 1 » (`label`, applique l'issue *réussite* : récompenses, `winEffe
 *conséquence d'échec* : `failEffect`, `failText`, `chainFailIds`).
 
 ```json
-{ "id": "b_act", "type": "test", "actionMode": true,
+{ "id": "desert_b_act", "type": "test", "actionMode": true,
   "label": "Boire l'eau du puits", "altLabel": "Verser l'eau dans le sable",
   "successText": "L'eau est pure.", "failText": "Le sable crisse, furieux.",
   "failEffect": { "kind": "state", "state": "affaibli" } }
@@ -353,7 +353,7 @@ l'« Action 1 » (`label`, applique l'issue *réussite* : récompenses, `winEffe
 aux accents et au pluriel).
 
 ```json
-{ "id": "b_enigme", "type": "test", "writeMode": true,
+{ "id": "desert_b_enigme", "type": "test", "writeMode": true,
   "label": "L'énigme du sphinx",
   "writeDesc": "Je brille la nuit et guide les caravanes. Que suis-je ?",
   "writeInstruction": "Écrivez exactement 1 mot",
@@ -368,19 +368,19 @@ Bulles de discussion dévoilées une à une, puis un choix à 1 ou 2 options ave
 **exactement les mêmes conséquences qu'un bloc Action**.
 
 ```json
-{ "id": "b_dlg", "type": "test", "actionMode": true, "dialogueMode": true,
+{ "id": "desert_b_dlg", "type": "test", "actionMode": true, "dialogueMode": true,
   "dialogueTitle": "Le Chamelier Fantôme",
   "lines": [
-    { "id": "l1", "speaker": "Chamelier", "avatar": "https://exemple.com/chamelier.png",
+    { "id": "desert_l1", "speaker": "Chamelier", "avatar": "https://exemple.com/chamelier.png",
       "text": "Mes bêtes… rendez-moi mes bêtes…" },
-    { "id": "l2", "speaker": "Chamelier", "avatar": "",
+    { "id": "desert_l2", "speaker": "Chamelier", "avatar": "",
       "text": "Ou rejoignez-les dans le sable." }
   ],
   "nextLabel": "Écouter la suite…",
   "label": "« Nous ramènerons vos chameaux »",
   "altLabel": "« Écarte-toi, spectre »",
   "successText": "Le fantôme s'apaise.", "failText": "Il hurle et disparaît.",
-  "chainFailIds": ["b_combat_fantome"] }
+  "chainFailIds": ["desert_b_combat_fantome"] }
 ```
 - `lines[]` : les répliques — `speaker` (nom), `avatar` (URL d'image affichée en
   pastille ronde, `""` = icône par défaut), `text`.
@@ -392,7 +392,7 @@ Un combat posé dans le fil de la salle, révélable par un test/action/dialogue
 qui révèle à son tour d'autres blocs selon l'issue.
 
 ```json
-{ "id": "b_fight", "type": "fight",
+{ "id": "desert_b_fight", "type": "fight",
   "label": "Les chameaux chargent !",
   "content": "Le sable tremble sous leurs sabots.",
   "combat": {
@@ -401,7 +401,7 @@ qui révèle à son tour d'autres blocs selon l'issue.
   },
   "winText": "Les bêtes s'effondrent en poussière.",
   "failText": "Vous fuyez, ensablés.",
-  "chainSuccessIds": ["b_tresor"], "chainFailIds": [] }
+  "chainSuccessIds": ["desert_b_tresor"], "chainFailIds": [] }
 ```
 Tant qu'un bloc de combat révélé n'est pas résolu, le reste de la salle est gelé.
 
@@ -434,7 +434,7 @@ Tant qu'un bloc de combat révélé n'est pas résolu, le reste de la salle est 
       "effects": { "affaibli": false, "auSol": true, "feu": false, "gele": false },
       "uses": 0, "freeAction": false }
   ],
-  "advTalentIds": ["at_crachat"],
+  "advTalentIds": ["desert_at_crachat"],
   "behaviors": [],
   "loot": [], "equipment": [],
   "notes": "Crache du sable brûlant."
@@ -466,7 +466,7 @@ boss 25-40 PV / DEF 2-3 / XP 15-30. 2 à 4 sbires par combat courant.
 ## 8. LES OBJETS (`items[]`)
 
 ```json
-{ "id": "it_cimeterre", "name": "Cimeterre des sables", "category": "weapon",
+{ "id": "desert_it_cimeterre", "name": "Cimeterre des sables", "category": "weapon",
   "qty": 1, "hands": 1, "ranged": false, "price": 25,
   "dice": { "white": 2 }, "traits": [], "effects": "", "notes": "" }
 ```
@@ -489,7 +489,7 @@ boss 25-40 PV / DEF 2-3 / XP 15-30. 2 à 4 sbires par combat courant.
 ### 9.1 Structure d'un talent
 ```json
 {
-  "id": "tal_orbes_feu",
+  "id": "mystique_tal_orbes_feu",
   "name": "Orbes de Feu",
   "level": 1,
   "usage": "combat",
@@ -703,7 +703,7 @@ Talents des monstres, mêmes effets que §9.2 (le camp visé par défaut s'inver
 automatiquement). Structure réduite :
 
 ```json
-{ "id": "at_crachat", "name": "Crachat de sable", "kind": "action",
+{ "id": "desert_at_crachat", "name": "Crachat de sable", "kind": "action",
   "usage": "combat", "effect": "attaque_etat",
   "effects": [ { "effect": "attaque_etat", "choice": "affaibli" } ],
   "description": "Aveugle sa proie." }
@@ -764,14 +764,14 @@ générer à la main.
 
 ### Checklist finale avant de rendre le JSON
 1. `format` = `"amertume-adventure-bundle"`, `version` = 2.
-1bis. TOUS les ids portent le préfixe de l'aventure (règle d'or n°1).
-2. Tous les ids uniques ; toutes les références résolues (monsterId → monsters[],
+2. TOUS les ids portent le préfixe de l'aventure (règle d'or n°1).
+3. Tous les ids uniques ; toutes les références résolues (monsterId → monsters[],
    itemId → items[], advTalentIds → advTalents[], chainIds → blocs de la même
    scène, targetSceneId/eventSceneId/sceneId → scènes existantes).
-3. Chapitre donjon : `entryId` défini, chaque salle a `mapX`/`mapY` uniques, le
+4. Chapitre donjon : `entryId` défini, chaque salle a `mapX`/`mapY` uniques, le
    graphe des `links` est connexe (toutes les salles atteignables).
-4. Difficultés ∈ liste du §1 ; états ∈ liste du §1 ; clés d'effets ∈ §9.2.
-5. JSON strictement valide (à tester mentalement : pas de virgules finales).
+5. Difficultés ∈ liste du §1 ; états ∈ liste du §1 ; clés d'effets ∈ §9.2.
+6. JSON strictement valide (à tester mentalement : pas de virgules finales).
 
 ---
 
