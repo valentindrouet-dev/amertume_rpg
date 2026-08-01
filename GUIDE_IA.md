@@ -27,6 +27,16 @@
 - **Difficultés** (valeurs autorisées du champ `difficulty`) :
   `auto` (0, réussite automatique), `facile` (1), `moyen` (2), `difficile` (3),
   `tresdifficile` (4), `insurmontable` (5), `impossible` (6).
+- **Barème d'XP OBLIGATOIRE pour un test réussi** (`xpReward` selon `difficulty`) :
+  | Difficulté | `xpReward` |
+  |---|---|
+  | `auto` | 0 |
+  | `facile` | 1 |
+  | `moyen` | 2 |
+  | `difficile` | 5 |
+  | `tresdifficile` | 10 |
+  | `insurmontable` | 20 |
+  | `impossible` | 50 |
 - **XP** : commun au groupe, fait monter de niveau tout le groupe.
 - **États de combat** (valeurs du moteur, à utiliser telles quelles) :
   `affaibli`, `auSol`, `feu`, `gele`, `poison`, `brise`, `faille` (négatifs) ;
@@ -137,9 +147,21 @@
 `mode` ∈ :
 
 ### 4.1 `"linear"` — Narratif
-Les scènes se jouent **dans l'ordre du tableau** `scenes`. La navigation se fait
-par `choices` / `nextSceneId` / `targetSceneId` des blocs (voir §5.3 et §6.6).
-`links` et `entryId` sont ignorés.
+Les scènes se jouent via `choices` / `nextSceneId` / `targetSceneId` des blocs
+(voir §5.1 et §6.2). `links` et `entryId` sont ignorés.
+
+⚠️ **RÈGLE DE PROGRESSION (chapitre narratif)** : l'ordre du tableau ne fait
+PAS avancer le joueur tout seul. **Chaque scène (sauf le type `fin`) DOIT
+offrir une sortie** : soit `nextSceneId`, soit au moins un `choices[]`, soit un
+`targetSceneId` de bloc — sinon le joueur est BLOQUÉ définitivement.
+- La **dernière scène d'un chapitre** doit pointer (`nextSceneId` ou un choix)
+  vers une scène du **chapitre suivant** : l'application corrige d'elle-même
+  l'arrivée vers la vraie entrée du chapitre (salle d'entrée d'un donjon
+  structuré, première salle tirée d'un donjon aléatoire). N'oublie JAMAIS ce
+  lien de fin de chapitre.
+- Un `targetSceneId` débloqué par un test réussi ne suffit que si le test est
+  toujours réussissable : ajoute `"retryMode": "always"` (ou une alternative)
+  quand c'est l'unique sortie.
 
 ### 4.2 `"dungeon"` — Donjon structuré (carte de salles)
 Le joueur explore librement une **carte** de salles reliées par des
@@ -259,6 +281,10 @@ Un combat se joue sur **1 à 4 zones** disposées en grille. Format :
 ## 6. LES BLOCS — le cœur du contenu
 
 `scene.blocks` est un tableau ordonné. Chaque bloc a un `id` unique et un `type`.
+**Varie et MÉLANGE librement les types** au sein d'une même scène selon ses
+besoins : un texte d'ambiance, puis un dialogue, puis un test qui révèle un
+combat, puis un texte de conclusion chaîné… Toute combinaison est valide — une
+scène monotone (un seul bloc narratif) est une scène ratée.
 
 ### 6.1 Blocs de TEXTE
 ```json
@@ -404,6 +430,29 @@ qui révèle à son tour d'autres blocs selon l'issue.
   "chainSuccessIds": ["desert_b_tresor"], "chainFailIds": [] }
 ```
 Tant qu'un bloc de combat révélé n'est pas résolu, le reste de la salle est gelé.
+
+### 6.6bis RÉCOMPENSES — la règle la plus importante des blocs
+
+⚠️ **Le TEXTE ne donne JAMAIS rien.** Si un texte narratif ou une réplique de
+dialogue annonce que le groupe gagne de l'or, une potion, une arme ou de l'XP,
+le bloc DOIT porter les champs structurés correspondants — sinon le joueur ne
+reçoit RIEN et l'aventure est cassée :
+
+| Ce que le texte annonce | Champ à renseigner sur le bloc |
+|---|---|
+| de l'XP | `"xpReward": 3` (ou `"1d6"`) |
+| de l'or | `"goldReward": 20` (ou `"2d6"`) |
+| un objet de l'Armurerie (potion, arme…) | `"itemRewards": [{ "itemId": "oasis_it_potion", "qty": 1 }]` — l'objet doit exister dans `items[]` |
+| un trésor revendable | `"treasureRewards": [{ "name": "Gemme", "qty": 1, "kind": "treasure", "value": 25 }]` |
+| un Objet Rare / une clé | `"treasureRewards": [{ "name": "Clé du portail", "qty": 1, "kind": "rare" }]` |
+| un Haut Fait | `"deedReward": "A sauvé le chamelier"` |
+| un soin / un état positif | `"winEffect": { "kind": "pv", "val": "1d6" }` |
+
+Ces champs fonctionnent sur TOUS les blocs interactifs : **test, action,
+écriture ET dialogue** (un dialogue est un bloc action : les récompenses
+s'appliquent au Choix 1 / issue « réussite »). Ils existent aussi au niveau de
+la SCÈNE (donnés en la quittant). Relis chaque texte écrit : toute promesse de
+gain doit avoir son champ structuré.
 
 ### 6.7 Chaînage et révélation — récapitulatif
 - Un bloc listé dans le `chainSuccessIds`/`chainFailIds` d'un autre bloc est
@@ -772,6 +821,13 @@ générer à la main.
    graphe des `links` est connexe (toutes les salles atteignables).
 5. Difficultés ∈ liste du §1 ; états ∈ liste du §1 ; clés d'effets ∈ §9.2.
 6. JSON strictement valide (à tester mentalement : pas de virgules finales).
+7. **PROGRESSION** : parcours mentalement l'aventure du début à la fin — chaque
+   scène narrative a une sortie (`nextSceneId` / `choices` / `targetSceneId`
+   retentable), la dernière scène de chaque chapitre pointe vers le chapitre
+   suivant, et aucun échec de test ne peut bloquer définitivement le joueur.
+8. **RÉCOMPENSES** : chaque gain annoncé dans un texte (or, objet, XP…) est
+   porté par le champ structuré correspondant (§6.6bis) ; `xpReward` des tests
+   suit le barème du §1.
 
 ---
 

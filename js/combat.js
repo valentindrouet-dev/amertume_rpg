@@ -1467,7 +1467,18 @@
         res.critique ? 'crit' : 'attack');
     // REGAIN : la DEF a tout absorbé (aucun dégât d'une attaque adverse).
     if (res.pvLost <= 0 && res.pvHealed <= 0) applyRegain(target, attacker);
-    applyStates(attacker, target, atk);
+    // ORBES ÉLÉMENTAIRES : l'élément n'est infligé que si l'Orbe a fait des
+    // dégâts — un Orbe entièrement absorbé ou raté ne pose pas d'état.
+    if (atk.orbElement && res.pvLost <= 0) {
+      log(cname(target) + ' ne subit pas <span class="lstate">' + orbElementLabel(atk.orbElement) +
+        '</span> : l\'Orbe n\'a infligé aucun Dégât.', 'state');
+      const noElem = Object.assign({}, atk, { effects: Object.assign({}, atk.effects) });
+      if (atk.orbElement === 'poison') noElem.effects.poison = 0;
+      else noElem.effects[atk.orbElement] = false;
+      applyStates(attacker, target, noElem);
+    } else {
+      applyStates(attacker, target, atk);
+    }
     // ORBES PARTAGÉS : l'attaque dopée inflige aussi FEU.
     if (orbBuffN > 0 && target.status === 'active') {
       // L'état transmis suit l'élément des Orbes du Mystique (Feu par défaut).

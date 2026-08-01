@@ -723,7 +723,7 @@
       desc: 'Votre bonus de Dégâts s\'ajoute aux Dégâts de vos Orbes.' },
     { effect: 'orbe_element', name: 'Orbes Élémentaires', kind: 'upgrade', cat: 'orbes', hasVal: false,
       hasChoice: true, choiceLabel: 'Élément infligé', choices: ['feu', 'gele', 'poison', 'affaibli', 'brise', 'faille', 'auSol'],
-      desc: 'Vos Orbes infligent l\'état choisi (Feu, Glace, Poison…) au lieu d\'être de simples Orbes Mystiques.' },
+      desc: 'Vos Orbes infligent l\'état choisi (Feu, Glace, Poison…) — uniquement si l\'Orbe inflige des Dégâts.' },
     { effect: 'orbe_ignore_def', name: 'Orbe Perforant', kind: 'upgrade', cat: 'orbes', hasVal: false,
       desc: 'Vos Orbes ignorent la DEF des cibles.' },
     { effect: 'orbe_critique', name: 'Orbe Critique', kind: 'passive', cat: 'orbes', hasVal: false,
