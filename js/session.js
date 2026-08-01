@@ -3857,6 +3857,13 @@
     if (!adv) { root.innerHTML = '<p class="empty">Aventure introuvable.</p>'; return; }
     // Pool « Aventuriers » : les aventuriers créés par le joueur pour cette aventure.
     const heroes = Combatants.adventureHeroes(advId);
+    // Pool « Pré-Tirés » : les modèles pré-construits (fournis par l'aventure ou
+    // le MJ) pas encore incarnés dans CETTE aventure. Les sélectionner les clone
+    // au lancement (resolveHeroId), le modèle reste réutilisable ailleurs.
+    const clonedFrom = {};
+    heroes.forEach(function (h) { if (h.prebuiltId) clonedFrom[h.prebuiltId] = true; });
+    const prebuilts = (Combatants.prebuiltHeroes ? Combatants.prebuiltHeroes() : [])
+      .filter(function (h) { return !clonedFrom[h.id]; });
 
     // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
     // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
@@ -3875,8 +3882,17 @@
       '</div>';
     }
 
-    // Aucun aventurier créé : inviter à en créer un.
-    if (!heroes.length) {
+    // Carte d'un modèle pré-tiré : sélectionnable, sans bouton de suppression.
+    function prebuiltCardHtml(h) {
+      return '<div class="hero-pick-card-wrap">' +
+        '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
+          Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
+        '</label>' +
+      '</div>';
+    }
+    const prebuiltRows = prebuilts.map(prebuiltCardHtml).join('');
+    // Aucun aventurier créé NI pré-tiré : inviter à en créer un.
+    if (!heroes.length && !prebuilts.length) {
       root.innerHTML =
         '<div class="card">' +
           '<div class="card-head"><h2>Créez votre groupe d\'aventuriers</h2></div>' +
@@ -3899,9 +3915,13 @@
           '</div>' +
         '</div>' +
         '<p class="hint">Choisis 1 à 4 aventuriers qui partent à l\'aventure.</p>' +
+        (prebuiltRows
+          ? '<div class="grp-cat-title">🎲 Aventuriers Pré-Tirés <small>(fournis avec l\'aventure — sélectionnez-les tels quels)</small></div>' +
+            '<div class="hero-pick-list">' + prebuiltRows + '</div>'
+          : '') +
         '<div class="grp-cat-title">Aventuriers</div>' +
         '<div id="grp-list" class="hero-pick-list">' +
-          (customRows || '<p class="empty">Aucun aventurier créé. Clique sur « + Aventurier ».</p>') + '</div>' +
+          (customRows || '<p class="empty">Aucun aventurier créé. Clique sur « + Aventurier » ou choisissez un Pré-Tiré ci-dessus.</p>') + '</div>' +
         '<p class="diff-advice" id="grp-advice"></p>' +
         '<div class="roll-actions"><button class="primary big" id="grp-start">▶ Commencer l\'aventure</button></div>' +
       '</div>';
