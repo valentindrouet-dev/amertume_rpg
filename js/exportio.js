@@ -84,6 +84,10 @@
       advTalents: JSON.parse(JSON.stringify(advTalents)),
       items: JSON.parse(JSON.stringify(items)),
       parchTalents: JSON.parse(JSON.stringify(parchTalents)),
+      // Aventuriers pré-tirés de cette aventure (proposés au lancement).
+      prebuilts: JSON.parse(JSON.stringify((Store.state.heroes || []).filter(function (h) {
+        return !h.adventureId && h.sourceAdventureId === adv.id;
+      }))),
     };
   }
   function exportAdventure(advId) {
@@ -216,6 +220,47 @@
       Store.saveParchTalents(list);
       stats.push('parchemins : +' + r.added + ' / ' + r.updated);
     }
+    if (Array.isArray(b.prebuilts) && b.prebuilts.length) {
+      const heroes = Store.state.heroes;
+      const norm = function (x) {
+        return String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+      };
+      const itemByName = function (name) {
+        if (!name) return null;
+        const n = norm(name);
+        return (Store.state.items || []).find(function (i) { return norm(i.name) === n; }) || null;
+      };
+      let added = 0, updated = 0;
+      b.prebuilts.forEach(function (h) {
+        if (!h || !h.id) return;
+        // Pré-tiré : disponible au lancement (pas d'adventureId), mais tracé
+        // comme venant de cette aventure (export / nettoyage).
+        h.adventureId = null;
+        h.sourceAdventureId = b.adventure.id;
+        // Équipement par NOM (equipmentNames) : résolu contre l'Armurerie de
+        // l'utilisateur APRÈS la fusion des objets du bundle — les ids locaux
+        // sont inconnus de l'IA, les noms du catalogue de base sont stables.
+        if (h.equipmentNames) {
+          const en = h.equipmentNames;
+          const pick = function (nm) { const it = itemByName(nm); return it ? it.id : null; };
+          h.equipment = {
+            mainD: pick(en.mainD), mainG: pick(en.mainG),
+            armorId: pick(en.armor), objectId: pick(en.object), twoH: false,
+          };
+          h.baseEquipment = JSON.parse(JSON.stringify(h.equipment));
+          delete h.equipmentNames;
+        }
+        if (!Array.isArray(h.startTalents)) h.startTalents = [];
+        if (!Array.isArray(h.attacks)) h.attacks = [];
+        if (!h.skills) h.skills = {};
+        const exist = heroes.findIndex(function (x) { return x.id === h.id; });
+        if (exist >= 0 && heroes[exist].sourceAdventureId === b.adventure.id) { heroes[exist] = h; updated++; }
+        else if (exist >= 0) { h.id = freeId(heroes, b.prebuilts, b.adventure.id + '__' + h.id); heroes.push(h); added++; }
+        else { heroes.push(h); added++; }
+      });
+      Store.save();
+      stats.push('aventuriers pré-tirés : +' + added + ' / ' + updated + ' mis à jour');
+    }
     if (renamed) stats.push(renamed + ' identifiant(s) renommé(s) pour éviter d\'écraser des contenus existants');
     alert('Aventure « ' + b.adventure.title + ' » importée.' + (stats.length ? '\n' + stats.join('\n') : ''));
     return true;
@@ -240,15 +285,18 @@
     });
     const advT = Store.loadAdvTalents ? Store.loadAdvTalents() : [];
     const orphTal = advT.filter(function (t) { return t.adventureId === advId && !keptMonIds[t.id]; });
-    if (!orphMon.length && !orphItems.length && !orphTal.length) return;
+    const orphHeroes = (Store.state.heroes || []).filter(function (h) { return !h.adventureId && h.sourceAdventureId === advId; });
+    if (!orphMon.length && !orphItems.length && !orphTal.length && !orphHeroes.length) return;
     const parts = [];
     if (orphMon.length) parts.push(orphMon.length + ' monstre(s) : ' + orphMon.map(function (m) { return m.name; }).join(', '));
     if (orphItems.length) parts.push(orphItems.length + ' objet(s) : ' + orphItems.map(function (i) { return i.name; }).join(', '));
     if (orphTal.length) parts.push(orphTal.length + ' talent(s) adverse(s)');
+    if (orphHeroes.length) parts.push(orphHeroes.length + ' aventurier(s) pré-tiré(s) : ' + orphHeroes.map(function (h) { return h.name; }).join(', '));
     if (!confirm('Cette aventure avait des contenus affiliés qui ne sont plus utilisés par aucune autre aventure :\n\n' +
       parts.join('\n') + '\n\nLes supprimer aussi ? (Annuler = les conserver dans vos bibliothèques)')) return;
     if (orphMon.length) Store.state.monsters = Store.state.monsters.filter(function (m) { return orphMon.indexOf(m) < 0; });
     if (orphItems.length) Store.state.items = Store.state.items.filter(function (i) { return orphItems.indexOf(i) < 0; });
+    if (orphHeroes.length) Store.state.heroes = Store.state.heroes.filter(function (h) { return orphHeroes.indexOf(h) < 0; });
     Store.save();
     if (orphTal.length && Store.saveAdvTalents) {
       Store.saveAdvTalents(advT.filter(function (t) { return orphTal.indexOf(t) < 0; }));

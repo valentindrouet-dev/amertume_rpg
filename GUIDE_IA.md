@@ -69,7 +69,8 @@
   "monsters": [ ... voir §7 — TOUS les monstres référencés ... ],
   "advTalents": [ ... voir §9.4 — talents adverses référencés par ces monstres ... ],
   "items": [ ... voir §8 — TOUS les objets référencés par itemId ... ],
-  "parchTalents": [ ... voir §9.5 — talents de parchemin référencés ... ]
+  "parchTalents": [ ... voir §9.5 — talents de parchemin référencés ... ],
+  "prebuilts": [ ... voir §8bis — les 4 aventuriers pré-tirés (OBLIGATOIRE) ... ]
 }
 ```
 
@@ -543,6 +544,60 @@ boss 25-40 PV / DEF 2-3 / XP 15-30. 2 à 4 sbires par combat courant.
 
 ---
 
+## 8bis. LES AVENTURIERS PRÉ-TIRÉS (`prebuilts[]`) — OBLIGATOIRE ×4
+
+**Chaque aventure DOIT proposer 4 aventuriers pré-tirés**, un par classe jouable
+(`Destructeur`, `Gardien`, `Lamevent`, `Mystique`), disponibles dès le lancement
+via « + Aventurier Pré-Construit » (le joueur peut aussi créer les siens).
+Donne-leur des noms, genres et espèces variés, en accord avec l'ambiance de
+l'aventure.
+
+```json
+{
+  "id": "oasis_hero_kara",
+  "name": "Kara du Sable",
+  "gender": "f",
+  "species": "goliath",
+  "klass": "Destructeur",
+  "vie": 4, "endu": 1, "pvBonus": 0, "damage": 3,
+  "rapide": false,
+  "skills": { "Force": 2, "Robustesse": 2, "Agilité": 1 },
+  "startTalents": [],
+  "attacks": [],
+  "equipmentNames": { "mainD": "Épée", "mainG": "Bouclier", "armor": "Armure de cuir", "object": "Petite Potion de Soin" },
+  "notes": "Ancienne garde de caravane, taiseuse et loyale."
+}
+```
+
+| Champ | Valeurs / règles |
+|---|---|
+| `gender` | `"f"` (femme), `"m"` (homme), `"a"` (autre/neutre) |
+| `species` | `"humain"` (VIE +1, Perception +1, Savoir +1), `"nain"` (PV +8, Robustesse +1, Technique +1), `"goliath"` (Dégâts +2, Force +1, Robustesse +1), `"elfe"` (ENDU +1, Dégâts +1, Agilité +1, Mysticisme +1) |
+| `klass` | `Destructeur` (PV de classe +16), `Gardien` (+18), `Lamevent` (+14), `Mystique` (+10) |
+| `vie`, `endu`, `damage` | RÈGLE DE CRÉATION : base VIE 3 / ENDU 0 / Dégâts 0, **+3 points à répartir** entre les trois, **+ les bonus d'espèce** déjà INTÉGRÉS aux valeurs. Ex. Goliath ayant mis 1 pt en VIE et 2 en Dégâts : `vie: 4, endu: 0, damage: 4` (2 de l'espèce inclus) |
+| `pvBonus` | 0, sauf Nain : 8 (bonus d'espèce) |
+| `skills` | **3 points à répartir (max 2 par compétence) + les bonus d'espèce inclus**. Ex. Goliath avec 2 pts en Force et 1 en Agilité : `{ "Force": 3, "Robustesse": 1, "Agilité": 1 }` |
+| `startTalents` | laisse `[]` : les talents des classes appartiennent à l'utilisateur (ids inconnus de toi) — le joueur les choisira dans l'onglet Talents |
+| `attacks` | laisse `[]` (les attaques viennent des armes équipées) |
+| `equipmentNames` | équipement de départ par **NOM** (résolu automatiquement à l'import contre l'Armurerie) : `mainD` / `mainG` (armes ou Bouclier), `armor`, `object`. Une arme à 2 mains occupe `mainD`, laisse `mainG` à null |
+| `notes` | une phrase de personnalité / d'histoire |
+
+PV max = `vie × endu + pvBonus + PV de classe` — vise **18 à 30 PV** par
+pré-tiré (un ENDU à 0 est valide mais fragile : privilégie ENDU 1-2).
+
+**Noms d'équipement du catalogue de base** (utilisables dans `equipmentNames`) :
+- Armes 1 main : `Dague`, `Faux`, `Épée`, `Bâton`, `Rapière`
+- Armes 2 mains : `Épée longue`, `Hache`, `Lance`, `Épée lourde`, `Hache lourde`
+- Distance (2 mains) : `Arc court`, `Arc`, `Arc long`, `Arbalète`
+- Armures : `Tenue de voyage`, `Armure de cuir`, `Armure de mailles`, `Armure de plates` · Bouclier : `Bouclier`
+- Objets : `Petite Potion de Soin`, `Potion de Soin`, `Grande Potion de Soin`, `Flèches`, `Flèches légères`, `Flèches lourdes`, `Flèches Mystiques`, `Flèches Mortelles`
+
+Compositions classiques : Destructeur = arme lourde 2 mains + cuir ; Gardien =
+Épée + Bouclier + mailles ; Lamevent = Rapière/Dague + tenue de voyage ;
+Mystique = Bâton + tenue de voyage + potion (ses Orbes n'ont pas besoin d'arme).
+
+---
+
 ## 9. TALENTS & CLASSES
 
 ### 9.1 Structure d'un talent
@@ -840,6 +895,8 @@ générer à la main.
 8. **RÉCOMPENSES** : chaque gain annoncé dans un texte (or, objet, XP…) est
    porté par le champ structuré correspondant (§6.6bis) ; `xpReward` des tests
    suit le barème du §1.
+9. **PRÉ-TIRÉS** : `prebuilts[]` contient bien 4 aventuriers (un par classe),
+   conformes aux règles de création du §8bis, avec `equipmentNames` valides.
 
 ---
 
