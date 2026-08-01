@@ -64,8 +64,11 @@
 ```
 
 **Règles d'or :**
-1. **Tous les `id` sont des chaînes uniques** dans le fichier (ex. `"sc_desert_01"`,
-   `"mon_chameau"`, `"blk_test_puits"`). Format libre, mais court et lisible.
+1. **Tous les `id` sont des chaînes uniques** dans le fichier ET **préfixées par
+   le slug de l'aventure** : pour une aventure `adv_oasis`, écris
+   `"oasis_sc_dunes"`, `"oasis_mon_chameau"`, `"oasis_it_cimeterre"`,
+   `"oasis_b1"`… Ce préfixe évite toute collision avec les contenus des autres
+   aventures déjà présentes chez l'utilisateur — c'est OBLIGATOIRE.
 2. **Toute référence doit pointer sur un objet présent** : chaque `monsterId`
    cité dans une zone de combat doit exister dans `monsters[]` ; chaque `itemId`
    d'une récompense doit exister dans `items[]` ; chaque id de `advTalentIds`
@@ -73,6 +76,23 @@
 3. Le JSON doit être **valide strict** (pas de commentaires, pas de virgule finale).
 4. Les textes sont en **français**, avec `\n` pour les sauts de ligne.
    `**gras**` et `*italique*` sont acceptés dans les textes narratifs.
+
+### 2.1 Ce qui se passe à l'import (pour comprendre les contraintes)
+
+- Les monstres, objets et talents du bundle sont fusionnés dans les
+  bibliothèques **globales** de l'utilisateur (bestiaire, armurerie…), et
+  **automatiquement affiliés à l'aventure** (`adventureId`) : l'utilisateur peut
+  les filtrer par aventure et ils sont proposés à la suppression quand
+  l'aventure est supprimée.
+- Fusion **par `id`** : un id inconnu est ajouté ; un id appartenant déjà à
+  CETTE aventure est mis à jour (ré-import d'une version corrigée) ; un id déjà
+  pris par le contenu d'une AUTRE aventure est **renommé automatiquement**
+  (aucun écrasement), mais le renommage pollue les identifiants — d'où la règle
+  du préfixe.
+- **Ne réinvente pas ce qui existe déjà** dans le catalogue de base : les armes
+  courantes (Dague, Épée…) existent chez l'utilisateur. Pour une récompense
+  générique, préfère un `treasureRewards` (créé à la volée, sans référence) à un
+  nouvel item. Ne crée un item que s'il est spécifique à ton aventure.
 
 ---
 
@@ -214,8 +234,8 @@ Un combat se joue sur **1 à 4 zones** disposées en grille. Format :
 
 ```json
 "combatZones": [
-  { "name": "Dune ouest", "monsterRefs": [ { "monsterId": "mon_chameau", "count": 2 } ], "heroStart": true },
-  { "name": "Dune est",   "monsterRefs": [ { "monsterId": "mon_chef", "count": 1 } ] }
+  { "name": "Dune ouest", "monsterRefs": [ { "monsterId": "oasis_mon_chameau", "count": 2 } ], "heroStart": true },
+  { "name": "Dune est",   "monsterRefs": [ { "monsterId": "oasis_mon_chef", "count": 1 } ] }
 ],
 "barriers": {
   "0-1": { "type": "difficile", "diff": "moyen", "name": "éboulis" }
@@ -242,7 +262,7 @@ Un combat se joue sur **1 à 4 zones** disposées en grille. Format :
 
 ### 6.1 Blocs de TEXTE
 ```json
-{ "id": "b1", "type": "narrative", "content": "Le vent hurle entre les dunes…" }
+{ "id": "oasis_b1", "type": "narrative", "content": "Le vent hurle entre les dunes…" }
 ```
 `type` ∈ :
 - `narrative` — italique (narration)
@@ -376,7 +396,7 @@ qui révèle à son tour d'autres blocs selon l'issue.
   "label": "Les chameaux chargent !",
   "content": "Le sable tremble sous leurs sabots.",
   "combat": {
-    "combatZones": [ { "name": "Dunes", "monsterRefs": [ { "monsterId": "mon_chameau", "count": 3 } ] } ],
+    "combatZones": [ { "name": "Dunes", "monsterRefs": [ { "monsterId": "oasis_mon_chameau", "count": 3 } ] } ],
     "barriers": {}
   },
   "winText": "Les bêtes s'effondrent en poussière.",
@@ -400,7 +420,7 @@ Tant qu'un bloc de combat révélé n'est pas résolu, le reste de la salle est 
 
 ```json
 {
-  "id": "mon_chameau",
+  "id": "oasis_mon_chameau",
   "name": "Chameau maléfique",
   "type": "standard",
   "socle": "large",
@@ -744,6 +764,7 @@ générer à la main.
 
 ### Checklist finale avant de rendre le JSON
 1. `format` = `"amertume-adventure-bundle"`, `version` = 2.
+1bis. TOUS les ids portent le préfixe de l'aventure (règle d'or n°1).
 2. Tous les ids uniques ; toutes les références résolues (monsterId → monsters[],
    itemId → items[], advTalentIds → advTalents[], chainIds → blocs de la même
    scène, targetSceneId/eventSceneId/sceneId → scènes existantes).
@@ -765,37 +786,37 @@ générer à la main.
     "duration": "1 h", "difficulty": "Moyenne",
     "summary": "Une caravane a disparu près de l'oasis d'Al-Rassif.",
     "chapters": [{
-      "id": "ch1", "title": "L'Oasis", "mode": "dungeon", "entryId": "sc_dunes",
+      "id": "oasis_ch1", "title": "L'Oasis", "mode": "dungeon", "entryId": "oasis_sc_dunes",
       "scenes": [
-        { "id": "sc_dunes", "title": "Les Dunes", "type": "exploration", "mapX": 0, "mapY": 0,
+        { "id": "oasis_sc_dunes", "title": "Les Dunes", "type": "exploration", "mapX": 0, "mapY": 0,
           "blocks": [
-            { "id": "b1", "type": "narrative", "content": "*Le sable crisse. Au loin, des palmiers.*" },
-            { "id": "b2", "type": "test", "label": "Lire les traces", "skill": "Perception",
+            { "id": "oasis_b1", "type": "narrative", "content": "*Le sable crisse. Au loin, des palmiers.*" },
+            { "id": "oasis_b2", "type": "test", "label": "Lire les traces", "skill": "Perception",
               "difficulty": "moyen", "who": "best",
               "successText": "Des empreintes de chameaux… à reculons.",
               "failText": "Le vent a tout effacé.", "xpReward": 2,
-              "failEffect": { "kind": "none" }, "chainSuccessIds": ["b3"] },
-            { "id": "b3", "type": "narrative", "content": "Quelque chose cloche avec ces bêtes." }
+              "failEffect": { "kind": "none" }, "chainSuccessIds": ["oasis_b3"] },
+            { "id": "oasis_b3", "type": "narrative", "content": "Quelque chose cloche avec ces bêtes." }
           ],
           "combatZones": [], "barriers": {} },
-        { "id": "sc_oasis", "title": "L'Oasis", "type": "boss", "mapX": 1, "mapY": 0,
+        { "id": "oasis_sc_oasis", "title": "L'Oasis", "type": "boss", "mapX": 1, "mapY": 0,
           "blocks": [
-            { "id": "b4", "type": "combat", "content": "**Trois chameaux aux yeux rouges vous fixent.**" }
+            { "id": "oasis_b4", "type": "combat", "content": "**Trois chameaux aux yeux rouges vous fixent.**" }
           ],
           "combatZones": [
-            { "name": "Rive", "monsterRefs": [ { "monsterId": "mon_chameau", "count": 2 } ], "heroStart": true },
-            { "name": "Palmeraie", "monsterRefs": [ { "monsterId": "mon_chef", "count": 1 } ] }
+            { "name": "Rive", "monsterRefs": [ { "monsterId": "oasis_mon_chameau", "count": 2 } ], "heroStart": true },
+            { "name": "Palmeraie", "monsterRefs": [ { "monsterId": "oasis_mon_chef", "count": 1 } ] }
           ],
           "barriers": { "0-1": { "type": "difficile", "diff": "moyen", "name": "eaux vaseuses" } },
           "xpReward": 8,
           "treasureRewards": [ { "name": "Perle de l'oasis", "qty": 1, "kind": "treasure", "value": 40 } ] }
       ],
-      "links": [ { "id": "l1", "from": "sc_dunes", "to": "sc_oasis", "label": "sentier de sable durci" } ],
+      "links": [ { "id": "oasis_l1", "from": "oasis_sc_dunes", "to": "oasis_sc_oasis", "label": "sentier de sable durci" } ],
       "randomEncounters": []
     }]
   },
   "monsters": [
-    { "id": "mon_chameau", "name": "Chameau maléfique", "type": "standard", "socle": "large",
+    { "id": "oasis_mon_chameau", "name": "Chameau maléfique", "type": "standard", "socle": "large",
       "family": "Morts du désert", "pv": 9, "def": 1, "damage": 2, "xp": 5,
       "menace": "closest", "esquive": false, "rapide": false,
       "attacks": [ { "name": "Ruade", "dice": { "white": 2 }, "range": "contact",
@@ -803,17 +824,17 @@ générer à la main.
         "effects": { "affaibli": false, "auSol": true, "feu": false, "gele": false },
         "uses": 0, "freeAction": false } ],
       "advTalentIds": [], "behaviors": [], "loot": [], "equipment": [], "notes": "" },
-    { "id": "mon_chef", "name": "Meneur cauchemardesque", "type": "alpha", "socle": "large",
+    { "id": "oasis_mon_chef", "name": "Meneur cauchemardesque", "type": "alpha", "socle": "large",
       "family": "Morts du désert", "pv": 18, "def": 2, "damage": 3, "xp": 12,
       "menace": "pvLow", "esquive": false, "rapide": true,
       "attacks": [ { "name": "Morsure spectrale", "dice": { "white": 1, "black": 1 }, "range": "contact",
         "targets": "one", "useOwnDamage": true,
         "effects": { "affaibli": true, "auSol": false, "feu": false, "gele": false },
         "uses": 0, "freeAction": false } ],
-      "advTalentIds": ["at_hurlement"], "behaviors": ["toCrowd"], "loot": [], "equipment": [], "notes": "" }
+      "advTalentIds": ["oasis_at_hurlement"], "behaviors": ["toCrowd"], "loot": [], "equipment": [], "notes": "" }
   ],
   "advTalents": [
-    { "id": "at_hurlement", "name": "Hurlement des sables", "kind": "action", "usage": "combat",
+    { "id": "oasis_at_hurlement", "name": "Hurlement des sables", "kind": "action", "usage": "combat",
       "effect": "frayeur", "effects": [ { "effect": "frayeur", "val": 1, "scope": "count" } ],
       "description": "Force un aventurier à fuir la zone." }
   ],

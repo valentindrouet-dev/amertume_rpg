@@ -114,8 +114,77 @@
     });
     return { added: added, updated: updated };
   }
+  // ---------- Anti-collision & affiliation ----------
+  // Réécrit un id partout dans le bundle : id propre de l'objet, références
+  // monsterId / itemId (parcours profond), advTalentIds, parchEffect "par:<id>".
+  function deepRemapRefs(node, key, from, to) {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach(function (x) { deepRemapRefs(x, key, from, to); }); return; }
+    Object.keys(node).forEach(function (k) {
+      if (k === key && node[k] === from) node[k] = to;
+      else deepRemapRefs(node[k], key, from, to);
+    });
+  }
+  // Un id entrant entre-t-il en COLLISION avec un objet local étranger ?
+  // (même id, mais l'objet local n'appartient pas à cette aventure → sans
+  // renommage, l'import écraserait silencieusement le contenu local).
+  function foreignClash(localList, id, advId) {
+    const loc = localList.find(function (x) { return x && x.id === id; });
+    return !!(loc && loc.adventureId !== advId);
+  }
+  function freeId(localList, bundleList, baseId) {
+    let id = baseId, n = 2;
+    const taken = function (x) {
+      return localList.some(function (o) { return o && o.id === x; }) ||
+        bundleList.some(function (o) { return o && o.id === x; });
+    };
+    while (taken(id)) { id = baseId + '_' + n; n++; }
+    return id;
+  }
+  // Prépare un bundle avant fusion : affilie chaque contenu à l'aventure
+  // (adventureId) et renomme les ids en collision avec des contenus étrangers,
+  // références réécrites dans TOUT le bundle. Renvoie le nombre de renommages.
+  function sanitizeBundle(b) {
+    const advId = b.adventure.id;
+    let renamed = 0;
+    const passes = [
+      { list: b.monsters, local: Store.state.monsters || [], refKey: 'monsterId' },
+      { list: b.items, local: Store.state.items || [], refKey: 'itemId' },
+      { list: b.advTalents, local: Store.loadAdvTalents ? Store.loadAdvTalents() : [], refKey: null, refFn: 'advTalentIds' },
+      { list: b.parchTalents, local: Store.loadParchTalents ? Store.loadParchTalents() : [], refKey: null, refFn: 'parch' },
+    ];
+    passes.forEach(function (p) {
+      (p.list || []).forEach(function (obj) {
+        if (!obj || !obj.id) return;
+        // 1) Affiliation : le contenu importé est rattaché à son aventure.
+        if (!obj.adventureId) obj.adventureId = advId;
+        // 2) Collision avec un contenu local ÉTRANGER : renommage + réécriture.
+        if (foreignClash(p.local, obj.id, advId)) {
+          const to = freeId(p.local, p.list, advId + '__' + obj.id);
+          const from = obj.id;
+          obj.id = to;
+          if (p.refKey) deepRemapRefs(b, p.refKey, from, to);
+          else if (p.refFn === 'advTalentIds') {
+            (b.monsters || []).forEach(function (m) {
+              if (Array.isArray(m.advTalentIds)) m.advTalentIds = m.advTalentIds.map(function (x) { return x === from ? to : x; });
+            });
+          } else if (p.refFn === 'parch') {
+            (b.items || []).forEach(function (i) {
+              if (i.parchEffect === 'par:' + from) i.parchEffect = 'par:' + to;
+            });
+          }
+          renamed++;
+        }
+      });
+    });
+    return renamed;
+  }
+
   function importAdventureBundle(b) {
     if (!b || !b.adventure) { alert('Fichier invalide : bundle d\'aventure attendu.'); return false; }
+    // Affiliation + anti-collision AVANT toute fusion : un id déjà pris par un
+    // contenu d'une autre aventure est renommé (aucun écrasement silencieux).
+    const renamed = sanitizeBundle(b);
     const advs = Store.loadAdventures();
     const exist = advs.findIndex(function (a) { return a.id === b.adventure.id; });
     if (exist >= 0) {
@@ -147,8 +216,44 @@
       Store.saveParchTalents(list);
       stats.push('parchemins : +' + r.added + ' / ' + r.updated);
     }
+    if (renamed) stats.push(renamed + ' identifiant(s) renommé(s) pour éviter d\'écraser des contenus existants');
     alert('Aventure « ' + b.adventure.title + ' » importée.' + (stats.length ? '\n' + stats.join('\n') : ''));
     return true;
+  }
+
+  // ---------- Nettoyage à la suppression d'une aventure ----------
+  // Contenus AFFILIÉS à l'aventure supprimée et non référencés ailleurs :
+  // proposés à la suppression (jamais retirés sans confirmation).
+  function referencedIds(adventures) {
+    const out = { monsterIds: {}, itemIds: {} };
+    adventures.forEach(function (a) { collectIds(a, out); });
+    return out;
+  }
+  function cleanupAdventureContent(advId) {
+    const remainingAdvs = Store.loadAdventures().filter(function (a) { return a.id !== advId; });
+    const used = referencedIds(remainingAdvs);
+    const orphMon = (Store.state.monsters || []).filter(function (m) { return m.adventureId === advId && !used.monsterIds[m.id]; });
+    const orphItems = (Store.state.items || []).filter(function (i) { return i.adventureId === advId && !used.itemIds[i.id]; });
+    const keptMonIds = {};
+    (Store.state.monsters || []).forEach(function (m) {
+      if (orphMon.indexOf(m) < 0) (m.advTalentIds || []).forEach(function (id) { keptMonIds[id] = true; });
+    });
+    const advT = Store.loadAdvTalents ? Store.loadAdvTalents() : [];
+    const orphTal = advT.filter(function (t) { return t.adventureId === advId && !keptMonIds[t.id]; });
+    if (!orphMon.length && !orphItems.length && !orphTal.length) return;
+    const parts = [];
+    if (orphMon.length) parts.push(orphMon.length + ' monstre(s) : ' + orphMon.map(function (m) { return m.name; }).join(', '));
+    if (orphItems.length) parts.push(orphItems.length + ' objet(s) : ' + orphItems.map(function (i) { return i.name; }).join(', '));
+    if (orphTal.length) parts.push(orphTal.length + ' talent(s) adverse(s)');
+    if (!confirm('Cette aventure avait des contenus affiliés qui ne sont plus utilisés par aucune autre aventure :\n\n' +
+      parts.join('\n') + '\n\nLes supprimer aussi ? (Annuler = les conserver dans vos bibliothèques)')) return;
+    if (orphMon.length) Store.state.monsters = Store.state.monsters.filter(function (m) { return orphMon.indexOf(m) < 0; });
+    if (orphItems.length) Store.state.items = Store.state.items.filter(function (i) { return orphItems.indexOf(i) < 0; });
+    Store.save();
+    if (orphTal.length && Store.saveAdvTalents) {
+      Store.saveAdvTalents(advT.filter(function (t) { return orphTal.indexOf(t) < 0; }));
+    }
+    refreshAll();
   }
 
   // ---------- Exports JSON par onglet ----------
@@ -714,5 +819,6 @@
     exportGlobal: exportGlobal,
     importJSON: importJSON,
     buildAdventureBundle: buildAdventureBundle,
+    cleanupAdventureContent: cleanupAdventureContent,
   };
 })(window);

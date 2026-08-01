@@ -519,6 +519,8 @@
         sagas.forEach(function (s) { s.adventureIds = s.adventureIds.filter(function (x) { return x !== id; }); });
         homeOrder = homeOrder.filter(function (e) { return !(e.type === 'adv' && e.id === id); });
         save(); saveOrg(); renderList(); renderHomeOrg();
+        // Contenus affiliés (import) devenus orphelins : proposés à la suppression.
+        if (global.ExportIO && ExportIO.cleanupAdventureContent) ExportIO.cleanupAdventureContent(id);
       });
     });
   }
