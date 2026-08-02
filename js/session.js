@@ -2041,8 +2041,11 @@
     const more = shown < total;
     slot.innerHTML = '<div class="ses-dialogue">' + head + dialogueBubblesHtml(block, shown) +
       (more
-        ? '<div class="ses-dlg-next"><button class="ghost small ses-dlg-more">' +
-            esc((block.nextLabel || '').trim() || 'Suite…') + ' ▸</button></div>'
+        ? '<div class="ses-dlg-next"><button class="ses-dlg-more" type="button">' +
+            '<span class="ses-dlg-more-txt">' + esc((block.nextLabel || '').trim() || 'Continuer la discussion') + '</span>' +
+            '<span class="ses-dlg-more-ico" aria-hidden="true">▸</span>' +
+            '<span class="ses-dlg-more-count">' + shown + '/' + total + '</span>' +
+          '</button></div>'
         : '<div class="ses-dlg-choices">' +
             (block.mandatory ? '<div class="ses-st-title"><span class="ses-st-mandatory">🔒 Obligatoire</span></div>' : '') +
             variantButtonsHtml(ses, block, scene, null) +

@@ -5057,8 +5057,25 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .ses-dlg-new { animation: dlgIn .28s ease-out; }
 @keyframes dlgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ses-dlg-new { animation: none; } }
-.ses-dlg-next { display: flex; justify-content: flex-end; }
-.ses-dlg-next button { min-height: 34px; }
+.ses-dlg-next { display: flex; }
+/* Bouton « suite du dialogue » : pleine largeur, bien contrasté sur le fond de
+   la bulle, avec le compteur de répliques. */
+.ses-dlg-more {
+  flex: 1 1 auto; display: flex; align-items: center; gap: .5rem;
+  min-height: 42px; padding: .5rem .8rem; cursor: pointer;
+  border: 1px solid #6fa8c7; border-radius: 10px;
+  background: rgba(111,168,199,.20); color: var(--text);
+  font-size: .92rem; font-weight: 700; text-align: left;
+}
+.ses-dlg-more:hover { background: rgba(111,168,199,.34); border-color: #9fcbe2; }
+.ses-dlg-more:active { transform: translateY(1px); }
+.ses-dlg-more-txt { flex: 1 1 auto; min-width: 0; }
+.ses-dlg-more-ico { flex: 0 0 auto; color: #9fcbe2; font-size: 1.05rem; }
+.ses-dlg-more-count {
+  flex: 0 0 auto; font-size: .72rem; font-weight: 700; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 10px; padding: .05rem .4rem;
+  background: rgba(0,0,0,.18);
+}
 .ses-dlg-choices { display: flex; flex-direction: column; gap: .35rem; }
 /* Les choix d'un dialogue : pas de 🎲, ce ne sont pas des jets. */
 .ses-dialogue .ses-choice-btn.skill-test::before { content: none; }

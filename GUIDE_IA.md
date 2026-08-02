@@ -360,6 +360,39 @@ Un combat se joue sur **1 à 4 zones** disposées en grille. Format :
 - `monsterRefs` : monstres présents (référence + nombre). Une zone sans monstre
   est possible (zone tactique vide).
 - `heroStart: true` : zone de départ des aventuriers (défaut : zone 1).
+> ### 🗺️ UTILISE PLUSIEURS ZONES — c'est le cœur de la tactique
+> **Un combat à une seule zone est un combat raté.** Une grande partie du
+> système repose sur le **déplacement d'une zone à l'autre** : attaques à
+> distance qui frappent d'une zone voisine, attaques d'opportunité quand on
+> quitte une zone occupée, Charge Dévastatrice / Assaut Handicapant à
+> l'arrivée, Épines, Happe qui tire un aventurier vers l'adversaire, Frayeur
+> qui l'oblige à fuir, Gelé qui empêche tout mouvement, barrières à franchir…
+> Sans zones multiples, tous ces talents deviennent inertes.
+>
+> **Règles pratiques :**
+> - Combat courant : **2 zones**. Combat important ou de boss : **3 à 4 zones**.
+> - **Nomme chaque zone par un lieu réel de la scène** — c'est ce qui rend le
+>   déplacement lisible et évocateur : « Parvis en ruine » / « Escalier du
+>   chœur » / « Galerie effondrée », « Rive vaseuse » / « Ponton » / « Barque ».
+> - **Répartis les adversaires** : les tireurs et les lanceurs de sorts à
+>   l'arrière, les brutes au contact, le boss dans la zone la plus lointaine.
+>   Une zone peut être vide au départ (terrain à conquérir).
+> - Place les aventuriers avec `"heroStart": true` sur la zone d'entrée.
+> - Ajoute **1 ou 2 barrières** qui racontent quelque chose : un éboulis
+>   `difficile`, un sol verglacé `instable`, une herse `mur` qui coupe aussi
+>   les lignes de tir. Ne barricade pas tout : il faut pouvoir circuler.
+>
+> Exemple à 3 zones :
+> ```json
+> "combatZones": [
+>   { "name": "Parvis en ruine",     "monsterRefs": [ { "monsterId": "cit_mon_goule", "count": 2 } ], "heroStart": true },
+>   { "name": "Escalier du chœur",   "monsterRefs": [ { "monsterId": "cit_mon_archer", "count": 1 } ] },
+>   { "name": "Autel profané",       "monsterRefs": [ { "monsterId": "cit_mon_liche", "count": 1 } ] }
+> ],
+> "barriers": { "0-1": { "type": "difficile", "diff": "moyen", "name": "gravats" },
+>               "1-2": { "type": "instable",  "name": "dalles descellées" } }
+> ```
+
 - `barriers` : clés `"i-j"` (indices de zones, 0-based, i<j). Types :
   | `type` | Effet |
   |---|---|
@@ -555,6 +588,81 @@ gain doit avoir son champ structuré.
 - Les **Objets Rares** (`treasureRewards` kind `rare`) servent de **clés** : un
   bloc portant `rareKeyName` est résolu automatiquement si le groupe possède
   l'objet du même nom.
+
+### 6.8 ⚠️ VERROUILLER LA PROGRESSION — faire vivre la scène avant d'en sortir
+
+Par défaut, le joueur peut **ignorer** tout le contenu d'une salle et sortir
+immédiatement : il lit à peine, saute les dialogues, rate les objets. C'est
+l'erreur de conception la plus courante. Tu disposes de trois leviers pour
+imposer un ordre — **utilise-les dès qu'une scène contient un dialogue, un test
+ou un combat qui compte**.
+
+#### Levier 1 — `mandatory` : le bloc doit être tenté avant de sortir
+```json
+{ "id": "cit_b_parler", "type": "test", "actionMode": true, "dialogueMode": true,
+  "mandatory": true, "mandatoryNarrative": true, ... }
+```
+| Champ | Effet |
+|---|---|
+| `"mandatory": true` | 🔒 Tant que ce bloc n'est pas résolu, **les sorties vers les salles non visitées sont bloquées** (le demi-tour reste possible). |
+| `+ "mandatoryNarrative": true` | Verrou TOTAL : **aucune sortie**, pas même le demi-tour. À réserver aux moments où le groupe est réellement retenu (un PNJ leur barre la route, une porte scellée). |
+
+Un **bloc de combat** (`type: "fight"`) révélé gèle automatiquement le reste de
+la salle jusqu'à son issue — pas besoin de `mandatory` dessus.
+
+#### Levier 2 — chaînage : dévoiler le contenu au fil de l'eau
+`chainSuccessIds` / `chainFailIds` rendent des blocs **invisibles** tant que le
+bloc parent n'a pas produit l'issue correspondante. C'est ce qui crée l'ordre
+« on écoute le PNJ, PUIS on peut fouiller » :
+
+```json
+[
+  { "id": "cit_b_dlg", "type": "test", "actionMode": true, "dialogueMode": true,
+    "mandatory": true, "label": "« Que s'est-il passé ici ? »",
+    "lines": [ ... ],
+    "successText": "Le vieil homme désigne la trappe du menton.",
+    "chainSuccessIds": ["cit_b_trappe"] },
+
+  { "id": "cit_b_trappe", "type": "test", "label": "Forcer la trappe",
+    "skill": "Force", "difficulty": "moyen", "xpReward": 2,
+    "successText": "La trappe cède.", "failText": "Elle résiste.",
+    "retryMode": "always",
+    "targetSceneId": "cit_sc_cave" }
+]
+```
+→ Le test « Forcer la trappe » **n'existe pas** à l'écran tant que le dialogue
+n'est pas terminé. Tout type de bloc est chaînable, y compris un simple bloc
+narratif : parfait pour ne révéler la description d'un détail qu'après une
+réussite.
+
+#### Levier 3 — verrouiller la SORTIE elle-même
+| Moyen | Usage |
+|---|---|
+| `targetSceneId` sur un test/action réussi | Le passage vers cette scène n'est **ouvert** qu'après la réussite (chapitre narratif comme donjon). |
+| `revealTestId` sur un connecteur (§4.2) | Le couloir est **invisible** tant que le test désigné n'est pas réussi : passage secret. |
+| `reqSkill` / `reqVal` sur un bloc | Le bloc ne s'affiche que si un aventurier atteint la compétence — pour des options réservées, jamais pour l'unique sortie. |
+
+#### La règle de conception
+> **Si une scène contient un dialogue, un test ou un combat qui porte
+> l'histoire, la suite de l'aventure doit en dépendre.** Le contenu important
+> se mérite : on le lit, on le tente, on le gagne — ensuite seulement la porte
+> s'ouvre.
+
+En pratique, pour une scène « qui compte » :
+1. le dialogue / le combat d'ouverture est `mandatory` ;
+2. il **chaîne** vers les tests et les textes de conséquence ;
+3. le test final porte le `targetSceneId` (ou le connecteur porte le
+   `revealTestId`) qui ouvre la suite.
+
+⚠️ **Deux garde-fous** (voir aussi §4.1) :
+- Un verrou ne doit jamais devenir un piège : si la sortie dépend d'un test,
+  ce test doit être **retentable** (`"retryMode": "always"`) ou proposer une
+  alternative (`altSkill`, un Objet Rare via `rareKeyName`, une Action de
+  repli). Un test raté une fois ne doit pas terminer la partie.
+- **Toutes les scènes ne s'enferment pas.** Un couloir, une salle de repos, un
+  décor de transition n'ont aucune raison de retenir le groupe : laisse-les
+  ouverts. Réserve le verrouillage aux scènes qui ont une vraie substance —
+  sinon l'aventure devient un couloir d'obligations.
 
 ---
 
@@ -1075,7 +1183,14 @@ les pré-tirés entrent en jeu avec **2 talents** chacun.
     `randomEnabled: true` (donjon aléatoire) existe si une table est déclarée.
 11. **ZÉRO CUL-DE-SAC** : dans chaque donjon structuré, toute salle de la carte
     figure dans au moins un `links[]` et est atteignable depuis `entryId`.
-12. **BUDGET D'XP** (§10bis) : additionne l'XP des monstres des combats
+12. **VERROUILLAGE** (§6.8) : chaque scène porteuse d'histoire impose son
+    contenu avant la sortie (`mandatory`, chaînage, `targetSceneId` /
+    `revealTestId`), et tout test qui commande une sortie est retentable ou
+    doublé d'une alternative. Les scènes de simple transition restent ouvertes.
+13. **ZONES DE COMBAT** (§5.2) : aucun combat à une seule zone — 2 zones en
+    standard, 3-4 pour un boss, zones nommées d'après des lieux réels,
+    adversaires répartis, `heroStart` posé, 1-2 barrières signifiantes.
+14. **BUDGET D'XP** (§10bis) : additionne l'XP des monstres des combats
     obligatoires + les `xpReward` des tests et scènes du chemin principal ;
     le total correspond au nombre de montées de niveau voulu (1 niveau =
     50-240 XP, 2 niveaux = 250-490, 3 niveaux = 500-990). Indique ce total.
