@@ -2446,6 +2446,7 @@
     heroGear: heroGear,
     normalizeEquip: normalizeEquip,
     normKlass: normKlass,
+    startMasteryOf: startMasteryOf,
     weaponAttacks: weaponAttacks,
     monsterCombatAttacks: monsterCombatAttacks,
     monsterTalentLabels: monsterTalentLabels,

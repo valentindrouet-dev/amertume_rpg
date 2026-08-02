@@ -945,6 +945,93 @@ générer à la main.
 
 ---
 
+## 10bis. PROGRESSION : PLANIFIER LES MONTÉES DE NIVEAU
+
+L'XP est **commune au groupe** : elle ne s'attribue pas à un aventurier mais à
+la partie, et **tout le monde monte de niveau en même temps**. Tu dois donc
+budgéter l'XP totale distribuée par ton aventure en fonction du nombre de
+niveaux que tu veux faire gagner.
+
+### La courbe d'XP (seuils cumulés)
+
+| Niveau | XP cumulée requise | XP à gagner depuis le niveau précédent |
+|---:|---:|---:|
+| 1 | 0 | — (niveau de départ) |
+| 2 | 50 | 50 |
+| 3 | 250 | 200 |
+| 4 | 500 | 250 |
+| 5 | 1 000 | 500 |
+| 6 | 1 750 | 750 |
+| 7 | 2 750 | 1 000 |
+| 8 | 4 000 | 1 250 |
+| 9 | 5 500 | 1 500 |
+| 10 | 7 500 | 2 000 |
+
+(La table continue jusqu'au niveau 20 : 10 500 · 14 000 · 18 500 · 24 500 ·
+32 000 · 41 000 · 52 000 · 65 000 · 81 000 · 100 000.)
+
+À chaque montée de niveau, le joueur choisit pour chaque aventurier **+1
+caractéristique et +1 talent** ; aux **niveaux impairs** (3, 5, 7…) s'ajoutent
+**+1 point dans 2 compétences différentes**.
+
+### Combien d'XP mon aventure doit-elle distribuer ?
+
+**Le groupe commence au niveau 1 avec 0 XP.** Vise donc, en XP TOTALE
+distribuée sur toute l'aventure :
+
+| Objectif | XP totale à distribuer |
+|---|---:|
+| aucune montée (aventure courte, one-shot) | < 50 |
+| **1 niveau** (fin de partie au niveau 2) | 50 à 240 |
+| **2 niveaux** (fin au niveau 3) | 250 à 490 |
+| **3 niveaux** (fin au niveau 4) | 500 à 990 |
+| **4 niveaux** (fin au niveau 5) | 1 000 à 1 740 |
+
+> ⚠️ Vise le **bas** de la fourchette pour que la dernière montée tombe vers la
+> fin de l'aventure, et non au tout début du dernier chapitre.
+
+### Les trois sources d'XP (à additionner)
+
+1. **Adversaires vaincus** — chaque monstre rapporte son champ `xp`. C'est la
+   source principale. Repères : sbire 5-8 · alpha 12-15 · solitaire 15-20 ·
+   boss 20-40. Un combat contre 3 sbires = ~20 XP.
+   *(Petits bonus automatiques : aventuriers sortis indemnes, adversaires
+   analysés — quelques points, à négliger dans le calcul.)*
+2. **Tests / actions / dialogues / écritures réussis** — champ `xpReward`, selon
+   le barème OBLIGATOIRE du §1 : `auto` 0 · `facile` 1 · `moyen` 2 ·
+   `difficile` 5 · `tresdifficile` 10 · `insurmontable` 20 · `impossible` 50.
+3. **Scènes** — champ `xpReward` de la scène, versé en la quittant. Utilise-le
+   comme **variable d'ajustement** pour atteindre exactement ton budget :
+   récompense d'étape (10-30 XP), résolution de chapitre (30-100 XP), fin
+   d'aventure (50-200 XP).
+
+### Exemple chiffré — « 2 niveaux durant l'aventure » (budget 260 XP)
+
+| Source | Détail | XP |
+|---|---|---:|
+| Combats | 4 combats : 3 sbires (20) + 4 sbires (28) + alpha & 2 sbires (28) + boss & 2 sbires (44) | 120 |
+| Tests | 8 tests réussis (3 faciles, 3 moyens, 2 difficiles) | 19 |
+| Scènes | fin du chapitre 1 (40) + fin du chapitre 2 (80) | 120 |
+| **Total** | | **259** |
+
+→ Le niveau 2 tombe pendant le premier chapitre (50 XP), le niveau 3 à la fin
+(250 XP). Exactement 2 montées.
+
+> **Vérifie ton budget** : additionne l'`xp` de TOUS les monstres de TOUS les
+> combats obligatoires (les combats optionnels et les rencontres aléatoires ne
+> comptent pas — le joueur peut les éviter), plus tous les `xpReward` de tests
+> et de scènes du **chemin principal**. Ce total doit tomber dans la fourchette
+> de ton objectif. Annonce-le en fin de réponse.
+
+### Talents de départ des pré-tirés
+Tu laisses `startTalents: []` (§8bis) : au lancement, l'application affiche un
+écran **« 🎓 Choix des Talents de départ — Niveau 1 »** où le joueur reçoit
+d'office la **Maîtrise** de chaque classe et choisit **1 talent** de niveau 1
+par aventurier. Tu n'as donc rien à faire de plus — mais garde à l'esprit que
+les pré-tirés entrent en jeu avec **2 talents** chacun.
+
+---
+
 ## 11. RECETTE POUR UNE AVENTURE D'1 HEURE (recommandations)
 
 - **1 chapitre donjon structuré** de **6 à 9 salles** (ou 2 chapitres : 1 narratif
@@ -953,7 +1040,8 @@ générer à la main.
   2-3 zones + barrières pour le boss.
 - **4 à 8 tests/actions/dialogues** variés ; 1 énigme (bloc Écriture) ; 1 passage
   secret (`revealTestId`) ; 1 Objet Rare servant de clé (`rareKeyName`).
-- Récompenses : ~10-20 XP au total (montée au niveau 2 vers la fin), 20-60 or,
+- Récompenses : **budget d'XP selon le §10bis** — pour 1 h et 1 montée de
+  niveau, vise **50 à 240 XP au total** (combats + tests + scènes) ; 20-60 or,
   1-3 objets, 1-2 trésors.
 - Textes narratifs : 2-6 phrases par bloc, ambiance forte, en français.
 - TOUJOURS donner un `label` parlant aux tests (« Escalader la dune », pas « Test »).
@@ -987,6 +1075,10 @@ générer à la main.
     `randomEnabled: true` (donjon aléatoire) existe si une table est déclarée.
 11. **ZÉRO CUL-DE-SAC** : dans chaque donjon structuré, toute salle de la carte
     figure dans au moins un `links[]` et est atteignable depuis `entryId`.
+12. **BUDGET D'XP** (§10bis) : additionne l'XP des monstres des combats
+    obligatoires + les `xpReward` des tests et scènes du chemin principal ;
+    le total correspond au nombre de montées de niveau voulu (1 niveau =
+    50-240 XP, 2 niveaux = 250-490, 3 niveaux = 500-990). Indique ce total.
 
 ---
 

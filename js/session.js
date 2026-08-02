@@ -504,6 +504,12 @@
     // dépasse le dernier niveau résolu — sans dépendre de pendingNav (qui n'est posé
     // que lors d'une navigation). On reste sur la scène courante après les choix.
     ensureLevelData(ses);
+    // Aventuriers PRÉ-TIRÉS sans aucun talent : écran de choix des talents de
+    // départ (niveau 1) avant d'entrer en jeu.
+    if (startTalentsPending(ses)) {
+      renderLevelUp(root, ses, adv, 1, { talentsOnly: true });
+      return;
+    }
     if ((ses.levelDone || 1) < sessionLevel(ses)) {
       if (!ses.pendingNav) { ses.pendingNav = ses.currentSceneId; save(); }
       renderLevelUp(root, ses, adv, (ses.levelDone || 1) + 1);
@@ -2933,6 +2939,12 @@
     // Montée de niveau en attente : on affiche l'écran « Niveau Supérieur ! »
     // AVANT de poursuivre vers la scène suivante (un niveau à la fois).
     ensureLevelData(ses);
+    // Aventuriers PRÉ-TIRÉS sans aucun talent : écran de choix des talents de
+    // départ (niveau 1) avant d'entrer en jeu.
+    if (startTalentsPending(ses)) {
+      renderLevelUp(root, ses, adv, 1, { talentsOnly: true });
+      return;
+    }
     if ((ses.levelDone || 1) < sessionLevel(ses)) {
       ses.pendingNav = sceneId;
       save();
@@ -2982,12 +2994,38 @@
   }
 
   const LVL_SKILLS = ['Agilité', 'Force', 'Mysticisme', 'Perception', 'Robustesse', 'Ruse', 'Savoir', 'Technique'];
-  function renderLevelUp(root, ses, adv, newLevel) {
+  // NIVEAU 1 des aventuriers PRÉ-TIRÉS : leurs caractéristiques sont déjà
+  // fixées par l'auteur de l'aventure ; il ne leur manque que les TALENTS.
+  // On réutilise l'écran de montée de niveau, en mode « talents seuls ».
+  function startTalentsPending(ses) {
+    if (!ses || ses.startTalentsDone) return false;
     const heroes = engagedHeroes(ses);
+    if (!heroes.length) return false;
+    return heroes.some(function (h) {
+      return heroGains(ses, h.id).talents.length === 0 && availableTalents(ses, h, 1).length > 0;
+    });
+  }
+  // Maîtrise de départ de la classe : accordée d'office (comme à la création).
+  function grantStartMastery(ses, h) {
+    const g = heroGains(ses, h.id);
+    const m = (Combatants.startMasteryOf ? Combatants.startMasteryOf(h.klass) : null);
+    if (m && g.talents.indexOf(m.id) < 0) {
+      g.talents.push(m.id);
+      if (!Array.isArray(g.equipped)) g.equipped = [];
+      if (g.equipped.length < 6) g.equipped.push(m.id);
+    }
+    return m;
+  }
+  function renderLevelUp(root, ses, adv, newLevel, opts) {
+    const talentsOnly = !!(opts && opts.talentsOnly);
+    const heroes = engagedHeroes(ses);
+    // Niveau 1 : la Maîtrise de classe est acquise d'office avant l'affichage,
+    // exactement comme à la création d'un aventurier dans l'assistant.
+    if (talentsOnly) heroes.forEach(function (h) { grantStartMastery(ses, h); });
     const statSel = {}; // idx -> 'endu'|'damage'|'vie'
     const talSel  = {}; // idx -> talentId
     const skillSel = {}; // idx -> [skill, skill] (2 différentes) ; niveaux impairs uniquement
-    const needSkills = (newLevel % 2) === 1; // niveaux impairs (3, 5, 7…)
+    const needSkills = !talentsOnly && (newLevel % 2) === 1; // niveaux impairs (3, 5, 7…)
 
     function heroBlock(h, idx) {
       // Sépare les talents génériques et de classe pour l'affichage en deux sections.
@@ -3033,7 +3071,7 @@
           '<span class="lvl-stat-pick-icon">○</span>' +
         '</div>';
       }
-      const statHtml =
+      const statHtml = talentsOnly ? '' :
         statRow('damage', 'DÉGÂTS', curDmg, '+1') +
         statRow('endu', 'ENDURANCE', curEndu, '+2 · +' + pvFromEndu2 + ' PV') +
         statRow('vie', 'VIE', curVie, '+1 · +' + curEndu + ' PV');
@@ -3120,8 +3158,8 @@
           '<span class="lvl-hero-name' + (h.klass ? ' klass-' + slug(kn(h.klass)) : '') + '">' + esc(h.name) + '</span>' +
           (h.klass ? '<span class="class-badge klass-' + slug(kn(h.klass)) + '">' + esc(kn(h.klass)) + '</span>' : '') +
         '</div>' +
-        '<div class="lvl-sec-title">Caractéristique</div>' +
-        '<div class="lvl-stat-choice">' + statHtml + '</div>' +
+        (talentsOnly ? '' : '<div class="lvl-sec-title">Caractéristique</div>' +
+          '<div class="lvl-stat-choice">' + statHtml + '</div>') +
         skillHtml +
         '<div class="lvl-sec-title">Talent</div>' +
         '<div class="lvl-tal-col">' + talHtml + '</div>' +
@@ -3132,10 +3170,17 @@
 
     root.innerHTML =
       '<div class="card lvlup-card">' +
-        '<div class="lvlup-banner">⭐ <span>Niveau Supérieur !</span>' +
-          '<span class="lvlup-num">Niveau ' + newLevel + '</span></div>' +
+        (talentsOnly
+          ? '<div class="lvlup-banner">🎓 <span>Choix des Talents de départ</span>' +
+              '<span class="lvlup-num">Niveau 1</span></div>' +
+            '<p class="hint lvlup-intro">Vos aventuriers entrent en scène. La <b>Maîtrise</b> de leur classe leur est acquise ; ' +
+              'choisissez pour chacun <b>1 talent supplémentaire</b> parmi ceux de niveau 1. ' +
+              '(Leurs caractéristiques sont déjà fixées et ne changent pas.)</p>'
+          : '<div class="lvlup-banner">⭐ <span>Niveau Supérieur !</span>' +
+              '<span class="lvlup-num">Niveau ' + newLevel + '</span></div>') +
         '<div class="lvlup-heroes lvlup-grid">' + cards + '</div>' +
-        '<button class="primary big" id="lvlup-continue" disabled>Continuer →</button>' +
+        '<button class="primary big" id="lvlup-continue" disabled>' +
+          (talentsOnly ? '▶ Commencer l\'aventure' : 'Continuer →') + '</button>' +
       '</div>';
 
     const contBtn = root.querySelector('#lvlup-continue');
@@ -3143,7 +3188,7 @@
     function refresh() {
       let ok = true;
       heroes.forEach(function (h, idx) {
-        if (!statSel[idx]) ok = false;
+        if (!talentsOnly && !statSel[idx]) ok = false;
         if (availableTalents(ses, h, newLevel).length > 0 && !talSel[idx]) ok = false;
         if (needSkills && (!skillSel[idx] || skillSel[idx].length !== 2)) ok = false;
       });
@@ -3206,7 +3251,8 @@
         const g = heroGains(ses, h.id);
         const curEndu = (h.endu || 0) + (g.endu || 0);
         const curVie  = (h.vie  || 0) + (g.vie  || 0) + ((ses.heroStates && ses.heroStates[h.id] && ses.heroStates[h.id].viePenalty) || 0);
-        if (statSel[idx] === 'endu') {
+        if (talentsOnly) { /* caractéristiques déjà fixées par l'auteur : on n'y touche pas */ }
+        else if (statSel[idx] === 'endu') {
           g.endu += 2;
           const delta = 2 * curVie;
           if (delta > 0 && ses.heroStates && ses.heroStates[h.id]) {
@@ -3234,6 +3280,13 @@
           skillSel[idx].forEach(function (s) { g.skills[s] = (g.skills[s] || 0) + 1; });
         }
       });
+      if (talentsOnly) {
+        // Niveau 1 : aucun palier franchi, on entre simplement en jeu.
+        ses.startTalentsDone = true;
+        save(); Store.save();
+        renderPlay(ses.adventureId);
+        return;
+      }
       ses.levelDone = newLevel;
       const target = ses.pendingNav;
       ses.pendingNav = null;
