@@ -686,11 +686,14 @@
     return (bar && bar.name && bar.name.trim()) ? bar.name.trim() : (BARRIER_NAME[bar && bar.type] || '');
   }
   function zonesGridStyle(n) {
-    if (n <= 1) return 'grid-template-columns:1fr;';
-    if (n === 2) return 'grid-template-columns:1fr auto 1fr;';
+    // minmax(0,1fr) et non 1fr : le min implicite d'une piste 1fr vaut `auto`,
+    // si bien qu'une vignette au contenu large (nom long, pastilles d'état)
+    // élargissait la colonne et faisait déborder le plateau sous le journal.
+    if (n <= 1) return 'grid-template-columns:minmax(0,1fr);';
+    if (n === 2) return 'grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);';
     // Rangées dimensionnées par leur contenu : une zone vide reste compacte
     // au lieu de s'étirer à la hauteur de la rangée la plus haute.
-    return 'grid-template-columns:1fr auto 1fr;grid-template-rows:auto auto auto;';
+    return 'grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:auto auto auto;';
   }
   // Paires « diagonales » (sans arête orthogonale) : 1-4 et 2-3 d'un carré 2x2.
   // Elles se croisent au centre de la grille (gouttière centrale).

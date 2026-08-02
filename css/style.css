@@ -5155,3 +5155,26 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 }
 .lvl-tal-locked-sec { margin-top: .4rem; }
 .lvl-tal-locked-sec .lvl-sec-sub { color: var(--muted); }
+
+/* ============================================================
+   v2.4.51 — Plateau de combat : plus de débordement sous le journal
+   Les pistes `1fr` ont un min implicite `auto` : une vignette au contenu
+   large (nom long, pastilles Blindage/Gardé) élargissait sa colonne, la zone
+   débordait et le plateau passait sous la colonne du journal. On borne les
+   pistes à `minmax(0, …)` et on autorise chaque niveau à se réduire.
+   ============================================================ */
+.combat-zones-grid.zc-1 { grid-template-columns: minmax(0, 1fr); }
+.combat-zones-grid.zc-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.combat-zones-grid.zc-3,
+.combat-zones-grid.zc-4 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.combat-zone { min-width: 0; overflow: hidden; }
+.combat-zone .zone-cards { min-width: 0; }
+.hero-grid, .monster-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-width: 0; }
+.combat-card { min-width: 0; }
+/* Contenu interne : rien ne doit imposer une largeur minimale au-delà de la carte. */
+.combat-card .cc-head, .combat-card .cc-top-row, .combat-card .pv-bar,
+.combat-card .cc-pvline, .combat-card .state-badges { min-width: 0; }
+.combat-card .cc-head .tag,
+.combat-card .state-badge { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Les cartouches d'état passent à la ligne plutôt que d'élargir la vignette. */
+.combat-card .state-badges { display: flex; flex-wrap: wrap; gap: .2rem; }
