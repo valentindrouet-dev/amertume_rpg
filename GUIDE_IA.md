@@ -189,16 +189,23 @@ Le joueur explore librement une **carte** de salles reliées par des
 |---|---|
 | `from`, `to` | ids des deux salles reliées (navigation dans les deux sens) |
 | `label` | description du passage, affichée sur le bouton de sortie |
-| `eventSceneId` | id d'une **scène d'événement** jouée quand on emprunte le passage (combat d'embuscade, texte…). La scène d'événement est une scène normale du chapitre avec `"transition": true` (hors carte) |
+| `eventSceneId` | id d'une **scène d'événement** jouée quand on emprunte le passage (combat d'embuscade, texte…). La scène d'événement est une scène du chapitre marquée `"isTransition": true` (hors carte) — voir §4.5 |
 | `eventRepeat` | `true` = l'événement rejoue à CHAQUE passage ; `false` = une seule fois |
 | `revealTestId` | id d'un **bloc de test** : le passage est SECRET, invisible tant que ce test n'est pas réussi |
-| `randomEnabled` | `true` = ce passage peut déclencher une **rencontre aléatoire** du chapitre (voir 4.4) |
+| `randomEnabled` | `true` = ce passage peut déclencher une **rencontre aléatoire** du chapitre (voir §4.4 et §4.5) |
+
+⚠️ **JAMAIS DE CUL-DE-SAC (donjon structuré)** : toute salle posée sur la carte
+DOIT apparaître dans au moins un `links[]`. Une salle sans connecteur est un
+piège dont on ne ressort pas. Vérifie que le graphe est **connexe** : depuis
+`entryId`, toutes les salles doivent être atteignables. Les scènes d'événement
+(`isTransition: true`) sont la SEULE exception — elles ne sont pas sur la carte
+et leur sortie est automatique (§4.5).
 
 ### 4.3 `"random"` — Donjon aléatoire
 Les salles pré-écrites sont enchaînées dans un **ordre tiré au sort**. Chaque
 scène peut porter `roomRole` : `"normal"` (dans la rotation aléatoire),
 `"entry"` (toujours première), `"exit"` (toujours dernière). Une scène avec
-`"transition": true` est **hors rotation** (utilisable comme événement).
+`"isTransition": true` est **hors rotation** (utilisable comme événement) — voir §4.5.
 
 ### 4.4 Rencontres aléatoires (chapitre)
 Tableau commun au chapitre, tiré quand le joueur emprunte un connecteur coché
@@ -210,7 +217,82 @@ Tableau commun au chapitre, tiré quand le joueur emprunte un connecteur coché
 ]
 ```
 `chance` = pourcentage. Les scènes visées sont des scènes du chapitre (souvent
-`"transition": true`).
+`"isTransition": true`) — voir §4.5.
+
+### 4.5 ⚠️ RENCONTRES ALÉATOIRES & ÉVÉNEMENTS DE PASSAGE — procédure exacte
+
+C'est **l'erreur la plus fréquente et la plus grave** : créer une salle de
+rencontre « posée » sur la carte sans connecteur. Le groupe y arrive et **ne
+peut plus jamais en sortir**. Voici la seule procédure correcte.
+
+#### Règle absolue
+Une rencontre / un événement n'est **JAMAIS une salle de la carte**. C'est une
+**scène d'événement** :
+
+```json
+{
+  "id": "cit_sc_embuscade",
+  "title": "Embuscade sur le sentier",
+  "type": "danger",
+  "isTransition": true,
+  "blocks": [ { "id": "cit_b_amb", "type": "combat", "content": "Des ombres jaillissent des fougères !" } ],
+  "combatZones": [ { "monsterRefs": [ { "monsterId": "cit_mon_loup", "count": 2 } ] } ]
+}
+```
+
+- `"isTransition": true` — **le nom du champ est exactement `isTransition`**
+  (pas `transition`). C'est LUI qui fait tout :
+  - la scène est **retirée de la carte** du donjon structuré (pas de `mapX`/`mapY`
+    à lui donner) et **retirée de la rotation** du donjon aléatoire ;
+  - une fois la scène résolue, l'application affiche automatiquement un bouton
+    **« Continuer vers *la salle de destination* → »** qui reprend le voyage
+    interrompu.
+- **Sans `isTransition`**, cette scène devient une salle normale : elle apparaît
+  sur la carte, n'a aucun connecteur, aucun bouton de sortie → **le joueur est
+  bloqué définitivement**. C'est exactement le bug à ne pas produire.
+- Une scène d'événement n'a **pas besoin** de `nextSceneId`, de `choices`, ni de
+  connecteurs : sa sortie est gérée par le moteur.
+
+#### Procédure — donjon STRUCTURÉ (`mode: "dungeon"`)
+1. Écris les scènes d'événement du chapitre avec `"isTransition": true` (sans
+   `mapX`/`mapY`).
+2. Déclare la **table du chapitre** — les entrées pointent vers ces scènes :
+   ```json
+   "randomEncounters": [
+     { "sceneId": "cit_sc_embuscade", "chance": 25 },
+     { "sceneId": "cit_sc_bruit",     "chance": 15 }
+   ]
+   ```
+   `chance` = pourcentage, **> 0 obligatoirement** (une entrée à 0 ne se
+   déclenche jamais). Somme conseillée : 20 à 50 %.
+3. Coche les **connecteurs** (couloirs) sur lesquels ces rencontres peuvent
+   survenir : `"randomEnabled": true` dans le `links[]` concerné.
+   → Le tirage a lieu **quand le groupe emprunte ce couloir**, jamais en
+   arrivant spontanément dans une salle.
+4. Pour un événement **déterministe** attaché à un passage précis (embuscade
+   scriptée, éboulement…), utilise plutôt `eventSceneId` sur le connecteur :
+   ```json
+   { "id": "cit_l3", "from": "cit_sc_pont", "to": "cit_sc_cave",
+     "label": "escalier ruiné", "eventSceneId": "cit_sc_eboulement", "eventRepeat": false }
+   ```
+
+#### Procédure — donjon ALÉATOIRE (`mode: "random"`)
+Identique, sauf l'étape 3 : ce ne sont pas les connecteurs mais **les salles**
+qui portent le drapeau. Sur les salles concernées (celles de la rotation, PAS
+les scènes d'événement) : `"randomEnabled": true`. Le tirage a lieu **en
+quittant** la salle vers la suivante.
+
+#### Procédure — chapitre NARRATIF (`mode: "linear"`)
+Il n'y a **pas** de table de rencontres aléatoires. Enchaîne les scènes par
+`nextSceneId` / `choices`, ou pose le combat directement dans la scène (zones de
+combat de la scène, ou un bloc `fight` §6.6).
+
+#### À savoir
+- Chaque rencontre de la table ne se déclenche **qu'une seule fois par partie**.
+- Une scène d'événement peut contenir n'importe quels blocs (combat, test,
+  dialogue, texte) et donner des récompenses comme une scène normale.
+- Ne mets **jamais** une scène `isTransition` comme `entryId` d'un donjon, ni
+  comme cible d'un `nextSceneId` / `choices` / connecteur.
 
 ---
 
@@ -242,7 +324,7 @@ Tableau commun au chapitre, tiré quand le joueur emprunte un connecteur coché
 | `fait` | « Haut Fait » ajouté au journal du joueur en arrivant (optionnel) |
 | `mapX`, `mapY` | position sur la carte (donjons structurés uniquement) |
 | `roomRole` | donjon aléatoire : `normal` / `entry` / `exit` |
-| `transition` | `true` = scène d'événement, hors carte/rotation |
+| `isTransition` | `true` = **scène d'événement** : hors carte, hors rotation, sortie automatique. ⚠️ le nom exact du champ est `isTransition` (§4.5) |
 | `blocks` | le CONTENU de la scène, dans l'ordre (voir §6) |
 | `combatZones` | le combat de la salle, déclenché à l'arrivée s'il contient des monstres |
 | `barriers` | barrières entre zones de combat |
@@ -897,6 +979,14 @@ générer à la main.
    suit le barème du §1.
 9. **PRÉ-TIRÉS** : `prebuilts[]` contient bien 4 aventuriers (un par classe),
    conformes aux règles de création du §8bis, avec `equipmentNames` valides.
+10. **RENCONTRES / ÉVÉNEMENTS** (§4.5) : chaque scène de rencontre porte
+    `"isTransition": true` (orthographe exacte), n'a ni `mapX`/`mapY` ni
+    connecteur, et est référencée soit par `chapter.randomEncounters[]` (avec
+    `chance` > 0) soit par un `eventSceneId` de connecteur. Au moins un
+    connecteur `randomEnabled: true` (donjon structuré) ou une salle
+    `randomEnabled: true` (donjon aléatoire) existe si une table est déclarée.
+11. **ZÉRO CUL-DE-SAC** : dans chaque donjon structuré, toute salle de la carte
+    figure dans au moins un `links[]` et est atteignable depuis `entryId`.
 
 ---
 
