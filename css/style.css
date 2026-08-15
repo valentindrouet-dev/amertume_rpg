@@ -5178,3 +5178,42 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .combat-card .state-badge { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Les cartouches d'état passent à la ligne plutôt que d'élargir la vignette. */
 .combat-card .state-badges { display: flex; flex-wrap: wrap; gap: .2rem; }
+
+/* ============================================================
+   v2.4.52 — Historique des versions (Mode MJ)
+   ============================================================ */
+.ver-wrap { max-width: 980px; margin: 0 auto; padding: .4rem 0 2rem; }
+.ver-top { margin-bottom: 1.1rem; }
+.ver-h1 { margin: 0 0 .25rem; font-size: 1.55rem; letter-spacing: .01em; }
+.ver-sub { margin: 0 0 .8rem; color: var(--muted, #9b8f80); font-size: .9rem; }
+.ver-search {
+  width: 100%; box-sizing: border-box; padding: .55rem .8rem;
+  border-radius: 10px; border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(0, 0, 0, .22); color: inherit; font: inherit;
+}
+.ver-cards { display: flex; flex-direction: column; gap: .8rem; }
+.ver-card {
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .045);
+  padding: .85rem 1rem 1rem;
+}
+.ver-card.ver-current {
+  border-color: rgba(120, 170, 255, .55);
+  background: rgba(120, 170, 255, .08);
+}
+.ver-head { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.ver-num { font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; }
+.ver-badge {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  padding: .12rem .5rem; border-radius: 999px;
+  background: rgba(120, 170, 255, .22); border: 1px solid rgba(120, 170, 255, .5);
+}
+.ver-date { margin-left: auto; font-size: .82rem; color: var(--muted, #9b8f80); }
+.ver-title { margin: .4rem 0 .5rem; font-size: 1rem; font-weight: 600; line-height: 1.35; }
+.ver-list { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .35rem; }
+.ver-list li { line-height: 1.45; font-size: .92rem; }
+.ver-more-wrap { display: flex; justify-content: center; margin-top: 1rem; }
+@media (max-width: 640px) {
+  .ver-date { margin-left: 0; width: 100%; }
+}
