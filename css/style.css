@@ -5473,3 +5473,33 @@ body.has-cbdock .ses-compass { display: none; }
 
 @media (max-width: 1100px) { .cbdock-states { padding-left: 236px; } }
 @media (max-width: 780px)  { .cbdock-states { padding-left: .6rem; justify-content: center; } }
+
+
+/* ============================================================
+   v2.4.60 — Bandeau en trois cases : identité | dés d'attaque | actions
+   ============================================================ */
+.cbdock-inner { gap: .5rem; }
+.cbdock-id { flex: 0 0 auto; width: 210px; min-width: 0; display: flex; }
+.cbdock-id .ab-card-id {
+  width: 100%; height: 100%; box-sizing: border-box; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.cbdock-id .ab-id { width: 100%; }
+.cbdock .ab-card-acts {
+  height: 100%; box-sizing: border-box; margin: 0;
+  display: flex; align-items: center; gap: .5rem;
+}
+.cbdock .dicepool { flex: 0 0 auto; width: 260px; }
+.dp-title {
+  text-transform: uppercase; letter-spacing: .08em; font-size: .74rem; font-weight: 800;
+  color: #cbb694; text-align: center;
+}
+.dp-title .dp-target { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.dp-foot {
+  text-align: center; font-size: .8rem; color: #e8dcc4; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Les outils (fiole / loupe) forment une colonne carrée devant les talents. */
+.ab-acts.ab-acts-notk > .ab-tools.ab-tools-icons {
+  height: 100%; flex-direction: column; gap: .35rem; justify-content: center; align-items: center;
+}

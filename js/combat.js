@@ -3954,6 +3954,7 @@
     const d = document.createElement('div');
     d.id = 'cbdock'; d.className = 'cbdock';
     d.innerHTML = '<div class="cbdock-inner">' +
+      '<div id="cbdock-id" class="cbdock-id"></div>' +
       '<div id="combat-dicepool" class="dicepool"></div>' +
       '<div id="combat-actionbar" class="combat-actionbar"></div>' +
     '</div>';
@@ -4307,18 +4308,16 @@
       if (!tray) tray = '<span class="dp-nodice">Aucun dé</span>';
       box.className = 'dicepool rest';
       box.innerHTML =
-        '<div class="dp-head"><span class="dp-who">' + cname(sel) + '</span>' +
-          '<span class="dp-label">' + esc(known ? attackLabel(rest.a) : 'Attaque inconnue') + '</span></div>' +
-        '<div class="dp-tray">' + (known ? tray : '<span class="dp-nodice">Analysez cet adversaire pour voir ses dés.</span>') + '</div>';
+        '<div class="dp-title">Attaque</div>' +
+        '<div class="dp-tray">' + (known ? tray : '<span class="dp-nodice">Analysez cet adversaire pour voir ses dés.</span>') + '</div>' +
+        '<div class="dp-foot">' + esc(known ? attackLabel(rest.a) : 'Attaque inconnue') + '</div>';
       return;
     }
 
     const res = lastRoll.res, m = lastRoll.meta;
-    let head = '<div class="dp-head">';
-    if (m.who) head += '<span class="dp-who">' + m.who + '</span>';
-    if (m.label) head += '<span class="dp-label">' + esc(m.label) + '</span>';
-    if (m.target) head += '<span class="dp-vs">→</span><span class="dp-target">' + m.target + '</span>';
-    head += '</div>';
+    // Titre : le nom de l'attaque jouée et sa cible ; le résultat va en pied.
+    let head = '<div class="dp-title">' + esc(m.label || 'Attaque') +
+      (m.target ? '<span class="dp-vs"> → </span><span class="dp-target">' + m.target + '</span>' : '') + '</div>';
 
     let tray = '<div class="dp-tray">' + res.dice.map(dieHtml).join('');
     if (res.damageBonus > 0) tray += bonusHtml(res.damageBonus);
@@ -4416,6 +4415,8 @@
     if (!sel) {
       box.className = 'combat-actionbar';
       box.innerHTML = '<div class="ab-empty">Clique un combattant pour afficher sa fiche et ses actions.</div>';
+      const empty = root.querySelector('#cbdock-id');
+      if (empty) empty.innerHTML = '';
       renderDockStates(null);
       return;
     }
@@ -4443,8 +4444,8 @@
       (a.special ? specialAtks : weaponAtks).push({ a: a, i: i });
     });
 
-    // Pas d'avatar dans le bandeau : toute la largeur va au nom et aux actions.
-    let html = '<div class="' + cls.join(' ') + '">' +
+    // Case d'identité (à gauche du bandeau) : nom, PV + DEF, classe.
+    let idHtml = '<div class="' + cls.join(' ') + ' ab-card-id">' +
       '<div class="ab-id">' +
         '<div class="ab-name"><span class="roster-name">' + esc(c.name) + '</span></div>' +
         '<div class="ab-pvline cc-pvline">' +
@@ -4460,9 +4461,14 @@
           (isEnemy && c.type ? '<span class="tag type ztype-' + c.type + '">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
           (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
         '</div>' +
-      '</div>';
+      '</div>' +
+    '</div>';
+    const idBox = root.querySelector('#cbdock-id');
+    if (idBox) idBox.innerHTML = idHtml;
 
-    // Bouton spécial ORBES (Mystique) entre l'identité et la grille d'actions.
+    // Case des actions : Orbes, outils et talents.
+    let html = '<div class="' + cls.join(' ') + ' ab-card-acts">';
+    // Bouton spécial ORBES (Mystique) avant la grille d'actions.
     if (orbIdx >= 0) html += orbesButtonHtml(c, orbIdx, canAct);
 
     // Grille d'actions : 2 lignes, remplissage colonne par colonne (cf. croquis).

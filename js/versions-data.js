@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.60",
+    "date": "2026-08-24",
+    "title": "Bandeau en trois cases : fiche, des d'attaque, actions",
+    "changes": [
+      "Le bandeau du bas suit desormais le croquis : a gauche une case carree avec la fiche de l'aventurier (nom, barre de PV + blason de DEF, classe), au centre la boite des des d'attaque, a droite les boutons d'action.",
+      "La boite de des porte un titre « ATTAQUE » au-dessus des des et, sous eux, le nom de l'arme (ou des armes combinees). Apres un jet, le titre annonce l'attaque jouee et sa cible, et le pied affiche le resultat.",
+      "Les deux outils carres (fiole et loupe) forment une colonne devant la grille des talents."
+    ]
+  },
+  {
     "v": "v2.4.59",
     "date": "2026-08-24",
     "title": "Etats en fenetres au-dessus du bandeau, visee sans scintillement, pool centre",
