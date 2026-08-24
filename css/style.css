@@ -5646,3 +5646,23 @@ body.has-cbdock .ses-compass { display: none; }
 .cbdock-id .ab-pvline .def-img { width: 34px; height: 34px; }
 .cbdock-id .ab-pvline .def-shield { font-size: 1rem; }
 .cbdock-id .ab-subline .tag { font-size: .74rem; padding: .18rem .5rem; }
+
+
+/* ============================================================
+   v2.4.63 — Boîte de dés : titre pleine hauteur, pied centré
+   ============================================================ */
+/* Le titre occupe tout l'espace entre le haut du bandeau et les dés, le nom
+   des armes tout l'espace en dessous : les deux sont centrés dans leur bande. */
+.cbdock .dicepool { grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr); gap: .15rem; }
+.cbdock .dp-title {
+  display: flex; align-items: center; justify-content: center; gap: .35rem;
+  height: 100%; font-size: .88rem; letter-spacing: .1em; overflow: hidden;
+}
+.cbdock .dp-title-ico { height: 20px; width: auto; flex: 0 0 auto; }
+.cbdock .dp-title > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cbdock .dp-title .dp-vs { opacity: .6; }
+.cbdock .dp-foot, .cbdock .dp-out {
+  display: flex; align-items: center; justify-content: center; height: 100%; margin: 0;
+}
+/* Titre de la case Description : toujours en capitales. */
+.cbdesc-name { text-transform: uppercase; letter-spacing: .04em; }

@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.63",
+    "date": "2026-08-24",
+    "title": "Fleche effacee des qu'on agit, titre d'attaque avec icone d'arme, libelles des outils",
+    "changes": [
+      "Une action jouee (attaque, deplacement, objet, analyse, designation) efface la fleche de visee sur-le-champ ; elle ne revient qu'au prochain mouvement de souris. Mesure : plus aucune fleche 80 ms apres le clic.",
+      "Le titre de la boite de des occupe toute la bande entre le haut du bandeau et les des : le mot ATTAQUE precede de l'icone du type d'arme (contact, tir ou sort), centre. Apres un jet, le titre annonce l'arme employee et sa cible, toujours avec son icone.",
+      "Le nom des armes est centre dans toute la bande situee sous les des, comme le resultat du jet.",
+      "La case Description affiche un vrai titre pour les boutons a icone : ANALYSE et OBJET au lieu de l'emoji. Les titres y sont desormais en capitales."
+    ]
+  },
+  {
     "v": "v2.4.62",
     "date": "2026-08-24",
     "title": "Fin du roulement des des, outils au format des boutons d'action, PV et DEF pleine largeur",

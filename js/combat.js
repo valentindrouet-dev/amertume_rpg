@@ -1345,7 +1345,7 @@
     const noCrit = attacker.side === 'hero' && atk.orbNoCrit;
     const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue, defBlocksRed: defBlocksRed, noCrit: noCrit });
     // Pool de dés du bandeau flottant : le jet qui vient d'être résolu.
-    showRoll(res, { iid: attacker.iid, who: cname(attacker), target: cname(target), label: attackLabel(atk) });
+    showRoll(res, { iid: attacker.iid, who: cname(attacker), target: cname(target), label: attackLabel(atk), ico: atk });
 
     // MUR IMBRISABLE (passif) : un critique adverse contre cet aventurier devient un échec.
     let critToEchec = false;
@@ -3251,6 +3251,8 @@
     // Capture les positions des cartes AVANT le re-rendu (glissement de mouvement).
     if (VFX.mouvement && !reduceMotion()) { try { preMoveRects = captureCardRects(); } catch (e) { preMoveRects = {}; } }
     try {
+      // Toute action jouée fait disparaître la flèche de visée sur-le-champ.
+      try { hideAim(); } catch (e) { /* calque absent : rien à effacer */ }
       // PRÉ-TOUR : arme d'office l'unique pouvoir disponible.
       try { autoArmPretour(); } catch (e) { console.error('[combat] autoArmPretour', e); }
       const onBoard = !!combat() && !combat().finished;
@@ -3969,7 +3971,7 @@
       return; // on garde la dernière description affichée
     }
     const raw = btn.getAttribute('data-desc') || btn.getAttribute('title') || '';
-    let name = (btn.textContent || '').trim();
+    let name = (btn.getAttribute('data-label') || btn.textContent || '').trim();
     if (!name) {
       const img = btn.querySelector('img');
       name = img ? (img.getAttribute('alt') || 'Attaque') : 'Action';
@@ -4110,6 +4112,16 @@
     });
     root.addEventListener('mouseleave', function () { aimLast = null; drawAim(); });
     window.addEventListener('scroll', function () { if (aimLast) drawAim(); }, { passive: true });
+  }
+
+  // Une action vient d'être jouée (attaque, déplacement, objet…) : la flèche
+  // s'efface immédiatement et ne revient qu'au prochain mouvement de souris.
+  function hideAim() {
+    const root = $(rootSel);
+    const svg = root ? root.querySelector('#combat-aim') : null;
+    aimLast = null;
+    if (svg) svg.classList.remove('on');
+    if (root) clearAimTargets(root);
   }
 
   function clearAimTargets(root) {
@@ -4288,6 +4300,15 @@
       '<b>+' + n + '</b><small>dégâts</small></span>';
   }
 
+  // Icône du type d'attaque affichée dans le titre du pool (contact, tir, sort).
+  function atkIcoHtml(a) {
+    if (!a) return '';
+    const src = (isOrbAttack(a) || (a.special && a.range !== 'distance')) ? 'assets/Attack_spell_b.png'
+      : a.range === 'distance' ? 'assets/Attack_range_b.png'
+      : 'assets/Attack_melee_b.png';
+    return '<img class="dp-title-ico" src="' + src + '" alt="">';
+  }
+
   // Tous les dés tiennent sur UNE ligne : leur taille se calcule d'après leur
   // nombre et la largeur utile de la boîte.
   function traySize(n) {
@@ -4362,7 +4383,7 @@
       if (!tray) tray = '<span class="dp-nodice">Aucun dé</span>';
       box.className = 'dicepool rest';
       box.innerHTML =
-        '<div class="dp-title">Attaque</div>' +
+        '<div class="dp-title">' + atkIcoHtml(rest.a) + '<span>Attaque</span></div>' +
         '<div class="dp-tray"' + traySize(nDice) + '>' + (known ? tray : '<span class="dp-nodice">Analysez cet adversaire pour voir ses dés.</span>') + '</div>' +
         '<div class="dp-foot">' + esc(known ? attackLabel(rest.a) : 'Attaque inconnue') + '</div>';
       sizeTray(box);
@@ -4371,8 +4392,9 @@
 
     const res = lastRoll.res, m = lastRoll.meta;
     // Titre : le nom de l'attaque jouée et sa cible ; le résultat va en pied.
-    let head = '<div class="dp-title">' + esc(m.label || 'Attaque') +
-      (m.target ? '<span class="dp-vs"> → </span><span class="dp-target">' + m.target + '</span>' : '') + '</div>';
+    let head = '<div class="dp-title">' + (m.ico ? atkIcoHtml(m.ico) : '') +
+      '<span>' + esc(m.label || 'Attaque') + '</span>' +
+      (m.target ? '<span class="dp-vs">→</span><span class="dp-target">' + m.target + '</span>' : '') + '</div>';
 
     let tray = '<div class="dp-tray"' + traySize(res.dice.length + (res.damageBonus > 0 ? 1 : 0)) + '>' + res.dice.map(dieHtml).join('');
     if (res.damageBonus > 0) tray += bonusHtml(res.damageBonus);
@@ -4808,10 +4830,10 @@
       standup +
       '<button class="ab-tool ab-tool-ico obj-chip do-object' + (pendingObject === c.iid ? ' selected' : '') + '" type="button" data-iid="' + c.iid + '"' +
           ((!canAct || usedO || isAuSol || !c.objectItem) ? ' disabled' : '') +
-          ' title="' + (c.objectItem ? 'Consommer : ' + esc(c.objectItem.name) : 'Aucun objet équipé') + '">🧪</button>' +
+          ' data-label="Objet" title="' + (c.objectItem ? 'Consommer : ' + esc(c.objectItem.name) : 'Aucun objet équipé') + '">🧪</button>' +
       '<button class="ab-tool ab-tool-ico ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
           ' data-iid="' + c.iid + '"' + ((!canAct || usedMv || isAuSol) ? ' disabled' : '') +
-          ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">🔍</button>' +
+          ' data-label="Analyse" title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">🔍</button>' +
     '</div>';
   }
 
