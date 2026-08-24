@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.59",
+    "date": "2026-08-24",
+    "title": "Etats en fenetres au-dessus du bandeau, visee sans scintillement, pool centre",
+    "changes": [
+      "Les etats du combattant selectionne ne sont plus tasses dans la fiche : ils s'affichent en petites fenetres posees juste au-dessus du bandeau, au-dessus de la fiche de l'aventurier. Le survol d'un etat ouvre une bulle qui decrit son effet de jeu (Feu, Gele, Poison, Blindage, Onde, Au sol, Brise, Faille, Affaibli, Garde, Prepare, Invisible, Ciblage).",
+      "Fin du scintillement de la visee : le lisere entre le bord d'une zone et une vignette de combattant n'est plus une cible de deplacement. Une zone n'est visable qu'a l'ecart des vignettes (12 px) et pas collee a son propre bord (8 px) — a la souris comme au clic, pour ne pas partir par accident.",
+      "Bandeau du bas : le pool de des est centre dans sa boite ; a sa droite viennent le nom de l'aventurier, sa barre de PV avec la DEF, puis sa classe."
+    ]
+  },
+  {
     "v": "v2.4.58",
     "date": "2026-08-24",
     "title": "Pre-Tour automatique, visee plus lisible, bandeau epure et de hauteur fixe",

@@ -5431,3 +5431,45 @@ body.has-cbdock .ses-compass { display: none; }
 }
 /* Sans bouton d'attaque, la colonne des outils occupe les deux lignes. */
 .ab-acts.ab-acts-notk > .ab-tools { grid-row: span 2; align-items: center; }
+
+/* ============================================================
+   v2.4.59 — États en petites fenêtres au-dessus du bandeau
+   ============================================================ */
+.cbdock-states {
+  position: absolute; left: 0; right: 0; bottom: 100%;
+  /* Alignés au-dessus de la fiche de l'aventurier (à droite du pool de dés). */
+  display: flex; flex-wrap: wrap; gap: .3rem; justify-content: flex-start;
+  padding: 0 .6rem .35rem 316px; pointer-events: none;
+}
+.cbdock { position: fixed; }
+.cbdock-inner { position: relative; }
+.dock-state {
+  pointer-events: auto; position: relative;
+  display: inline-flex; align-items: center;
+  font-size: .78rem; font-weight: 700; line-height: 1;
+  padding: .28rem .55rem; border-radius: 8px;
+  background: linear-gradient(180deg, #3a2d1d, #2a2015);
+  border: 1px solid #7a6038; color: #f3e7cf;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .45); cursor: help;
+}
+.dock-state.neg { border-color: #b4515f; color: #ffd9d9; }
+.dock-state.pos { border-color: #6fae6a; color: #dcf3d8; }
+.dock-state-pop {
+  position: absolute; bottom: calc(100% + .35rem); left: 50%; transform: translateX(-50%);
+  width: 260px; padding: .5rem .6rem; border-radius: 10px;
+  background: #241b11; border: 1px solid #8a6c40; color: #efe2ca;
+  font-size: .78rem; font-weight: 400; line-height: 1.35; text-align: left;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .6);
+  opacity: 0; visibility: hidden; transition: opacity .12s ease; z-index: 2;
+}
+.dock-state-pop b { display: block; margin-bottom: .2rem; color: #f0d9a8; }
+.dock-state:hover .dock-state-pop { opacity: 1; visibility: visible; }
+
+/* Pool de dés centré dans le bandeau ; à sa droite le nom, les PV + DEF et la classe. */
+.cbdock .dicepool { display: flex; flex-direction: column; justify-content: center; }
+.cbdock .dp-tray { justify-content: center; }
+.cbdock .dp-head, .cbdock .dp-out { justify-content: center; }
+.cbdock .ab-id { display: flex; flex-direction: column; justify-content: center; gap: .25rem; }
+
+@media (max-width: 1100px) { .cbdock-states { padding-left: 236px; } }
+@media (max-width: 780px)  { .cbdock-states { padding-left: .6rem; justify-content: center; } }

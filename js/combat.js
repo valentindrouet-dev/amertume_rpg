@@ -2852,6 +2852,23 @@
   function gObj(c) { return (c && c.side === 'hero' && Combatants.pronounObj) ? Combatants.pronounObj(c) : 'lui'; }
   function gAgr(c, word, fem) { return (c && c.side === 'hero' && Combatants.agree) ? Combatants.agree(c, word, fem) : word; }
   function stateLabel(s) { return STATE_META[s] ? STATE_META[s].l : s; }
+  // Effet de jeu de chaque état, affiché au survol de sa pastille.
+  const STATE_DESC = {
+    affaibli: 'Perd son bonus de Dégâts et ne peut plus porter d\'attaque d\'opportunité.',
+    auSol: 'Aucune attaque ni talent possible, et sa DEF ne le protège plus. Se relever consomme le mouvement.',
+    feu: 'À la fin de chaque tour, subit autant de dés noirs que de crans de Feu, puis perd 1 cran.',
+    gele: 'Aucun déplacement possible. Un test de Force égal au nombre de crans retire un cran (consomme le mouvement).',
+    poison: 'À la fin de chaque tour, subit des dégâts directs égaux au nombre de crans de Poison.',
+    blindage: 'Annule entièrement la prochaine source de dégâts subie, puis se dissipe.',
+    onde: 'Ignore le prochain état négatif reçu, puis se dissipe.',
+    ciblage: 'Marque de ciblage : la cible désignée est visée en priorité.',
+    brise: 'Sa DEF ne le protège plus : toutes les attaques passent.',
+    faille: 'Ajoute un dé rose à ses jets : les dés partageant sa face sont exclus des dégâts.',
+    garde: 'Protégé par un Gardien : il a reçu un Blindage à conserver.',
+    prepare: 'Prêt à agir : dispose d\'un mouvement ou d\'une action supplémentaire au prochain tour.',
+    invisible: 'Ne peut pas être ciblé directement ; il faut viser sa zone (test de Perception 2). Tout dégât subi le révèle.',
+  };
+  function stateDesc(s) { return STATE_DESC[s] || ''; }
   // ---- INVISIBILITÉ ----
   // Un combattant invisible ne peut pas être ciblé directement et n'apparaît pas
   // sur le terrain pour le camp adverse. On ne l'atteint qu'en visant sa ZONE,
@@ -3733,7 +3750,10 @@
           // handler l'a déjà fait) : il ne doit pas déclencher un déplacement.
           if (e.target.closest('.combat-card')) return;
           const ah = aimHero();
-          if (ah && ah.zone !== zi && aimCanMove(ah) && !aimMoveBlocked(ah, zi)) {
+          // Même règle que la flèche : le liseré collé aux vignettes n'est pas
+          // une cible de déplacement (sinon on part par accident).
+          const spotOk = !aimLast || zoneSpotOk(zEl, aimLast);
+          if (ah && ah.zone !== zi && spotOk && aimCanMove(ah) && !aimMoveBlocked(ah, zi)) {
             arrivalTargetIid = null;
             moveCombatant(ah.iid, zi);
           }
@@ -4028,6 +4048,24 @@
     return { img: 'assets/Attack_melee_b.png' };
   }
 
+  // Le liseré entre le bord d'une zone et une vignette de combattant est trop
+  // étroit : le curseur y entrait et en sortait sans cesse, et la flèche
+  // clignotait. La zone n'est ciblable qu'à l'écart des vignettes (marge de
+  // 12 px) et pas collée à son propre bord (marge de 8 px).
+  function zoneSpotOk(zoneEl, pt) {
+    const CARD_PAD = 12, EDGE_PAD = 8;
+    const r = zoneEl.getBoundingClientRect();
+    if (pt.x < r.left + EDGE_PAD || pt.x > r.right - EDGE_PAD ||
+        pt.y < r.top + EDGE_PAD || pt.y > r.bottom - EDGE_PAD) return false;
+    const cards = zoneEl.querySelectorAll('.combat-card');
+    for (let i = 0; i < cards.length; i++) {
+      const c = cards[i].getBoundingClientRect();
+      if (pt.x > c.left - CARD_PAD && pt.x < c.right + CARD_PAD &&
+          pt.y > c.top - CARD_PAD && pt.y < c.bottom + CARD_PAD) return false;
+    }
+    return true;
+  }
+
   function wireAim(root) {
     if (aimWiredEl === root) return;
     aimWiredEl = root;
@@ -4106,7 +4144,7 @@
     else if (mon && mon.getAttribute('data-iid') !== String(h.iid)) {
       kind = 'atk'; targetEl = mon;
       if (aimAttackIndex(h) < 0) blocked = true;
-    } else if (zoneEl && zi !== h.zone) {
+    } else if (zoneEl && zi !== h.zone && zoneSpotOk(zoneEl, aimLast)) {
       kind = 'move'; targetEl = zoneEl;
       if (!aimCanMove(h)) blocked = true;
     }
@@ -4333,6 +4371,34 @@
     }
   }
 
+  // Rangée d'états, en petites fenêtres posées AU-DESSUS du bandeau. Chaque
+  // pastille décrit son effet au survol.
+  function renderDockStates(c) {
+    const root = $(rootSel);
+    const dock = root ? root.querySelector('#cbdock') : null;
+    if (!dock) return;
+    let bar = dock.querySelector('#cbdock-states');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'cbdock-states'; bar.className = 'cbdock-states';
+      dock.insertBefore(bar, dock.firstChild);
+    }
+    const keys = c ? Object.keys(STATE_META).filter(function (s) {
+      if (isStackState(s)) return stateVal(c, s) > 0;
+      if (s === 'prepare') return c.states.prepare || c.prepBonus;
+      return c.states[s];
+    }) : [];
+    if (!keys.length) { bar.innerHTML = ''; bar.classList.remove('on'); return; }
+    bar.classList.add('on');
+    bar.innerHTML = keys.map(function (s) {
+      return '<span class="dock-state ' + (STATE_META[s].neg ? 'neg' : 'pos') + '">' +
+        '<span class="dock-state-lbl">' + stateBadgeLabel(c, s) + '</span>' +
+        '<span class="dock-state-pop"><b>' + esc(stateLabel(s)) +
+          (isStackState(s) ? ' ' + stateVal(c, s) : '') + '</b>' + esc(stateDesc(s)) + '</span>' +
+      '</span>';
+    }).join('');
+  }
+
   function renderActionBar() {
     const root = $(rootSel);
     const box = root ? root.querySelector('#combat-actionbar') : null;
@@ -4350,6 +4416,7 @@
     if (!sel) {
       box.className = 'combat-actionbar';
       box.innerHTML = '<div class="ab-empty">Clique un combattant pour afficher sa fiche et ses actions.</div>';
+      renderDockStates(null);
       return;
     }
     const c = sel;
@@ -4393,7 +4460,6 @@
           (isEnemy && c.type ? '<span class="tag type ztype-' + c.type + '">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
           (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
         '</div>' +
-        (statesBadges(c) ? '<div class="ab-states-badges">' + statesBadges(c) + '</div>' : '') +
       '</div>';
 
     // Bouton spécial ORBES (Mystique) entre l'identité et la grille d'actions.
@@ -4446,6 +4512,7 @@
     html += '</div>';
     box.className = 'combat-actionbar active';
     box.innerHTML = html;
+    renderDockStates(c);
     // Les boutons (data-iid) seront câblés par wireCard lors de renderZones,
     // qui s'exécute juste après (le combattant sélectionné est dans une zone).
   }
