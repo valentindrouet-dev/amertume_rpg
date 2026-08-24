@@ -349,7 +349,7 @@
   }
 
   function startCombat() {
-    lastRoll = null; rollActive = false;   // le pool de dés repart vide à chaque nouveau combat
+    lastRoll = null; rollActive = false; rollHoldUntil = 0;   // le pool repart vide à chaque combat
     const heroObjs = Store.state.heroes.filter(function (h) { return setupHeroes[h.id]; });
     const cfg = {
       zones: setupZones.map(function (z, i) {
@@ -3185,6 +3185,15 @@
     // Capture les positions des cartes AVANT le re-rendu (glissement de mouvement).
     if (VFX.mouvement && !reduceMotion()) { try { preMoveRects = captureCardRects(); } catch (e) { preMoveRects = {}; } }
     try {
+      // Dés en train de rouler : on ne redessine QUE la boîte de dés, le plateau
+      // (PV, morts, effets, journal) attend la fin du roulage.
+      const wait = rollHoldUntil - Date.now();
+      if (wait > 0 && root.querySelector('#combat-aim')) {
+        try { renderDicePool(); } catch (e) { console.error('[combat] renderDicePool', e); }
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(function () { render(); }, wait + 20);
+        return;
+      }
       const onBoard = !!combat() && !combat().finished;
       // `has-cbdock` : le bandeau flottant occupe le bas de l'écran — les autres
       // éléments fixes (bouton de rapport de bug) remontent au-dessus.
@@ -3930,7 +3939,27 @@
   }
 
   function clearAimTargets(root) {
-    root.querySelectorAll('.aim-target').forEach(function (el) { el.classList.remove('aim-target', 'aim-atk', 'aim-move'); });
+    root.querySelectorAll('.aim-target').forEach(function (el) {
+      el.classList.remove('aim-target', 'aim-atk', 'aim-move', 'aim-ko');
+      el.style.removeProperty('--aim-c');
+    });
+  }
+
+  // Couleur de la visée : celle du bouton armé (attaque bleue, Orbes violets,
+  // mouvement beige…) — le rouge est réservé à l'impossible.
+  const AIM_RED = '#d13b4e', AIM_BLUE = '#2f8fe0', AIM_BEIGE = '#e0c9a3';
+  function btnColor(btn) {
+    if (!btn) return null;
+    const cs = getComputedStyle(btn);
+    const bg = cs.backgroundColor || '';
+    const transparent = !bg || bg === 'transparent' || /rgba\(0,\s*0,\s*0,\s*0\)/.test(bg);
+    const c = transparent ? cs.borderColor : bg;
+    return (c && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(c)) ? c : null;
+  }
+  function aimColor(root, kind, blocked) {
+    if (blocked) return AIM_RED;
+    const armed = root.querySelector('#cbdock .ab-atk.selected, #cbdock .ab-orbes.selected, #cbdock .ab-tool.selected');
+    return btnColor(armed) || (kind === 'move' ? AIM_BEIGE : AIM_BLUE);
   }
 
   function drawAim() {
@@ -3948,49 +3977,56 @@
     const zoneEl = el.closest('.combat-zone');
     const zi = zoneEl ? parseInt(zoneEl.getAttribute('data-zone'), 10) : -1;
 
-    // Nature de la visée : une action déjà armée impose sa couleur, sinon c'est
-    // ce que survole le curseur qui décide.
-    let kind = null, targetEl = null;
+    // Nature de la visée : une action armée impose la sienne, sinon c'est ce que
+    // survole le curseur qui décide. `blocked` = geste impossible (barrière,
+    // action déjà dépensée, mouvement épuisé) : c'est le seul cas rouge.
+    let kind = null, targetEl = null, blocked = false;
     if (pendingAttack) { kind = 'atk'; targetEl = mon || zoneEl; }
-    else if (pendingMove) { kind = (mon || zoneEl) ? 'move' : null; targetEl = mon || zoneEl; }
-    else if (mon && mon.getAttribute('data-iid') !== String(h.iid) && aimAttackIndex(h) >= 0) { kind = 'atk'; targetEl = mon; }
-    else if (zoneEl && zi !== h.zone && aimCanMove(h)) { kind = 'move'; targetEl = zoneEl; }
+    else if (pendingMove) { kind = 'move'; targetEl = mon || zoneEl; }
+    else if (mon && mon.getAttribute('data-iid') !== String(h.iid)) {
+      kind = 'atk'; targetEl = mon;
+      if (aimAttackIndex(h) < 0) blocked = true;
+    } else if (zoneEl && zi !== h.zone) {
+      kind = 'move'; targetEl = zoneEl;
+      if (!aimCanMove(h)) blocked = true;
+    }
     if (!kind || !targetEl) { hide(); return; }
+    // Zone séparée par un mur ou une barrière infranchissable.
+    if (kind === 'move' && zi >= 0 && zi !== h.zone && aimMoveBlocked(h, zi)) blocked = true;
 
-    // Déplacement impossible (mur / barrière infranchissable) : la flèche vire
-    // au rouge et porte l'icône d'interdiction.
-    const blocked = kind === 'move' && zi >= 0 && zi !== h.zone && aimMoveBlocked(h, zi);
-
+    const color = aimColor(root, kind, blocked);
     clearAimTargets(root);
-    targetEl.classList.add('aim-target', (kind === 'atk' || blocked) ? 'aim-atk' : 'aim-move');
+    targetEl.classList.add('aim-target', blocked ? 'aim-ko' : (kind === 'atk' ? 'aim-atk' : 'aim-move'));
+    targetEl.style.setProperty('--aim-c', color);
 
+    // La pointe suit EXACTEMENT le curseur : la flèche colle au mouvement de la
+    // souris au lieu de sauter d'une cible à l'autre.
     const r = card.getBoundingClientRect();
-    const t = targetEl.getBoundingClientRect();
     const x1 = r.left + r.width / 2, y1 = r.top + r.height / 2;
-    // La pointe s'arrête sur le bord de la cible plutôt qu'en son centre.
-    const cx = t.left + t.width / 2, cy = t.top + t.height / 2;
-    const dx = cx - x1, dy = cy - y1;
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    const inset = Math.min(len * 0.4, Math.min(t.width, t.height) / 2 + 6);
-    const x2 = cx - (dx / len) * inset, y2 = cy - (dy / len) * inset;
-    // Courbe légère (arc) pour que la flèche « jaillisse » du combattant.
-    const mx = (x1 + x2) / 2 - dy * 0.12, my = (y1 + y2) / 2 + dx * 0.12;
-    svg.querySelector('.aim-line').setAttribute('d', 'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2);
-    // Pointe orientée selon la tangente d'arrivée (depuis le point de contrôle).
+    const x2 = aimLast.x, y2 = aimLast.y;
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 26) { hide(); return; }   // curseur sur le combattant lui-même
+    // Courbe légère pour que la flèche « jaillisse » du combattant.
+    const mx = (x1 + x2) / 2 - dy * 0.1, my = (y1 + y2) / 2 + dx * 0.1;
+    // Pointe orientée selon la tangente d'arrivée ; le trait s'arrête à la BASE
+    // de la pointe pour ne pas dépasser dessous.
     const ax = x2 - mx, ay = y2 - my, al = Math.sqrt(ax * ax + ay * ay) || 1;
     const ux = ax / al, uy = ay / al, HW = 9, HL = 20;
     const bx = x2 - ux * HL, by = y2 - uy * HL;
-    svg.querySelector('.aim-head').setAttribute('points',
+    const line = svg.querySelector('.aim-line'), head = svg.querySelector('.aim-head');
+    line.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + bx + ' ' + by);
+    line.setAttribute('stroke', color);
+    head.setAttribute('points',
       x2 + ',' + y2 + ' ' + (bx - uy * HW) + ',' + (by + ux * HW) + ' ' + (bx + uy * HW) + ',' + (by - ux * HW));
-    // Pastille d'icône posée sur la pointe : type de ciblage (contact, tir,
-    // sort, déplacement) ou interdiction.
+    head.setAttribute('fill', color);
+
+    // Pastille d'icône au milieu du trajet : type de ciblage ou interdiction.
     const ico = aimIcon(h, kind, blocked);
     const bg = svg.querySelector('.aim-ico-bg'), im = svg.querySelector('.aim-ico-img'), tx = svg.querySelector('.aim-ico-txt');
-    // Milieu de la courbe (t = 0,5 d'une quadratique) : la pastille se pose sur
-    // le trajet, jamais sur la pointe ni sur la cible.
-    const midX = 0.25 * x1 + 0.5 * mx + 0.25 * x2;
-    const midY = 0.25 * y1 + 0.5 * my + 0.25 * y2;
-    bg.setAttribute('cx', midX); bg.setAttribute('cy', midY);
+    const midX = 0.25 * x1 + 0.5 * mx + 0.25 * bx;
+    const midY = 0.25 * y1 + 0.5 * my + 0.25 * by;
+    bg.setAttribute('cx', midX); bg.setAttribute('cy', midY); bg.setAttribute('stroke', color);
     if (ico.img) {
       im.setAttribute('href', ico.img); im.setAttribute('x', midX - 16); im.setAttribute('y', midY - 16);
       im.style.display = ''; tx.style.display = 'none';
@@ -3998,7 +4034,7 @@
       tx.textContent = ico.txt; tx.setAttribute('x', midX); tx.setAttribute('y', midY + 1);
       tx.style.display = ''; im.style.display = 'none';
     }
-    svg.setAttribute('class', 'combat-aim on aim-' + (blocked ? 'blocked' : kind));
+    svg.setAttribute('class', 'combat-aim on aim-' + (blocked ? 'ko' : kind));
   }
 
   // ---------- Pool de dés (bandeau flottant, à gauche) ----------
@@ -4007,6 +4043,10 @@
   // plateau, très fréquents, ne relancent donc pas les dés).
   let lastRoll = null;
   let rollSeq = 0;
+  // Durée du roulage : 0,5 s par dé, posés en léger décalage.
+  const SPIN_MS = 500, STAGGER_MS = 28;
+  let rollHoldUntil = 0;    // tant que les dés roulent, le plateau ne bouge pas
+  let holdTimer = 0;
   let rollActive = false;   // le résultat du jet occupe le pool (sinon : dés au repos)
   let poolSelWatch = null;  // dernier combattant sélectionné vu par le pool
   let poolAtkWatch = null;  // dernière attaque armée vue par le pool
@@ -4020,6 +4060,9 @@
     rollSeq++;
     lastRoll = { seq: rollSeq, res: res, meta: meta || {} };
     rollActive = true;
+    // Le résultat (dégâts, mort, animations, journal) n'apparaît qu'une fois les
+    // dés posés : le plateau est gelé le temps du roulage.
+    rollHoldUntil = Date.now() + SPIN_MS + res.dice.length * STAGGER_MS + 60;
   }
 
   function dieHtml(d) {
@@ -4149,9 +4192,9 @@
     dice.forEach(function (el, i) {
       const final = el.getAttribute('data-final');
       const num = el.querySelector('.dp-num');
-      const stagger = i * 55;
+      const stagger = i * STAGGER_MS;
       el.classList.add('is-rolling');
-      const spin = setInterval(function () { num.textContent = 1 + Math.floor(Math.random() * 6); }, 70);
+      const spin = setInterval(function () { num.textContent = 1 + Math.floor(Math.random() * 6); }, 35);
       rollTimers.push(spin);
       rollTimers.push(setTimeout(function () {
         clearInterval(spin);
@@ -4160,13 +4203,13 @@
         el.classList.remove('is-rolling');
         el.classList.add('is-settled');
         setTimeout(function () { el.classList.remove('is-settled'); }, 400);
-      }, 1000 + stagger));
+      }, SPIN_MS + stagger));
     });
     const outEl = box.querySelector('.dp-out');
     if (outEl) {
       outEl.classList.add('dp-out-wait');
       rollTimers.push(setTimeout(function () { outEl.classList.remove('dp-out-wait'); },
-        1000 + dice.length * 55));
+        SPIN_MS + dice.length * STAGGER_MS));
     }
   }
 

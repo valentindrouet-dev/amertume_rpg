@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.57",
+    "date": "2026-08-24",
+    "title": "Fleche de visee fluide et coloree comme le bouton arme, roulage deux fois plus rapide",
+    "changes": [
+      "La pointe de la fleche suit desormais EXACTEMENT le curseur au lieu de sauter d'une cible a l'autre : le geste est continu. Le trait s'arrete a la base de la pointe, il ne depasse plus dessous.",
+      "Couleur de la visee : celle du bouton arme, lue directement sur le bouton (bleu des attaques, violet des Orbes, brun du deplacement…). Sans action armee, bleu vers un adversaire et beige vers une zone. Le ROUGE ne sert plus qu'a l'impossible : barriere infranchissable, action deja depensee, plus de mouvement — avec l'icone d'interdiction. La cible survolee s'illumine de la meme couleur.",
+      "Roulage des des deux fois plus rapide (0,5 s au lieu de 1 s, faces qui defilent deux fois plus vite).",
+      "Le resultat n'est plus applique a l'ecran avant la fin du roulage : degats, morts, animations et lignes de journal attendent que les des soient poses. Seule la boite de des vit pendant ce temps."
+    ]
+  },
+  {
     "v": "v2.4.56",
     "date": "2026-08-24",
     "title": "Pastille de visee au milieu de la ligne, des du pool agrandis, bonus de degats en rouge",

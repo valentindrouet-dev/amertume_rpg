@@ -5277,7 +5277,7 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .dp-die.is-removed { opacity: .35; }
 .dp-die.is-blocked { opacity: .55; }
 .dp-die.is-removed .dp-num { text-decoration: line-through; }
-.dp-die.is-rolling { animation: dp-spin .42s linear infinite; }
+.dp-die.is-rolling { animation: dp-spin .21s linear infinite; }
 .dp-die.is-rolling .dp-num { opacity: .85; }
 .dp-die.is-settled { animation: dp-pop .32s ease; }
 .dp-bonus {
@@ -5345,23 +5345,23 @@ body.has-cbdock .ses-compass { display: none; }
   pointer-events: none; z-index: 54; opacity: 0; transition: opacity .12s ease;
 }
 .combat-aim.on { opacity: 1; }
+/* La couleur du trait et de la pointe est posée en ligne par le moteur : c'est
+   celle du bouton armé (attaque bleue, Orbes violets, mouvement beige…). Le
+   rouge est réservé à l'action impossible. */
 .combat-aim .aim-line { fill: none; stroke-width: 4; stroke-linecap: round; }
-.combat-aim.aim-atk  .aim-line { stroke: #d13b4e; }
-.combat-aim.aim-atk  .aim-head { fill: #d13b4e; }
-.combat-aim.aim-move .aim-line { stroke: #e0c9a3; stroke-dasharray: 9 7; }
-.combat-aim.aim-move .aim-head { fill: #e0c9a3; }
+.combat-aim.aim-move .aim-line { stroke-dasharray: 9 7; }
+.combat-aim.aim-ko   .aim-line { stroke-dasharray: 9 7; }
 .combat-aim .aim-line, .combat-aim .aim-head { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .55)); }
 
 /* Cible survolée */
-.combat-card.aim-target.aim-atk {
-  outline: 2px solid #d13b4e; outline-offset: 1px;
-  box-shadow: 0 0 12px rgba(209, 59, 78, .55);
+.combat-card.aim-target {
+  outline: 2px solid var(--aim-c, #2f8fe0); outline-offset: 1px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, .35);
 }
-.combat-zone.aim-target.aim-move {
-  outline: 2px dashed #e0c9a3; outline-offset: -2px;
-  background: rgba(224, 201, 163, .07);
+.combat-zone.aim-target {
+  outline: 2px dashed var(--aim-c, #2f8fe0); outline-offset: -2px;
+  background: rgba(255, 255, 255, .04);
 }
-.combat-zone.aim-target.aim-atk { outline: 2px dashed #d13b4e; outline-offset: -2px; }
 
 /* Dés au repos dans le bandeau : exactement l'aspect qu'ils auront au lancer
    (fond plein de leur couleur), seule la face reste inconnue. */
@@ -5370,13 +5370,9 @@ body.has-cbdock .ses-compass { display: none; }
 
 /* Flèche de visée : icône du type de ciblage posée sur la pointe. */
 .combat-aim .aim-ico-bg { fill: #f6efe0; stroke-width: 3; }
-.combat-aim.aim-atk     .aim-ico-bg { stroke: #d13b4e; }
-.combat-aim.aim-move    .aim-ico-bg { stroke: #e0c9a3; }
-.combat-aim.aim-blocked .aim-ico-bg { stroke: #d13b4e; }
+
 .combat-aim .aim-ico-txt { font-size: 24px; }
 .combat-aim .aim-ico-bg, .combat-aim .aim-ico-img, .combat-aim .aim-ico-txt {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .55));
 }
-/* Déplacement impossible (mur, barrière infranchissable) : tout passe au rouge. */
-.combat-aim.aim-blocked .aim-line { stroke: #d13b4e; stroke-dasharray: 9 7; }
-.combat-aim.aim-blocked .aim-head { fill: #d13b4e; }
+
