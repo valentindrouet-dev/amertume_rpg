@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.56",
+    "date": "2026-08-24",
+    "title": "Pastille de visee au milieu de la ligne, des du pool agrandis, bonus de degats en rouge",
+    "changes": [
+      "Pastille d'icone de la fleche de visee : fond blanc creme (le pictogramme ressort au lieu de se fondre dans le brun), cercle nettement plus grand, et surtout posee au MILIEU de la courbe et non plus sur la pointe — elle ne masque plus la fleche ni la cible.",
+      "Des du pool nettement agrandis (54 px, chiffres a 1,7 rem) et boite elargie pour aligner une main complete sur une seule ligne.",
+      "La phrase « Des en attente du lancer » disparait : les des parlent d'eux-memes.",
+      "Le bonus de Degats devient un cartouche ROUGE portant le +X en gros et le mot « degats » en petit, centre dessous."
+    ]
+  },
+  {
     "v": "v2.4.55",
     "date": "2026-08-24",
     "title": "Des du pool en couleurs pleines, fleche rouge si le passage est barre, icones de ciblage",

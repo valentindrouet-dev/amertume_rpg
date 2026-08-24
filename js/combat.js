@@ -3849,8 +3849,8 @@
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     s.id = 'combat-aim'; s.setAttribute('class', 'combat-aim');
     s.innerHTML = '<path class="aim-line" d=""></path><polygon class="aim-head" points=""></polygon>' +
-      '<circle class="aim-ico-bg" r="17" cx="-99" cy="-99"></circle>' +
-      '<image class="aim-ico-img" width="24" height="24" x="-99" y="-99"></image>' +
+      '<circle class="aim-ico-bg" r="26" cx="-99" cy="-99"></circle>' +
+      '<image class="aim-ico-img" width="32" height="32" x="-99" y="-99"></image>' +
       '<text class="aim-ico-txt" x="-99" y="-99" text-anchor="middle" dominant-baseline="central"></text>';
     return s;
   }
@@ -3986,12 +3986,16 @@
     // sort, déplacement) ou interdiction.
     const ico = aimIcon(h, kind, blocked);
     const bg = svg.querySelector('.aim-ico-bg'), im = svg.querySelector('.aim-ico-img'), tx = svg.querySelector('.aim-ico-txt');
-    bg.setAttribute('cx', x2); bg.setAttribute('cy', y2);
+    // Milieu de la courbe (t = 0,5 d'une quadratique) : la pastille se pose sur
+    // le trajet, jamais sur la pointe ni sur la cible.
+    const midX = 0.25 * x1 + 0.5 * mx + 0.25 * x2;
+    const midY = 0.25 * y1 + 0.5 * my + 0.25 * y2;
+    bg.setAttribute('cx', midX); bg.setAttribute('cy', midY);
     if (ico.img) {
-      im.setAttribute('href', ico.img); im.setAttribute('x', x2 - 12); im.setAttribute('y', y2 - 12);
+      im.setAttribute('href', ico.img); im.setAttribute('x', midX - 16); im.setAttribute('y', midY - 16);
       im.style.display = ''; tx.style.display = 'none';
     } else {
-      tx.textContent = ico.txt; tx.setAttribute('x', x2); tx.setAttribute('y', y2 + 1);
+      tx.textContent = ico.txt; tx.setAttribute('x', midX); tx.setAttribute('y', midY + 1);
       tx.style.display = ''; im.style.display = 'none';
     }
     svg.setAttribute('class', 'combat-aim on aim-' + (blocked ? 'blocked' : kind));
@@ -4049,6 +4053,12 @@
     return j >= 0 ? { a: c.attacks[j], i: j } : { a: c.attacks[0], i: 0 };
   }
 
+  // Cartouche du bonus de Dégâts, à droite des dés.
+  function bonusHtml(n) {
+    return '<span class="dp-bonus" title="Bonus de Dégâts">' +
+      '<b>+' + n + '</b><small>dégâts</small></span>';
+  }
+
   // Dé au repos : la couleur est visible, la face reste inconnue.
   function restDieHtml(color) {
     return '<span class="dp-die dp-rest die-' + color + '" title="' + esc(DIE_LABEL[color] || color) + '">' +
@@ -4092,14 +4102,13 @@
         for (let n = 0; n < (pool[k] || 0); n++) tray += restDieHtml(k);
       });
       const dmg = (rest.a.useOwnDamage !== false && sel.damage > 0 && !(sel.states && sel.states.affaibli)) ? sel.damage : 0;
-      if (dmg > 0) tray += '<span class="dp-bonus" title="Bonus de Dégâts">+' + dmg + '</span>';
+      if (dmg > 0) tray += bonusHtml(dmg);
       if (!tray) tray = '<span class="dp-nodice">Aucun dé</span>';
       box.className = 'dicepool rest';
       box.innerHTML =
         '<div class="dp-head"><span class="dp-who">' + cname(sel) + '</span>' +
           '<span class="dp-label">' + esc(known ? attackLabel(rest.a) : 'Attaque inconnue') + '</span></div>' +
-        '<div class="dp-tray">' + (known ? tray : '<span class="dp-nodice">Analysez cet adversaire pour voir ses dés.</span>') + '</div>' +
-        '<div class="dp-out"><span class="dp-total none">Dés en attente du lancer</span></div>';
+        '<div class="dp-tray">' + (known ? tray : '<span class="dp-nodice">Analysez cet adversaire pour voir ses dés.</span>') + '</div>';
       return;
     }
 
@@ -4111,7 +4120,7 @@
     head += '</div>';
 
     let tray = '<div class="dp-tray">' + res.dice.map(dieHtml).join('');
-    if (res.damageBonus > 0) tray += '<span class="dp-bonus" title="Bonus de Dégâts">+' + res.damageBonus + '</span>';
+    if (res.damageBonus > 0) tray += bonusHtml(res.damageBonus);
     tray += '</div>';
 
     let out = '<div class="dp-out">';
