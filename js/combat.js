@@ -349,7 +349,7 @@
   }
 
   function startCombat() {
-    lastRoll = null; rollActive = false; rollHoldUntil = 0;   // le pool repart vide à chaque combat
+    lastRoll = null; rollActive = false;   // le pool de dés repart vide à chaque combat
     const heroObjs = Store.state.heroes.filter(function (h) { return setupHeroes[h.id]; });
     const cfg = {
       zones: setupZones.map(function (z, i) {
@@ -3251,15 +3251,6 @@
     // Capture les positions des cartes AVANT le re-rendu (glissement de mouvement).
     if (VFX.mouvement && !reduceMotion()) { try { preMoveRects = captureCardRects(); } catch (e) { preMoveRects = {}; } }
     try {
-      // Dés en train de rouler : on ne redessine QUE la boîte de dés, le plateau
-      // (PV, morts, effets, journal) attend la fin du roulage.
-      const wait = rollHoldUntil - Date.now();
-      if (wait > 0 && root.querySelector('#combat-aim')) {
-        try { renderDicePool(); } catch (e) { console.error('[combat] renderDicePool', e); }
-        clearTimeout(holdTimer);
-        holdTimer = setTimeout(function () { render(); }, wait + 20);
-        return;
-      }
       // PRÉ-TOUR : arme d'office l'unique pouvoir disponible.
       try { autoArmPretour(); } catch (e) { console.error('[combat] autoArmPretour', e); }
       const onBoard = !!combat() && !combat().finished;
@@ -4244,10 +4235,6 @@
   // plateau, très fréquents, ne relancent donc pas les dés).
   let lastRoll = null;
   let rollSeq = 0;
-  // Durée du roulage : 0,5 s par dé, posés en léger décalage.
-  const SPIN_MS = 500, STAGGER_MS = 28;
-  let rollHoldUntil = 0;    // tant que les dés roulent, le plateau ne bouge pas
-  let holdTimer = 0;
   let rollActive = false;   // le résultat du jet occupe le pool (sinon : dés au repos)
   let poolSelWatch = null;  // dernier combattant sélectionné vu par le pool
   let poolAtkWatch = null;  // dernière attaque armée vue par le pool
@@ -4261,9 +4248,7 @@
     rollSeq++;
     lastRoll = { seq: rollSeq, res: res, meta: meta || {} };
     rollActive = true;
-    // Le résultat (dégâts, mort, animations, journal) n'apparaît qu'une fois les
-    // dés posés : le plateau est gelé le temps du roulage.
-    rollHoldUntil = Date.now() + SPIN_MS + res.dice.length * STAGGER_MS + 60;
+
   }
 
   function dieHtml(d) {
@@ -4411,34 +4396,19 @@
     }
   }
 
-  // Animation : chaque dé tourne ~1 s en affichant des faces au hasard, puis se
-  // fige sur sa valeur réelle. Les dés se posent en léger décalage.
   function animatePool(box) {
+    // Le roulement des dés a été retiré : les faces s'affichent directement,
+    // avec une simple pose (léger rebond) pour marquer le nouveau jet.
     rollTimers.forEach(function (t) { clearInterval(t); clearTimeout(t); });
     rollTimers = [];
-    const dice = Array.prototype.slice.call(box.querySelectorAll('.dp-die'));
-    dice.forEach(function (el, i) {
-      const final = el.getAttribute('data-final');
+    box.querySelectorAll('.dp-die').forEach(function (el) {
       const num = el.querySelector('.dp-num');
-      const stagger = i * STAGGER_MS;
-      el.classList.add('is-rolling');
-      const spin = setInterval(function () { num.textContent = 1 + Math.floor(Math.random() * 6); }, 35);
-      rollTimers.push(spin);
-      rollTimers.push(setTimeout(function () {
-        clearInterval(spin);
-        num.textContent = final;
-        (el.getAttribute('data-after') || '').split(' ').forEach(function (k) { if (k) el.classList.add(k); });
-        el.classList.remove('is-rolling');
-        el.classList.add('is-settled');
-        setTimeout(function () { el.classList.remove('is-settled'); }, 400);
-      }, SPIN_MS + stagger));
+      if (num) num.textContent = el.getAttribute('data-final');
+      (el.getAttribute('data-after') || '').split(' ').forEach(function (k) { if (k) el.classList.add(k); });
+      el.classList.remove('is-rolling');
+      el.classList.add('is-settled');
+      rollTimers.push(setTimeout(function () { el.classList.remove('is-settled'); }, 300));
     });
-    const outEl = box.querySelector('.dp-out');
-    if (outEl) {
-      outEl.classList.add('dp-out-wait');
-      rollTimers.push(setTimeout(function () { outEl.classList.remove('dp-out-wait'); },
-        SPIN_MS + dice.length * STAGGER_MS));
-    }
   }
 
   // Rangée d'états, en petites fenêtres posées AU-DESSUS du bandeau. Chaque

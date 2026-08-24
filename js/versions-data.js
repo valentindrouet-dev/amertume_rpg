@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.62",
+    "date": "2026-08-24",
+    "title": "Fin du roulement des des, outils au format des boutons d'action, PV et DEF pleine largeur",
+    "changes": [
+      "Le roulement des des est supprime : les faces s'affichent immediatement avec leur valeur, accompagnees d'une simple pose. Le gel du plateau qui attendait la fin du roulage disparait avec lui — degats, morts, animations et journal s'appliquent aussitot (mesure : faces finales et resultat presents 60 ms apres le clic).",
+      "Les boutons Objet et Analyse occupent desormais une colonne entiere de la grille d'actions : ils ont exactement la taille d'un bouton de talent.",
+      "Dans la fiche, la barre de PV et le blason de DEF prennent toute la largeur de la case : barre plus haute (30 px), valeur en plus gros et sur une seule ligne, blason agrandi."
+    ]
+  },
+  {
     "v": "v2.4.61",
     "date": "2026-08-24",
     "title": "Bandeau de combat cale : quatre cases, des sur une ligne, huit talents, panneau de description",

@@ -5277,8 +5277,6 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 .dp-die.is-removed { opacity: .35; }
 .dp-die.is-blocked { opacity: .55; }
 .dp-die.is-removed .dp-num { text-decoration: line-through; }
-.dp-die.is-rolling { animation: dp-spin .21s linear infinite; }
-.dp-die.is-rolling .dp-num { opacity: .85; }
 .dp-die.is-settled { animation: dp-pop .32s ease; }
 .dp-bonus {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
@@ -5288,8 +5286,6 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 }
 .dp-bonus b { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .dp-bonus small { font-size: .6rem; font-weight: 600; letter-spacing: .02em; opacity: .95; }
-@keyframes dp-spin {
-  0%   { transform: rotate(0deg)   scale(1); }
   25%  { transform: rotate(90deg)  scale(1.06); }
   50%  { transform: rotate(180deg) scale(1); }
   75%  { transform: rotate(270deg) scale(1.06); }
@@ -5618,3 +5614,35 @@ body.has-cbdock .ses-compass { display: none; }
   .cbdock-desc { display: none; }
   .cbdock-states { padding-left: 172px; }
 }
+
+
+/* ============================================================
+   v2.4.62 — Bandeau : outils au format des boutons d'action,
+   barre de PV et DEF sur toute la largeur de la fiche
+   ============================================================ */
+/* Les boutons fiole et loupe occupent une colonne de la grille, exactement
+   comme un bouton de talent. */
+.cbdock .ab-tools.ab-tools-icons {
+  flex: none; width: auto; display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: .35rem; height: 100%;
+  align-content: stretch; justify-items: stretch;
+}
+.cbdock .ab-tool.ab-tool-ico {
+  width: 100%; max-width: none; height: 100%; min-width: 0; align-self: stretch;
+  font-size: 1.25rem;
+}
+
+/* Fiche : la barre de PV et le blason de DEF prennent toute la largeur. */
+/* La fiche occupe toute la largeur de sa case. */
+.cbdock-id .ab-card-id { display: block; padding: .45rem .55rem; }
+.cbdock-id .ab-id { display: flex; flex-direction: column; gap: .4rem; width: 100%; }
+.cbdock-id .ab-name { font-size: 1.05rem; }
+.cbdock-id .ab-pvline { display: flex; align-items: center; gap: .4rem; width: 100%; }
+.cbdock-id .ab-pvline .pv-bar { flex: 1 1 auto; min-width: 0; height: 30px; border-radius: 9px; }
+.cbdock-id .ab-pvline .pv-text { font-size: .95rem; line-height: 30px; padding-left: .6rem; white-space: nowrap; }
+.cbdock-id .ab-pvline .def-badge { flex: 0 0 auto; }
+.cbdock-id .ab-pvline .def-badge { background: none; border: none; padding: 0; }
+.cbdock-id .ab-pvline .def-img { width: 34px; height: 34px; }
+.cbdock-id .ab-pvline .def-shield { font-size: 1rem; }
+.cbdock-id .ab-subline .tag { font-size: .74rem; padding: .18rem .5rem; }
