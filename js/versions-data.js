@@ -1,6 +1,18 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.58",
+    "date": "2026-08-24",
+    "title": "Pre-Tour automatique, visee plus lisible, bandeau epure et de hauteur fixe",
+    "changes": [
+      "PRÉ-TOUR : quand un seul pouvoir est disponible (Gardien, Orbe de Preparation Arcanique, mouvement libre), il est arme d'office — il ne reste qu'a cliquer la cible. Quand plusieurs pouvoirs sont en concurrence (identiques ou non, chez un ou plusieurs aventuriers), une fenetre legere demande par quoi commencer ; les suivants s'arment ensuite tout seuls, un a un, jusqu'au dernier. Bouton « Passer le Pre-Tour » toujours accessible.",
+      "La fleche de visee couvre desormais TOUTES les actions ciblees, avec une icone parlante : bouclier pour Gardien, fiole pour un objet, loupe pour une analyse, orbe pour les Orbes Partages, epee / arc / sort pour les attaques, empreintes pour un deplacement, interdiction pour un geste impossible. Une cible invalide passe au rouge.",
+      "La fleche s'efface au survol d'un autre aventurier, sauf si celui-ci est une cible valide (soutien, soin, Gardien…) : plus de trait qui traverse le groupe sans raison.",
+      "Le bandeau du bas garde exactement la meme hauteur en toutes circonstances, quels que soient les etats du combattant, le nombre de des ou les boutons presents.",
+      "Boutons Mouvement et Attaque retires du bandeau : viser a la souris suffit. Le bouton d'attaque ne reapparait que s'il y a un vrai choix d'armes. Restent « Se relever » / « Se liberer », et deux boutons carres : fiole (objet) et loupe (analyse)."
+    ]
+  },
+  {
     "v": "v2.4.57",
     "date": "2026-08-24",
     "title": "Fleche de visee fluide et coloree comme le bouton arme, roulage deux fois plus rapide",

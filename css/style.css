@@ -5330,7 +5330,7 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
 /* Bouton flottant de rapport de bug : remonte au-dessus du bandeau de combat. */
 body.has-cbdock #bug-fab { bottom: 155px; }
 @media (max-width: 780px) { body.has-cbdock #bug-fab { bottom: 265px; } }
-.cbdock-inner { max-height: 46vh; overflow-y: auto; }
+
 /* Pendant un combat, la rose des directions ne dispute pas le bas de l'écran
    au bandeau d'action. */
 body.has-cbdock .ses-compass { display: none; }
@@ -5376,3 +5376,58 @@ body.has-cbdock .ses-compass { display: none; }
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .55));
 }
 
+
+/* ============================================================
+   v2.4.58 — Pré-Tour : fenêtre de choix des pouvoirs
+   ============================================================ */
+.ptpick {
+  position: fixed; left: 0; right: 0; bottom: 200px; z-index: 56;
+  display: flex; justify-content: center; pointer-events: none;
+}
+.ptpick-box {
+  pointer-events: auto; width: min(560px, calc(100% - 2rem)); box-sizing: border-box;
+  background: linear-gradient(180deg, #33271a, #251c12);
+  border: 1px solid #8a6c40; border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .55);
+  padding: .7rem .8rem;
+}
+.ptpick-head { font-weight: 700; color: #f0d9a8; margin-bottom: .55rem; font-size: .95rem; }
+.ptpick-list { display: flex; flex-direction: column; gap: .4rem; }
+.ptpick-opt {
+  display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left;
+  background: rgba(255, 255, 255, .06); border: 1px solid #6b5432; border-radius: 10px;
+  padding: .45rem .6rem; color: #f3e7cf; cursor: pointer;
+}
+.ptpick-opt:hover { border-color: var(--action); background: rgba(47, 143, 224, .16); }
+.ptpick-ico { font-size: 1.5rem; line-height: 1; }
+.ptpick-txt { display: flex; flex-direction: column; min-width: 0; }
+.ptpick-txt small { color: #c2ac89; font-size: .78rem; }
+.ptpick-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  margin-top: .55rem; color: #b9a88c; font-size: .78rem;
+}
+@media (max-width: 780px) { .ptpick { bottom: 310px; } }
+
+
+/* ============================================================
+   v2.4.58 — Bandeau : hauteur constante, outils en icônes
+   Le bandeau garde EXACTEMENT la même hauteur quel que soit le contenu
+   (états du combattant, nombre de dés, boutons présents ou non).
+   ============================================================ */
+.cbdock-inner { height: 148px; box-sizing: border-box; overflow: hidden; align-items: stretch; }
+.cbdock .dicepool { height: 100%; box-sizing: border-box; }
+.cbdock .dp-tray { flex: 1 1 auto; overflow-y: auto; align-content: flex-start; }
+.cbdock .combat-actionbar { height: 100%; box-sizing: border-box; }
+.cbdock .ab-card { height: 100%; box-sizing: border-box; overflow: hidden; align-items: center; }
+.cbdock .ab-id { align-self: center; }
+.cbdock .ab-states-badges { max-height: 40px; overflow: hidden; }
+
+/* Outils carrés : objet (fiole) et analyse (loupe). */
+.ab-tools.ab-tools-icons { display: flex; gap: .35rem; justify-content: flex-start; }
+.ab-tool.ab-tool-ico {
+  flex: 0 0 32px; width: 32px; min-width: 32px; max-width: 32px; height: 32px;
+  padding: 0; font-size: 1.1rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+/* Sans bouton d'attaque, la colonne des outils occupe les deux lignes. */
+.ab-acts.ab-acts-notk > .ab-tools { grid-row: span 2; align-items: center; }

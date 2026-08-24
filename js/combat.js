@@ -2575,6 +2575,55 @@
       !activeOf('hero').some(function (h) { return h.freeMoveReady || canDesignateGardien(h); });
   }
 
+  // ---------- Pré-Tour : armement automatique ----------
+  // Actions de Pré-Tour encore disponibles, tous aventuriers confondus.
+  function pretourOptions() {
+    const c = combat();
+    if (!c || c.phase !== 'pretour' || c.outcome) return [];
+    const out = [];
+    activeOf('hero').forEach(function (h) {
+      // GARDIEN : désignation d'alliés à protéger.
+      if (canDesignateGardien(h)) {
+        out.push({ iid: h.iid, kind: 'gardien', ico: '🛡️', hero: h,
+          label: (function () { const n = heroTalentName(h, 'gardien'); return (!n || n === 'gardien') ? 'Gardien' : n; })(),
+          hint: 'Désigner ' + (h.gardienLeft || 1) + ' allié(s) à protéger' });
+      }
+      // PRÉPARATION ARCANIQUE : un Orbe lançable dès le Pré-Tour 1.
+      if (c.turn === 1 && heroHasTalent(h, 'orbe_pretour') && !actionSpent(h) && !(h.states && h.states.auSol)) {
+        const i = (h.attacks || []).findIndex(isOrbAttack);
+        if (i >= 0 && (h.attackUses[i] === undefined || h.attackUses[i] > 0)) {
+          out.push({ iid: h.iid, kind: 'orb', atkIndex: i, ico: '🔮', hero: h,
+            label: 'Orbes Mystiques', hint: 'Lancer un Orbe avant le tour' });
+        }
+      }
+      // Mouvement gratuit (Pas Léger, Rapide, Initiative…).
+      if (h.freeMoveReady && !h.used.move && zoneCount() > 1) {
+        out.push({ iid: h.iid, kind: 'move', ico: '👣', hero: h,
+          label: 'Déplacement libre', hint: 'Changer de zone avant le tour' });
+      }
+    });
+    return out;
+  }
+  function pretourArmed() {
+    return !!(pendingDesignate || pendingAttack || pendingMove || pendingObject || pendingAnalyze || pendingOrbeShare);
+  }
+  // Arme une option de Pré-Tour : la cible n'a plus qu'à être cliquée.
+  function armPretourOption(o) {
+    pendingDesignate = null; pendingAttack = null; pendingMove = null;
+    selectedIid = o.iid;
+    if (o.kind === 'gardien') pendingDesignate = o.iid;
+    else if (o.kind === 'orb') pendingAttack = { iid: o.iid, atkIndex: o.atkIndex, average: false };
+    else if (o.kind === 'move') pendingMove = o.iid;
+  }
+  // Une seule action de Pré-Tour disponible : on l'arme d'office (le joueur n'a
+  // plus qu'à cliquer la cible). Plusieurs : c'est la fenêtre de choix qui tranche.
+  function autoArmPretour() {
+    const c = combat();
+    if (!c || c.phase !== 'pretour' || c.outcome || pretourArmed()) return;
+    const opts = pretourOptions();
+    if (opts.length === 1) armPretourOption(opts[0]);
+  }
+
   function startPretour() {
     const c = combat();
     c.phase = 'pretour';
@@ -3194,6 +3243,8 @@
         holdTimer = setTimeout(function () { render(); }, wait + 20);
         return;
       }
+      // PRÉ-TOUR : arme d'office l'unique pouvoir disponible.
+      try { autoArmPretour(); } catch (e) { console.error('[combat] autoArmPretour', e); }
       const onBoard = !!combat() && !combat().finished;
       // `has-cbdock` : le bandeau flottant occupe le bas de l'écran — les autres
       // éléments fixes (bouton de rapport de bug) remontent au-dessus.
@@ -3584,6 +3635,8 @@
     // Le bandeau et le calque de visée sont RÉUTILISÉS d'un rendu à l'autre :
     // le plateau se redessine très souvent et recréer la boîte de dés
     // interrompait l'animation du lancer avant qu'on ait pu la voir.
+    // PRÉ-TOUR : plusieurs pouvoirs en concurrence → fenêtre de choix légère.
+    renderPretourPick(root);
     root.appendChild(keptDock || buildDock());
     root.appendChild(keptAim || buildAimLayer());
     wireAim(root);
@@ -3844,6 +3897,38 @@
     '</button>';
   }
 
+  // Fenêtre de choix du Pré-Tour : n'apparaît que si PLUSIEURS pouvoirs sont en
+  // concurrence. Une fois le premier joué, les suivants s'arment tout seuls.
+  function renderPretourPick(root) {
+    const opts = pretourOptions();
+    if (pretourArmed() || opts.length < 2) return;
+    let h = '<div class="ptpick"><div class="ptpick-box">' +
+      '<div class="ptpick-head">✦ Pré-Tour ' + combat().turn + ' — par quoi commencez-vous ?</div>' +
+      '<div class="ptpick-list">';
+    opts.forEach(function (o, i) {
+      h += '<button class="ptpick-opt" type="button" data-opt="' + i + '">' +
+        '<span class="ptpick-ico">' + o.ico + '</span>' +
+        '<span class="ptpick-txt"><b>' + esc(o.label) + '</b>' +
+          '<small>' + esc(o.hero.name) + ' — ' + esc(o.hint) + '</small></span>' +
+      '</button>';
+    });
+    h += '</div><div class="ptpick-foot">Les pouvoirs restants s\'armeront ensuite automatiquement.' +
+      '<button class="ghost xs" id="ptpick-skip">Passer le Pré-Tour</button></div>' +
+    '</div></div>';
+    const wrap = document.createElement('div');
+    wrap.innerHTML = h;
+    const el = wrap.firstChild;
+    root.appendChild(el);
+    el.querySelectorAll('.ptpick-opt').forEach(function (b) {
+      b.addEventListener('click', function () {
+        const o = opts[parseInt(b.getAttribute('data-opt'), 10)];
+        if (o) { armPretourOption(o); render(); }
+      });
+    });
+    const sk = el.querySelector('#ptpick-skip');
+    if (sk) sk.addEventListener('click', function () { startTurnFromPretour(); });
+  }
+
   // ---------- Bandeau flottant & calque de visée ----------
   function buildDock() {
     const d = document.createElement('div');
@@ -3876,9 +3961,22 @@
     const cmb = combat();
     if (!cmb || cmb.outcome || pendingReaction) return null;
     if (cmb.phase !== 'heroes' && cmb.phase !== 'pretour') return null;
-    const h = selectedIid ? byId(selectedIid) : null;
+    // L'action armée impose son auteur (Gardien, Orbes Partagés, objet, analyse…).
+    const src = pendingDesignate || pendingOrbeShare || pendingObject || pendingAnalyze ||
+      (pendingAttack && pendingAttack.iid) || pendingMove || selectedIid;
+    const h = src ? byId(src) : null;
     if (!h || h.side !== 'hero' || h.status !== 'active') return null;
     return h;
+  }
+  // Mode de visée courant : c'est l'action armée qui commande.
+  function aimMode() {
+    if (pendingDesignate) return 'garde';
+    if (pendingOrbeShare) return 'partage';
+    if (pendingObject) return 'objet';
+    if (pendingAnalyze) return 'analyse';
+    if (pendingAttack) return 'atk';
+    if (pendingMove) return 'move';
+    return null;
   }
   // Une attaque est-elle encore jouable ? (mêmes règles que le bouton d'attaque)
   function attackUsable(c, i) {
@@ -3918,6 +4016,10 @@
   // Icône du ciblage : ⚔ contact, 🏹 tir, ✦ sort, 👣 déplacement, 🚫 impossible.
   function aimIcon(h, kind, blocked) {
     if (blocked) return { txt: '🚫' };
+    if (kind === 'garde') return { txt: '🛡️' };
+    if (kind === 'partage') return { txt: '🔮' };
+    if (kind === 'objet') return { txt: '🧪' };
+    if (kind === 'analyse') return { txt: '🔍' };
     if (kind === 'move') return { txt: '👣' };
     const i = (pendingAttack && pendingAttack.iid === h.iid) ? pendingAttack.atkIndex : aimAttackIndex(h);
     const a = (h.attacks && h.attacks[i]) || null;
@@ -3958,7 +4060,8 @@
   }
   function aimColor(root, kind, blocked) {
     if (blocked) return AIM_RED;
-    const armed = root.querySelector('#cbdock .ab-atk.selected, #cbdock .ab-orbes.selected, #cbdock .ab-tool.selected');
+    const armed = root.querySelector('#cbdock .ab-atk.selected, #cbdock .ab-orbes.selected, ' +
+      '#cbdock .ab-tool.selected, #cbdock .ab-gardien-btn.selected, #cbdock .ab-talent.selected');
     return btnColor(armed) || (kind === 'move' ? AIM_BEIGE : AIM_BLUE);
   }
 
@@ -3981,7 +4084,24 @@
     // survole le curseur qui décide. `blocked` = geste impossible (barrière,
     // action déjà dépensée, mouvement épuisé) : c'est le seul cas rouge.
     let kind = null, targetEl = null, blocked = false;
-    if (pendingAttack) { kind = 'atk'; targetEl = mon || zoneEl; }
+    const mode = aimMode();
+    const anyCard = el.closest('.combat-card');
+    // Survol d'un AUTRE aventurier hors action de soutien (Gardien, objet
+    // bénéfique, Orbes Partagés, soin…) : la flèche s'efface pour ne pas
+    // brouiller les pistes. Les cibles réellement valides restent visées.
+    const supportMode = mode === 'garde' || mode === 'partage' || mode === 'objet' || mode === 'analyse';
+    if (!supportMode) {
+      const ally = el.closest('.combat-card.side-hero');
+      if (ally && ally.getAttribute('data-iid') !== String(h.iid) && !ally.classList.contains('targetable')) { hide(); return; }
+    }
+    if (mode === 'garde' || mode === 'partage' || mode === 'objet' || mode === 'analyse') {
+      // Ces actions se jouent sur une vignette : le plateau marque déjà les
+      // cibles valides (targetable) — les autres sont refusées, donc en rouge.
+      if (!anyCard || anyCard.getAttribute('data-iid') === String(h.iid)) { hide(); return; }
+      kind = mode; targetEl = anyCard;
+      blocked = !anyCard.classList.contains('targetable');
+    }
+    else if (pendingAttack) { kind = 'atk'; targetEl = mon || zoneEl; }
     else if (pendingMove) { kind = 'move'; targetEl = mon || zoneEl; }
     else if (mon && mon.getAttribute('data-iid') !== String(h.iid)) {
       kind = 'atk'; targetEl = mon;
@@ -3996,7 +4116,7 @@
 
     const color = aimColor(root, kind, blocked);
     clearAimTargets(root);
-    targetEl.classList.add('aim-target', blocked ? 'aim-ko' : (kind === 'atk' ? 'aim-atk' : 'aim-move'));
+    targetEl.classList.add('aim-target', blocked ? 'aim-ko' : (kind === 'move' ? 'aim-move' : 'aim-atk'));
     targetEl.style.setProperty('--aim-c', color);
 
     // La pointe suit EXACTEMENT le curseur : la flèche colle au mouvement de la
@@ -4034,7 +4154,7 @@
       tx.textContent = ico.txt; tx.setAttribute('x', midX); tx.setAttribute('y', midY + 1);
       tx.style.display = ''; im.style.display = 'none';
     }
-    svg.setAttribute('class', 'combat-aim on aim-' + (blocked ? 'ko' : kind));
+    svg.setAttribute('class', 'combat-aim on aim-' + (blocked ? 'ko' : (kind === 'move' ? 'move' : 'atk')));
   }
 
   // ---------- Pool de dés (bandeau flottant, à gauche) ----------
@@ -4282,14 +4402,19 @@
     // Grille d'actions : 2 lignes, remplissage colonne par colonne (cf. croquis).
     //   Col. action : Attaque (haut) + Mouv/Objet/Analyse (bas)
     //   Col. 2 : Talent 1 / Talent 2 — Col. 3 : Talent 3 / Talent 4 — Col. 4 : Talent 5 / Talent 6
-    html += '<div class="ab-acts">';
-    // Cellule (col. action, ligne 1) : attaque(s) d'arme
-    html += '<div class="ab-attack-cell">' +
-      (weaponAtks.length
-        ? weaponAtks.map(function (w) { return abAttackBtn(c, w.a, w.i, canAct); }).join('')
-        : '<div class="ab-noatk">—</div>') +
-      '</div>';
-    // Cellule (col. action, ligne 2) : Mouv / Objet / Analyse (aventuriers)
+    // Attaque d'arme : le bouton ne sert plus que lorsqu'il y a un CHOIX à faire
+    // (plusieurs armes). Avec une seule arme, viser un adversaire à la souris
+    // l'arme automatiquement — le bouton disparaît.
+    const showAtkCell = c.side !== 'hero' || weaponAtks.length > 1;
+    html += '<div class="ab-acts' + (showAtkCell ? '' : ' ab-acts-notk') + '">';
+    if (showAtkCell) {
+      html += '<div class="ab-attack-cell">' +
+        (weaponAtks.length
+          ? weaponAtks.map(function (w) { return abAttackBtn(c, w.a, w.i, canAct); }).join('')
+          : '<div class="ab-noatk">—</div>') +
+        '</div>';
+    }
+    // Cellule outils : Se relever / Se libérer, objet, analyse (aventuriers)
     html += (c.side === 'hero') ? abToolsHtml(c, canAct, canPretour) : '<div class="ab-tools ab-tools-empty"></div>';
     // Cellules talents T1..T6 (remplies colonne par colonne) :
     //  • aventuriers → leurs attaques spéciales (boutons jouables) ;
@@ -4558,14 +4683,18 @@
       : '<button class="ab-tool move-chip do-move' + (pendingMove === c.iid ? ' selected' : '') + '" type="button"' +
           ' data-iid="' + c.iid + '"' + ((!canMove || !multi || (usedMv && !hasFreeMove && !c.prepBonus)) ? ' disabled' : '') +
           ' title="' + (hasFreeMove ? 'Mouvement gratuit disponible' : (c.prepBonus && usedMv ? 'Mouvement bonus (Préparé)' : 'Changer de zone')) + '">Mouv.</button>';
-    return '<div class="ab-tools">' +
-      moveBtn +
-      '<button class="ab-tool obj-chip do-object' + (pendingObject === c.iid ? ' selected' : '') + '" type="button" data-iid="' + c.iid + '"' +
+    // Le bouton Mouvement a disparu : viser une autre zone à la souris suffit.
+    // Ne restent que « Se relever » / « Se libérer » (qui ne se visent pas) et
+    // deux boutons carrés : objet et analyse.
+    const standup = (geleN > 0 || isAuSol) ? moveBtn : '';
+    return '<div class="ab-tools' + (standup ? '' : ' ab-tools-icons') + '">' +
+      standup +
+      '<button class="ab-tool ab-tool-ico obj-chip do-object' + (pendingObject === c.iid ? ' selected' : '') + '" type="button" data-iid="' + c.iid + '"' +
           ((!canAct || usedO || isAuSol || !c.objectItem) ? ' disabled' : '') +
-          ' title="' + (c.objectItem ? 'Consommer : ' + esc(c.objectItem.name) : 'Aucun objet équipé') + '">Objet</button>' +
-      '<button class="ab-tool ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
+          ' title="' + (c.objectItem ? 'Consommer : ' + esc(c.objectItem.name) : 'Aucun objet équipé') + '">🧪</button>' +
+      '<button class="ab-tool ab-tool-ico ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
           ' data-iid="' + c.iid + '"' + ((!canAct || usedMv || isAuSol) ? ' disabled' : '') +
-          ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">Analyse</button>' +
+          ' title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">🔍</button>' +
     '</div>';
   }
 
