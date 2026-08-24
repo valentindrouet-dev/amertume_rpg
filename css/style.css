@@ -5330,3 +5330,47 @@ body.has-cbdock #bug-fab { bottom: 155px; }
 /* Pendant un combat, la rose des directions ne dispute pas le bas de l'écran
    au bandeau d'action. */
 body.has-cbdock .ses-compass { display: none; }
+
+/* ============================================================
+   v2.4.54 — Visée à la souris + dés au repos
+   ============================================================ */
+/* Calque de visée : flèche tracée du combattant sélectionné vers ce que
+   survole le curseur. Beige = déplacement, rouge = attaque. */
+.combat-aim {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 54; opacity: 0; transition: opacity .12s ease;
+}
+.combat-aim.on { opacity: 1; }
+.combat-aim .aim-line { fill: none; stroke-width: 4; stroke-linecap: round; }
+.combat-aim.aim-atk  .aim-line { stroke: #d13b4e; }
+.combat-aim.aim-atk  .aim-head { fill: #d13b4e; }
+.combat-aim.aim-move .aim-line { stroke: #e0c9a3; stroke-dasharray: 9 7; }
+.combat-aim.aim-move .aim-head { fill: #e0c9a3; }
+.combat-aim .aim-line, .combat-aim .aim-head { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .55)); }
+
+/* Cible survolée */
+.combat-card.aim-target.aim-atk {
+  outline: 2px solid #d13b4e; outline-offset: 1px;
+  box-shadow: 0 0 12px rgba(209, 59, 78, .55);
+}
+.combat-zone.aim-target.aim-move {
+  outline: 2px dashed #e0c9a3; outline-offset: -2px;
+  background: rgba(224, 201, 163, .07);
+}
+.combat-zone.aim-target.aim-atk { outline: 2px dashed #d13b4e; outline-offset: -2px; }
+
+/* Dés au repos dans le bandeau : la couleur est connue, pas la face. */
+.dp-die.dp-rest {
+  background: var(--panel-2); border-style: dashed;
+  border-color: currentColor; box-shadow: inset 0 -3px 6px rgba(0, 0, 0, .2);
+}
+.dp-die.dp-rest .dp-num { opacity: .55; font-size: 1.05rem; }
+.dp-die.dp-rest.die-white  { color: var(--die-white); }
+.dp-die.dp-rest.die-bone   { color: var(--die-bone); }
+.dp-die.dp-rest.die-red    { color: var(--die-red); }
+.dp-die.dp-rest.die-blue   { color: var(--die-blue); }
+.dp-die.dp-rest.die-green  { color: var(--die-green); }
+.dp-die.dp-rest.die-black  { color: #c9c4bd; }
+.dp-die.dp-rest.die-pink   { color: var(--die-pink); }
+.dp-die.dp-rest.die-yellow { color: var(--die-yellow); }
+.dp-nodice { color: #b9a88c; font-size: .82rem; }

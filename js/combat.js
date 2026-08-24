@@ -349,7 +349,7 @@
   }
 
   function startCombat() {
-    lastRoll = null;   // le pool de dés repart vide à chaque nouveau combat
+    lastRoll = null; rollActive = false;   // le pool de dés repart vide à chaque nouveau combat
     const heroObjs = Store.state.heroes.filter(function (h) { return setupHeroes[h.id]; });
     const cfg = {
       zones: setupZones.map(function (z, i) {
@@ -1345,7 +1345,7 @@
     const noCrit = attacker.side === 'hero' && atk.orbNoCrit;
     const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue, defBlocksRed: defBlocksRed, noCrit: noCrit });
     // Pool de dés du bandeau flottant : le jet qui vient d'être résolu.
-    showRoll(res, { who: cname(attacker), target: cname(target), label: attackLabel(atk) });
+    showRoll(res, { iid: attacker.iid, who: cname(attacker), target: cname(target), label: attackLabel(atk) });
 
     // MUR IMBRISABLE (passif) : un critique adverse contre cet aventurier devient un échec.
     let critToEchec = false;
@@ -3499,6 +3499,12 @@
       let z = parseInt(x.zone, 10);
       x.zone = (isNaN(z) || z < 0 || z >= zc) ? 0 : z;
     });
+    // Éléments persistants (bandeau flottant, calque de visée) : on les détache
+    // avant de réécrire le plateau pour les rattacher tels quels ensuite.
+    const keptDock = root.querySelector('#cbdock');
+    const keptAim = root.querySelector('#combat-aim');
+    if (keptDock) keptDock.remove();
+    if (keptAim) keptAim.remove();
     const OUTCOME_LABEL = { victory: 'Victoire', minor: 'Victoire mineure', defeat: 'Défaite' };
     const phaseLabel = c.outcome ? OUTCOME_LABEL[c.outcome]
       : c.phase === 'pretour' ? 'Pré-Tour ' + c.turn
@@ -3562,14 +3568,16 @@
           '<div class="phase-controls" id="phase-controls"></div>' +
         '</div>' +
         '<div id="combat-log" class="combat-log compact side"></div>' +
-      '</div>' +
-      // Bandeau d'action FLOTTANT, ancré en bas de l'écran : il reste visible
-      // quel que soit le défilement. À gauche le pool de dés du dernier lancer,
-      // à droite la fiche du combattant sélectionné et ses boutons d'action.
-      '<div class="cbdock" id="cbdock"><div class="cbdock-inner">' +
-        '<div id="combat-dicepool" class="dicepool"></div>' +
-        '<div id="combat-actionbar" class="combat-actionbar"></div>' +
-      '</div></div>';
+      '</div>';
+    // Bandeau d'action FLOTTANT, ancré en bas de l'écran : il reste visible quel
+    // que soit le défilement. À gauche le pool de dés, à droite la fiche du
+    // combattant sélectionné et ses boutons d'action.
+    // Le bandeau et le calque de visée sont RÉUTILISÉS d'un rendu à l'autre :
+    // le plateau se redessine très souvent et recréer la boîte de dés
+    // interrompait l'animation du lancer avant qu'on ait pu la voir.
+    root.appendChild(keptDock || buildDock());
+    root.appendChild(keptAim || buildAimLayer());
+    wireAim(root);
 
     // Chaque phase de rendu est isolée : un incident dans l'une ne doit jamais
     // laisser le plateau, les contrôles ou le journal entièrement vides.
@@ -3656,6 +3664,19 @@
         // le premier adversaire visible ; s'il n'y en a pas, tente de débusquer
         // une cible INVISIBLE (test de Perception 2).
         if (pendingAttack && !pendingMove) { attackZone(zi); return; }
+        // VISÉE DIRECTE : aucune action armée → l'aventurier sélectionné se
+        // déplace vers la zone cliquée.
+        if (!pendingMove && !pendingAnalyze && !pendingObject) {
+          // Un clic sur une vignette d'allié SÉLECTIONNE cet allié (son propre
+          // handler l'a déjà fait) : il ne doit pas déclencher un déplacement.
+          if (e.target.closest('.combat-card')) return;
+          const ah = aimHero();
+          if (ah && ah.zone !== zi && aimCanMove(ah)) {
+            arrivalTargetIid = null;
+            moveCombatant(ah.iid, zi);
+          }
+          return;
+        }
         if (!pendingMove) return;
         // Clic sur la zone seule : pas de cible précise → premier adversaire.
         arrivalTargetIid = null;
@@ -3814,12 +3835,142 @@
     '</button>';
   }
 
+  // ---------- Bandeau flottant & calque de visée ----------
+  function buildDock() {
+    const d = document.createElement('div');
+    d.id = 'cbdock'; d.className = 'cbdock';
+    d.innerHTML = '<div class="cbdock-inner">' +
+      '<div id="combat-dicepool" class="dicepool"></div>' +
+      '<div id="combat-actionbar" class="combat-actionbar"></div>' +
+    '</div>';
+    return d;
+  }
+  function buildAimLayer() {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.id = 'combat-aim'; s.setAttribute('class', 'combat-aim');
+    s.innerHTML = '<path class="aim-line" d=""></path><polygon class="aim-head" points=""></polygon>';
+    return s;
+  }
+
+  // VISÉE À LA SOURIS : un aventurier sélectionné « tend » une flèche vers ce
+  // que survole le curseur — BEIGE vers une zone (déplacement), ROUGE vers un
+  // adversaire ou une zone visée (attaque). Le clic exécute l'action.
+  let aimWiredEl = null;   // conteneur déjà câblé
+  let aimRaf = 0;
+  let aimLast = null;      // dernière position de curseur connue
+
+  // L'aventurier qui vise : celui affiché dans le bandeau, s'il peut encore agir.
+  function aimHero() {
+    const cmb = combat();
+    if (!cmb || cmb.outcome || pendingReaction) return null;
+    if (cmb.phase !== 'heroes' && cmb.phase !== 'pretour') return null;
+    const h = selectedIid ? byId(selectedIid) : null;
+    if (!h || h.side !== 'hero' || h.status !== 'active') return null;
+    return h;
+  }
+  // Une attaque est-elle encore jouable ? (mêmes règles que le bouton d'attaque)
+  function attackUsable(c, i) {
+    const a = c.attacks && c.attacks[i];
+    if (!a) return false;
+    const uses = (c.attackUses && c.attackUses[i] !== undefined) ? c.attackUses[i] : null;
+    if (uses === 0) return false;
+    if (!a.freeAction && actionSpent(c)) return false;
+    if (!a.isBase && !a.freeAction && Array.isArray(c.actedAtks) && c.actedAtks.indexOf(i) >= 0) return false;
+    if (c.states && c.states.auSol) return false;
+    if (combat().phase !== 'heroes') return false;
+    return true;
+  }
+  // Attaque par défaut de la visée : la première arme jouable.
+  function aimAttackIndex(h) {
+    if (!Array.isArray(h.attacks)) return -1;
+    for (let i = 0; i < h.attacks.length; i++) {
+      if (!h.attacks[i].special && attackUsable(h, i)) return i;
+    }
+    return -1;
+  }
+  // Le déplacement libre est-il possible ce tour ?
+  function aimCanMove(h) {
+    if (zoneCount() < 2) return false;
+    if (h.states && h.states.auSol) return false;
+    if (stateVal(h, 'gele') > 0) return false;
+    const hasFreeMove = h.freeMoveReady || h.freeMoves > 0;
+    if (combat().phase === 'pretour') return hasFreeMove && !h.used.move;
+    return !h.used.move || hasFreeMove || !!h.prepBonus;
+  }
+
+  function wireAim(root) {
+    if (aimWiredEl === root) return;
+    aimWiredEl = root;
+    root.addEventListener('mousemove', function (e) {
+      aimLast = { x: e.clientX, y: e.clientY };
+      if (aimRaf) return;
+      aimRaf = requestAnimationFrame(function () { aimRaf = 0; drawAim(); });
+    });
+    root.addEventListener('mouseleave', function () { aimLast = null; drawAim(); });
+    window.addEventListener('scroll', function () { if (aimLast) drawAim(); }, { passive: true });
+  }
+
+  function clearAimTargets(root) {
+    root.querySelectorAll('.aim-target').forEach(function (el) { el.classList.remove('aim-target', 'aim-atk', 'aim-move'); });
+  }
+
+  function drawAim() {
+    const root = $(rootSel);
+    const svg = root ? root.querySelector('#combat-aim') : null;
+    if (!svg) return;
+    const hide = function () { svg.classList.remove('on'); clearAimTargets(root); };
+    const h = aimHero();
+    if (!h || !aimLast) { hide(); return; }
+    const card = root.querySelector('.combat-card[data-iid="' + h.iid + '"]');
+    if (!card) { hide(); return; }
+    const el = document.elementFromPoint(aimLast.x, aimLast.y);
+    if (!el || !root.contains(el) || el.closest('#cbdock')) { hide(); return; }
+    const mon = el.closest('.combat-card.side-monster');
+    const zoneEl = el.closest('.combat-zone');
+    const zi = zoneEl ? parseInt(zoneEl.getAttribute('data-zone'), 10) : -1;
+
+    // Nature de la visée : une action déjà armée impose sa couleur, sinon c'est
+    // ce que survole le curseur qui décide.
+    let kind = null, targetEl = null;
+    if (pendingAttack) { kind = 'atk'; targetEl = mon || zoneEl; }
+    else if (pendingMove) { kind = (mon || zoneEl) ? 'move' : null; targetEl = mon || zoneEl; }
+    else if (mon && mon.getAttribute('data-iid') !== String(h.iid) && aimAttackIndex(h) >= 0) { kind = 'atk'; targetEl = mon; }
+    else if (zoneEl && zi !== h.zone && aimCanMove(h)) { kind = 'move'; targetEl = zoneEl; }
+    if (!kind || !targetEl) { hide(); return; }
+
+    clearAimTargets(root);
+    targetEl.classList.add('aim-target', kind === 'atk' ? 'aim-atk' : 'aim-move');
+
+    const r = card.getBoundingClientRect();
+    const t = targetEl.getBoundingClientRect();
+    const x1 = r.left + r.width / 2, y1 = r.top + r.height / 2;
+    // La pointe s'arrête sur le bord de la cible plutôt qu'en son centre.
+    const cx = t.left + t.width / 2, cy = t.top + t.height / 2;
+    const dx = cx - x1, dy = cy - y1;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const inset = Math.min(len * 0.4, Math.min(t.width, t.height) / 2 + 6);
+    const x2 = cx - (dx / len) * inset, y2 = cy - (dy / len) * inset;
+    // Courbe légère (arc) pour que la flèche « jaillisse » du combattant.
+    const mx = (x1 + x2) / 2 - dy * 0.12, my = (y1 + y2) / 2 + dx * 0.12;
+    svg.querySelector('.aim-line').setAttribute('d', 'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2);
+    // Pointe orientée selon la tangente d'arrivée (depuis le point de contrôle).
+    const ax = x2 - mx, ay = y2 - my, al = Math.sqrt(ax * ax + ay * ay) || 1;
+    const ux = ax / al, uy = ay / al, HW = 9, HL = 20;
+    const bx = x2 - ux * HL, by = y2 - uy * HL;
+    svg.querySelector('.aim-head').setAttribute('points',
+      x2 + ',' + y2 + ' ' + (bx - uy * HW) + ',' + (by + ux * HW) + ' ' + (bx + uy * HW) + ',' + (by - ux * HW));
+    svg.setAttribute('class', 'combat-aim on aim-' + kind);
+  }
+
   // ---------- Pool de dés (bandeau flottant, à gauche) ----------
   // Dernier lancer affiché. `seq` incrémente à chaque nouveau jet : le pool ne
   // rejoue son animation que lorsque la séquence change (les re-rendus du
   // plateau, très fréquents, ne relancent donc pas les dés).
   let lastRoll = null;
   let rollSeq = 0;
+  let rollActive = false;   // le résultat du jet occupe le pool (sinon : dés au repos)
+  let poolSelWatch = null;  // dernier combattant sélectionné vu par le pool
+  let poolAtkWatch = null;  // dernière attaque armée vue par le pool
   let rollTimers = [];
 
   const DIE_LABEL = { white: 'Simple', bone: 'Léger', red: 'Lourd', blue: 'Mystique', green: 'Soin', black: 'Mortel', yellow: 'Phase', pink: 'Faille' };
@@ -3829,6 +3980,7 @@
     if (!res || !Array.isArray(res.dice) || !res.dice.length) return;
     rollSeq++;
     lastRoll = { seq: rollSeq, res: res, meta: meta || {} };
+    rollActive = true;
   }
 
   function dieHtml(d) {
@@ -3849,16 +4001,73 @@
       '<span class="dp-num">' + d.value + '</span></span>';
   }
 
+  // Attaque dont les dés sont affichés au repos : celle qui est armée, sinon
+  // l'arme par défaut du combattant sélectionné.
+  function restAttackOf(c) {
+    if (!c || !Array.isArray(c.attacks) || !c.attacks.length) return null;
+    if (pendingAttack && pendingAttack.iid === c.iid && c.attacks[pendingAttack.atkIndex]) {
+      return { a: c.attacks[pendingAttack.atkIndex], i: pendingAttack.atkIndex };
+    }
+    const i = aimAttackIndex(c);
+    if (i >= 0) return { a: c.attacks[i], i: i };
+    const j = c.attacks.findIndex(function (a) { return !a.special; });
+    return j >= 0 ? { a: c.attacks[j], i: j } : { a: c.attacks[0], i: 0 };
+  }
+
+  // Dé au repos : la couleur est visible, la face reste inconnue.
+  function restDieHtml(color) {
+    return '<span class="dp-die dp-rest die-' + color + '" title="' + esc(DIE_LABEL[color] || color) + '">' +
+      '<span class="dp-num">?</span></span>';
+  }
+
   function renderDicePool() {
     const root = $(rootSel);
     const box = root ? root.querySelector('#combat-dicepool') : null;
     if (!box) return;
-    if (!lastRoll) {
-      box.className = 'dicepool';
-      box.innerHTML = '<div class="dp-empty"><span class="dp-empty-ico">🎲</span>' +
-        '<span>Les dés du prochain lancer s\'afficheront ici.</span></div>';
+    const sel = selectedIid ? byId(selectedIid) : null;
+    // Le résultat d'un lancer occupe le pool jusqu'à ce que le joueur sélectionne
+    // un autre combattant ou arme une autre attaque : le pool revient alors aux
+    // dés au repos de la prochaine attaque.
+    const atkKey = pendingAttack ? (pendingAttack.iid + ':' + pendingAttack.atkIndex) : null;
+    if (poolSelWatch !== selectedIid) { poolSelWatch = selectedIid; rollActive = false; }
+    if (atkKey && poolAtkWatch !== atkKey) rollActive = false;
+    poolAtkWatch = atkKey;
+    const showRollNow = !!(lastRoll && rollActive);
+    const rest = showRollNow ? null : restAttackOf(sel);
+    // Signature du contenu : le pool n'est redessiné QUE s'il change réellement
+    // (sinon l'animation du lancer serait interrompue par un re-rendu du plateau).
+    const sig = showRollNow ? 'roll:' + lastRoll.seq
+      : !sel ? 'none'
+      : 'rest:' + sel.iid + ':' + (rest ? rest.i : -1) + ':' + (rest ? JSON.stringify(rest.a.dice || {}) : '') +
+        ':' + (sel.damage || 0);
+    if (box.getAttribute('data-sig') === sig && box.firstChild) return;
+    box.setAttribute('data-sig', sig);
+
+    if (!showRollNow) {
+      if (!sel || !rest || !rest.a) {
+        box.className = 'dicepool';
+        box.innerHTML = '<div class="dp-empty"><span class="dp-empty-ico">🎲</span>' +
+          '<span>Clique un combattant pour voir ses dés.</span></div>';
+        return;
+      }
+      const known = sel.side !== 'monster' || sel.analyzed;
+      const pool = rest.a.dice || {};
+      let tray = '';
+      D.DICE_ORDER.forEach(function (k) {
+        for (let n = 0; n < (pool[k] || 0); n++) tray += restDieHtml(k);
+      });
+      const dmg = (rest.a.useOwnDamage !== false && sel.damage > 0 && !(sel.states && sel.states.affaibli)) ? sel.damage : 0;
+      if (dmg > 0) tray += '<span class="dp-bonus" title="Bonus de Dégâts">+' + dmg + '</span>';
+      if (!tray) tray = '<span class="dp-nodice">Aucun dé</span>';
+      box.className = 'dicepool rest';
+      box.innerHTML =
+        '<div class="dp-head"><span class="dp-who">' + cname(sel) + '</span>' +
+          '<span class="dp-label">' + esc(known ? attackLabel(rest.a) : 'Attaque inconnue') + '</span></div>' +
+        '<div class="dp-tray">' + (known ? tray : '<span class="dp-nodice">Analysez cet adversaire pour voir ses dés.</span>') + '</div>' +
+        '<div class="dp-out"><span class="dp-total none">Dés en attente du lancer</span></div>';
       return;
     }
+
     const res = lastRoll.res, m = lastRoll.meta;
     let head = '<div class="dp-head">';
     if (m.who) head += '<span class="dp-who">' + m.who + '</span>';
@@ -3880,7 +4089,6 @@
     out += '</div>';
 
     box.className = 'dicepool active';
-    box.setAttribute('data-seq', String(lastRoll.seq));
     box.innerHTML = head + tray + out;
     if (box.getAttribute('data-anim') !== String(lastRoll.seq)) {
       box.setAttribute('data-anim', String(lastRoll.seq));
@@ -4219,8 +4427,10 @@
       ? '<span class="ab-atk-talname">' + esc(a.name) + '</span>'
       : '<img class="ab-atk-name" src="' + (a.range === 'distance' ? 'assets/Attack_range_b.png' : 'assets/Attack_melee_b.png') + '" alt="' + (a.range === 'distance' ? 'Tir' : 'Attaque') + '">';
     // Les boutons de talent n'affichent que le nom (pas de dés ni de bonus).
+    // Les dés ne sont plus affichés ici : le pool du bandeau montre en permanence
+    // les dés de l'attaque sélectionnée.
     const figsHtml = a.special ? '' :
-      '<span class="ab-atk-figs">' + (revealed ? Inventory.poolBadges(a.dice) : '') +
+      '<span class="ab-atk-figs">' +
         (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '') +
         (revealed && uses !== null ? '<span class="atk-uses">' + uses + '×</span>' : '') +
       '</span>';
@@ -4736,7 +4946,7 @@
       // BLINDAGE : absorbe entièrement le souffle (consomme une source).
       if (absorbBlindage(t, cfg.name || 'l\'explosion')) return;
       const res = D.resolve(pool, { def: 0, damage: 0, turn: combat().turn });
-      showRoll(res, { who: cname(src), target: cname(t), label: cfg.name || 'Explosion' });
+      showRoll(res, { iid: src.iid, who: cname(src), target: cname(t), label: cfg.name || 'Explosion' });
       const flat = Math.max(0, Store.rollAmount(cfg.val0 || 0));
       const dmg = Math.max(0, (res.pvLost || 0) + flat);
       const before = t.pv;
@@ -5178,8 +5388,20 @@
           } else { Store.save(); render(); }
           return;
         }
+        // 2pre) VISÉE DIRECTE : un aventurier est sélectionné, aucune action n'est
+        // armée et l'on clique un adversaire → il l'attaque avec son arme.
+        let aimed = false;
+        if (!pendingAttack && !pendingMove && !pendingAnalyze && !pendingObject &&
+            c.side === 'monster' && c.status === 'active') {
+          const ah = aimHero();
+          const ai = ah ? aimAttackIndex(ah) : -1;
+          if (ah && ai >= 0) {
+            pendingAttack = { iid: ah.iid, atkIndex: ai, average: false };
+            aimed = true;
+          }
+        }
         // 2) Ciblage d'une attaque
-        if (targetable && pendingAttack) {
+        if ((targetable || aimed) && pendingAttack) {
           const attacker = byId(pendingAttack.iid);
           if (!attacker) return;
           const atk = attacker.attacks[pendingAttack.atkIndex];

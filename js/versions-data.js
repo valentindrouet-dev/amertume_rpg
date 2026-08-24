@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.54",
+    "date": "2026-08-24",
+    "title": "Visee a la souris, des du heros toujours visibles, animation du lancer fiable",
+    "changes": [
+      "VISÉE : on clique un aventurier, on deplace la souris, et une fleche courbe se dessine de sa vignette vers ce que survole le curseur — ROUGE vers un adversaire (attaque) ou une zone visee, BEIGE en pointilles vers une autre zone (deplacement). La cible survolee s'illumine de la meme couleur. Le clic execute directement l'action : plus besoin de passer par le bouton Attaque ou Mouv. (ils restent disponibles). Les regles habituelles s'appliquent (arme jouable, action deja depensee, mouvement disponible, barrieres, opportunites), un clic sur une vignette d'allie continue de le selectionner, et une action deja armee (Orbe, talent, Objet, Analyse) garde la priorite.",
+      "Le pool de des affiche EN PERMANENCE les des de l'attaque du combattant selectionne, meme sans lancer : des colores en pointilles a face inconnue, bonus de degats compris, mis a jour des qu'on arme une autre attaque. Les figurines de des disparaissent donc des boutons d'attaque, qui gagnent en lisibilite.",
+      "Correctif : on ne voyait pas les des tourner. Le bandeau flottant etait reconstruit a chaque re-rendu du plateau (tres frequent pendant une attaque), ce qui recreait la boite de des et coupait l'animation avant qu'elle soit visible. Le bandeau et le calque de visee sont desormais conserves d'un rendu a l'autre, et le pool n'est redessine que lorsque son contenu change vraiment."
+    ]
+  },
+  {
     "v": "v2.4.53",
     "date": "2026-08-24",
     "title": "Bandeau de combat flottant en bas d'ecran + boite de lancer de des",
