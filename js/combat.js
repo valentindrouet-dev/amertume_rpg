@@ -3671,7 +3671,7 @@
           // handler l'a déjà fait) : il ne doit pas déclencher un déplacement.
           if (e.target.closest('.combat-card')) return;
           const ah = aimHero();
-          if (ah && ah.zone !== zi && aimCanMove(ah)) {
+          if (ah && ah.zone !== zi && aimCanMove(ah) && !aimMoveBlocked(ah, zi)) {
             arrivalTargetIid = null;
             moveCombatant(ah.iid, zi);
           }
@@ -3848,7 +3848,10 @@
   function buildAimLayer() {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     s.id = 'combat-aim'; s.setAttribute('class', 'combat-aim');
-    s.innerHTML = '<path class="aim-line" d=""></path><polygon class="aim-head" points=""></polygon>';
+    s.innerHTML = '<path class="aim-line" d=""></path><polygon class="aim-head" points=""></polygon>' +
+      '<circle class="aim-ico-bg" r="17" cx="-99" cy="-99"></circle>' +
+      '<image class="aim-ico-img" width="24" height="24" x="-99" y="-99"></image>' +
+      '<text class="aim-ico-txt" x="-99" y="-99" text-anchor="middle" dominant-baseline="central"></text>';
     return s;
   }
 
@@ -3898,6 +3901,22 @@
     return !h.used.move || hasFreeMove || !!h.prepBonus;
   }
 
+  // Une barrière infranchissable sépare-t-elle l'aventurier de cette zone ?
+  function aimMoveBlocked(h, zi) {
+    if (heroHasTalent(h, 'teleportation')) return false;
+    return moveBarrier(h.zone, zi).type === 'block';
+  }
+  // Icône du ciblage : ⚔ contact, 🏹 tir, ✦ sort, 👣 déplacement, 🚫 impossible.
+  function aimIcon(h, kind, blocked) {
+    if (blocked) return { txt: '🚫' };
+    if (kind === 'move') return { txt: '👣' };
+    const i = (pendingAttack && pendingAttack.iid === h.iid) ? pendingAttack.atkIndex : aimAttackIndex(h);
+    const a = (h.attacks && h.attacks[i]) || null;
+    if (a && (isOrbAttack(a) || (a.special && a.range !== 'distance'))) return { img: 'assets/Attack_spell_b.png' };
+    if (a && a.range === 'distance') return { img: 'assets/Attack_range_b.png' };
+    return { img: 'assets/Attack_melee_b.png' };
+  }
+
   function wireAim(root) {
     if (aimWiredEl === root) return;
     aimWiredEl = root;
@@ -3938,8 +3957,12 @@
     else if (zoneEl && zi !== h.zone && aimCanMove(h)) { kind = 'move'; targetEl = zoneEl; }
     if (!kind || !targetEl) { hide(); return; }
 
+    // Déplacement impossible (mur / barrière infranchissable) : la flèche vire
+    // au rouge et porte l'icône d'interdiction.
+    const blocked = kind === 'move' && zi >= 0 && zi !== h.zone && aimMoveBlocked(h, zi);
+
     clearAimTargets(root);
-    targetEl.classList.add('aim-target', kind === 'atk' ? 'aim-atk' : 'aim-move');
+    targetEl.classList.add('aim-target', (kind === 'atk' || blocked) ? 'aim-atk' : 'aim-move');
 
     const r = card.getBoundingClientRect();
     const t = targetEl.getBoundingClientRect();
@@ -3959,7 +3982,19 @@
     const bx = x2 - ux * HL, by = y2 - uy * HL;
     svg.querySelector('.aim-head').setAttribute('points',
       x2 + ',' + y2 + ' ' + (bx - uy * HW) + ',' + (by + ux * HW) + ' ' + (bx + uy * HW) + ',' + (by - ux * HW));
-    svg.setAttribute('class', 'combat-aim on aim-' + kind);
+    // Pastille d'icône posée sur la pointe : type de ciblage (contact, tir,
+    // sort, déplacement) ou interdiction.
+    const ico = aimIcon(h, kind, blocked);
+    const bg = svg.querySelector('.aim-ico-bg'), im = svg.querySelector('.aim-ico-img'), tx = svg.querySelector('.aim-ico-txt');
+    bg.setAttribute('cx', x2); bg.setAttribute('cy', y2);
+    if (ico.img) {
+      im.setAttribute('href', ico.img); im.setAttribute('x', x2 - 12); im.setAttribute('y', y2 - 12);
+      im.style.display = ''; tx.style.display = 'none';
+    } else {
+      tx.textContent = ico.txt; tx.setAttribute('x', x2); tx.setAttribute('y', y2 + 1);
+      tx.style.display = ''; im.style.display = 'none';
+    }
+    svg.setAttribute('class', 'combat-aim on aim-' + (blocked ? 'blocked' : kind));
   }
 
   // ---------- Pool de dés (bandeau flottant, à gauche) ----------

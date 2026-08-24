@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.55",
+    "date": "2026-08-24",
+    "title": "Des du pool en couleurs pleines, fleche rouge si le passage est barre, icones de ciblage",
+    "changes": [
+      "Les des affiches avant le lancer ont exactement l'aspect qu'ils auront au moment du jet : fond plein de leur couleur, plus de contour en pointilles ni de transparence. Seule la face reste inconnue.",
+      "La fleche de deplacement passe au ROUGE quand la zone visee est separee par un mur ou une barriere infranchissable (sauf Teleportation) : la zone s'illumine en rouge et le clic ne tente rien.",
+      "Une pastille d'icone se pose sur la pointe de la fleche et annonce le type de ciblage : epee au contact, arc a distance, sort pour un Orbe ou un talent, empreintes de pas pour un deplacement, panneau d'interdiction pour un passage barre. L'icone suit l'attaque reellement armee."
+    ]
+  },
+  {
     "v": "v2.4.54",
     "date": "2026-08-24",
     "title": "Visee a la souris, des du heros toujours visibles, animation du lancer fiable",

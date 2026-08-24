@@ -5359,18 +5359,20 @@ body.has-cbdock .ses-compass { display: none; }
 }
 .combat-zone.aim-target.aim-atk { outline: 2px dashed #d13b4e; outline-offset: -2px; }
 
-/* Dés au repos dans le bandeau : la couleur est connue, pas la face. */
-.dp-die.dp-rest {
-  background: var(--panel-2); border-style: dashed;
-  border-color: currentColor; box-shadow: inset 0 -3px 6px rgba(0, 0, 0, .2);
-}
-.dp-die.dp-rest .dp-num { opacity: .55; font-size: 1.05rem; }
-.dp-die.dp-rest.die-white  { color: var(--die-white); }
-.dp-die.dp-rest.die-bone   { color: var(--die-bone); }
-.dp-die.dp-rest.die-red    { color: var(--die-red); }
-.dp-die.dp-rest.die-blue   { color: var(--die-blue); }
-.dp-die.dp-rest.die-green  { color: var(--die-green); }
-.dp-die.dp-rest.die-black  { color: #c9c4bd; }
-.dp-die.dp-rest.die-pink   { color: var(--die-pink); }
-.dp-die.dp-rest.die-yellow { color: var(--die-yellow); }
+/* Dés au repos dans le bandeau : exactement l'aspect qu'ils auront au lancer
+   (fond plein de leur couleur), seule la face reste inconnue. */
+.dp-die.dp-rest .dp-num { opacity: .75; font-size: 1.1rem; }
 .dp-nodice { color: #b9a88c; font-size: .82rem; }
+
+/* Flèche de visée : icône du type de ciblage posée sur la pointe. */
+.combat-aim .aim-ico-bg { fill: #241b11; stroke-width: 2.5; }
+.combat-aim.aim-atk     .aim-ico-bg { stroke: #d13b4e; }
+.combat-aim.aim-move    .aim-ico-bg { stroke: #e0c9a3; }
+.combat-aim.aim-blocked .aim-ico-bg { stroke: #d13b4e; }
+.combat-aim .aim-ico-txt { font-size: 17px; }
+.combat-aim .aim-ico-bg, .combat-aim .aim-ico-img, .combat-aim .aim-ico-txt {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .55));
+}
+/* Déplacement impossible (mur, barrière infranchissable) : tout passe au rouge. */
+.combat-aim.aim-blocked .aim-line { stroke: #d13b4e; stroke-dasharray: 9 7; }
+.combat-aim.aim-blocked .aim-head { fill: #d13b4e; }
