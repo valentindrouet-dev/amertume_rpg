@@ -1,6 +1,24 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.04",
+    "date": "2026-08-24",
+    "title": "HUD de combat, seconde passe : visee rouge si impossible, envolee des des, journal epure",
+    "changes": [
+      "La fleche de visee passe au ROUGE des que l'attaque est impossible : cible derriere un mur ou une barriere infranchissable, tir bloque, attaque de contact sans mouvement disponible pour rejoindre la cible (Eclipse, Teleportation et attaques a deplacement gratuit restent bleues).",
+      "Vignette selectionnee lisible : fin des fonds clairs satures — fond sombre reflete ambre, anneau de selection net, nom garde sa couleur de classe.",
+      "La disponibilite suit la VRAIE action (nouvelle classe act-ready) : des que l'aventurier a agi, sa vignette s'eteint immediatement, meme selectionnee — l'etat Prepare ne maintient plus le halo a tort.",
+      "Onglets d'etat agrandis et COLORES par etat : feu orange, gel bleu glace, poison vert, blindage acier, prepare ambre, invisible mauve… icone plus grande, petites capitales Cinzel.",
+      "Les etats ne s'affichent plus sur les vignettes du plateau : ils vivent sur les onglets du bandeau (bulle d'explication au survol conservee).",
+      "Hierarchie de polices unifiee : Cinzel pour les identites et titres (noms, zones, TOUR, onglets, titres de cases), Inter pour tout le fonctionnel.",
+      "Boutons outils avec libelles OBJET et ANALYSE sous leur icone.",
+      "Case de description sur fond parchemin clair, texte brun fonce.",
+      "ENVOLEE DES DES : les des du jet apparaissent en grand au centre de l'ecran puis glissent en retrecissant jusqu'au pool du bandeau (transformations seules, respect de prefers-reduced-motion).",
+      "Journal recentre sur l'essentiel : plus de lignes de deplacement ni de changement de tour, degats et soins en gros et gras, et le detail du calcul (les des) est replie — un clic sur la ligne 🎲 l'ouvre.",
+      "Allegement : suppression des flous d'arriere-plan du bandeau, de la navigation de donjon et des modales (fonds opaques), flou de la barre superieure reduit — la cause probable des saccades."
+    ]
+  },
+  {
     "v": "v2.5.03",
     "date": "2026-08-24",
     "title": "HUD de combat « jeu video » : vignettes sombres teintees, signal d'action, onglets d'etats",

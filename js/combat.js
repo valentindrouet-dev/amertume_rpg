@@ -4176,6 +4176,19 @@
     // action déjà dépensée, mouvement épuisé) : c'est le seul cas rouge.
     let kind = null, targetEl = null, blocked = false;
     const mode = aimMode();
+    // Une attaque hors de portée (barrière infranchissable, tir bloqué,
+    // mouvement déjà dépensé pour un contact) se vise en ROUGE.
+    function attackReachOk(t) {
+      const i = (pendingAttack && pendingAttack.iid === h.iid) ? pendingAttack.atkIndex : aimAttackIndex(h);
+      const a = h.attacks && h.attacks[i];
+      if (!a) return false;
+      if (t.zone === h.zone) return true;
+      if (a.range === 'distance') return !shootBlocked(h.zone, t.zone);
+      if (a.eclipse || heroHasTalent(h, 'teleportation')) return true;
+      if (moveBarrier(h.zone, t.zone).type === 'block') return false;
+      if (a.freeMove || !h.used.move || h.prepBonus || h.freeMoves > 0 || h.freeMoveReady) return true;
+      return false;
+    }
     const anyCard = el.closest('.combat-card');
     // Survol d'un AUTRE aventurier hors action de soutien (Gardien, objet
     // bénéfique, Orbes Partagés, soin…) : la flèche s'efface pour ne pas
@@ -4204,6 +4217,11 @@
     if (!kind || !targetEl) { hide(); return; }
     // Zone séparée par un mur ou une barrière infranchissable.
     if (kind === 'move' && zi >= 0 && zi !== h.zone && aimMoveBlocked(h, zi)) blocked = true;
+    // Cible d'attaque inatteignable : flèche rouge.
+    if (kind === 'atk' && !blocked && mon) {
+      const tgt = byId(mon.getAttribute('data-iid'));
+      if (tgt && !attackReachOk(tgt)) blocked = true;
+    }
 
     const color = aimColor(root, kind, blocked);
     clearAimTargets(root);
@@ -4422,6 +4440,7 @@
     if (box.getAttribute('data-anim') !== String(lastRoll.seq)) {
       box.setAttribute('data-anim', String(lastRoll.seq));
       animatePool(box);
+      flyDice(box);
     }
   }
 
@@ -4460,7 +4479,7 @@
     if (!keys.length) { bar.innerHTML = ''; bar.classList.remove('on'); return; }
     bar.classList.add('on');
     bar.innerHTML = keys.map(function (s) {
-      return '<span class="dock-state ' + (STATE_META[s].neg ? 'neg' : 'pos') + '">' +
+      return '<span class="dock-state st-' + s + ' ' + (STATE_META[s].neg ? 'neg' : 'pos') + '">' +
         '<span class="dock-state-ico">' + stateIcon(s) + '</span>' +
         '<span class="dock-state-lbl">' + stateBadgeLabel(c, s) + '</span>' +
         '<span class="dock-state-pop"><b>' + esc(stateLabel(s)) +
@@ -4471,6 +4490,32 @@
 
   // Emplacements de talents affichés dans le bandeau (2 lignes de 4).
   const TALENT_SLOTS = 8;
+
+  // Les dés du jet apparaissent en GRAND au centre de l'écran, puis glissent en
+  // rétrécissant jusqu'à leur place dans le pool du bandeau.
+  function flyDice(box) {
+    if (reduceMotion && reduceMotion()) return;
+    const tray = box.querySelector('.dp-tray');
+    if (!tray || !tray.querySelector('.dp-die')) return;
+    document.querySelectorAll('.dice-fly').forEach(function (f) { f.remove(); });
+    const fly = document.createElement('div');
+    fly.className = 'dice-fly';
+    fly.innerHTML = '<div class="dice-fly-inner">' + tray.innerHTML + '</div>';
+    document.body.appendChild(fly);
+    const inner = fly.firstChild;
+    requestAnimationFrame(function () {
+      const fr = inner.getBoundingClientRect();
+      const r = tray.getBoundingClientRect();
+      const dx = (r.left + r.width / 2) - (fr.left + fr.width / 2);
+      const dy = (r.top + r.height / 2) - (fr.top + fr.height / 2);
+      const sc = Math.max(.2, Math.min(1, r.width / Math.max(1, fr.width)));
+      setTimeout(function () {
+        inner.style.transform = 'translate(' + Math.round(dx) + 'px,' + Math.round(dy) + 'px) scale(' + sc.toFixed(2) + ')';
+        inner.style.opacity = '0';
+        setTimeout(function () { fly.remove(); }, 460);
+      }, 650);
+    });
+  }
 
   function renderActionBar() {
     const root = $(rootSel);
@@ -4838,10 +4883,10 @@
       standup +
       '<button class="ab-tool ab-tool-ico obj-chip do-object' + (pendingObject === c.iid ? ' selected' : '') + '" type="button" data-iid="' + c.iid + '"' +
           ((!canAct || usedO || isAuSol || !c.objectItem) ? ' disabled' : '') +
-          ' data-label="Objet" title="' + (c.objectItem ? 'Consommer : ' + esc(c.objectItem.name) : 'Aucun objet équipé') + '">🧪</button>' +
+          ' data-label="Objet" title="' + (c.objectItem ? 'Consommer : ' + esc(c.objectItem.name) : 'Aucun objet équipé') + '">🧪<span class="ab-tool-txt">Objet</span></button>' +
       '<button class="ab-tool ab-tool-ico ana-chip do-analyse' + (pendingAnalyze === c.iid ? ' selected' : '') + '" type="button"' +
           ' data-iid="' + c.iid + '"' + ((!canAct || usedMv || isAuSol) ? ' disabled' : '') +
-          ' data-label="Analyse" title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">🔍</button>' +
+          ' data-label="Analyse" title="Révèle DEF, Dégâts et XP de l\'adversaire ciblé">🔍<span class="ab-tool-txt">Analyse</span></button>' +
     '</div>';
   }
 
@@ -4870,6 +4915,7 @@
     if (dead) cls.push('is-' + c.status);
     if (selectedIid === c.iid) cls.push('selected');
     if (c.side === 'hero' && !dead && (!c.used.action || c.prepBonus)) cls.push('has-action');
+    if (c.side === 'hero' && !dead && !actionSpent(c)) cls.push('act-ready');
     // Brûlure : halo de feu persistant tant que le combattant est en FEU.
     if (VFX.brulure && !dead && stateVal(c, 'feu') > 0) cls.push('on-fire');
     // GELÉ : liseré de glace sur la carte du combattant immobilisé.
@@ -5974,14 +6020,24 @@
     const root = $(rootSel);
     const box = root ? root.querySelector('#combat-log') : null;
     if (!box) return;
-    if (!combat().log.length) { box.innerHTML = '<p class="empty">—</p>'; return; }
-    // e.text contient du HTML pré-échappé (noms échappés à la construction)
-    // Ordre CHRONOLOGIQUE : le journal est stocké du plus récent au plus ancien,
-    // on l'inverse pour l'affichage (les dernières lignes apparaissent en bas).
-    box.innerHTML = combat().log.slice().reverse().map(function (e) {
+    // Le journal n'affiche NI les déplacements NI les changements de tour :
+    // seuls les faits marquants restent (attaques, états, morts, réactions).
+    const rows = combat().log.slice().reverse().filter(function (e) {
+      return e.kind !== 'move' && e.kind !== 'turn';
+    });
+    if (!rows.length) { box.innerHTML = '<p class="empty">Rien à signaler pour l\'instant.</p>'; return; }
+    box.innerHTML = rows.map(function (e) {
       return '<div class="log-row log-' + e.kind + '"><span class="log-turn">T' + e.turn + '</span>' +
         e.text + '</div>';
     }).join('');
+    // Détail du calcul des dégâts (les dés) replié par défaut : clic pour l'ouvrir.
+    if (!box.dataset.diceWired) {
+      box.dataset.diceWired = '1';
+      box.addEventListener('click', function (ev) {
+        const row = ev.target.closest('.log-row');
+        if (row && row.querySelector('.ldice')) row.classList.toggle('show-dice');
+      });
+    }
     // Suit automatiquement les dernières entrées.
     box.scrollTop = box.scrollHeight;
   }
