@@ -1,6 +1,21 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.03",
+    "date": "2026-08-24",
+    "title": "HUD de combat « jeu video » : vignettes sombres teintees, signal d'action, onglets d'etats",
+    "changes": [
+      "Vignettes de combattant refondues : fond sombre voile de la couleur de classe (heros) ou de dangerosite (adversaires), nom en petites capitales Cinzel a la couleur de sa classe, pastilles d'etat sombres a bord colore.",
+      "Lecture immediate de qui peut agir : lisiere lumineuse bleue autour des aventuriers dont l'ACTION est disponible, vignette eteinte (opacite et saturation reduites) une fois l'action depensee — sauf selection en cours.",
+      "Zones identifiees : plaque de titre en capitales espacees, liseret superieur colore selon l'occupant (bleu aventuriers, ambre alpha, rouge solitaire, violet boss), hauteur minimale qui remplit l'espace, « Zone vide » en filigrane.",
+      "Barre de tour en bandeau HUD : TOUR en cartouche dore Cinzel, phase en pastille teintee, XP en badge ambre.",
+      "Journal de combat : titre « Journal de combat », lignes espacees et separees, changements de tour sur fond ambre a liseret, colonne collante qui ne passe plus sous le bandeau.",
+      "Bandeau du bas accorde : fiche et actions sombres teintees classe, boutons de talent sombres (emplacements vides en pointilles), attaque en bleu action, grand bouton Se relever / Se liberer sur deux lignes avec fiole et loupe empilees a cote.",
+      "Les etats deviennent des ONGLETS DE LIVRE poses sur le bandeau : forme d'onglet a coins hauts arrondis, icone dediee par etat (feu, gel, poison, blindage, garde…), petites capitales Cinzel, liseret superieur vert ou rouge, survol qui souleve l'onglet — la bulle de description est conservee.",
+      "Le nom garde sa couleur de classe meme quand l'action est disponible (l'ancien bleuissement v2.49 est neutralise). Aucune information retiree ; verification Playwright sur un combat a quatre aventuriers, etats multiples, attaque et mise a mort."
+    ]
+  },
+  {
     "v": "v2.5.02",
     "date": "2026-08-24",
     "title": "Navigation de donjon : la barre n'est plus masquee par un combat reste dans un onglet cache",

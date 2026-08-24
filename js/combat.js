@@ -2869,6 +2869,13 @@
     invisible: 'Ne peut pas être ciblé directement ; il faut viser sa zone (test de Perception 2). Tout dégât subi le révèle.',
   };
   function stateDesc(s) { return STATE_DESC[s] || ''; }
+  // Icône de chaque état — affichée sur son onglet au-dessus du bandeau.
+  const STATE_ICON = {
+    affaibli: '💤', auSol: '⬇️', feu: '🔥', gele: '❄️', poison: '☠️',
+    brise: '💔', faille: '🎲', blindage: '🛡️', onde: '🌊', ciblage: '🎯',
+    garde: '⚜️', prepare: '⚡', invisible: '👻',
+  };
+  function stateIcon(s) { return STATE_ICON[s] || '✦'; }
   // ---- INVISIBILITÉ ----
   // Un combattant invisible ne peut pas être ciblé directement et n'apparaît pas
   // sur le terrain pour le camp adverse. On ne l'atteint qu'en visant sa ZONE,
@@ -4454,6 +4461,7 @@
     bar.classList.add('on');
     bar.innerHTML = keys.map(function (s) {
       return '<span class="dock-state ' + (STATE_META[s].neg ? 'neg' : 'pos') + '">' +
+        '<span class="dock-state-ico">' + stateIcon(s) + '</span>' +
         '<span class="dock-state-lbl">' + stateBadgeLabel(c, s) + '</span>' +
         '<span class="dock-state-pop"><b>' + esc(stateLabel(s)) +
           (isStackState(s) ? ' ' + stateVal(c, s) : '') + '</b>' + esc(stateDesc(s)) + '</span>' +
