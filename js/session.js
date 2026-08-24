@@ -1481,6 +1481,11 @@
 
     const root = document.getElementById('session-root');
     if (!root) return;
+    // Filet : un bandeau de combat abandonné dans un onglet caché (Combat Test
+    // quitté en cours de partie) ne doit jamais masquer la navigation.
+    document.querySelectorAll('#cbdock').forEach(function (d) {
+      if (!d.closest('.tab-panel.active')) d.remove();
+    });
     let rose = document.getElementById('ses-compass');
     if (!rose) { rose = document.createElement('div'); rose.id = 'ses-compass'; root.appendChild(rose); }
     rose.className = 'ses-compass';

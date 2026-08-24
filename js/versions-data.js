@@ -1,6 +1,15 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.02",
+    "date": "2026-08-24",
+    "title": "Navigation de donjon : la barre n'est plus masquee par un combat reste dans un onglet cache",
+    "changes": [
+      "La regle CSS ne considere plus que le bandeau de l'ONGLET ACTIF (body:has(.tab-panel.active #cbdock)).",
+      "Filet en supplement : au rendu de la barre de navigation, tout bandeau de combat orphelin hors de l'onglet actif est retire du DOM."
+    ]
+  },
+  {
     "v": "v2.5.01",
     "date": "2026-08-24",
     "title": "Refonte visuelle complete de l'interface",

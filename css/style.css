@@ -5977,8 +5977,11 @@ label { font-size: .82rem; }
   box-shadow: var(--shadow-3);
   padding: .55rem .7rem;
 }
-body:has(#cbdock) .ses-compass { display: none; }
-body:has(#cbdock) #bug-fab { bottom: 175px; }
+/* Seul un bandeau de combat dans l'ONGLET ACTIF masque la navigation : un
+   plateau resté dans un onglet caché (ex. Combat Test en mode MJ) ne compte
+   pas — c'était lui qui faisait disparaître la barre de déplacement. */
+body:has(.tab-panel.active #cbdock) .ses-compass { display: none; }
+body:has(.tab-panel.active #cbdock) #bug-fab { bottom: 175px; }
 body:has(.ses-compass) #bug-fab { bottom: 92px; }
 
 .rose-here {
