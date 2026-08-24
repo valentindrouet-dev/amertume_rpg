@@ -1404,30 +1404,11 @@
   // Repositionne la rose sous la COLONNE PRINCIPALE et réserve la place en bas
   // de page pour qu'elle ne recouvre jamais le contenu.
   function placeCompass() {
+    // v2.5 : la barre de navigation est centrée en pleine largeur par le CSS ;
+    // on ne fait plus que réserver sa hauteur en bas de page.
     const rose = document.getElementById('ses-compass');
     if (!rose) return;
     const root = document.getElementById('session-root');
-    const col = document.querySelector('.ses-scene-card');
-    const narrow = window.matchMedia('(max-width: 860px)').matches;
-    if (col && !narrow) {
-      // Même largeur que les BLOCS DE TEXTE de la salle : on se cale sur la
-      // boîte de contenu de la carte de scène (padding déduit).
-      const r = col.getBoundingClientRect();
-      const cs = window.getComputedStyle(col);
-      const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
-      const bw = parseFloat(cs.borderLeftWidth) || 0;
-      // Le cadre de la rose déborde de sa propre marge intérieure, de sorte que
-      // la GRILLE et les BOUTONS s'alignent pile sur les blocs de texte.
-      const inner = rose.querySelector('.ses-compass-inner');
-      const ics = inner ? window.getComputedStyle(inner) : null;
-      const inL = ics ? (parseFloat(ics.paddingLeft) || 0) + (parseFloat(ics.borderLeftWidth) || 0) : 0;
-      const inR = ics ? (parseFloat(ics.paddingRight) || 0) + (parseFloat(ics.borderRightWidth) || 0) : 0;
-      rose.style.left = Math.round(r.left + bw + padL - inL) + 'px';
-      rose.style.right = 'auto';
-      rose.style.width = Math.round(r.width - bw * 2 - padL - padR + inL + inR) + 'px';
-    } else {
-      rose.style.left = ''; rose.style.right = ''; rose.style.width = '';
-    }
     if (root) root.style.paddingBottom = (rose.offsetHeight + 18) + 'px';
   }
   if (typeof window !== 'undefined') {
@@ -1489,38 +1470,29 @@
         (e.l.label ? '<span class="rose-lbl">' + esc(e.l.label) + '</span>' : '') +
       '</button>';
     }
-    // Répartition des sorties dans les 8 cases directionnelles (le centre est
-    // réservé à la salle courante). Plusieurs sorties dans la même direction
-    // s'empilent DANS leur case : la grille reste 3×3 quoi qu'il arrive.
-    const cells = {};
-    exits.forEach(function (e) {
-      const k = ROSE_CELLS.some(function (c) { return c[0] === e.arrow; }) ? e.arrow : '➡';
-      (cells[k] = cells[k] || []).push(exitBtnHtml(e));
+    // v2.5 : barre de navigation fine, fixée en bas — la salle courante à
+    // gauche, les sorties en boutons-cartouches à droite (triées du nord à
+    // l'ouest pour garder une lecture directionnelle stable).
+    const DIR_ORDER = ['⬆', '↗', '➡', '↘', '⬇', '↙', '⬅', '↖'];
+    const sorted = exits.slice().sort(function (a, b) {
+      return DIR_ORDER.indexOf(a.arrow) - DIR_ORDER.indexOf(b.arrow);
     });
-    const gridHtml = ROSE_CELLS.map(function (c, i) {
-      if (i === 4) {
-        return '<div class="rose-cell rose-center" aria-current="true">' +
-          '<span class="rose-center-pin">📍</span>' +
-          '<span class="rose-center-name">' + esc(scene.title || 'Salle') + '</span>' +
-        '</div>';  // pastille à gauche du nom (mise en ligne par le CSS)
-      }
-      const btns = cells[c[0]];
-      if (!btns || !btns.length) {
-        return '<div class="rose-cell rose-empty" aria-hidden="true"><span class="rose-empty-dir">' + c[1] + '</span></div>';
-      }
-      return '<div class="rose-cell rose-filled">' + btns.join('') + '</div>';
-    }).join('');
+    const chipsHtml = sorted.map(exitBtnHtml).join('');
 
-    // La rose vit HORS du fil de la scène : barre fixe en bas d'écran.
     const root = document.getElementById('session-root');
     if (!root) return;
     let rose = document.getElementById('ses-compass');
     if (!rose) { rose = document.createElement('div'); rose.id = 'ses-compass'; root.appendChild(rose); }
     rose.className = 'ses-compass';
     rose.innerHTML = '<div class="ses-compass-inner">' +
-      '<div class="rose-title">🚪 Salles &amp; Accès</div>' +
-      '<div class="rose-grid">' + gridHtml + '</div>' +
-      (exits.length ? '' : '<p class="hint rose-none">Aucune sortie reliée à cette salle.</p>') +
+      '<div class="rose-here">' +
+        '<span class="rose-pin">📍</span>' +
+        '<span class="rose-here-txt"><span class="rose-here-name">' + esc(scene.title || 'Salle') + '</span>' +
+        '<span class="rose-here-sub">Salle actuelle</span></span>' +
+      '</div>' +
+      '<div class="rose-exits">' +
+        (exits.length ? chipsHtml : '<p class="hint rose-none">Aucune sortie reliée à cette salle.</p>') +
+      '</div>' +
     '</div>';
     placeCompass();
 

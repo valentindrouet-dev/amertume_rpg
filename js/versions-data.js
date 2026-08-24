@@ -1,6 +1,19 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.01",
+    "date": "2026-08-24",
+    "title": "Refonte visuelle complete de l'interface",
+    "changes": [
+      "Jetons repenses : palette sombre chaleureuse plus contrastee, rayons 12-18px, ombres douces a trois niveaux, anneau de focus visible. Polices Inter (corps et titres) et Cinzel (marque), chargees via Google Fonts.",
+      "Primitives unifiees : boutons (primaire degrade, fantome, tailles normees), champs avec anneau de focus, cartes en surfaces elevees, modales floutees, barres d'outils import/export, onglets en pastilles avec etat actif ambre, barres de defilement fines, fond de page en degrades radiaux discrets.",
+      "Barre superieure translucide (flou d'arriere-plan), fin du double lisere magenta du mode MJ, pastilles de contexte accordees a la palette.",
+      "Accueil : marque Cinzel en degrade dore, cartes d'aventures elevees.",
+      "Combat : barre de tour, journal et zones en cartes nettes, vignettes adoucies, bandeau du bas et fenetres d'etats accordes au nouveau langage.",
+      "Lecture des salles : blocs narratifs plus grands (interligne 1.68), titres de scene modernises, quinze usages residuels de Georgia remplaces."
+    ]
+  },
+  {
     "v": "v2.4.63",
     "date": "2026-08-24",
     "title": "Fleche effacee des qu'on agit, titre d'attaque avec icone d'arme, libelles des outils",

@@ -52,7 +52,7 @@ h3 { font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-s
 }
 .brand { display: flex; align-items: baseline; gap: .55rem; }
 .brand-mark { font-size: 1.4rem; }
-.brand h1 { font-size: 1.35rem; color: var(--accent-2); font-family: "Georgia", serif; }
+.brand h1 { font-size: 1.35rem; color: var(--accent-2); font-family: var(--font-body); }
 .brand-sub { color: var(--muted); font-size: .8rem; }
 
 .tabs { display: flex; gap: .4rem; }
@@ -487,7 +487,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
   border-bottom: 1px solid var(--border);
 }
 .roster-name {
-  font-family: "Georgia", serif; font-size: 1.18rem; font-weight: 600;
+  font-family: var(--font-body); font-size: 1.18rem; font-weight: 600;
   color: var(--text); margin-right: auto; letter-spacing: .2px;
 }
 .roster-head .ghost.small { margin-left: auto; }
@@ -1022,7 +1022,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 1.2rem 1.3rem;
 }
-.ses-scene-title { font-family: "Georgia", serif; font-size: 1.3rem; margin-bottom: .4rem; }
+.ses-scene-title { font-family: var(--font-body); font-size: 1.3rem; margin-bottom: .4rem; }
 .ses-scene-type { display: inline-block; margin-bottom: .75rem; }
 .ses-scene-text {
   font-size: .95rem; line-height: 1.65; color: var(--text);
@@ -1176,7 +1176,7 @@ main { padding: 1.5rem 1.25rem 3rem; }
 }
 @keyframes ses-flash { 0% { opacity: 0; } 12% { opacity: 1; } 55% { opacity: .85; } 100% { opacity: 0; } }
 .ses-encounter-badge {
-  font-family: "Georgia", serif; font-weight: 800; font-size: clamp(1.4rem, 5vw, 2.6rem);
+  font-family: var(--font-body); font-weight: 800; font-size: clamp(1.4rem, 5vw, 2.6rem);
   color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.6), 0 0 22px rgba(220,40,40,.9);
   letter-spacing: .04em; transform: rotate(-3deg);
   animation: ses-badge-pop .85s ease forwards;
@@ -1302,14 +1302,14 @@ body.mode-home main { display: none; }
 .home-inner { max-width: 760px; margin: 0 auto; }
 .home-brand { text-align: center; margin-bottom: 2.2rem; }
 .home-brand .brand-mark { font-size: 2.6rem; display: block; }
-.home-brand h1 { font-size: 2.3rem; color: var(--accent-2); font-family: "Georgia", serif; margin-top: .3rem; }
+.home-brand h1 { font-size: 2.3rem; color: var(--accent-2); font-family: var(--font-body); margin-top: .3rem; }
 .home-sub { color: var(--muted); margin-top: .35rem; font-size: .95rem; }
 .home-section h2 { margin-bottom: .85rem; }
 .home-adv-list { display: flex; flex-direction: column; gap: .7rem; }
 /* Grande Aventure : menu déroulant regroupant des chapitres sur l'accueil. */
 .home-saga { border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); overflow: hidden; }
 .home-saga > .home-saga-head { display: flex; align-items: center; gap: .6rem; cursor: pointer;
-  padding: .85rem 1.1rem; list-style: none; font-family: "Georgia", serif; }
+  padding: .85rem 1.1rem; list-style: none; font-family: var(--font-body); }
 .home-saga > .home-saga-head::-webkit-details-marker { display: none; }
 .home-saga-caret { transition: transform .15s; color: var(--accent-2); font-size: .9rem; }
 .home-saga[open] > .home-saga-head .home-saga-caret { transform: rotate(90deg); }
@@ -1340,7 +1340,7 @@ body.mode-home main { display: none; }
 }
 .home-adv-card:hover { border-color: var(--accent-2); transform: translateY(-1px); }
 .home-adv-info { display: flex; flex-direction: column; gap: .2rem; margin-right: auto; }
-.home-adv-title { font-family: "Georgia", serif; font-size: 1.18rem; color: var(--text); }
+.home-adv-title { font-family: var(--font-body); font-size: 1.18rem; color: var(--text); }
 .home-adv-meta { font-size: .8rem; color: var(--muted); }
 .home-admin {
   margin-top: 2.5rem; text-align: center;
@@ -1419,7 +1419,7 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 
 /* ---- Feuille d'aventurier : classe visible + stats pleine largeur ---- */
 .class-badge {
-  font-family: "Georgia", serif; font-weight: 700; font-size: .92rem;
+  font-family: var(--font-body); font-weight: 700; font-size: .92rem;
   padding: .2rem .65rem; border-radius: 8px; letter-spacing: .02em;
   background: rgba(80,55,20,.12); border: 1px solid rgba(80,55,20,.3); color: #5a4527;
 }
@@ -1509,7 +1509,7 @@ body.mode-player .topbar { border-bottom: 2px solid var(--accent-2); }
 .class-card.klass-deviant { border-left-color:#9d7fc4; } .class-card.klass-gardien { border-left-color:#6f9fd6; }
 .class-card.klass-lamevent { border-left-color:#5cb6a6; } .class-card.klass-mystique { border-left-color:#9b84d8; }
 .class-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
-.class-name { font-family: "Georgia", serif; font-size: 1.1rem; font-weight: 600; margin-right: auto; }
+.class-name { font-family: var(--font-body); font-size: 1.1rem; font-weight: 600; margin-right: auto; }
 .class-talents { display: flex; flex-direction: column; gap: .4rem; }
 .talent-edit { background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; }
 .talent-edit-top { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: .35rem; }
@@ -1633,7 +1633,7 @@ select.choice-type-discussion { color: #3fae9f; }
 /* Inventaire de session : séparateurs par aventurier */
 .inv-hero-sep {
   grid-column: 1 / -1; display: flex; align-items: baseline; gap: .5rem;
-  margin: .8rem 0 .2rem; font-family: "Georgia", serif; font-size: 1.05rem; font-weight: 600;
+  margin: .8rem 0 .2rem; font-family: var(--font-body); font-size: 1.05rem; font-weight: 600;
   color: var(--accent-2); border-bottom: 1px solid var(--border); padding-bottom: .3rem;
 }
 .inv-hero-sep:first-child { margin-top: 0; }
@@ -2265,7 +2265,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 /* Languette de la classe sélectionnée (nom + descriptif). */
 .hw-class-tab { border-radius: 10px; padding: .6rem .8rem; margin-top: .5rem; border: 1px solid var(--border);
   border-left: 5px solid var(--accent-2); background: var(--panel-2); display: flex; flex-direction: column; gap: .25rem; }
-.hw-class-tab-name { font-weight: 800; font-family: "Georgia", serif; font-size: 1.06rem; }
+.hw-class-tab-name { font-weight: 800; font-family: var(--font-body); font-size: 1.06rem; }
 .hw-class-tab-desc { font-size: .9rem; font-style: italic; color: #2e2722; line-height: 1.35; }
 .hw-class-tab.klass-destructeur { background:#f2d9d1; border-left-color:#d36a52; }
 .hw-class-tab.klass-gardien     { background:#d7e3f1; border-left-color:#6f9fd6; }
@@ -2515,7 +2515,7 @@ body.mode-player #tab-armory > .card > .hint { display: none; }
 .ab-name { display: flex; align-items: center; gap: .35rem; flex-wrap: nowrap; overflow: hidden; }
 /* Nom lisible (couleur sombre), tronqué en cas de débordement */
 .ab-name .roster-name {
-  font-family: "Georgia", serif; font-weight: 700; font-size: .95rem; color: #2a1d10;
+  font-family: var(--font-body); font-weight: 700; font-size: .95rem; color: #2a1d10;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 .ab-name .tag { flex: 0 0 auto; }
@@ -2948,7 +2948,7 @@ img.ab-atk-name { width: 2.1em; height: 2.1em; }
 .home-adv-scroll .home-adv-summary {
   display: block; margin: 0;
   font-size: .82rem; color: #5a3e1b; line-height: 1.45;
-  font-family: "Georgia", serif;
+  font-family: var(--font-body);
 }
 
 /* Bouton vert clair (Pré-Construit) */
@@ -3226,7 +3226,7 @@ body.mode-player #item-list.roster-list { display: block; }
   padding: 1rem 1.2rem; color: #33271a; min-height: 200px;
 }
 .tuto-content-title {
-  margin: 0 0 .6rem; color: #6b3a1e; font-family: "Georgia", serif;
+  margin: 0 0 .6rem; color: #6b3a1e; font-family: var(--font-body);
   border-bottom: 1px dashed #c9a96e; padding-bottom: .4rem;
 }
 .tuto-content-body { line-height: 1.55; font-size: 1.02rem; }
@@ -4383,7 +4383,7 @@ body.mode-player #item-list.roster-list { display: block; }
 .ssk-pick {
   max-width: 12rem; min-width: 0;
   background: #f7eeda; color: #2a1d10;
-  font-family: "Georgia", serif; font-weight: 700; font-size: .85rem;
+  font-family: var(--font-body); font-weight: 700; font-size: .85rem;
   border: 1px solid #cdb98f; border-radius: 7px;
   padding: .12rem .3rem; cursor: pointer;
 }
@@ -5323,13 +5323,9 @@ label.adv-tal-row > .adv-eff-desc:empty { display: none; }
   #combat-root, #session-combat-root { padding-bottom: 300px; }
 }
 
-/* Bouton flottant de rapport de bug : remonte au-dessus du bandeau de combat. */
-body.has-cbdock #bug-fab { bottom: 155px; }
-@media (max-width: 780px) { body.has-cbdock #bug-fab { bottom: 265px; } }
+/* (v2.5.01) Le décalage du bouton bug est géré par body:has(#cbdock) plus bas. */
 
-/* Pendant un combat, la rose des directions ne dispute pas le bas de l'écran
-   au bandeau d'action. */
-body.has-cbdock .ses-compass { display: none; }
+/* (v2.5.01) Le masquage de la navigation est géré par body:has(#cbdock) plus bas. */
 
 /* ============================================================
    v2.4.54 — Visée à la souris + dés au repos
@@ -5605,13 +5601,13 @@ body.has-cbdock .ses-compass { display: none; }
 #combat-root, #session-combat-root { padding-bottom: 200px; }
 .cbdock-states { padding-left: 224px; }
 
-@media (max-width: 1300px) {
-  .cbdock-inner { grid-template-columns: 180px 230px minmax(0, 1fr) 200px; }
+@media (max-width: 1360px) {
+  .cbdock-inner { grid-template-columns: 180px 230px minmax(0, 1fr); }
+  .cbdock-desc { display: none; }
   .cbdock-states { padding-left: 192px; }
 }
 @media (max-width: 1000px) {
   .cbdock-inner { grid-template-columns: 160px 200px minmax(0, 1fr); height: 150px; }
-  .cbdock-desc { display: none; }
   .cbdock-states { padding-left: 172px; }
 }
 
@@ -5666,3 +5662,459 @@ body.has-cbdock .ses-compass { display: none; }
 }
 /* Titre de la case Description : toujours en capitales. */
 .cbdesc-name { text-transform: uppercase; letter-spacing: .04em; }
+
+/* ================================================================
+   ================================================================
+   v2.5.01 — REFONTE VISUELLE COMPLÈTE
+   Couche de design posée par-dessus l'existant : nouveaux jetons
+   (couleurs, rayons, ombres), nouvelles polices (Inter + Cinzel),
+   primitives unifiées (boutons, champs, cartes, onglets, modales),
+   et polish écran par écran. Aucune classe renommée : tout le
+   balisage existant continue de fonctionner.
+   ================================================================
+   ================================================================ */
+
+/* ---------- 1. Jetons ---------- */
+:root {
+  --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Cinzel", "Georgia", serif;
+
+  --bg: #12100d;
+  --bg-2: #1a1713;
+  --panel: #1f1b16;
+  --panel-2: #292319;
+  --border: #383025;
+  --text: #f3eee5;
+  --muted: #a89c8b;
+  --accent: #c8502f;
+  --accent-2: #e79a45;
+  --action: #4f94dd;
+  --good: #7cbb72;
+  --bad: #de5f44;
+  --radius: 12px;
+  --radius-lg: 16px;
+
+  --surface-0: #14110e;
+  --surface-1: #1d1914;
+  --surface-2: #26211a;
+  --surface-3: #302a21;
+  --line: rgba(255, 244, 224, .10);
+  --line-strong: rgba(255, 244, 224, .18);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .35), 0 4px 14px rgba(0, 0, 0, .22);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .34);
+  --shadow-3: 0 6px 16px rgba(0, 0, 0, .45), 0 24px 60px rgba(0, 0, 0, .5);
+  --ring: 0 0 0 3px rgba(231, 154, 69, .32);
+}
+
+/* ---------- 2. Base ---------- */
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: .01em;
+  background:
+    radial-gradient(1200px 500px at 20% -10%, rgba(231, 154, 69, .07), transparent 60%),
+    radial-gradient(900px 420px at 85% -5%, rgba(200, 80, 47, .05), transparent 55%),
+    var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: rgba(231, 154, 69, .35); color: #fff; }
+
+h1, h2, h3, h4 { font-family: var(--font-body); }
+h2 { font-size: 1.15rem; font-weight: 700; letter-spacing: .01em; }
+h3 {
+  font-size: .78rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .09em;
+}
+
+/* Barres de défilement fines et discrètes, partout. */
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 244, 224, .18) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: rgba(255, 244, 224, .16); border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(255, 244, 224, .28); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Focus clavier visible et cohérent. */
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 8px; }
+
+/* ---------- 3. Barre supérieure & onglets ---------- */
+.topbar {
+  gap: 1rem;
+  padding: .6rem 1.1rem;
+  background: rgba(18, 15, 12, .82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .3);
+}
+.brand h1 {
+  font-family: var(--font-display);
+  font-size: 1.18rem; font-weight: 700; letter-spacing: .02em;
+  background: linear-gradient(120deg, #f2c184, var(--accent-2) 55%, #d97a3d);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: var(--accent-2);
+}
+.brand-mark { font-size: 1.25rem; }
+.brand-sub { display: none; }
+.brand .brand-version { font-size: .68rem; color: var(--muted); }
+
+.tabs { gap: .15rem; flex-wrap: wrap; }
+.tab {
+  position: relative;
+  padding: .48rem .8rem;
+  font-size: .88rem; font-weight: 600;
+  color: var(--muted);
+  border-radius: 9px;
+  transition: color .15s ease, background .15s ease;
+}
+.tab:hover { color: var(--text); background: rgba(255, 244, 224, .06); }
+.tab.active {
+  color: #1c1610;
+  background: linear-gradient(180deg, #f0b269, var(--accent-2));
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(231, 154, 69, .3);
+}
+.mode-context { font-weight: 700; letter-spacing: .04em; }
+
+/* ---------- 4. Boutons ---------- */
+.primary, .ghost, .danger {
+  font-weight: 600;
+  font-size: .88rem;
+  padding: .52rem .95rem;
+  border-radius: 10px;
+  transition: transform .1s ease, box-shadow .15s ease, background .15s ease,
+    border-color .15s ease, color .15s ease, filter .15s ease;
+}
+.primary {
+  background: linear-gradient(180deg, #d8603c, var(--accent));
+  border-color: rgba(255, 255, 255, .12);
+  box-shadow: 0 2px 10px rgba(200, 80, 47, .35), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.primary:active { transform: translateY(0); filter: brightness(.96); }
+.ghost {
+  background: var(--surface-2);
+  border-color: var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.ghost:hover { border-color: var(--line-strong); background: var(--surface-3); transform: translateY(-1px); }
+.ghost:active { transform: translateY(0); }
+.danger { border-color: rgba(222, 95, 68, .55); }
+.small { padding: .34rem .62rem; font-size: .8rem; border-radius: 8px; }
+.big { padding: .8rem 1.5rem; font-size: 1rem; border-radius: 12px; }
+button:disabled { cursor: not-allowed; }
+
+/* ---------- 5. Champs ---------- */
+input, select, textarea {
+  background: var(--surface-0);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  padding: .5rem .65rem;
+  font-size: .88rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+input::placeholder, textarea::placeholder { color: rgba(168, 156, 139, .6); }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent-2);
+  box-shadow: var(--ring);
+}
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent-2); }
+label { font-size: .82rem; }
+
+/* ---------- 6. Cartes, modales, structures ---------- */
+.card {
+  background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: 1.05rem 1.15rem 1.2rem;
+}
+.card-head { margin-bottom: .85rem; }
+.card-head h2 { font-size: 1.02rem; }
+
+.modal {
+  background: rgba(10, 8, 6, .62);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.modal-box {
+  background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+.modal-head { padding: .9rem 1.1rem; border-bottom: 1px solid var(--line); }
+.modal-head h2 { font-size: 1rem; }
+
+.empty, .hint { color: var(--muted); }
+.tag {
+  font-weight: 600; letter-spacing: .02em;
+  border-radius: 999px;
+}
+
+/* Barres d'outils import/export : une vraie barre discrète. */
+.io-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: .45rem .6rem;
+  margin-bottom: .9rem;
+}
+.io-bar .io-label { color: var(--muted); font-size: .76rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.io-bar button { border-radius: 8px; }
+
+/* ---------- 7. Accueil ---------- */
+.view-home {
+  padding: 4.5rem 1.25rem 5rem;
+  background:
+    radial-gradient(900px 400px at 50% -8%, rgba(231, 154, 69, .12), transparent 60%),
+    var(--bg);
+}
+.home-brand .brand-mark { font-size: 3rem; filter: drop-shadow(0 6px 18px rgba(231, 154, 69, .35)); }
+.home-brand h1 {
+  font-family: var(--font-display);
+  font-size: 2.6rem; font-weight: 700; letter-spacing: .03em;
+  background: linear-gradient(120deg, #f6cf9a, var(--accent-2) 50%, #d97a3d);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.home-brand .brand-version { color: var(--muted); font-size: .78rem; letter-spacing: .12em; }
+.home-section h2 { font-size: .82rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
+.home-adv-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+  box-shadow: var(--shadow-1);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.home-adv-card:hover { transform: translateY(-2px); border-color: rgba(231, 154, 69, .5); box-shadow: var(--shadow-2); }
+.home-adv-title { font-family: var(--font-body); font-weight: 700; font-size: 1.05rem; }
+.home-saga { border-radius: 14px; background: var(--surface-1); border-color: var(--line); }
+.home-admin .ghost { border-radius: 999px; padding: .55rem 1.2rem; }
+
+/* ---------- 8. Bandeau de combat (dock du bas) ---------- */
+.cbdock { padding: 0 .75rem .75rem; z-index: 55; }
+.cbdock-inner {
+  background: rgba(22, 18, 14, .92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  box-shadow: var(--shadow-3);
+  padding: .55rem .65rem;
+}
+.cbdock .dicepool {
+  background: var(--surface-0);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.cbdock .dp-title { color: var(--muted); font-weight: 800; }
+.cbdock .dp-foot { color: var(--text); }
+.dp-die {
+  border: none;
+  box-shadow: inset 0 -3px 8px rgba(0, 0, 0, .3), inset 0 2px 3px rgba(255, 255, 255, .18),
+    0 2px 6px rgba(0, 0, 0, .4);
+}
+.dp-bonus {
+  background: rgba(222, 95, 68, .14);
+  border: 1.5px dashed rgba(222, 95, 68, .65);
+  color: #ff9a82;
+}
+.cbdock-desc {
+  background: var(--surface-0);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.cbdesc-name { color: var(--accent-2); }
+.cbdesc-txt { color: var(--muted); }
+.cbdock .ab-card-id, .cbdock .ab-card-acts { border-radius: 14px; box-shadow: none; }
+
+/* Pastilles d'état au-dessus du bandeau */
+.dock-state {
+  background: rgba(22, 18, 14, .95);
+  border-radius: 999px;
+  padding: .32rem .7rem;
+  font-size: .76rem; letter-spacing: .02em;
+  box-shadow: var(--shadow-1);
+}
+.dock-state.neg { border-color: rgba(222, 95, 68, .6); color: #ffb5a5; }
+.dock-state.pos { border-color: rgba(124, 187, 114, .6); color: #c9ecc2; }
+.dock-state-pop { border-radius: 12px; box-shadow: var(--shadow-2); background: var(--surface-1); border-color: var(--line-strong); }
+
+/* Fenêtre de choix du Pré-Tour */
+.ptpick-box {
+  background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+}
+.ptpick-opt { border-radius: 12px; border-color: var(--line); background: var(--surface-2); transition: border-color .12s, background .12s, transform .1s; }
+.ptpick-opt:hover { transform: translateY(-1px); }
+
+/* ---------- 9. Navigation de donjon (remplace la rose 3×3) ----------
+   Barre fine, fixée en bas : la salle courante à gauche, les sorties en
+   boutons-cartouches à droite. Se masque d'elle-même quand le bandeau de
+   combat est présent dans la page (aucune classe à tenir à jour). */
+.ses-compass {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+  display: flex; justify-content: center;
+  padding: 0 .75rem .75rem; pointer-events: none;
+}
+.ses-compass-inner {
+  pointer-events: auto;
+  width: 100%; max-width: 1100px; box-sizing: border-box;
+  display: flex; align-items: center; gap: .75rem;
+  background: rgba(22, 18, 14, .92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  box-shadow: var(--shadow-3);
+  padding: .55rem .7rem;
+}
+body:has(#cbdock) .ses-compass { display: none; }
+body:has(#cbdock) #bug-fab { bottom: 175px; }
+body:has(.ses-compass) #bug-fab { bottom: 92px; }
+
+.rose-here {
+  flex: 0 1 auto; min-width: 0; max-width: 240px;
+  display: flex; align-items: center; gap: .5rem;
+  padding: .3rem .6rem .3rem .3rem;
+  border-right: 1px solid var(--line);
+}
+.rose-pin {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; flex: 0 0 auto;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f0b269, var(--accent-2));
+  color: #1c1610; font-size: 1.05rem;
+  box-shadow: 0 2px 8px rgba(231, 154, 69, .35);
+}
+.rose-here-name {
+  font-weight: 700; font-size: .92rem; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rose-here-sub { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+
+.rose-exits {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: .45rem;
+  overflow-x: auto; padding: .15rem 0;
+}
+.rose-btn.ses-exit-btn {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  padding: .42rem .7rem .42rem .5rem;
+  font-family: var(--font-body); font-size: .85rem; font-weight: 600;
+  cursor: pointer; text-align: left;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.rose-btn.ses-exit-btn:not([disabled]):hover {
+  transform: translateY(-1px);
+  border-color: rgba(231, 154, 69, .55);
+  background: var(--surface-3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
+}
+.rose-btn .rose-arrow {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex: 0 0 auto;
+  border-radius: 8px;
+  background: rgba(231, 154, 69, .14);
+  color: var(--accent-2); font-size: .95rem;
+}
+.rose-btn .rose-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rose-btn .rose-lbl {
+  font-size: .68rem; font-weight: 500; color: var(--muted);
+  max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ses-exit-btn.ses-exit-visited .rose-arrow { background: rgba(124, 187, 114, .16); color: var(--good); }
+.ses-exit-btn.ses-exit-locked { opacity: .55; cursor: not-allowed; }
+.ses-exit-btn.ses-exit-locked .rose-arrow { background: rgba(222, 95, 68, .14); color: var(--bad); }
+.ses-exit-btn.ses-exit-mj { border-style: dashed; border-color: rgba(181, 70, 138, .6); }
+.ses-exit-btn.ses-exit-mj .rose-arrow { background: rgba(181, 70, 138, .18); color: #d98ac4; }
+.rose-none { margin: 0; align-self: center; }
+@media (max-width: 700px) {
+  .ses-compass-inner { flex-direction: column; align-items: stretch; gap: .4rem; }
+  .rose-here { border-right: none; max-width: none; }
+}
+.rose-here-txt { display: flex; flex-direction: column; min-width: 0; }
+/* Neutralise l'héritage de l'ancienne rose 3×3 sur les cartouches de sortie. */
+.rose-btn.ses-exit-btn {
+  width: auto; flex: 0 0 auto; min-height: 0;
+  border-width: 1px; justify-content: flex-start; text-align: left;
+  box-shadow: none;
+}
+
+/* ---------- 10. Session : lecture & scène ---------- */
+/* Le corps des salles se lit comme un livre : plus grand, interligne généreux. */
+.ses-scene-title {
+  font-family: var(--font-body); font-weight: 800; font-size: 1.35rem;
+  letter-spacing: .01em; margin-bottom: .55rem;
+}
+.ses-scene-card { border-radius: var(--radius-lg); }
+.ses-scene-blocks { gap: .65rem; }
+.scene-block {
+  font-size: 1.02rem; line-height: 1.68;
+  border-radius: 12px; padding: .75rem 1rem;
+  border-left-width: 3px;
+}
+.scene-block-narrative { font-style: normal; background: rgba(255, 244, 224, .045); color: #e9e2d5; }
+.scene-block-tip { border-radius: 12px; }
+.scene-block-alert { border-radius: 12px; }
+
+/* Titres encore en Georgia : bascule sur la nouvelle hiérarchie. */
+.home-adv-title, .class-name, .hw-class-tab-name { font-family: var(--font-body); }
+.home-saga > .home-saga-head { font-family: var(--font-body); font-weight: 700; }
+
+/* ---------- 11. Polish MJ & combat (passe d'audit n°1) ---------- */
+/* Fin du trait magenta sous la barre : un seul liseré, discret, dans le ton. */
+body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
+.mode-context.ctx-admin {
+  color: #d9a8ff; border-color: rgba(168, 116, 220, .55);
+  background: rgba(168, 116, 220, .12);
+}
+.mode-context.ctx-player {
+  color: #f2c184; border-color: rgba(231, 154, 69, .5);
+  background: rgba(231, 154, 69, .1);
+}
+.org-assign { white-space: nowrap; display: inline-flex; align-items: center; gap: .35rem; }
+
+/* Barre de tour du combat */
+.combat-bar {
+  background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-1);
+}
+.turn-pill { font-weight: 800; letter-spacing: .03em; }
+
+/* Journal de combat : une vraie carte lisible. */
+.combat-log.side, .combat-log.compact {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.combat-log.side { padding: .6rem .7rem; }
+
+/* Zones : panneau net, sans pointillés dans le vide. */
+.combat-zone {
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+.zone-name { font-size: .72rem; font-weight: 700; letter-spacing: .1em; }
+
+/* Vignettes de combattant : coins adoucis, ombre douce. */
+.combat-card { border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, .28); }
+
+/* Strips clairs (talents, armurerie, bestiaire, aventures) : coins et bords
+   adoucis pour siéger dans le nouveau décor sans changer leur lisibilité. */
+.tl-strip, .inv-strip, .mon-strip, .adv-card { border-radius: 10px; }
