@@ -3656,6 +3656,7 @@
     renderPretourPick(root);
     root.appendChild(keptDock || buildDock());
     root.appendChild(keptAim || buildAimLayer());
+    initDockDesc(root);
     wireAim(root);
 
     // Chaque phase de rendu est isolée : un incident dans l'une ne doit jamais
@@ -3878,7 +3879,7 @@
         return '<button class="ab-talent ab-talent-named ab-talent-kind-garde ab-gardien-btn' + (armed ? ' selected' : '') +
           '" type="button" data-designate="' + c.iid + '" ' +
           'title="' + esc((descForTalentId(c, under.id) || 'Désignez un allié à protéger (Blindage + Gardé)') + ' — Désignations restantes : ' + c.gardienLeft) + '">' +
-          esc(t.name) + '</button>';
+          '<span class="ab-tal-txt">' + esc(t.name) + '</span></button>';
       }
       const ai = atks.findIndex(function (a) { return a.special && a.generic && a.talentId === t.id; });
       // L'Orbe Mystique est rendu par le bouton spécial ORBES, pas dans les slots.
@@ -3894,7 +3895,7 @@
         return reactionBtn(c, r.t, enabled);
       }
       return '<button class="ab-talent ab-talent-named ab-talent-kind-' + t.kind + '" type="button" disabled ' +
-        'title="' + esc(t.name + (descForTalentId(c, t.id) ? ' — ' + descForTalentId(c, t.id) : '')) + '">' + esc(t.name) + '</button>';
+        'title="' + esc(t.name + (descForTalentId(c, t.id) ? ' — ' + descForTalentId(c, t.id) : '')) + '"><span class="ab-tal-txt">' + esc(t.name) + '</span></button>';
     }).filter(function (s) { return s !== null; });
   }
 
@@ -3957,9 +3958,45 @@
       '<div id="cbdock-id" class="cbdock-id"></div>' +
       '<div id="combat-dicepool" class="dicepool"></div>' +
       '<div id="combat-actionbar" class="combat-actionbar"></div>' +
+      '<div id="cbdock-desc" class="cbdock-desc"></div>' +
     '</div>';
     return d;
   }
+  // Quatrième case du bandeau : décrit le bouton survolé ou cliqué. Les boutons
+  // désactivés ne déclenchent aucun événement : on lit donc l'élément sous le
+  // curseur, ce qui marche pour tous.
+  let descLast = '';
+  function dockDescDefault() {
+    return '<div class="cbdesc-empty">Survolez ou cliquez un bouton pour lire son effet.</div>';
+  }
+  function showDockDesc(btn) {
+    const root = $(rootSel);
+    const box = root ? root.querySelector('#cbdock-desc') : null;
+    if (!box) return;
+    if (!btn) {
+      if (descLast === '' ) return;
+      return; // on garde la dernière description affichée
+    }
+    const raw = btn.getAttribute('data-desc') || btn.getAttribute('title') || '';
+    let name = (btn.textContent || '').trim();
+    if (!name) {
+      const img = btn.querySelector('img');
+      name = img ? (img.getAttribute('alt') || 'Attaque') : 'Action';
+    }
+    // Les infobulles au format « Nom — description » sont scindées.
+    let txt = raw;
+    if (raw.indexOf(name) === 0) txt = raw.slice(name.length).replace(/^\s*[—-]\s*/, '');
+    const key = name + '\u0000' + txt;
+    if (key === descLast) return;
+    descLast = key;
+    box.innerHTML = '<div class="cbdesc-name">' + esc(name) + '</div>' +
+      '<div class="cbdesc-txt">' + (txt ? esc(txt) : 'Aucune description.') + '</div>';
+  }
+  function initDockDesc(root) {
+    const box = root.querySelector('#cbdock-desc');
+    if (box && !box.firstChild) box.innerHTML = dockDescDefault();
+  }
+
   function buildAimLayer() {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     s.id = 'combat-aim'; s.setAttribute('class', 'combat-aim');
@@ -4071,6 +4108,11 @@
     if (aimWiredEl === root) return;
     aimWiredEl = root;
     root.addEventListener('mousemove', function (e) {
+      // Bandeau : la 4e case décrit le bouton sous le curseur. On passe par
+      // elementFromPoint car un bouton désactivé n'émet aucun événement.
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const overBtn = under && under.closest ? under.closest('#cbdock button') : null;
+      if (overBtn) showDockDesc(overBtn);
       aimLast = { x: e.clientX, y: e.clientY };
       if (aimRaf) return;
       aimRaf = requestAnimationFrame(function () { aimRaf = 0; drawAim(); });
@@ -4261,6 +4303,32 @@
       '<b>+' + n + '</b><small>dégâts</small></span>';
   }
 
+  // Tous les dés tiennent sur UNE ligne : leur taille se calcule d'après leur
+  // nombre et la largeur utile de la boîte.
+  function traySize(n) {
+    const W = 244, GAP = 5, MAX = 40, MIN = 18;
+    if (!n || n < 1) return '';
+    const size = Math.max(MIN, Math.min(MAX, Math.floor((W - (n - 1) * GAP) / n)));
+    return ' style="--dp-size:' + size + 'px"';
+  }
+
+  // Ajustement fin après rendu : la taille des dés est recalculée d'après la
+  // largeur réelle de la boîte (elle change selon la fenêtre).
+  function sizeTray(box) {
+    // Mesure après la mise en page : la largeur utile dépend de la fenêtre.
+    requestAnimationFrame(function () {
+      const tray = box.querySelector('.dp-tray');
+      if (!tray) return;
+      const n = tray.querySelectorAll('.dp-die').length + tray.querySelectorAll('.dp-bonus').length;
+      if (!n) return;
+      // Le cartouche « +X dégâts » est un peu plus large qu'un dé.
+      const extra = tray.querySelector('.dp-bonus') ? 16 : 0;
+      const W = tray.clientWidth || 236;
+      const size = Math.max(16, Math.min(40, Math.floor((W - (n - 1) * 5 - extra - 2) / n)));
+      tray.style.setProperty('--dp-size', size + 'px');
+    });
+  }
+
   // Dé au repos : la couleur est visible, la face reste inconnue.
   function restDieHtml(color) {
     return '<span class="dp-die dp-rest die-' + color + '" title="' + esc(DIE_LABEL[color] || color) + '">' +
@@ -4300,17 +4368,19 @@
       const known = sel.side !== 'monster' || sel.analyzed;
       const pool = rest.a.dice || {};
       let tray = '';
+      let nDice = 0;
       D.DICE_ORDER.forEach(function (k) {
-        for (let n = 0; n < (pool[k] || 0); n++) tray += restDieHtml(k);
+        for (let n = 0; n < (pool[k] || 0); n++) { tray += restDieHtml(k); nDice++; }
       });
       const dmg = (rest.a.useOwnDamage !== false && sel.damage > 0 && !(sel.states && sel.states.affaibli)) ? sel.damage : 0;
-      if (dmg > 0) tray += bonusHtml(dmg);
+      if (dmg > 0) { tray += bonusHtml(dmg); nDice++; }
       if (!tray) tray = '<span class="dp-nodice">Aucun dé</span>';
       box.className = 'dicepool rest';
       box.innerHTML =
         '<div class="dp-title">Attaque</div>' +
-        '<div class="dp-tray">' + (known ? tray : '<span class="dp-nodice">Analysez cet adversaire pour voir ses dés.</span>') + '</div>' +
+        '<div class="dp-tray"' + traySize(nDice) + '>' + (known ? tray : '<span class="dp-nodice">Analysez cet adversaire pour voir ses dés.</span>') + '</div>' +
         '<div class="dp-foot">' + esc(known ? attackLabel(rest.a) : 'Attaque inconnue') + '</div>';
+      sizeTray(box);
       return;
     }
 
@@ -4319,7 +4389,7 @@
     let head = '<div class="dp-title">' + esc(m.label || 'Attaque') +
       (m.target ? '<span class="dp-vs"> → </span><span class="dp-target">' + m.target + '</span>' : '') + '</div>';
 
-    let tray = '<div class="dp-tray">' + res.dice.map(dieHtml).join('');
+    let tray = '<div class="dp-tray"' + traySize(res.dice.length + (res.damageBonus > 0 ? 1 : 0)) + '>' + res.dice.map(dieHtml).join('');
     if (res.damageBonus > 0) tray += bonusHtml(res.damageBonus);
     tray += '</div>';
 
@@ -4334,6 +4404,7 @@
 
     box.className = 'dicepool active';
     box.innerHTML = head + tray + out;
+    sizeTray(box);
     if (box.getAttribute('data-anim') !== String(lastRoll.seq)) {
       box.setAttribute('data-anim', String(lastRoll.seq));
       animatePool(box);
@@ -4397,6 +4468,9 @@
       '</span>';
     }).join('');
   }
+
+  // Emplacements de talents affichés dans le bandeau (2 lignes de 4).
+  const TALENT_SLOTS = 8;
 
   function renderActionBar() {
     const root = $(rootSel);
@@ -4500,17 +4574,17 @@
       heroTalentSlots(c, canAct).forEach(function (slot) { heroSlots.push(slot); });
       specialAtks.forEach(function (s) { if (!s.a.generic) heroSlots.push(abAttackBtn(c, s.a, s.i, canAct)); });
     }
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < TALENT_SLOTS; i++) {
       if (!isEnemy && i < heroSlots.length) {
         html += heroSlots[i];
       } else if (isEnemy && i < labels.length) {
         if (c.analyzed) {
-          html += '<button class="ab-talent ab-talent-named" type="button" disabled title="' + esc(labels[i]) + '">' + esc(labels[i]) + '</button>';
+          html += '<button class="ab-talent ab-talent-named" type="button" disabled title="' + esc(labels[i]) + '"><span class="ab-tal-txt">' + esc(labels[i]) + '</span></button>';
         } else {
-          html += '<button class="ab-talent ab-talent-unknown" type="button" disabled title="Analysez cet adversaire pour révéler ses talents">Talent Inconnu</button>';
+          html += '<button class="ab-talent ab-talent-unknown" type="button" disabled title="Analysez cet adversaire pour révéler ses talents"><span class="ab-tal-txt">Talent Inconnu</span></button>';
         }
       } else {
-        html += '<button class="ab-talent ab-talent-empty" type="button" disabled title="Emplacement de talent vide">Talent ' + (i + 1) + '</button>';
+        html += '<button class="ab-talent ab-talent-empty" type="button" disabled title="Emplacement de talent vide"><span class="ab-tal-txt">Talent ' + (i + 1) + '</span></button>';
       }
     }
     html += '</div>';

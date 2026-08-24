@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.61",
+    "date": "2026-08-24",
+    "title": "Bandeau de combat cale : quatre cases, des sur une ligne, huit talents, panneau de description",
+    "changes": [
+      "Le bandeau est desormais une grille de quatre colonnes a hauteur fixe : fiche de l'aventurier · des d'attaque · boutons d'action · description. Tout ce qu'elles contiennent est borne : plus rien ne deborde ni ne se chevauche, verifie de 1000 a 1500 px de large.",
+      "Les des tiennent TOUJOURS sur une seule ligne : leur taille est calculee apres la mise en page d'apres la largeur reelle de la boite et leur nombre (de 40 px pour deux des a 16 px pour un tres gros pool), cartouche « +X degats » compris.",
+      "Rangee d'actions : les deux boutons carres (fiole, loupe) puis HUIT emplacements de talents sur deux lignes de quatre. Les boutons remplissent toute la hauteur de leur cellule et les libelles trop longs sont coupes par une ellipse au lieu d'etre rognes des deux cotes.",
+      "Quatrieme case, tout a droite : la description de l'action survolee ou cliquee (nom en tete, effet en dessous). Elle fonctionne aussi pour les boutons desactives, qui n'emettent aucun evenement."
+    ]
+  },
+  {
     "v": "v2.4.60",
     "date": "2026-08-24",
     "title": "Bandeau en trois cases : fiche, des d'attaque, actions",
