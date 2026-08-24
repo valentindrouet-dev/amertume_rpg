@@ -1,6 +1,18 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.05",
+    "date": "2026-08-24",
+    "title": "Sorties dans le fil de la salle en boutons clairs, PV et Blindage alternes",
+    "changes": [
+      "La navigation de donjon quitte le bandeau flottant : le bloc « Sorties & acces » se pose desormais A LA SUITE des paragraphes de la salle, dans la carte de scene, separe par un filet et titre en petites capitales.",
+      "Boutons de sortie CLAIRS, dans le ton des cases d'action : fond parchemin, texte brun, pastille directionnelle ambre (verte pour une salle deja visitee, grise pour un acces verrouille, violette en passe-droit MJ). Toute la logique (verrous, acces dissimules, demi-tour seul pendant un test obligatoire, combat engageant les sorties) est inchangee.",
+      "Titre de salle dans la police d'identite (Cinzel), comme les noms en combat.",
+      "BLINDAGE ne cache plus les PV : le texte de la barre alterne en fondu entre « x/x PV » et « BLINDAGE » (fige sur les PV si le systeme demande moins d'animations).",
+      "Nettoyage : plus de reservation de bas de page ni de repositionnement au redimensionnement pour la navigation."
+    ]
+  },
+  {
     "v": "v2.5.04",
     "date": "2026-08-24",
     "title": "HUD de combat, seconde passe : visee rouge si impossible, envolee des des, journal epure",

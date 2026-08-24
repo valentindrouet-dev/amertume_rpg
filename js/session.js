@@ -1404,12 +1404,7 @@
   // Repositionne la rose sous la COLONNE PRINCIPALE et réserve la place en bas
   // de page pour qu'elle ne recouvre jamais le contenu.
   function placeCompass() {
-    // v2.5 : la barre de navigation est centrée en pleine largeur par le CSS ;
-    // on ne fait plus que réserver sa hauteur en bas de page.
-    const rose = document.getElementById('ses-compass');
-    if (!rose) return;
-    const root = document.getElementById('session-root');
-    if (root) root.style.paddingBottom = (rose.offsetHeight + 18) + 'px';
+    // v2.5.05 : les sorties sont dans le fil de la salle — plus rien à placer.
   }
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', placeCompass);
@@ -1470,9 +1465,9 @@
         (e.l.label ? '<span class="rose-lbl">' + esc(e.l.label) + '</span>' : '') +
       '</button>';
     }
-    // v2.5 : barre de navigation fine, fixée en bas — la salle courante à
-    // gauche, les sorties en boutons-cartouches à droite (triées du nord à
-    // l'ouest pour garder une lecture directionnelle stable).
+    // v2.5.05 : les sorties vivent DANS la salle, à la suite des paragraphes —
+    // plus de bandeau flottant. Boutons clairs (parchemin), triés du nord à
+    // l'ouest pour garder une lecture directionnelle stable.
     const DIR_ORDER = ['⬆', '↗', '➡', '↘', '⬇', '↙', '⬅', '↖'];
     const sorted = exits.slice().sort(function (a, b) {
       return DIR_ORDER.indexOf(a.arrow) - DIR_ORDER.indexOf(b.arrow);
@@ -1481,25 +1476,19 @@
 
     const root = document.getElementById('session-root');
     if (!root) return;
-    // Filet : un bandeau de combat abandonné dans un onglet caché (Combat Test
-    // quitté en cours de partie) ne doit jamais masquer la navigation.
-    document.querySelectorAll('#cbdock').forEach(function (d) {
-      if (!d.closest('.tab-panel.active')) d.remove();
-    });
-    let rose = document.getElementById('ses-compass');
-    if (!rose) { rose = document.createElement('div'); rose.id = 'ses-compass'; root.appendChild(rose); }
-    rose.className = 'ses-compass';
-    rose.innerHTML = '<div class="ses-compass-inner">' +
-      '<div class="rose-here">' +
-        '<span class="rose-pin">📍</span>' +
-        '<span class="rose-here-txt"><span class="rose-here-name">' + esc(scene.title || 'Salle') + '</span>' +
-        '<span class="rose-here-sub">Salle actuelle</span></span>' +
-      '</div>' +
+    // Nettoyage de l'ancienne barre flottante et de la réservation de bas de page.
+    const oldRose = document.getElementById('ses-compass');
+    if (oldRose) oldRose.remove();
+    root.style.paddingBottom = '';
+    const rose = document.createElement('div');
+    rose.id = 'ses-compass';
+    rose.className = 'ses-exits-block';
+    rose.innerHTML =
+      '<div class="ses-exits-head">🚪 <span>Sorties &amp; accès</span></div>' +
       '<div class="rose-exits">' +
         (exits.length ? chipsHtml : '<p class="hint rose-none">Aucune sortie reliée à cette salle.</p>') +
-      '</div>' +
-    '</div>';
-    placeCompass();
+      '</div>';
+    (box || root).appendChild(rose);
 
     rose.querySelectorAll('.ses-exit-btn:not([disabled])').forEach(function (b) {
       const to = b.getAttribute('data-to');

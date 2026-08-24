@@ -4570,7 +4570,9 @@
         '<div class="ab-pvline cc-pvline">' +
           '<div class="pv-bar' + (hasBlindage(c) ? ' has-blindage' : '') + '"><div class="pv-fill" style="width:' + pct + '%"></div>' +
             (hasBlindage(c) ? '<div class="pv-blindage-fill" title="Blindage actif"></div>' : '') +
-            '<span class="pv-text">' + (hasBlindage(c) && known ? 'BLINDAGE' : pvText) + '</span></div>' +
+            '<span class="pv-text">' + (hasBlindage(c) && known && pvText
+                ? '<span class="pv-alt"><span class="pv-alt-a">' + pvText + '</span><span class="pv-alt-b">BLINDAGE</span></span>'
+                : (hasBlindage(c) && known ? 'BLINDAGE' : pvText)) + '</span></div>' +
           (known ? '<span class="def-badge">' + defShield((c.states.auSol || c.states.brise) ? 0 : c.def) + '</span>' : '') +
           (known && c.blindageCharges > 0 ? '<span class="blindage-badge" title="Blindage">🛡✦ ' + c.blindageCharges + '</span>' : '') +
         '</div>' +
@@ -4991,7 +4993,9 @@
           '<div class="cc-pvline">' +
             '<div class="pv-bar' + (hasBlindage(c) ? ' has-blindage' : '') + '"><div class="pv-fill" style="width:' + pct + '%"></div>' +
               (hasBlindage(c) ? '<div class="pv-blindage-fill" title="Blindage actif"></div>' : '') +
-              '<span class="pv-text">' + (hasBlindage(c) && known ? 'BLINDAGE' : pvText) + '</span></div>' +
+              '<span class="pv-text">' + (hasBlindage(c) && known && pvText
+                ? '<span class="pv-alt"><span class="pv-alt-a">' + pvText + '</span><span class="pv-alt-b">BLINDAGE</span></span>'
+                : (hasBlindage(c) && known ? 'BLINDAGE' : pvText)) + '</span></div>' +
             (known ? '<span class="cc-def-icon">' + defShield(c.states.auSol ? 0 : c.def) + '</span>' : '') +
           '</div>' +
           // Zone d'états TOUJOURS présente (hauteur réservée pour une ligne) : recevoir
