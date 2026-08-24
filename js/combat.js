@@ -349,6 +349,7 @@
   }
 
   function startCombat() {
+    lastRoll = null;   // le pool de dés repart vide à chaque nouveau combat
     const heroObjs = Store.state.heroes.filter(function (h) { return setupHeroes[h.id]; });
     const cfg = {
       zones: setupZones.map(function (z, i) {
@@ -1343,6 +1344,8 @@
     // ORBE : par défaut un Orbe ne réalise pas de critique (sauf Orbe Critique).
     const noCrit = attacker.side === 'hero' && atk.orbNoCrit;
     const res = D.resolve(pool, { def: def, damage: dmg, turn: combat().turn, noFumble: noFumble, destructeur: destructeur, ignoreBlue: ignoreBlue, defBlocksRed: defBlocksRed, noCrit: noCrit });
+    // Pool de dés du bandeau flottant : le jet qui vient d'être résolu.
+    showRoll(res, { who: cname(attacker), target: cname(target), label: attackLabel(atk) });
 
     // MUR IMBRISABLE (passif) : un critique adverse contre cet aventurier devient un échec.
     let critToEchec = false;
@@ -3182,6 +3185,10 @@
     // Capture les positions des cartes AVANT le re-rendu (glissement de mouvement).
     if (VFX.mouvement && !reduceMotion()) { try { preMoveRects = captureCardRects(); } catch (e) { preMoveRects = {}; } }
     try {
+      const onBoard = !!combat() && !combat().finished;
+      // `has-cbdock` : le bandeau flottant occupe le bas de l'écran — les autres
+      // éléments fixes (bouton de rapport de bug) remontent au-dessus.
+      document.body.classList.toggle('has-cbdock', onBoard);
       if (!combat()) { renderSetup(root); }
       else if (combat().finished) { renderSummary(); }
       else { renderBoard(root); }
@@ -3548,7 +3555,6 @@
       // au-dessus du plateau en version compacte.
       '<div class="combat-main-grid">' +
         '<div class="combat-main-col">' +
-          '<div id="combat-actionbar" class="combat-actionbar"></div>' +
           '<div class="combat-zones-grid zc-' + zoneCount() + '" style="' + zonesGridStyle(zoneCount()) + '">' +
             zonesGridCells() +
           '</div>' +
@@ -3556,7 +3562,14 @@
           '<div class="phase-controls" id="phase-controls"></div>' +
         '</div>' +
         '<div id="combat-log" class="combat-log compact side"></div>' +
-      '</div>';
+      '</div>' +
+      // Bandeau d'action FLOTTANT, ancré en bas de l'écran : il reste visible
+      // quel que soit le défilement. À gauche le pool de dés du dernier lancer,
+      // à droite la fiche du combattant sélectionné et ses boutons d'action.
+      '<div class="cbdock" id="cbdock"><div class="cbdock-inner">' +
+        '<div id="combat-dicepool" class="dicepool"></div>' +
+        '<div id="combat-actionbar" class="combat-actionbar"></div>' +
+      '</div></div>';
 
     // Chaque phase de rendu est isolée : un incident dans l'une ne doit jamais
     // laisser le plateau, les contrôles ou le journal entièrement vides.
@@ -3564,6 +3577,7 @@
     // Bandeau d'action AVANT les zones : ses boutons (data-iid) doivent exister
     // quand wireCard (appelé dans renderZones) les câble.
     try { renderActionBar(); } catch (e) { console.error('[combat] renderActionBar', e); }
+    try { renderDicePool(); } catch (e) { console.error('[combat] renderDicePool', e); }
     try { renderZones(); } catch (e) { zonesErr = e; console.error('[combat] renderZones', e); }
     try { renderPhaseControls(); } catch (e) { console.error('[combat] renderPhaseControls', e); }
     try { renderLog(); } catch (e) { console.error('[combat] renderLog', e); }
@@ -3798,6 +3812,110 @@
       '<span class="ab-orbes-figs">' + figs + '</span>' +
       '<span class="ab-orbes-count">' + uses + ' restant' + (uses > 1 ? 's' : '') + '</span>' +
     '</button>';
+  }
+
+  // ---------- Pool de dés (bandeau flottant, à gauche) ----------
+  // Dernier lancer affiché. `seq` incrémente à chaque nouveau jet : le pool ne
+  // rejoue son animation que lorsque la séquence change (les re-rendus du
+  // plateau, très fréquents, ne relancent donc pas les dés).
+  let lastRoll = null;
+  let rollSeq = 0;
+  let rollTimers = [];
+
+  const DIE_LABEL = { white: 'Simple', bone: 'Léger', red: 'Lourd', blue: 'Mystique', green: 'Soin', black: 'Mortel', yellow: 'Phase', pink: 'Faille' };
+
+  // Enregistre un lancer pour le pool de dés. `meta` : { who, target, label, bonus }
+  function showRoll(res, meta) {
+    if (!res || !Array.isArray(res.dice) || !res.dice.length) return;
+    rollSeq++;
+    lastRoll = { seq: rollSeq, res: res, meta: meta || {} };
+  }
+
+  function dieHtml(d) {
+    // Les marques de résultat (6, 1, dé retiré, dé arrêté par la DEF) ne sont
+    // PAS posées ici : elles apparaissent quand le dé se fige, sinon elles
+    // vendraient la mèche pendant la seconde de rotation.
+    const cls = ['dp-die', 'die-' + d.color];
+    if (d.bonus) cls.push('is-bonus');
+    const after = [];
+    if (d.removed) after.push('is-removed');
+    else if (d.passes === false) after.push('is-blocked');
+    if (d.value === 6) after.push('is-six');
+    if (d.value === 1) after.push('is-one');
+    const title = (DIE_LABEL[d.color] || d.color) + (d.note ? ' — ' + d.note : '') +
+      (d.passes === false && !d.removed ? ' — arrêté par la DEF' : '');
+    return '<span class="' + cls.join(' ') + '" data-final="' + d.value + '" data-after="' + after.join(' ') +
+      '" title="' + esc(title) + '">' +
+      '<span class="dp-num">' + d.value + '</span></span>';
+  }
+
+  function renderDicePool() {
+    const root = $(rootSel);
+    const box = root ? root.querySelector('#combat-dicepool') : null;
+    if (!box) return;
+    if (!lastRoll) {
+      box.className = 'dicepool';
+      box.innerHTML = '<div class="dp-empty"><span class="dp-empty-ico">🎲</span>' +
+        '<span>Les dés du prochain lancer s\'afficheront ici.</span></div>';
+      return;
+    }
+    const res = lastRoll.res, m = lastRoll.meta;
+    let head = '<div class="dp-head">';
+    if (m.who) head += '<span class="dp-who">' + m.who + '</span>';
+    if (m.label) head += '<span class="dp-label">' + esc(m.label) + '</span>';
+    if (m.target) head += '<span class="dp-vs">→</span><span class="dp-target">' + m.target + '</span>';
+    head += '</div>';
+
+    let tray = '<div class="dp-tray">' + res.dice.map(dieHtml).join('');
+    if (res.damageBonus > 0) tray += '<span class="dp-bonus" title="Bonus de Dégâts">+' + res.damageBonus + '</span>';
+    tray += '</div>';
+
+    let out = '<div class="dp-out">';
+    if (res.echec) out += '<span class="dp-flag dp-flag-echec">Échec</span>';
+    if (res.critique) out += '<span class="dp-flag dp-flag-crit">Critique !</span>';
+    if (res.pvLost > 0) out += '<span class="dp-total dmg">' + res.pvLost + ' <small>dégâts</small></span>';
+    if (res.pvHealed > 0) out += '<span class="dp-total heal">+' + res.pvHealed + ' <small>PV</small></span>';
+    if (!res.echec && !res.pvLost && !res.pvHealed) out += '<span class="dp-total none">Aucun dégât</span>';
+    if (res.def > 0) out += '<span class="dp-def" title="Défense de la cible">DEF ' + res.def + '</span>';
+    out += '</div>';
+
+    box.className = 'dicepool active';
+    box.setAttribute('data-seq', String(lastRoll.seq));
+    box.innerHTML = head + tray + out;
+    if (box.getAttribute('data-anim') !== String(lastRoll.seq)) {
+      box.setAttribute('data-anim', String(lastRoll.seq));
+      animatePool(box);
+    }
+  }
+
+  // Animation : chaque dé tourne ~1 s en affichant des faces au hasard, puis se
+  // fige sur sa valeur réelle. Les dés se posent en léger décalage.
+  function animatePool(box) {
+    rollTimers.forEach(function (t) { clearInterval(t); clearTimeout(t); });
+    rollTimers = [];
+    const dice = Array.prototype.slice.call(box.querySelectorAll('.dp-die'));
+    dice.forEach(function (el, i) {
+      const final = el.getAttribute('data-final');
+      const num = el.querySelector('.dp-num');
+      const stagger = i * 55;
+      el.classList.add('is-rolling');
+      const spin = setInterval(function () { num.textContent = 1 + Math.floor(Math.random() * 6); }, 70);
+      rollTimers.push(spin);
+      rollTimers.push(setTimeout(function () {
+        clearInterval(spin);
+        num.textContent = final;
+        (el.getAttribute('data-after') || '').split(' ').forEach(function (k) { if (k) el.classList.add(k); });
+        el.classList.remove('is-rolling');
+        el.classList.add('is-settled');
+        setTimeout(function () { el.classList.remove('is-settled'); }, 400);
+      }, 1000 + stagger));
+    });
+    const outEl = box.querySelector('.dp-out');
+    if (outEl) {
+      outEl.classList.add('dp-out-wait');
+      rollTimers.push(setTimeout(function () { outEl.classList.remove('dp-out-wait'); },
+        1000 + dice.length * 55));
+    }
   }
 
   function renderActionBar() {
@@ -4618,6 +4736,7 @@
       // BLINDAGE : absorbe entièrement le souffle (consomme une source).
       if (absorbBlindage(t, cfg.name || 'l\'explosion')) return;
       const res = D.resolve(pool, { def: 0, damage: 0, turn: combat().turn });
+      showRoll(res, { who: cname(src), target: cname(t), label: cfg.name || 'Explosion' });
       const flat = Math.max(0, Store.rollAmount(cfg.val0 || 0));
       const dmg = Math.max(0, (res.pvLost || 0) + flat);
       const before = t.pv;

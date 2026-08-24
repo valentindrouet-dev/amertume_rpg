@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.4.53",
+    "date": "2026-08-24",
+    "title": "Bandeau de combat flottant en bas d'ecran + boite de lancer de des",
+    "changes": [
+      "Le bandeau d'action quitte le flux du plateau : il est desormais ancre en bas de la fenetre et reste visible pendant tout le defilement du combat. Meme habillage que le reste de l'appli (cadre brun, liseré bronze), le plateau reserve la hauteur necessaire, et les autres elements fixes (bouton de rapport de bug, rose des directions) lui laissent la place.",
+      "Nouvelle boite de lancer de des a gauche du bandeau, les boutons d'action a sa droite : elle affiche le dernier jet des sous forme de des colores (une couleur par type de de) portant des CHIFFRES. Les des tournent une seconde en changeant de face, se posent en cascade, puis les marques de resultat apparaissent : 6 souligne en bronze, 1 en rouge, des retires ou arretes par la DEF estompes, bonus de degats en pointilles.",
+      "Sous les des : le total de degats ou de soins, les cartouches Critique / Echec et la DEF de la cible — masques tant que les des tournent pour ne pas vendre la meche. L'en-tete rappelle qui frappe, avec quoi, et qui est vise.",
+      "Le pool se remplit a chaque attaque et a chaque souffle de zone, ne rejoue son animation que sur un nouveau jet (les re-rendus du plateau sont frequents) et repart vide a chaque nouveau combat."
+    ]
+  },
+  {
     "v": "v2.4.52",
     "date": "2026-08-15",
     "title": "Onglet Versions en Mode MJ : historique complet des mises a jour",
