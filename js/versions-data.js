@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.08",
+    "date": "2026-08-25",
+    "title": "Police de titrage nettement plus grasse : Fraunces 900",
+    "changes": [
+      "Noms des combattants (plateau et fiche du bandeau), noms de zones, titre de la boite de des, titre de la case Description, pastille TOUR, onglets d'etat, titre de salle, en-tete des sorties et marque de l'application.",
+      "Interlettrages reajustes : Fraunces porte plus que Cinzel, les capitales sont donc un peu resserrees.",
+      "Cinzel reste en repli, puis Georgia : aucun ecran ne se retrouve sans police de titrage si le chargement echoue."
+    ]
+  },
+  {
     "v": "v2.5.07",
     "date": "2026-08-25",
     "title": "Plateau : pierre, barrieres d'un seul trait, pastilles et Orbes violets",

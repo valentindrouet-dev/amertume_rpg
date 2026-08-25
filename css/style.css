@@ -6695,7 +6695,7 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
     #453d35;
   border: 1px solid rgba(255, 244, 224, .16);
 }
-.combat-zone .zone-name { color: #cbbda5; }
+.combat-zone .zone-name { color: #cbbda5; font-weight: 900; font-size: .78rem; letter-spacing: .08em; }
 .zone-empty { color: rgba(203, 189, 165, .55); }
 
 /* ---- 6. Orbes Mystiques : violet ---- */
@@ -6723,3 +6723,30 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
 .cbdesc-txt { font-size: .84rem; font-weight: 600; line-height: 1.4; color: #3f3120; }
 .cbdesc-name { font-size: .88rem; }
 .cbdesc-empty { font-size: .82rem; font-weight: 600; }
+
+/* ================================================================
+   v2.5.08 — Police de titrage franchement grasse
+   Le titrage passe de Cinzel (fine à petite taille) à FRAUNCES, en
+   graisse 900. Pour changer de police partout, il suffit de modifier
+   la variable --font-display ci-dessous (et la balise <link> des
+   polices Google dans index.html) : tout le titrage suit.
+   ================================================================ */
+:root { --font-display: "Fraunces", "Cinzel", Georgia, serif; }
+/* Toute la famille de titrage part en 900 : noms, zones, titres de cases. */
+.zone-name, .turn-pill, .dock-state,
+.cbdock .dp-title, .cbdesc-name,
+.combat-log.side::before, .ses-scene-title, .ses-exits-head,
+.combat-card .roster-name, .cbdock .ab-card .roster-name, .cbdock-id .ab-name {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-optical-sizing: auto;
+}
+/* Fraunces porte davantage : on resserre un peu l'interlettrage des capitales
+   et on remonte le rendu des petits libellés. */
+.zone-name { letter-spacing: .08em; font-size: .76rem; }
+.cbdock .dp-title { letter-spacing: .08em; }
+.cbdesc-name { letter-spacing: .03em; font-size: .9rem; }
+.dock-state { letter-spacing: .01em; }
+.combat-card .roster-name, .cbdock-id .ab-name { letter-spacing: .01em; }
+.ses-scene-title { letter-spacing: 0; }
+.brand h1, .home-brand h1 { font-family: var(--font-display); font-weight: 900; }
