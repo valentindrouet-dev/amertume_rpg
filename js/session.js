@@ -3076,15 +3076,23 @@
   }
   function renderLevelUp(root, ses, adv, newLevel, opts) {
     const talentsOnly = !!(opts && opts.talentsOnly);
-    // NIVEAUX DE DÉPART : un aventurier lancé au niveau 3 ne fait ses montées
-    // que jusqu'au niveau 3 ; les autres sautent cet écran pour ce palier.
+    // NIVEAUX DE DÉPART : au LANCEMENT, une partie commencée au niveau 3 fait
+    // rattraper les paliers 2 et 3 ; un aventurier lancé plus bas les saute.
     const startLevelOf = function (h) {
       const m = ses.heroLevels || {};
       return m[h.id] || sessionLevel(ses);
     };
     const allEngaged = engagedHeroes(ses);
+    // Palier le plus haut couvert par le rattrapage de lancement. AU-DELÀ, le
+    // niveau a été GAGNÉ EN JEU : tout le groupe y a droit, sans quoi aucune
+    // montée n'apparaissait jamais dans une partie commencée au niveau 1.
+    const startMax = allEngaged.reduce(function (mx, h) {
+      return Math.max(mx, startLevelOf(h));
+    }, 1);
     const heroes = talentsOnly ? allEngaged
-      : allEngaged.filter(function (h) { return startLevelOf(h) >= newLevel; });
+      : allEngaged.filter(function (h) {
+          return newLevel > startMax || startLevelOf(h) >= newLevel;
+        });
     // Palier que personne n'atteint : on l'enregistre et on passe au suivant.
     if (!heroes.length) {
       ses.levelDone = newLevel;
