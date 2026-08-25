@@ -563,6 +563,9 @@
           (isMJ()
             ? '<button id="ses-reload-room" class="ghost small ses-mj-btn" title="MJ : réinitialise ENTIÈREMENT cette salle — tests, combats, butin, XP, PV, hauts faits reviennent à l\'état d\'entrée">🔄 Salle</button>'
             : '') +
+          '<button id="ses-cine-toggle" class="ghost small ses-cine-btn' + (cineOn() ? ' on' : '') + '"' +
+            ' title="Révélation progressive : à la première arrivée dans une salle, les blocs se déroulent un à un. Clic ou barre d\'espace pour la suite.">' +
+            (cineOn() ? '👁 Révélation : ON' : '👁 Révélation : OFF') + '</button>' +
           '<button id="ses-quit" class="ghost small">✕ Quitter</button>' +
         '</div>' +
       '</div>' +
@@ -597,6 +600,12 @@
     const reloadBtn = $('#ses-reload-room');
     if (reloadBtn) reloadBtn.addEventListener('click', function () {
       if (confirm('Recharger la salle ?\n\nTout ce qui s\'est passé dans CETTE salle est annulé : tests, combats, butin, XP, PV, hauts faits reviennent à l\'état d\'entrée.')) reloadRoom();
+    });
+    const cineBtn = $('#ses-cine-toggle');
+    if (cineBtn) cineBtn.addEventListener('click', function () {
+      setCineOn(!cineOn());
+      // Rendu immédiat pour refléter l'état ; la salle en cours n'est pas rejouée.
+      renderScene(root);
     });
     $('#ses-quit').addEventListener('click', function () {
       setActive(null);
@@ -636,6 +645,88 @@
     renderSceneActions(scene, adv, ses, chapter);
     // Animation de révélation des blocs débloqués par le dernier jet.
     applyRevealAnimations();
+    // Révélation progressive (option) : première arrivée dans cette salle.
+    startCinematic(root, ses, scene);
+  }
+
+  // ---------- Révélation progressive des blocs d'une salle ----------
+  // Option cochable dans la barre du haut. À la PREMIÈRE arrivée dans une salle,
+  // les blocs (textes, tests, combats, sorties) se déroulent un à un ; un clic
+  // n'importe où ou la barre d'espace fait apparaître le suivant. Rien n'est
+  // bloquant : les blocs déjà apparus restent pleinement jouables.
+  const CINE_KEY = 'amertume_reveal_v1';
+  let cineStop = null; // fonction de nettoyage de la révélation en cours
+  function cineOn() {
+    try { return global.localStorage.getItem(CINE_KEY) === '1'; } catch (e) { return false; }
+  }
+  function setCineOn(v) {
+    try { global.localStorage.setItem(CINE_KEY, v ? '1' : '0'); } catch (e) {}
+  }
+  function endCinematic() {
+    if (cineStop) { cineStop(); cineStop = null; }
+  }
+  function startCinematic(root, ses, scene) {
+    endCinematic();
+    if (!cineOn()) return;
+    // « Première fois » : une salle déjà déroulée ne l'est plus jamais.
+    if (!ses.cineDone) ses.cineDone = {};
+    if (ses.cineDone[scene.id]) return;
+    const card = root.querySelector('.ses-scene-card');
+    if (!card) return;
+    const items = Array.prototype.slice.call(card.querySelectorAll('.ses-scene-blocks > *'));
+    const act = card.querySelector('#ses-actions');
+    if (act && act.children.length) items.push(act);
+    const exits = card.querySelector('.ses-exits-block');
+    if (exits) items.push(exits);
+    if (items.length < 2) return; // rien à dérouler
+    // Marqué d'emblée : un ré-affichage en cours de route (test joué, combat)
+    // montre simplement la salle complète, sans rejouer la séquence.
+    ses.cineDone[scene.id] = true; save();
+
+    items.forEach(function (el) { el.classList.add('cine-hidden'); });
+    const hint = document.createElement('div');
+    hint.className = 'cine-hint';
+    hint.innerHTML = '<span>Clic ou <b>Espace</b> pour la suite</span>';
+    card.appendChild(hint);
+
+    let i = 0;
+    function reveal() {
+      const el = items[i++];
+      if (!el) return;
+      el.classList.remove('cine-hidden');
+      el.classList.add('cine-in');
+      // Le bloc qui vient d'apparaître reste à l'écran.
+      if (el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    function finish() {
+      items.forEach(function (el) { el.classList.remove('cine-hidden'); });
+      cleanup();
+    }
+    function step() {
+      reveal();
+      if (i >= items.length) cleanup();
+    }
+    function onClick(e) {
+      // Les commandes gardent leur rôle : un clic dessus ne fait pas défiler.
+      if (e.target.closest && e.target.closest('button, a, input, select, textarea, label')) return;
+      step();
+    }
+    function onKey(e) {
+      if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') {
+        if (e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName || '')) return;
+        e.preventDefault(); step();
+      } else if (e.key === 'Escape') { e.preventDefault(); finish(); }
+    }
+    function cleanup() {
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('keydown', onKey);
+      if (hint.parentNode) hint.parentNode.removeChild(hint);
+      cineStop = null;
+    }
+    cineStop = finish;
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKey);
+    step(); // le premier bloc est visible d'emblée
   }
 
   function xpProgressHtml(ses) {

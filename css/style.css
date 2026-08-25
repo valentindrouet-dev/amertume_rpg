@@ -6991,3 +6991,27 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 }
 .grp-level-row .grp-level { margin-top: 0; font-size: .78rem; }
 .grp-level-hint { margin: .35rem 0 0; font-size: .74rem; }
+
+/* ── v2.5.30 · Révélation progressive des blocs d'une salle ──────── */
+.ses-cine-btn.on {
+  border-color: rgba(231, 154, 69, .55);
+  background: rgba(231, 154, 69, .14); color: #f0c98d;
+}
+.cine-hidden { display: none !important; }
+/* Le bloc se déroule comme un bandeau : hauteur qui s'ouvre, puis contenu. */
+.cine-in { animation: cine-unroll .34s cubic-bezier(.22, .8, .3, 1) both; transform-origin: top center; }
+@keyframes cine-unroll {
+  from { opacity: 0; transform: scaleY(.6) translateY(-6px); filter: blur(1px); }
+  to   { opacity: 1; transform: scaleY(1) translateY(0); filter: none; }
+}
+.cine-hint {
+  margin-top: .7rem; text-align: center;
+  font-size: .74rem; font-weight: 700; letter-spacing: .04em;
+  color: var(--muted); opacity: .85; animation: cine-pulse 1.6s ease-in-out infinite;
+}
+.cine-hint b { color: #e8c476; }
+@keyframes cine-pulse { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
+@media (prefers-reduced-motion: reduce) {
+  .cine-in { animation-duration: .01s; }
+  .cine-hint { animation: none; }
+}
