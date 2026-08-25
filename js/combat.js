@@ -4133,23 +4133,46 @@
     return true;
   }
 
+  // Désélectionne le combattant courant et annule toute action armée.
+  function clearSelection() {
+    if (!selectedIid && !pendingAttack && !pendingMove && !pendingAnalyze &&
+        !pendingObject && !pendingOrbeShare && !pendingDesignate) return false;
+    selectedIid = null; autoSelectOff = true;
+    pendingAttack = null; pendingMove = null; pendingAnalyze = null;
+    pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
+    arrivalTargetIid = null;
+    hideAim();
+    render();
+    return true;
+  }
+  // Un clic n'importe où sur la page (y compris hors du plateau, dans les
+  // marges perdues) et la touche Échap désélectionnent. Câblé une seule fois.
+  let docDeselectWired = false;
+  function wireDocDeselect() {
+    if (docDeselectWired) return;
+    docDeselectWired = true;
+    const interactive = '.combat-card, .combat-zone, button, select, input, textarea, a, label, ' +
+      '#cbdock, .ptpick, #combat-log, .combat-bar, .modal-box, .dock-state';
+    document.addEventListener('click', function (e) {
+      const root = $(rootSel);
+      if (!root || !root.querySelector('.combat-zones-grid')) return;   // pas de plateau affiché
+      if (document.querySelector('.modal:not([hidden])')) return;        // une fenêtre est ouverte
+      if (e.target.closest && e.target.closest(interactive)) return;
+      clearSelection();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      const root = $(rootSel);
+      if (!root || !root.querySelector('.combat-zones-grid')) return;
+      if (document.querySelector('.modal:not([hidden])')) return;
+      if (clearSelection()) e.preventDefault();
+    });
+  }
+
   function wireAim(root) {
+    wireDocDeselect();
     if (aimWiredEl === root) return;
     aimWiredEl = root;
-    // Clic dans le VIDE (hors vignette, zone, bouton, bandeau, journal) :
-    // on désélectionne le combattant et on annule l'action armée.
-    root.addEventListener('click', function (e) {
-      if (e.target.closest('.combat-card, .combat-zone, button, select, input, ' +
-        '#cbdock, .ptpick, #combat-log, .combat-bar, .modal')) return;
-      if (!selectedIid && !pendingAttack && !pendingMove && !pendingAnalyze &&
-          !pendingObject && !pendingOrbeShare && !pendingDesignate) return;
-      selectedIid = null; autoSelectOff = true;
-      pendingAttack = null; pendingMove = null; pendingAnalyze = null;
-      pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
-      arrivalTargetIid = null;
-      hideAim();
-      render();
-    });
     root.addEventListener('mousemove', function (e) {
       // Bandeau : la 4e case décrit le bouton sous le curseur. On passe par
       // elementFromPoint car un bouton désactivé n'émet aucun événement.
@@ -4462,23 +4485,18 @@
     }
 
     const res = lastRoll.res, m = lastRoll.meta;
-    // Titre : le nom de l'attaque jouée et sa cible ; le résultat va en pied.
+    // Le cadre du pool NE CHANGE PAS après une attaque : le titre reste
+    // « Attaque » (avec l'icône du type d'arme) et l'arme employée reste en
+    // pied. Seules les faces des dés changent. Le détail du jet (dégâts, DEF,
+    // critique) se lit dans le journal et sur la cible.
     let head = '<div class="dp-title">' + (m.ico ? atkIcoHtml(m.ico) : '') +
-      '<span>' + esc(m.label || 'Attaque') + '</span>' +
-      (m.target ? '<span class="dp-vs">→</span><span class="dp-target">' + m.target + '</span>' : '') + '</div>';
+      '<span>Attaque</span></div>';
 
     let tray = '<div class="dp-tray"' + traySize(res.dice.length + (res.damageBonus > 0 ? 1 : 0)) + '>' + res.dice.map(dieHtml).join('');
     if (res.damageBonus > 0) tray += bonusHtml(res.damageBonus);
     tray += '</div>';
 
-    let out = '<div class="dp-out">';
-    if (res.echec) out += '<span class="dp-flag dp-flag-echec">Échec</span>';
-    if (res.critique) out += '<span class="dp-flag dp-flag-crit">Critique !</span>';
-    if (res.pvLost > 0) out += '<span class="dp-total dmg">' + res.pvLost + ' <small>dégâts</small></span>';
-    if (res.pvHealed > 0) out += '<span class="dp-total heal">+' + res.pvHealed + ' <small>PV</small></span>';
-    if (!res.echec && !res.pvLost && !res.pvHealed) out += '<span class="dp-total none">Aucun dégât</span>';
-    if (res.def > 0) out += '<span class="dp-def" title="Défense de la cible">DEF ' + res.def + '</span>';
-    out += '</div>';
+    const out = '<div class="dp-foot">' + esc(m.label || 'Attaque') + '</div>';
 
     box.className = 'dicepool active';
     box.innerHTML = head + tray + out;
@@ -5909,7 +5927,9 @@
             return;
           }
         }
-        // 3) Sinon : sélectionne ce combattant et annule toute action en cours
+        // 3) Sinon : sélectionne ce combattant — ou le DÉSÉLECTIONNE si on
+        // reclique celui qui l'était déjà. Toute action en cours est annulée.
+        if (selectedIid === c.iid) { clearSelection(); return; }
         selectedIid = c.iid; autoSelectOff = false;
         pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null; pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
         render();

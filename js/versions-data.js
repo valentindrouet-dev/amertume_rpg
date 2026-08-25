@@ -1,6 +1,15 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.11",
+    "date": "2026-08-25",
+    "title": "Deselection au re-clic, dans les marges et par Echap ; cadre du pool de des fige",
+    "changes": [
+      "Trois nouvelles facons de deselecter un combattant : recliquer celui qui est deja selectionne, cliquer N'IMPORTE OU sur la page (y compris hors du plateau, dans les marges perdues), ou appuyer sur Echap. Les ecouteurs sont poses sur le document et ignorent les elements interactifs (vignettes, zones, boutons, champs, bandeau, journal) ; ils restent inactifs quand aucun plateau n'est affiche ou qu'une fenetre modale est ouverte.",
+      "Le cadre du pool de des ne bouge plus apres une attaque : le titre reste « ATTAQUE » avec l'icone du type d'arme, et l'arme employee reste dans sa pastille en bas. Seules les faces des des changent. Le detail du jet (degats, DEF, critique) se lit dans le journal de combat et sur la cible."
+    ]
+  },
+  {
     "v": "v2.5.10",
     "date": "2026-08-25",
     "title": "Police de titrage Killam Bold, fournie et embarquee dans le depot",
