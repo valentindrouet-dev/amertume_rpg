@@ -34,10 +34,14 @@
   }
 
   // ---------- Bundle de contenu MJ (jamais les sessions ni héros de joueurs) ----------
+  // Appel défensif : une méthode absente (vieille version) ne casse pas la publication.
+  function call(name, fallback) {
+    try { return Store[name] ? Store[name]() : fallback; } catch (e) { return fallback; }
+  }
   function buildBundle() {
     var prebuilts = Store.state.heroes.filter(function (h) { return !h.adventureId; });
     return {
-      v: 1,
+      v: 2,
       publishedAt: Date.now(),
       adventures: Store.loadAdventures(),
       sagas: Store.loadSagas(),
@@ -46,6 +50,16 @@
       items: Store.state.items || [],
       prebuilts: prebuilts,
       classes: Store.loadClasses(),
+      // v2 — TOUS les catalogues de talents éditables en Mode MJ. Sans eux, le
+      // joueur retombait sur les talents intégrés par défaut : renommages,
+      // créations, masquages et suppressions du MJ étaient perdus.
+      genericTalents: call('loadGenericTalents', []),
+      genericDeleted: call('loadGenTombstones', []),
+      parchTalents: call('loadParchTalents', []),
+      advTalents: call('loadAdvTalents', []),
+      monsterTalents: call('loadMonsterTalents', []),
+      speciesTalents: call('loadSpeciesTalents', []),
+      tutorials: call('loadTutorials', []),
     };
   }
 
@@ -56,6 +70,22 @@
     if (Array.isArray(b.sagas)) Store.saveSagas(b.sagas);
     if (Array.isArray(b.homeOrder)) Store.saveHomeOrder(b.homeOrder);
     if (Array.isArray(b.classes)) Store.saveClasses(b.classes);
+    // Catalogues de talents : on REMPLACE à l'identique (pas de fusion), pour
+    // que le joueur voie exactement l'état du MJ au moment de la publication.
+    var put = function (name, arr) {
+      if (Array.isArray(arr) && Store[name]) { try { Store[name](arr); } catch (e) {} }
+    };
+    put('saveGenericTalents', b.genericTalents);
+    // Talents intégrés supprimés par le MJ : la liste explicite prime sur celle
+    // que saveGenericTalents recalcule (elle survit aux versions différentes).
+    if (Array.isArray(b.genericDeleted) && Store.saveGenTombstones) {
+      try { Store.saveGenTombstones(b.genericDeleted); } catch (e) {}
+    }
+    put('saveParchTalents', b.parchTalents);
+    put('saveAdvTalents', b.advTalents);
+    put('saveMonsterTalents', b.monsterTalents);
+    put('saveSpeciesTalents', b.speciesTalents);
+    put('saveTutorials', b.tutorials);
     if (Array.isArray(b.monsters)) Store.state.monsters = b.monsters;
     if (Array.isArray(b.items)) Store.state.items = b.items;
     // Héros : on conserve ceux du joueur (taggés adventureId), on remplace les pré-construits

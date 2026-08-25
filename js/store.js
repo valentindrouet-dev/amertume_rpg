@@ -480,6 +480,10 @@
       return Array.isArray(arr) ? arr : [];
     } catch (e) { return []; }
   }
+  // Pierres tombales imposées telles quelles (contenu partagé reçu d'un MJ).
+  function saveGenTombstones(arr) {
+    try { global.localStorage.setItem(GENTALENT_DEL_KEY, JSON.stringify(Array.isArray(arr) ? arr : [])); } catch (e) {}
+  }
 
   // ===== Bibliothèque des effets de talent (patterns câblés au moteur) =====
   // kind : 'action' (bleu, consomme l'Action du tour) · 'reaction' (violet,
@@ -1139,6 +1143,8 @@
     speciesTalentFor: speciesTalentFor,
     loadGenericTalents: loadGenericTalents,
     saveGenericTalents: saveGenericTalents,
+    loadGenTombstones: loadGenTombstones,
+    saveGenTombstones: saveGenTombstones,
     talentEffects: talentEffects,
     effectCategories: effectCategories,
     canonicalEffect: canonicalEffect,

@@ -323,6 +323,8 @@
       format: 'amertume-items', version: 1, exportedAt: new Date().toISOString(),
       items: Store.state.items || [],
       parchTalents: Store.loadParchTalents ? Store.loadParchTalents() : [],
+      speciesTalents: Store.loadSpeciesTalents ? Store.loadSpeciesTalents() : [],
+      monsterTalents: Store.loadMonsterTalents ? Store.loadMonsterTalents() : [],
     });
   }
   function exportTalentsJSON() {
@@ -332,6 +334,8 @@
       genericTalents: Store.loadGenericTalents(),
       advTalents: Store.loadAdvTalents ? Store.loadAdvTalents() : [],
       parchTalents: Store.loadParchTalents ? Store.loadParchTalents() : [],
+      speciesTalents: Store.loadSpeciesTalents ? Store.loadSpeciesTalents() : [],
+      monsterTalents: Store.loadMonsterTalents ? Store.loadMonsterTalents() : [],
     });
   }
   function exportHeroesJSON() {
@@ -367,6 +371,8 @@
     if (Array.isArray(obj.heroes)) { const r = mergeById(Store.state.heroes, obj.heroes); Store.save(); done.push('aventuriers +' + r.added + '/' + r.updated); }
     if (Array.isArray(obj.advTalents) && Store.loadAdvTalents) { const l = Store.loadAdvTalents(); const r = mergeById(l, obj.advTalents); Store.saveAdvTalents(l); done.push('talents adverses +' + r.added + '/' + r.updated); }
     if (Array.isArray(obj.parchTalents) && Store.loadParchTalents) { const l = Store.loadParchTalents(); const r = mergeById(l, obj.parchTalents); Store.saveParchTalents(l); done.push('parchemins +' + r.added + '/' + r.updated); }
+    if (Array.isArray(obj.speciesTalents) && Store.loadSpeciesTalents) { const l = Store.loadSpeciesTalents(); const r = mergeById(l, obj.speciesTalents); Store.saveSpeciesTalents(l); done.push('talents d\'espèce +' + r.added + '/' + r.updated); }
+    if (Array.isArray(obj.monsterTalents) && Store.loadMonsterTalents) { const l = Store.loadMonsterTalents(); const r = mergeById(l, obj.monsterTalents); Store.saveMonsterTalents(l); done.push('talents adverses (catalogue) +' + r.added + '/' + r.updated); }
     if (Array.isArray(obj.genericTalents)) { const l = Store.loadGenericTalents(); const r = mergeById(l, obj.genericTalents); Store.saveGenericTalents(l); done.push('talents génériques +' + r.added + '/' + r.updated); }
     if (Array.isArray(obj.classes)) {
       const l = Store.loadClasses();

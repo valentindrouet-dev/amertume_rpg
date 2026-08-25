@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.5.28';
+  const APP_VERSION = 'v2.5.29';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
@@ -152,7 +152,8 @@
       wireCopyLink(link);
     } else {
       body.innerHTML =
-        '<p>Publie ton contenu MJ (aventures, bestiaire, armurerie, pré-construits, classes) pour le rendre accessible aux joueurs via un lien.</p>' +
+        '<p>Publie ton contenu MJ (aventures, bestiaire, armurerie, pré-construits, classes, ' +
+          'tous les catalogues de talents et l\'encyclopédie) pour le rendre accessible aux joueurs via un lien.</p>' +
         '<div class="modal-actions"><button type="button" id="share-publish" class="primary">⤴ Publier</button></div>';
     }
     const pub = document.getElementById('share-publish');
