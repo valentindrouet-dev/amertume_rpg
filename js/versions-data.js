@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.19",
+    "date": "2026-08-25",
+    "title": "Onglets d'etat cales sur le bandeau, leur regle passe dans la case Description",
+    "changes": [
+      "La rangee d'etats etait accrochee au conteneur PLEINE LARGEUR du bandeau : sur un ecran large, ou le bandeau est centre, les onglets demarraient tout a gauche de l'ecran. Elle est desormais posee dans le bandeau lui-meme et commence pile au-dessus de son bord gauche, juste avant le nom de l'aventurier (mesure a 2200 px : onglet 362, fiche 361 ; a 1500 px : 24 et 23).",
+      "Le bandeau ne rogne plus ses debordements, sans quoi la rangee, posee au-dessus de lui, se retrouvait invisible. Chaque case garde son propre decoupage et la hauteur reste constante.",
+      "La bulle flottante des etats disparait : survoler un onglet affiche sa REGLE dans la case Description, avec son icone, son nom (crans compris) et la couleur de l'etat."
+    ]
+  },
+  {
     "v": "v2.5.18",
     "date": "2026-08-25",
     "title": "Cmd + survol : la visee passe en ANALYSE ; bonus de degats sans cadre",

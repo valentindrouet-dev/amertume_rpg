@@ -4187,6 +4187,15 @@
       c.name, txt, tone);
   }
 
+  // Règle d'un état, affichée dans la case Description au survol de son onglet.
+  function showStateDesc(el) {
+    const key = el.getAttribute('data-state');
+    if (!key || !STATE_META[key]) return;
+    const lbl = (el.querySelector('.dock-state-lbl') || {}).textContent || stateLabel(key);
+    putDesc('st:' + key + ':' + lbl, stateIcon(key) + ' ' + lbl.trim(),
+      esc(stateDesc(key)), toneOf(el));
+  }
+
   function initDockDesc(root) {
     const box = root.querySelector('#cbdock-desc');
     if (box && !box.firstChild) box.innerHTML = dockDescDefault();
@@ -4399,6 +4408,8 @@
       // Survol d'un dé : la case Description explique ce que fait sa couleur.
       const overDie = under && under.closest ? under.closest('#cbdock .dp-die') : null;
       if (overDie) showDieDesc(overDie);
+      // Survol d'un onglet d'état : sa règle va dans la case Description.
+      else if (under && under.closest && under.closest('.dock-state')) showStateDesc(under.closest('.dock-state'));
       // Survol du plateau : fiche du combattant, de la zone ou de la barrière.
       else if (!overBtn && under && under.closest) showBoardDesc(under);
       aimLast = { x: e.clientX, y: e.clientY };
@@ -4761,11 +4772,16 @@
     const root = $(rootSel);
     const dock = root ? root.querySelector('#cbdock') : null;
     if (!dock) return;
+    // La rangée est placée dans le BANDEAU lui-même : sur un écran large, le
+    // bandeau est centré et l'ancien parent (pleine largeur) faisait démarrer
+    // les onglets tout à gauche de l'écran.
+    const inner = dock.querySelector('.cbdock-inner') || dock;
     let bar = dock.querySelector('#cbdock-states');
-    if (!bar) {
+    if (!bar || bar.parentNode !== inner) {
+      if (bar) bar.remove();
       bar = document.createElement('div');
       bar.id = 'cbdock-states'; bar.className = 'cbdock-states';
-      dock.insertBefore(bar, dock.firstChild);
+      inner.insertBefore(bar, inner.firstChild);
     }
     const keys = c ? Object.keys(STATE_META).filter(function (s) {
       if (isStackState(s)) return stateVal(c, s) > 0;
@@ -4775,7 +4791,7 @@
     if (!keys.length) { bar.innerHTML = ''; bar.classList.remove('on'); return; }
     bar.classList.add('on');
     bar.innerHTML = keys.map(function (s) {
-      return '<span class="dock-state st-' + s + ' ' + (STATE_META[s].neg ? 'neg' : 'pos') + '">' +
+      return '<span class="dock-state st-' + s + ' ' + (STATE_META[s].neg ? 'neg' : 'pos') + '" data-state="' + s + '">' +
         '<span class="dock-state-ico">' + stateIcon(s) + '</span>' +
         '<span class="dock-state-lbl">' + stateBadgeLabel(c, s) + '</span>' +
         '<span class="dock-state-pop"><b>' + esc(stateLabel(s)) +

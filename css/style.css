@@ -6894,3 +6894,17 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 }
 .cbdock .dp-bonus b { color: #ff8a6a; }
 .cbdock .dp-bonus small { color: #ff8a6a; opacity: .9; }
+
+
+/* ================================================================
+   v2.5.19 — États : onglets calés sur le bandeau, règle dans la
+   case Description (la bulle flottante disparaît).
+   ================================================================ */
+/* Le bandeau ne rogne plus ses débordements : la rangée d'états vit au-dessus
+   de lui. Chaque case garde son propre découpage, la hauteur reste constante. */
+.cbdock-inner { overflow: visible; }
+.dock-state-pop { display: none !important; }
+.dock-state { cursor: help; }
+.cbdock-states { padding-left: .7rem; padding-right: .7rem; }
+/* Le titre d'un état garde son emoji lisible sur le fond parchemin. */
+.cbdesc-name { display: flex; align-items: center; gap: .35rem; }
