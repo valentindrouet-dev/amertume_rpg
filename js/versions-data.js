@@ -1,6 +1,158 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.41",
+    "date": "2026-08-25",
+    "title": "Révélation progressive désactivée",
+    "changes": [
+      "Le bouton 👁 Révélation disparaît de la barre de scène et le déroulé bloc par bloc n'est plus jamais déclenché, même pour les navigateurs où l'ancienne préférence était à ON. Le code de startCinematic reste en place, dormant, pour une future version retravaillée."
+    ]
+  },
+  {
+    "v": "v2.5.40",
+    "date": "2026-08-25",
+    "title": "Choix des aventuriers : un Pré-Tiré reste un Pré-Tiré",
+    "changes": [
+      "Un aventurier déjà tiré d'un modèle (prebuiltId) apparaissait dans la section « Aventuriers » — celle des personnages créés par le joueur — tandis que les modèles non encore tirés restaient dans « Pré-Tirés » : un même lot de Pré-Tirés semblait donc scindé en deux.",
+      "Les aventuriers issus d'un modèle rejoignent désormais la section « 🎲 Aventuriers Pré-Tirés », devant les modèles encore disponibles ; la section « Aventuriers » ne contient plus que les créations du joueur (son titre le précise)."
+    ]
+  },
+  {
+    "v": "v2.5.39",
+    "date": "2026-08-25",
+    "title": "Choix des aventuriers : carte strictement identique à l'onglet Groupe",
+    "changes": [
+      "heroCardHtml (utilisé uniquement par l'écran de choix) reprend exactement la structure de la carte du Groupe : plus de pastille d'initiales, retour des étiquettes Genre et Espèce, et blason de DEF via heroDefStatHtml (la vignette dédiée) au lieu d'une icône dans une vignette ordinaire. La section Attaques, absente côté Groupe, ne s'y trouve plus non plus.",
+      "La section « 🎲 Aventuriers Pré-Tirés » reste toujours affichée : quand tous les modèles sont déjà dans le groupe, on l'explique au lieu de faire disparaître le titre."
+    ]
+  },
+  {
+    "v": "v2.5.38",
+    "date": "2026-08-25",
+    "title": "Écran de choix des aventuriers : mêmes cartes que l'onglet Groupe",
+    "changes": [
+      "Les cartes du lancement d'aventure adoptent la refonte v2.5.32-37 (surfaces sombres, liseré de classe, vignettes identiques, chips de compétence calibrées) : les règles sont partagées via :is(#hero-list, .hero-pick-list).",
+      "Grille de cartes homogène, croix de suppression posée DANS la carte (elle mordait sur la pastille de classe, tronquée en « LAMEVEN. »), et surbrillance de sélection à la couleur de la classe.",
+      "Phrase explicative sous le niveau de départ supprimée (passée en infobulle du sélecteur).",
+      "Les Aventuriers Pré-Tirés passent SOUS les aventuriers créés par le joueur."
+    ]
+  },
+  {
+    "v": "v2.5.37",
+    "date": "2026-08-25",
+    "title": "Onglet Groupe : lisibilité des pastilles",
+    "changes": [
+      "Intérieur des vignettes de caractéristique et des chips de compétence nettement éclairci (mélange couleur/fond 42 % au lieu de 30 %, base #3a3126 au lieu de #251e17).",
+      "Espace fine insécable entre le + et la valeur : « + 2 » au lieu de « +2 » (compétences et Dégâts).",
+      "Valeurs de caractéristique agrandies (1,15 → 1,5 rem) et blason de DEF réduit (2,05 → 1,72 rem) ; vignettes légèrement plus hautes."
+    ]
+  },
+  {
+    "v": "v2.5.36",
+    "date": "2026-08-25",
+    "title": "Pré-Tirés : n'afficher que les talents réellement choisis",
+    "changes": [
+      "En Mode MJ, displayHero() renvoyait l'aventurier tel quel : sans liste de talents choisis, le moteur retombait sur le fallback « niveau de groupe » et créditait chaque Pré-Tiré de TOUS les talents de TOUTES les classes (d'où une Lame du Vent dotée d'Orbes Mystiques). La fiche s'appuie désormais sur les talents de départ (startTalents) retenus dans l'assistant ou l'éditeur."
+    ]
+  },
+  {
+    "v": "v2.5.35",
+    "date": "2026-08-25",
+    "title": "Pré-Tirés créés avec l'assistant du mode Aventure",
+    "changes": [
+      "La création d'un aventurier passe désormais par l'assistant en 6 étapes (nom/genre/espèce, classe, caractéristiques, équipement, talents, compétences) en Mode MJ comme en mode Joueur ; sans aventure, l'aventurier créé est un Pré-Tiré. L'ancien formulaire détaillé reste l'écran d'ÉDITION.",
+      "Corrige au passage un blocage de l'assistant : l'étape Talents exigeait un choix même quand aucun talent de niveau 1 n'était disponible, rendant la création impossible."
+    ]
+  },
+  {
+    "v": "v2.5.34",
+    "date": "2026-08-25",
+    "title": "Groupe : lisibilité des cartes · Pré-Tirés sans XP · talent d'Espèce",
+    "changes": [
+      "Fond des cartes d'aventurier éclairci (#382e23 → #2b231a) pour se détacher du fond de page ; survol plus contrasté.",
+      "Libellés courts et sur UNE seule ligne, tous à la même hauteur : VIE · ENDU · PV · DEF · DÉGÂTS, avec plus d'air entre le mot et sa valeur.",
+      "Onglet Pré-Tirés : plus de bandeau d'XP ni de niveau — les modèles sont toujours de niveau 1 avec les talents de départ choisis par le MJ ; la progression appartient ensuite aux joueurs.",
+      "Talent d'Espèce (onglet Talents) : même languette claire que les autres talents, bordée d'or, et « Niv. 0 » au lieu de « Offert ». Sa case à cocher, sans classe, s'étirait et écrasait le nom du talent.",
+      "Talents : réalignement des Pré-Tirés aussi au rendu de cet onglet."
+    ]
+  },
+  {
+    "v": "v2.5.33",
+    "date": "2026-08-25",
+    "title": "Onglet Pré-Tirés (MJ) et lien vivant avec les copies",
+    "changes": [
+      "Nouvel onglet « Pré-Tirés » en Mode MJ/Admin (panneau des aventuriers modèles, création illimitée), proposé dans TOUTES les aventures via la section « Aventuriers Pré-Tirés » de l'écran de lancement.",
+      "Store.syncPrebuilts() : toute copie tirée d'un modèle (prebuiltId) suit désormais son modèle en direct — nom, classe, espèce, caractéristiques, compétences, talents, notes — y compris pendant une partie. Appelé au rendu du Groupe, de l'aventure et après réception d'un partage.",
+      "Restent au joueur : identité de la copie, PV courants et équipement qu'il a modifié en jeu (le butin équipé n'est jamais écrasé) ; l'équipement de base suit toujours le modèle.",
+      "Les Pré-Tirés étaient déjà publiés dans le partage : vérifié de bout en bout, republication comprise."
+    ]
+  },
+  {
+    "v": "v2.5.32",
+    "date": "2026-08-25",
+    "title": "Onglet Groupe : refonte visuelle façon HUD de combat",
+    "changes": [
+      "Cartes sombres à liseré de classe, en-tête aligné (nom, classe, boutons de même gabarit), vignettes de caractéristique STRICTEMENT identiques (libellé « Défense » rétabli sous le blason), chips de compétence en grille de largeur égale avec valeur en pastille, bandeau d'XP retravaillé et badges d'attaque/équipement accordés côté MJ.",
+      "Palettes conservées (Vie violet, Endurance teal, PV vert, Défense gris, Dégâts rouge, une couleur par compétence), valeurs retendues pour fond sombre. Tout est scopé à l'onglet : aucun autre écran n'est touché."
+    ]
+  },
+  {
+    "v": "v2.5.31",
+    "date": "2026-08-25",
+    "title": "Révélation : le bloc se dévoile de gauche à droite",
+    "changes": [
+      "Le déroulé vertical est remplacé par un rideau horizontal (clip-path), dont la durée suit la longueur du texte (0,35 s à 1,1 s) pour que la lecture accompagne le dévoilement."
+    ]
+  },
+  {
+    "v": "v2.5.30",
+    "date": "2026-08-25",
+    "title": "Révélation progressive des blocs d'une salle (option)",
+    "changes": [
+      "Bascule 👁 Révélation dans la barre du haut, à gauche de ✕ Quitter, mémorisée dans le navigateur (amertume_reveal_v1).",
+      "Une salle déjà déroulée (ses.cineDone) ne rejoue jamais la séquence."
+    ]
+  },
+  {
+    "v": "v2.5.29",
+    "date": "2026-08-25",
+    "title": "Partage : publier TOUS les catalogues de talents du MJ",
+    "changes": [
+      "buildBundle v2 : genericTalents (+ pierres tombales), parchTalents, advTalents, monsterTalents, speciesTalents, tutorials.",
+      "applyBundle remplace ces catalogues à l'identique (pas de fusion), les pierres tombales explicites empêchant la résurrection des talents supprimés par le MJ.",
+      "Store expose load/saveGenTombstones.",
+      "Export JSON « Classes & Talents » : ajout des talents d'espèce et du catalogue adverse, à l'export comme à l'import.",
+      "Modale de partage : liste à jour de ce qui est publié."
+    ]
+  },
+  {
+    "v": "v2.5.28",
+    "date": "2026-08-25",
+    "title": "Niveau de départ : un seul sélecteur, pour tout le groupe",
+    "changes": [
+      "L'expérience étant commune, le niveau l'est aussi : le sélecteur par aventurier laissait croire à des niveaux différents. Il est remplacé par un choix unique au-dessus du bouton de lancement, appliqué à tous les aventuriers engagés."
+    ]
+  },
+  {
+    "v": "v2.5.27",
+    "date": "2026-08-25",
+    "title": "Montée de niveau : le message n'apparaît qu'au clic sur Continuer",
+    "changes": [
+      "Bouton Continuer toujours cliquable ; s'il manque des choix, le clic affiche les manques au lieu d'avancer.",
+      "Le message et le liseré d'attention restent masqués avant cette tentative, et disparaissent dès que tout est choisi."
+    ]
+  },
+  {
+    "v": "v2.5.26",
+    "date": "2026-08-25",
+    "title": "Montée de niveau : expliquer pourquoi Continuer est grisé",
+    "changes": [
+      "Message sous le bouton listant, par aventurier, les choix manquants (caractéristique, compétences, talent).",
+      "Compteur 0/2 dans l'en-tête des compétences, vert une fois complet.",
+      "Liseré ambré sur la colonne d'un aventurier incomplet."
+    ]
+  },
+  {
     "v": "v2.5.25",
     "date": "2026-08-25",
     "title": "Colonne Especes du MJ : en-tete accorde, pastille compacte, oeil et crayon",

@@ -38,6 +38,9 @@
   | `insurmontable` | 20 |
   | `impossible` | 50 |
 - **XP** : commun au groupe, fait monter de niveau tout le groupe.
+- **Niveau de départ** : au lancement, le joueur choisit le **niveau de départ
+  du groupe** (1 par défaut) — voir §10bis pour concevoir une aventure
+  « vétéran » qui commence au-delà du niveau 1.
 - **États de combat** (valeurs du moteur, à utiliser telles quelles) :
   `affaibli`, `auSol`, `feu`, `gele`, `poison`, `brise`, `faille` (négatifs) ;
   `blindage`, `onde`, `ciblage`, `garde`, `prepare`, `invisible` (positifs).
@@ -711,6 +714,28 @@ En pratique, pour une scène « qui compte » :
 DEF 1-2 / 2-3 dégâts / 5-8 XP ; alpha ~15-20 PV ; solitaire ~20-25 PV ;
 boss 25-40 PV / DEF 2-3 / XP 15-30. 2 à 4 sbires par combat courant.
 
+> ### ⚔️ RENDS CHAQUE COMBAT MÉMORABLE — pas des sacs de PV
+> Un monstre sans talent adverse ni comportement est un sac de PV interchangeable.
+> **Donne au moins un `advTalentIds` à tout monstre qui n'est pas un simple
+> sbire**, et choisis une combinaison qui raconte le monstre. Archétypes prêts à
+> l'emploi (clés du catalogue §9.2 — le camp s'inverse automatiquement) :
+>
+> | Archétype | Recette |
+> |---|---|
+> | **Tireur embusqué** | attaque `"range": "distance"` + `camouflage` (intouchable à distance : il faut ALLER le chercher) + `menace: "ranged"` |
+> | **Brute de charge** | `charge_etat` (choice `auSol`) + `rapide: true` + behavior `toLonely` — elle plaque au sol l'isolé |
+> | **Meneur de meute** | `meute` (+X dégâts par allié dans la zone) + behavior `toCrowd` ; ses sbires deviennent dangereux TANT QU'IL VIT |
+> | **Horreur épineuse** | `epines` + `still` : entrer dans sa zone coûte cher — un dilemme spatial à lui seul |
+> | **Duelliste** | `contre_attaque` (+ `riposte_distance` sur un boss) : chaque attaque contre lui se paie |
+> | **Régénérant** | `regeneration` (val 2-4) : impose de concentrer les attaques, sous peine de combat sans fin |
+> | **Écorché mystique** | `mort_explosive` (dice + état) : sa mort est un événement de zone |
+> | **Geôlier** | `frayeur` ou `attaque_etat` (choice `gele`) : il contrôle les déplacements |
+>
+> Un **boss** combine 2-3 de ces recettes + 3-4 zones + barrières + une menace
+> ciblée (`pvLow` traque les blessés, `dmgHigh` désarme le cogneur). Les états
+> (`feu`, `poison`, `gele` cumulables) sur les attaques de sbires suffisent à
+> transformer un combat banal en gestion de crise.
+
 ---
 
 ## 8. LES OBJETS (`items[]`)
@@ -737,8 +762,9 @@ boss 25-40 PV / DEF 2-3 / XP 15-30. 2 à 4 sbires par combat courant.
 ## 8bis. LES AVENTURIERS PRÉ-TIRÉS (`prebuilts[]`) — OBLIGATOIRE ×4
 
 **Chaque aventure DOIT proposer 4 aventuriers pré-tirés**, un par classe jouable
-(`Destructeur`, `Gardien`, `Lamevent`, `Mystique`), disponibles dès le lancement
-via « + Aventurier Pré-Construit » (le joueur peut aussi créer les siens).
+(`Destructeur`, `Gardien`, `Lamevent`, `Mystique`). Ils apparaissent directement
+sur l'écran de lancement, section **« 🎲 Aventuriers Pré-Tirés »**, prêts à être
+cochés (le joueur peut aussi créer les siens).
 Donne-leur des noms, genres et espèces variés, en accord avec l'ambiance de
 l'aventure.
 
@@ -762,7 +788,7 @@ l'aventure.
 | Champ | Valeurs / règles |
 |---|---|
 | `gender` | `"f"` (femme), `"m"` (homme), `"a"` (autre/neutre) |
-| `species` | `"humain"` (VIE +1, Perception +1, Savoir +1), `"nain"` (PV +8, Robustesse +1, Technique +1), `"goliath"` (Dégâts +2, Force +1, Robustesse +1), `"elfe"` (ENDU +1, Dégâts +1, Agilité +1, Mysticisme +1) |
+| `species` | `"humain"` (VIE +1, Perception +1, Savoir +1), `"nain"` (PV +8, Robustesse +1, Technique +1), `"goliath"` (Dégâts +2, Force +1, Robustesse +1), `"elfe"` (ENDU +1, Dégâts +1, Agilité +1, Mysticisme +1), `"gnome"` (Ruse +1, Technique +1 + **Talent d'Espèce « Discrétion »** : jamais ciblé en priorité par les adversaires tant qu'un autre aventurier partage sa zone — talent gratuit, toujours actif, n'occupe aucun emplacement) |
 | `klass` | `Destructeur` (PV de classe +16), `Gardien` (+18), `Lamevent` (+14), `Mystique` (+10) |
 | `vie`, `endu`, `damage` | RÈGLE DE CRÉATION : base VIE 3 / ENDU 0 / Dégâts 0, **+3 points à répartir** entre les trois, **+ les bonus d'espèce** déjà INTÉGRÉS aux valeurs. Ex. Goliath ayant mis 1 pt en VIE et 2 en Dégâts : `vie: 4, endu: 0, damage: 4` (2 de l'espèce inclus) |
 | `pvBonus` | 0, sauf Nain : 8 (bonus d'espèce) |
@@ -1000,7 +1026,11 @@ de classe, mets-les dans un export « classes-talents » séparé (format §10.3
 
 **Espèces** (création d'aventurier — informatif) : Humain (VIE +1, Perception +1,
 Savoir +1), Nain (PV +8, Robustesse +1, Technique +1), Goliath (Dégâts +2,
-Force +1, Robustesse +1), Elfe (ENDU +1, Dégâts +1, Agilité +1, Mysticisme +1).
+Force +1, Robustesse +1), Elfe (ENDU +1, Dégâts +1, Agilité +1, Mysticisme +1),
+Gnome (Ruse +1, Technique +1 + Talent d'Espèce « Discrétion »).
+Les **Talents d'Espèce** sont accordés d'office par l'application (clé d'effet
+`discretion`, réservée aux aventuriers) : n'en crée jamais dans un bundle et ne
+mets pas `discretion` sur un talent adverse — l'effet est inerte côté monstre.
 
 ### 9.4 Talents ADVERSES (`advTalents[]`)
 Talents des monstres, mêmes effets que §9.2 (le camp visé par défaut s'inverse
@@ -1078,14 +1108,31 @@ niveaux que tu veux faire gagner.
 (La table continue jusqu'au niveau 20 : 10 500 · 14 000 · 18 500 · 24 500 ·
 32 000 · 41 000 · 52 000 · 65 000 · 81 000 · 100 000.)
 
-À chaque montée de niveau, le joueur choisit pour chaque aventurier **+1
-caractéristique et +1 talent** ; aux **niveaux impairs** (3, 5, 7…) s'ajoutent
-**+1 point dans 2 compétences différentes**.
+À chaque montée de niveau, le joueur choisit pour chaque aventurier **une
+caractéristique** (DÉGÂTS +1 **ou** ENDURANCE +2 **ou** VIE +1) **et 1 talent**
+du niveau atteint ; aux **niveaux impairs** (3, 5, 7…) s'ajoutent **+1 point
+dans 2 compétences différentes**.
+
+### Niveau de départ du groupe (aventures « vétéran »)
+
+Au lancement, le joueur choisit le **niveau de départ du groupe** (1 par
+défaut). L'XP de groupe démarre alors **au seuil de ce niveau** (niveau 3 →
+250 XP), et chaque aventurier fait ses choix de montée (caractéristique,
+compétences, talents) palier par palier avant d'entrer en jeu. Pour une
+aventure plus difficile :
+
+- **Annonce le niveau conçu** dans `summary` et/ou `difficulty`
+  (ex. `"difficulty": "Difficile — groupe de niveau 3 conseillé"`).
+- **Équilibre les monstres pour ce niveau** : par niveau au-delà du 1, compte
+  grossièrement **+40-50 % de PV et +1 dégât** sur les repères du §7 (un boss
+  « niveau 3 » : 45-70 PV, DEF 2-3, 4-5 dégâts).
+- **Budgète l'XP depuis le seuil de départ** : un groupe lancé au niveau 3 qui
+  doit finir au niveau 4 a besoin de 250 XP (de 250 à 500), pas de 500.
 
 ### Combien d'XP mon aventure doit-elle distribuer ?
 
-**Le groupe commence au niveau 1 avec 0 XP.** Vise donc, en XP TOTALE
-distribuée sur toute l'aventure :
+**Par défaut, le groupe commence au niveau 1 avec 0 XP.** Vise donc, en XP
+TOTALE distribuée sur toute l'aventure :
 
 | Objectif | XP totale à distribuer |
 |---|---:|
@@ -1154,6 +1201,34 @@ les pré-tirés entrent en jeu avec **2 talents** chacun.
 - Textes narratifs : 2-6 phrases par bloc, ambiance forte, en français.
 - TOUJOURS donner un `label` parlant aux tests (« Escalader la dune », pas « Test »).
 
+**COURBE DE TENSION** — une aventure plate est une aventure oubliée :
+1. **Premier combat facile** (2-3 sbires, 2 zones) : il apprend le terrain.
+2. **Montée** : chaque combat suivant ajoute UNE menace nouvelle (un état, un
+   archétype du §7, une barrière, un tireur à déloger) — jamais juste « plus
+   de PV ».
+3. **Creux avant le boss** : une scène calme (`repos`, `commerce`) avec un
+   soin STRUCTURÉ (action `winEffect: { "kind": "pv", "val": "2d6" }`, potion
+   en `itemRewards`) — le type de scène ne soigne pas par lui-même.
+4. **Boss final** : 3-4 zones, barrières, 2-3 recettes d'archétypes, et un
+   enjeu scénique (un otage dans la zone du fond, un rituel à interrompre).
+
+**RESSOURCES SOUS PRESSION** : distribue PEU de soins (1-2 potions sur tout le
+parcours) et fais payer les échecs en PV (`failEffect`) plutôt qu'en blocage —
+un groupe qui arrive entamé au boss vit un vrai final ; un groupe à PV pleins
+s'ennuie.
+
+**AU MOINS UN VRAI DILEMME** : un choix (`choices` ou bloc Action à 2 options)
+dont AUCUNE option n'est purement bonne — sauver le prisonnier OU garder la
+clé, traverser le gué (`failEffect` PV) OU payer le passeur (`goldReward`
+négatif impossible : fais payer via une Action qui retire un objet ou donne un
+état). Trace la conséquence avec `deedReward` sur chaque branche : le journal
+des Hauts Faits devient la mémoire morale de la partie.
+
+**RÉCOMPENSE L'EXPLORATION** : 1 passage secret (`revealTestId`), 1 cache
+optionnelle (test `reqSkill` + trésor), 1 détail de décor qui paie (bloc
+narratif chaîné après une réussite de Perception). Le joueur curieux doit
+finir plus riche que le joueur pressé — jamais plus BLOQUÉ.
+
 ### Checklist finale avant de rendre le JSON
 1. `format` = `"amertume-adventure-bundle"`, `version` = 2.
 2. TOUS les ids portent le préfixe de l'aventure (règle d'or n°1).
@@ -1194,6 +1269,17 @@ les pré-tirés entrent en jeu avec **2 talents** chacun.
     obligatoires + les `xpReward` des tests et scènes du chemin principal ;
     le total correspond au nombre de montées de niveau voulu (1 niveau =
     50-240 XP, 2 niveaux = 250-490, 3 niveaux = 500-990). Indique ce total.
+    Si l'aventure est conçue pour un **niveau de départ > 1**, dis-le dans
+    `summary`/`difficulty` et budgète depuis le seuil de ce niveau.
+15. **ÉCONOMIE DES CLÉS** : chaque Objet Rare (`kind: "rare"`) demandé par un
+    `rareKeyName` est obtenable sur le chemin AVANT le bloc qui l'exige, et
+    jamais exigé deux fois s'il est consommé (`rareConsume: true`) — sinon
+    prévois une alternative (`altSkill` ou `retryMode: "always"`). Un
+    `revealTestId` pointe toujours vers un test atteignable et retentable.
+16. **INTENSITÉ** : chaque combat a sa menace propre (archétypes du §7, états,
+    zones) ; il existe au moins un vrai dilemme à conséquences tracées
+    (`deedReward`) et une récompense d'exploration optionnelle. Courbe de
+    tension du §11 respectée (facile → montée → creux → boss).
 
 ---
 
