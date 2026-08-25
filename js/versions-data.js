@@ -1,6 +1,15 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.21",
+    "date": "2026-08-25",
+    "title": "Niveau de l'aventurier dans le bandeau, titre ATTAQUE agrandi",
+    "changes": [
+      "La fiche du bandeau affiche desormais le NIVEAU de l'aventurier, dans une pastille ambre posee devant sa classe (« NIV. 4 · Gardien »). Le niveau est celui du groupe, fige sur l'instance au lancement du combat : il reste juste meme apres un rechargement de page. Les combats deja en cours, qui ne le portent pas, affichent le niveau 1.",
+      "Le titre « ATTAQUE » de la boite de des repasse en plus grand (14,7 px au lieu de 11,5) avec son icone d'arme agrandie, sans jamais toucher les des ni les blasons de DEF poses dans leur coin : 13 px de degagement mesures dans le cas le plus serre (tous les des bloques)."
+    ]
+  },
+  {
     "v": "v2.5.20",
     "date": "2026-08-25",
     "title": "Journal resserre : « X attaque Y : N Degats. »",

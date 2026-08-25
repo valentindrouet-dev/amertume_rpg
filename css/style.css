@@ -6910,3 +6910,21 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .cbdesc-name { display: flex; align-items: center; gap: .35rem; }
 /* v2.5.20 — compteur des Orbes détaché du nom sur le bouton. */
 .cbdock .ab-orbes-count { margin-top: 1px; opacity: .9; }
+
+/* ================================================================
+   v2.5.21 — Niveau dans la fiche, titre ATTAQUE agrandi
+   ================================================================ */
+.ab-level {
+  display: inline-flex; align-items: center; gap: .18rem;
+  font-family: var(--font-body); font-size: .68rem; font-weight: 800;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: .16rem .45rem; border-radius: 999px;
+  background: rgba(231, 154, 69, .16); border: 1px solid rgba(231, 154, 69, .5);
+  color: #f0c98d;
+}
+.ab-level b { font-size: .8rem; color: #ffdca8; }
+/* Titre de la boîte de dés : plus grand, tout en laissant passer les blasons
+   de DEF posés dans le coin des dés. */
+.cbdock .dp-title { font-size: .92rem; letter-spacing: .1em; }
+.cbdock .dp-title-ico { height: 19px; }
+.cbdock .dp-tray { padding-top: .32rem; }

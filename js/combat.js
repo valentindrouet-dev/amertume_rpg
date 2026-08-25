@@ -142,6 +142,7 @@
       damage: (h.damage || 0) + (g ? g.damage || 0 : 0),
       chosenTalents: equippedOf(g),
     }) : h;
+    const heroLevel = Math.max(1, combatHeroLevel || 1);
     const attacks = Combatants.heroCombatAttacks(hero);
     const talents = Combatants.resolveHeroTalents(Array.isArray(hero.chosenTalents) ? hero.chosenTalents : null);
     const hasTalent = function (e) { return talents.some(function (t) { return t.effect === e; }); };
@@ -212,6 +213,7 @@
       maxPv: Combatants.heroPv(hero) + renf, pv: Combatants.heroCurPv(hero) + renf,
       def: Combatants.heroDef(hero), damage: (hero.damage || 0) + surv, xp: 0, type: 'hero',
       menace: null, esquive: hasTalent('esquive_innee') || hasTalent('esquive_6') || false, rapide: !!h.rapide, socle: 'medium',
+      level: heroLevel,                 // niveau du groupe, figé au lancement du combat
       hasShield: hasShield,             // COUP DE BOUCLIER : +1 dé rouge si bouclier
       attacks: attacks, attackUses: initUses(attacks),
       talents: talents,                 // talents résolus (kind/effect/val) pour le moteur
@@ -4890,6 +4892,8 @@
         '</div>' +
         // Classe de l'aventurier / type de l'adversaire : SOUS la barre de PV.
         '<div class="ab-subline">' +
+          (!isEnemy ? '<span class="ab-level" title="Niveau de l\'aventurier">Niv. <b>' +
+            (c.level || 1) + '</b></span>' : '') +
           (c.klass ? '<span class="tag class-tag klass-' + slug(c.klass) + '">' + esc(c.klass) + '</span>' : '') +
           (isEnemy && c.type ? '<span class="tag type ztype-' + c.type + '">' + (Combatants.TYPE_LABEL[c.type] || c.type) + '</span>' : '') +
           (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
