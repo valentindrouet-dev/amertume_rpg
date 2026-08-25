@@ -565,9 +565,6 @@
           (isMJ()
             ? '<button id="ses-reload-room" class="ghost small ses-mj-btn" title="MJ : réinitialise ENTIÈREMENT cette salle — tests, combats, butin, XP, PV, hauts faits reviennent à l\'état d\'entrée">🔄 Salle</button>'
             : '') +
-          '<button id="ses-cine-toggle" class="ghost small ses-cine-btn' + (cineOn() ? ' on' : '') + '"' +
-            ' title="Révélation progressive : à la première arrivée dans une salle, les blocs se déroulent un à un. Clic ou barre d\'espace pour la suite.">' +
-            (cineOn() ? '👁 Révélation : ON' : '👁 Révélation : OFF') + '</button>' +
           '<button id="ses-quit" class="ghost small">✕ Quitter</button>' +
         '</div>' +
       '</div>' +
@@ -602,12 +599,6 @@
     const reloadBtn = $('#ses-reload-room');
     if (reloadBtn) reloadBtn.addEventListener('click', function () {
       if (confirm('Recharger la salle ?\n\nTout ce qui s\'est passé dans CETTE salle est annulé : tests, combats, butin, XP, PV, hauts faits reviennent à l\'état d\'entrée.')) reloadRoom();
-    });
-    const cineBtn = $('#ses-cine-toggle');
-    if (cineBtn) cineBtn.addEventListener('click', function () {
-      setCineOn(!cineOn());
-      // Rendu immédiat pour refléter l'état ; la salle en cours n'est pas rejouée.
-      renderScene(root);
     });
     $('#ses-quit').addEventListener('click', function () {
       setActive(null);
@@ -647,8 +638,10 @@
     renderSceneActions(scene, adv, ses, chapter);
     // Animation de révélation des blocs débloqués par le dernier jet.
     applyRevealAnimations();
-    // Révélation progressive (option) : première arrivée dans cette salle.
-    startCinematic(root, ses, scene);
+    // Révélation progressive : DÉSACTIVÉE (v2.5.41) — l'effet en l'état ne
+    // convainc pas. Le code de startCinematic est conservé pour une future
+    // version retravaillée, mais rien ne l'appelle ni ne l'active plus.
+    endCinematic();
   }
 
   // ---------- Révélation progressive des blocs d'une salle ----------
@@ -658,9 +651,7 @@
   // bloquant : les blocs déjà apparus restent pleinement jouables.
   const CINE_KEY = 'amertume_reveal_v1';
   let cineStop = null; // fonction de nettoyage de la révélation en cours
-  function cineOn() {
-    try { return global.localStorage.getItem(CINE_KEY) === '1'; } catch (e) { return false; }
-  }
+  function cineOn() { return false; } // option désactivée (v2.5.41)
   function setCineOn(v) {
     try { global.localStorage.setItem(CINE_KEY, v ? '1' : '0'); } catch (e) {}
   }
