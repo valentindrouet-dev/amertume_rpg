@@ -947,7 +947,15 @@
   // Sans session active (onglet Groupe avant de jouer), on renvoie tout de même
   // un héros avec chosenTalents: [] pour que les talents non débloqués restent masqués.
   function displayHero(h) {
-    if (!isPlayerMode()) return h;
+    if (!isPlayerMode()) {
+      // MODE MJ : un Pré-Tiré ne possède QUE les talents de départ choisis dans
+      // sa fiche. Sans cette liste, on retombait sur le fallback « niveau de
+      // groupe », qui affichait TOUS les talents de TOUTES les classes (d'où une
+      // Lame du Vent dotée d'Orbes Mystiques).
+      return Object.assign({}, h, {
+        chosenTalents: Array.isArray(h.startTalents) ? h.startTalents : [],
+      });
+    }
     let dh = (global.Session && Session.effectiveHero) ? Session.effectiveHero(h) : h;
     // En mode Joueur, un aventurier ne possède QUE les talents explicitement choisis.
     // Sans choix (ou hors session), on force la liste vide pour ne pas retomber sur
