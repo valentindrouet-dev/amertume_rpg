@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.24",
+    "date": "2026-08-25",
+    "title": "Niveau de depart choisi pour chaque aventurier au lancement",
+    "changes": [
+      "L'ecran de lancement d'une aventure porte desormais un selecteur « DEPART : Niveau X » sous CHAQUE carte d'aventurier (crees comme pre-tires), du niveau 1 au niveau maximum. Le selecteur ne coche plus la carte quand on l'ouvre.",
+      "Le niveau choisi est reporte sur le clone d'un pre-tire (son identifiant change au lancement).",
+      "La session enregistre les niveaux de depart. L'XP de groupe etant commune, elle part du niveau LE PLUS HAUT du groupe ; chaque aventurier ne fait ensuite ses montees que jusqu'a SON niveau : il choisit normalement ses caracteristiques, ses competences et ses talents, palier par palier. Un palier que personne n'atteint est enregistre et passe sans ecran.",
+      "Verifie de bout en bout : Agone lance au niveau 3 et Bergil au niveau 1 donnent une XP de groupe de 250 (niveau 3), et l'ecran de montee de niveau au lancement n'affiche qu'Agone."
+    ]
+  },
+  {
     "v": "v2.5.23",
     "date": "2026-08-25",
     "title": "Le Talent d'Espece s'affiche partout : creation, Talents, fiche, cote MJ",

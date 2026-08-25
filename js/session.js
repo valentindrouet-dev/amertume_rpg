@@ -15,6 +15,7 @@
   let scopeAdventureId = null;   // aventure courante en mode Joueur (limite l'affichage)
   let forceSetup = false;        // force l'écran de création/sélection du groupe
   let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
+  let setupLevels = {};          // niveau de départ choisi par aventurier { heroId: niveau }
 
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
   // Nom de classe normalisé (Pyromane → Mystique), en lecture seule.
@@ -2987,7 +2988,22 @@
   }
   function renderLevelUp(root, ses, adv, newLevel, opts) {
     const talentsOnly = !!(opts && opts.talentsOnly);
-    const heroes = engagedHeroes(ses);
+    // NIVEAUX DE DÉPART : un aventurier lancé au niveau 3 ne fait ses montées
+    // que jusqu'au niveau 3 ; les autres sautent cet écran pour ce palier.
+    const startLevelOf = function (h) {
+      const m = ses.heroLevels || {};
+      return m[h.id] || sessionLevel(ses);
+    };
+    const allEngaged = engagedHeroes(ses);
+    const heroes = talentsOnly ? allEngaged
+      : allEngaged.filter(function (h) { return startLevelOf(h) >= newLevel; });
+    // Palier que personne n'atteint : on l'enregistre et on passe au suivant.
+    if (!heroes.length) {
+      ses.levelDone = newLevel;
+      save(); Store.save();
+      renderPlay(ses.adventureId);
+      return;
+    }
     // Niveau 1 : la Maîtrise de classe est acquise d'office avant l'affichage,
     // exactement comme à la création d'un aventurier dans l'assistant.
     if (talentsOnly) heroes.forEach(function (h) { grantStartMastery(ses, h); });
@@ -3889,6 +3905,17 @@
 
     // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
     // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
+    // Sélecteur de niveau de départ, posé sous chaque carte d'aventurier.
+    function levelPickHtml(h) {
+      const maxL = Store.maxLevel ? Store.maxLevel() : 20;
+      const cur = setupLevels[h.id] || 1;
+      let opts = '';
+      for (let l = 1; l <= maxL; l++) {
+        opts += '<option value="' + l + '"' + (l === cur ? ' selected' : '') + '>Niveau ' + l + '</option>';
+      }
+      return '<label class="grp-level" title="Niveau auquel cet aventurier commence l\'aventure : il choisira ses gains (caractéristiques, compétences, talents) au lancement.">' +
+        '<span>Départ</span><select data-level="' + h.id + '">' + opts + '</select></label>';
+    }
     function cardHtml(h) {
       // Un aventurier engagé dans une sauvegarde en cours ne peut pas être
       // supprimé : il faut d'abord supprimer la sauvegarde correspondante.
@@ -3900,7 +3927,7 @@
       return '<div class="hero-pick-card-wrap">' +
         '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
           Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
-        '</label>' + delBtn +
+        '</label>' + levelPickHtml(h) + delBtn +
       '</div>';
     }
 
@@ -3909,7 +3936,7 @@
       return '<div class="hero-pick-card-wrap">' +
         '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
           Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
-        '</label>' +
+        '</label>' + levelPickHtml(h) +
       '</div>';
     }
     const prebuiltRows = prebuilts.map(prebuiltCardHtml).join('');
@@ -3956,6 +3983,13 @@
       adv.className = 'diff-advice' + (n >= 1 && n <= 4 ? ' diff-' + n : '');
       document.getElementById('grp-start').disabled = n < 1 || n > 4;
     }
+    root.querySelectorAll('[data-level]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        setupLevels[sel.getAttribute('data-level')] = parseInt(sel.value, 10) || 1;
+      });
+      // Le sélecteur ne doit pas cocher/décocher la carte qui l'entoure.
+      sel.addEventListener('click', function (e) { e.stopPropagation(); });
+    });
     root.querySelectorAll('[data-hero]').forEach(function (cb) {
       cb.addEventListener('change', function () {
         if (cb.checked && root.querySelectorAll('[data-hero]:checked').length > 4) {
@@ -3990,8 +4024,14 @@
       const ids = Array.from(root.querySelectorAll('[data-hero]:checked')).map(function (cb) { return cb.getAttribute('data-hero'); });
       if (!ids.length || ids.length > 4) return;
       // Résout les modèles pré-construits sélectionnés en clones liés à l'aventure
-      const resolved = ids.map(function (id) { return resolveHeroId(advId, id); }).filter(Boolean);
-      startSessionWithHeroes(advId, resolved);
+      // Le clone d'un pré-tiré change d'id : on reporte le niveau choisi.
+      const levels = {};
+      const resolved = ids.map(function (id) {
+        const rid = resolveHeroId(advId, id);
+        if (rid) levels[rid] = setupLevels[id] || 1;
+        return rid;
+      }).filter(Boolean);
+      startSessionWithHeroes(advId, resolved, levels);
     };
     refresh();
   }
@@ -4069,7 +4109,7 @@
   }
 
   // Crée une nouvelle partie avec les aventuriers choisis et lance la narration
-  function startSessionWithHeroes(advId, heroIds) {
+  function startSessionWithHeroes(advId, heroIds, startLevels) {
     const adv = findAdventure(advId);
     if (!adv) return;
     const firstSc = firstScene(adv);
@@ -4101,7 +4141,19 @@
       heroIds: heroIds.slice(), heroStates: heroStates,
       currentChapterId: firstSc.chapter.id, currentSceneId: firstSc.scene.id,
       visitedSceneIds: [firstSc.scene.id], choicesTaken: [],
-      party: { xp: 0 },          // XP de la session, décorrélée de l'XP du mode Admin
+      // NIVEAUX DE DÉPART : chaque aventurier peut commencer au niveau choisi.
+      // L'XP de groupe (commune) part du niveau le PLUS HAUT, et chacun ne fait
+      // ses montées que jusqu'à SON niveau (voir renderLevelUp).
+      heroLevels: (function () {
+        const m = {};
+        heroIds.forEach(function (hid) { m[hid] = Math.max(1, (startLevels && startLevels[hid]) || 1); });
+        return m;
+      })(),
+      party: { xp: (function () {
+        let top = 1;
+        heroIds.forEach(function (hid) { top = Math.max(top, (startLevels && startLevels[hid]) || 1); });
+        return Store.xpForLevel ? Store.xpForLevel(top) : 0;
+      })() },
       acquiredItems: {},
       heroOwned: heroOwned,
       levelDone: 1,              // dernier niveau pour lequel les choix ont été faits
