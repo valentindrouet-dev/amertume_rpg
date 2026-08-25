@@ -6791,3 +6791,20 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
 }
 @media (max-width: 1360px) { .cbdock-states { padding-left: .7rem; } }
 @media (max-width: 1000px) { .cbdock-states { padding-left: .7rem; } }
+
+/* ================================================================
+   v2.5.12 — Pastilles d'action / mouvement, marque d'analyse
+   ================================================================ */
+/* Les pastilles du coin haut-droit s'alignent en rangée : une bleue par action
+   disponible (deux si Préparé), une ambre si le mouvement reste à jouer. */
+.cc-dots {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  display: flex; align-items: center; gap: 3px;
+}
+.cc-dots .action-dot { position: static; top: auto; right: auto; }
+.action-dot.move-dot {
+  background: var(--accent-2); border-color: #fdf0dc;
+  box-shadow: 0 0 5px rgba(231, 154, 69, .85);
+}
+/* Loupe des adversaires déjà analysés. */
+.cc-analyzed { font-size: .82rem; line-height: 1; opacity: .85; margin-left: .1rem; cursor: help; }

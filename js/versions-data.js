@@ -1,6 +1,15 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.12",
+    "date": "2026-08-25",
+    "title": "Pastilles d'action et de mouvement, loupe des adversaires analyses",
+    "changes": [
+      "Coin haut-droit des vignettes d'aventurier : un point BLEU par action encore disponible — deux points quand le combattant est PREPARE et dispose donc d'une action supplementaire — et un point AMBRE (couleur du mouvement) tant que le deplacement du tour n'a pas ete utilise. Le point de mouvement tient compte des mouvements gratuits (Pas Leger, Rebond) et disparait si le combattant est Au sol ou Gele.",
+      "Une petite loupe s'affiche a cote du nom d'un adversaire DEJA ANALYSE : d'un coup d'oeil on sait quelles fiches sont revelees."
+    ]
+  },
+  {
     "v": "v2.5.11",
     "date": "2026-08-25",
     "title": "Deselection au re-clic, dans les marges et par Echap ; cadre du pool de des fige",

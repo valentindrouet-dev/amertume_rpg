@@ -5042,15 +5042,31 @@
     // lorsque le combattant est sélectionné.
     // Pastille bleue (coin haut-droit) : aventurier actif n'ayant pas encore
     // utilisé son Action / Attaque ce tour. Disparaît une fois l'action faite.
-    const unspent = !isEnemy && !dead && (!c.used.action || c.prepBonus);
-    const actionDot = unspent
-      ? '<span class="action-dot" title="Action / Attaque non utilisée"></span>' : '';
+    // Pastilles du coin haut-droit :
+    //   • un point BLEU par action encore disponible (deux si le combattant est
+    //     PRÉPARÉ et dispose donc d'une action de plus) ;
+    //   • un point AMBRE si le mouvement du tour n'a pas encore été utilisé.
+    let dots = '';
+    if (!isEnemy && !dead) {
+      const actionsLeft = (actionSpent(c) ? 0 : 1) + (c.prepBonus ? 1 : 0);
+      const hasFreeMove = c.freeMoveReady || c.freeMoves > 0;
+      const moveLeft = (!c.used.move || hasFreeMove) && !(c.states && c.states.auSol) && stateVal(c, 'gele') === 0;
+      for (let d = 0; d < actionsLeft; d++) {
+        dots += '<span class="action-dot" title="' +
+          (actionsLeft > 1 ? 'Deux actions disponibles (Préparé)' : 'Action / Attaque non utilisée') + '"></span>';
+      }
+      if (moveLeft) dots += '<span class="action-dot move-dot" title="Mouvement non utilisé"></span>';
+    }
+    const actionDot = dots ? '<span class="cc-dots">' + dots + '</span>' : '';
+    // Adversaire déjà analysé : petite loupe à côté de son nom.
+    const analyzedMark = (isEnemy && c.analyzed)
+      ? '<span class="cc-analyzed" title="Adversaire déjà analysé — DEF, Dégâts et XP révélés">🔍</span>' : '';
     // Pas d'avatar dans les vignettes de zone : toute la largeur va au nom / PV.
     let html = '<div class="' + cls.join(' ') + '" data-iid="' + c.iid + '">' +
       actionDot +
       '<div class="cc-top-row">' +
         '<div class="cc-body">' +
-          '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' +
+          '<div class="cc-head"><span class="roster-name">' + esc(c.name) + '</span>' + analyzedMark +
             (isMarked ? '<span class="tag tag-marked" title="Proie : les adversaires ajoutent des dés contre ' + esc(gObj(c)) + ' ce tour">🎯 Proie</span>' : '') +
             (dead ? '<span class="tag dead">' + (c.status === 'coma' ? 'Coma' : 'A fui') + '</span>' : '') +
           '</div>' +
