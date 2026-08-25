@@ -15,7 +15,7 @@
   let scopeAdventureId = null;   // aventure courante en mode Joueur (limite l'affichage)
   let forceSetup = false;        // force l'écran de création/sélection du groupe
   let setupSel = {};             // sélection transitoire d'aventuriers { heroId: true }
-  let setupLevels = {};          // niveau de départ choisi par aventurier { heroId: niveau }
+  let setupLevel = 1;            // niveau de départ du GROUPE (l'XP est commune)
 
   function slug(k) { return (k || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
   // Nom de classe normalisé (Pyromane → Mystique), en lecture seule.
@@ -3942,16 +3942,22 @@
 
     // Mêmes cartes que l'onglet Groupe, avec une case à cocher de sélection
     // (les attaques sont masquées via CSS .hero-pick-list .roster-section)
-    // Sélecteur de niveau de départ, posé sous chaque carte d'aventurier.
-    function levelPickHtml(h) {
+    // Niveau de départ : l'XP est COMMUNE au groupe, le niveau l'est donc aussi.
+    // Un seul sélecteur pour toute l'équipe, posé au-dessus du bouton de lancement.
+    function groupLevelHtml() {
       const maxL = Store.maxLevel ? Store.maxLevel() : 20;
-      const cur = setupLevels[h.id] || 1;
       let opts = '';
       for (let l = 1; l <= maxL; l++) {
-        opts += '<option value="' + l + '"' + (l === cur ? ' selected' : '') + '>Niveau ' + l + '</option>';
+        opts += '<option value="' + l + '"' + (l === setupLevel ? ' selected' : '') + '>Niveau ' + l + '</option>';
       }
-      return '<label class="grp-level" title="Niveau auquel cet aventurier commence l\'aventure : il choisira ses gains (caractéristiques, compétences, talents) au lancement.">' +
-        '<span>Départ</span><select data-level="' + h.id + '">' + opts + '</select></label>';
+      return '<div class="grp-level-row">' +
+        '<label class="grp-level">' +
+          '<span>Niveau de départ du groupe</span>' +
+          '<select id="grp-level">' + opts + '</select>' +
+        '</label>' +
+        '<p class="hint grp-level-hint">L\'expérience est commune : tous les aventuriers commencent au même niveau. ' +
+          'Au-delà du niveau 1, chacun choisira ses gains (caractéristique, compétences, talents) avant d\'entrer en jeu.</p>' +
+      '</div>';
     }
     function cardHtml(h) {
       // Un aventurier engagé dans une sauvegarde en cours ne peut pas être
@@ -3964,7 +3970,7 @@
       return '<div class="hero-pick-card-wrap">' +
         '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
           Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
-        '</label>' + levelPickHtml(h) + delBtn +
+        '</label>' + delBtn +
       '</div>';
     }
 
@@ -3973,7 +3979,7 @@
       return '<div class="hero-pick-card-wrap">' +
         '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
           Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
-        '</label>' + levelPickHtml(h) +
+        '</label>' +
       '</div>';
     }
     const prebuiltRows = prebuilts.map(prebuiltCardHtml).join('');
@@ -4010,6 +4016,7 @@
         '<div id="grp-list" class="hero-pick-list">' +
           (customRows || '<p class="empty">Aucun aventurier créé. Clique sur « + Aventurier » ou choisissez un Pré-Tiré ci-dessus.</p>') + '</div>' +
         '<p class="diff-advice" id="grp-advice"></p>' +
+        groupLevelHtml() +
         '<div class="roll-actions"><button class="primary big" id="grp-start">▶ Commencer l\'aventure</button></div>' +
       '</div>';
 
@@ -4020,12 +4027,9 @@
       adv.className = 'diff-advice' + (n >= 1 && n <= 4 ? ' diff-' + n : '');
       document.getElementById('grp-start').disabled = n < 1 || n > 4;
     }
-    root.querySelectorAll('[data-level]').forEach(function (sel) {
-      sel.addEventListener('change', function () {
-        setupLevels[sel.getAttribute('data-level')] = parseInt(sel.value, 10) || 1;
-      });
-      // Le sélecteur ne doit pas cocher/décocher la carte qui l'entoure.
-      sel.addEventListener('click', function (e) { e.stopPropagation(); });
+    const lvlSel = document.getElementById('grp-level');
+    if (lvlSel) lvlSel.addEventListener('change', function () {
+      setupLevel = parseInt(lvlSel.value, 10) || 1;
     });
     root.querySelectorAll('[data-hero]').forEach(function (cb) {
       cb.addEventListener('change', function () {
@@ -4061,13 +4065,10 @@
       const ids = Array.from(root.querySelectorAll('[data-hero]:checked')).map(function (cb) { return cb.getAttribute('data-hero'); });
       if (!ids.length || ids.length > 4) return;
       // Résout les modèles pré-construits sélectionnés en clones liés à l'aventure
-      // Le clone d'un pré-tiré change d'id : on reporte le niveau choisi.
       const levels = {};
-      const resolved = ids.map(function (id) {
-        const rid = resolveHeroId(advId, id);
-        if (rid) levels[rid] = setupLevels[id] || 1;
-        return rid;
-      }).filter(Boolean);
+      const resolved = ids.map(function (id) { return resolveHeroId(advId, id); }).filter(Boolean);
+      // Niveau de départ commun à tout le groupe.
+      resolved.forEach(function (rid) { levels[rid] = setupLevel; });
       startSessionWithHeroes(advId, resolved, levels);
     };
     refresh();
