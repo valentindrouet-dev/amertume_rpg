@@ -694,6 +694,10 @@
       const el = items[i++];
       if (!el) return;
       el.classList.remove('cine-hidden');
+      // Le rideau met plus longtemps à passer sur un long paragraphe que sur
+      // une languette de sortie : la lecture suit le dévoilement.
+      const len = (el.textContent || '').trim().length;
+      el.style.setProperty('--cine-dur', Math.min(1.1, Math.max(0.35, len / 320)).toFixed(2) + 's');
       el.classList.add('cine-in');
       // Le bloc qui vient d'apparaître reste à l'écran.
       if (el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

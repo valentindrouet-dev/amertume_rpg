@@ -6998,11 +6998,15 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   background: rgba(231, 154, 69, .14); color: #f0c98d;
 }
 .cine-hidden { display: none !important; }
-/* Le bloc se déroule comme un bandeau : hauteur qui s'ouvre, puis contenu. */
-.cine-in { animation: cine-unroll .34s cubic-bezier(.22, .8, .3, 1) both; transform-origin: top center; }
-@keyframes cine-unroll {
-  from { opacity: 0; transform: scaleY(.6) translateY(-6px); filter: blur(1px); }
-  to   { opacity: 1; transform: scaleY(1) translateY(0); filter: none; }
+/* Le bloc se dévoile de la GAUCHE vers la DROITE, comme un rideau qu'on tire.
+   La durée (--cine-dur) est posée par le script selon la longueur du texte. */
+.cine-in {
+  animation: cine-wipe var(--cine-dur, .5s) cubic-bezier(.25, .6, .25, 1) both;
+  will-change: clip-path;
+}
+@keyframes cine-wipe {
+  from { clip-path: inset(0 100% 0 0); opacity: .55; }
+  to   { clip-path: inset(0 0 0 0);    opacity: 1; }
 }
 .cine-hint {
   margin-top: .7rem; text-align: center;
@@ -7012,6 +7016,6 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .cine-hint b { color: #e8c476; }
 @keyframes cine-pulse { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
 @media (prefers-reduced-motion: reduce) {
-  .cine-in { animation-duration: .01s; }
+  .cine-in { animation-duration: .01s !important; }
   .cine-hint { animation: none; }
 }
