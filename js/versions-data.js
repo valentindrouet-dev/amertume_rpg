@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.09",
+    "date": "2026-08-25",
+    "title": "Deselection au clic dans le vide, regle des des au survol, journal en blanc creme",
+    "changes": [
+      "Un clic dans le VIDE du plateau (hors vignette, zone, bouton, bandeau, journal) deselectionne le combattant et annule l'action armee. La selection automatique est mise en pause tant que le joueur n'a pas repris la main sur un combattant : sans cela, la fiche se re-selectionnait aussitot. Elle reprend au tour suivant.",
+      "Survoler un de du pool affiche SA REGLE dans la case Description : simple, leger, lourd, mystique, soin, mortel, phase et faille — chacun avec son effet exact (depasser la DEF, retire sur un double, ignore la DEF, valeur doublee, multipliee par le tour, faces exclues…).",
+      "Journal en blanc creme pour le texte ordinaire : l'orange ne sert plus qu'aux informations marquantes. Etats en ambre, talents et reactions en violet, armes et attaques en bleu acier, degats en rouge clair, soins en vert, critique et echec en exergue.",
+      "Les onglets d'etat commencent au-dessus du NOM de l'aventurier, au bord gauche du bandeau (mesure : 11 px contre 12 px pour le bandeau), et ne debordent plus de la fenetre de combat."
+    ]
+  },
+  {
     "v": "v2.5.08",
     "date": "2026-08-25",
     "title": "Police de titrage nettement plus grasse : Fraunces 900",

@@ -349,7 +349,7 @@
   }
 
   function startCombat() {
-    lastRoll = null; rollActive = false;   // le pool de dés repart vide à chaque combat
+    lastRoll = null; rollActive = false; autoSelectOff = false;   // pool vide et sélection auto au départ
     const heroObjs = Store.state.heroes.filter(function (h) { return setupHeroes[h.id]; });
     const cfg = {
       zones: setupZones.map(function (z, i) {
@@ -2627,6 +2627,7 @@
   function startPretour() {
     const c = combat();
     c.phase = 'pretour';
+    autoSelectOff = false;   // nouveau tour : la sélection automatique reprend
     // Octroie le mouvement gratuit (Pas Léger), l'action rapide (Rapide), et l'accès
     // au Pré-Tour pour Initiative / Préparation Arcanique (Orbes en Pré-Tour 1).
     activeOf('hero').forEach(function (h) {
@@ -3992,6 +3993,31 @@
     box.innerHTML = '<div class="cbdesc-name">' + esc(name) + '</div>' +
       '<div class="cbdesc-txt">' + (txt ? esc(txt) : 'Aucune description.') + '</div>';
   }
+  // Règle de chaque couleur de dé, affichée au survol dans la case Description.
+  const DIE_DESC = {
+    white: 'Dé simple. Sa valeur doit DÉPASSER la Défense de la cible pour infliger ses dégâts.',
+    bone: 'Dé léger. Comme le dé simple, mais il est RETIRÉ du total s\'il tombe sur un double.',
+    red: 'Dé lourd. Il IGNORE la Défense : sa valeur passe toujours.',
+    blue: 'Dé mystique. Sa valeur est DOUBLÉE s\'il tombe sur un double (la Défense se compare à la valeur brute).',
+    green: 'Dé de soin. Il rend des points de vie et ignore la Défense.',
+    black: 'Dé mortel. Il ignore la Défense et n\'entre pas dans le décompte de l\'échec critique.',
+    yellow: 'Dé de phase. Sa valeur est MULTIPLIÉE par le numéro du tour (jusqu\'à ×3).',
+    pink: 'Dé de faille. Tous les dés qui affichent la MÊME face que lui sont exclus des dégâts.',
+  };
+  function showDieDesc(el) {
+    const root = $(rootSel);
+    const box = root ? root.querySelector('#cbdock-desc') : null;
+    if (!box) return;
+    const color = (el.className.match(/die-(\w+)/) || [])[1];
+    if (!color) return;
+    const name = (DIE_LABEL[color] || color) + ' — dé ' + color;
+    const key = 'die:' + color;
+    if (key === descLast) return;
+    descLast = key;
+    box.innerHTML = '<div class="cbdesc-name">Dé ' + esc(DIE_LABEL[color] || color) + '</div>' +
+      '<div class="cbdesc-txt">' + esc(DIE_DESC[color] || '') + '</div>';
+  }
+
   function initDockDesc(root) {
     const box = root.querySelector('#cbdock-desc');
     if (box && !box.firstChild) box.innerHTML = dockDescDefault();
@@ -4010,6 +4036,9 @@
   // VISÉE À LA SOURIS : un aventurier sélectionné « tend » une flèche vers ce
   // que survole le curseur — BEIGE vers une zone (déplacement), ROUGE vers un
   // adversaire ou une zone visée (attaque). Le clic exécute l'action.
+  // Le joueur a explicitement désélectionné (clic dans le vide) : on n'auto-
+  // sélectionne plus tant qu'il n'a pas repris la main sur un combattant.
+  let autoSelectOff = false;
   let aimWiredEl = null;   // conteneur déjà câblé
   let aimRaf = 0;
   let aimLast = null;      // dernière position de curseur connue
@@ -4107,12 +4136,29 @@
   function wireAim(root) {
     if (aimWiredEl === root) return;
     aimWiredEl = root;
+    // Clic dans le VIDE (hors vignette, zone, bouton, bandeau, journal) :
+    // on désélectionne le combattant et on annule l'action armée.
+    root.addEventListener('click', function (e) {
+      if (e.target.closest('.combat-card, .combat-zone, button, select, input, ' +
+        '#cbdock, .ptpick, #combat-log, .combat-bar, .modal')) return;
+      if (!selectedIid && !pendingAttack && !pendingMove && !pendingAnalyze &&
+          !pendingObject && !pendingOrbeShare && !pendingDesignate) return;
+      selectedIid = null; autoSelectOff = true;
+      pendingAttack = null; pendingMove = null; pendingAnalyze = null;
+      pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
+      arrivalTargetIid = null;
+      hideAim();
+      render();
+    });
     root.addEventListener('mousemove', function (e) {
       // Bandeau : la 4e case décrit le bouton sous le curseur. On passe par
       // elementFromPoint car un bouton désactivé n'émet aucun événement.
       const under = document.elementFromPoint(e.clientX, e.clientY);
       const overBtn = under && under.closest ? under.closest('#cbdock button') : null;
       if (overBtn) showDockDesc(overBtn);
+      // Survol d'un dé : la case Description explique ce que fait sa couleur.
+      const overDie = under && under.closest ? under.closest('#cbdock .dp-die') : null;
+      if (overDie) showDieDesc(overDie);
       aimLast = { x: e.clientX, y: e.clientY };
       if (aimRaf) return;
       aimRaf = requestAnimationFrame(function () { aimRaf = 0; drawAim(); });
@@ -4527,7 +4573,7 @@
     if (pendingReaction) { const rh = byId(pendingReaction); if (rh) { sel = rh; selectedIid = rh.iid; } }
     // Auto-sélection : en phase héros ou Pré-Tour, défaut = 1er aventurier actif.
     // En Pré-Tour, on privilégie un aventurier ayant encore un talent à jouer.
-    if ((!sel || sel.status !== 'active') && (cmb.phase === 'heroes' || cmb.phase === 'pretour') && !cmb.outcome) {
+    if (!autoSelectOff && (!sel || sel.status !== 'active') && (cmb.phase === 'heroes' || cmb.phase === 'pretour') && !cmb.outcome) {
       const fh = (cmb.phase === 'pretour' && activeOf('hero').find(function (h) { return h.freeMoveReady || canDesignateGardien(h); })) || activeOf('hero')[0];
       if (fh) { sel = fh; selectedIid = fh.iid; }
     }
@@ -5864,7 +5910,7 @@
           }
         }
         // 3) Sinon : sélectionne ce combattant et annule toute action en cours
-        selectedIid = c.iid;
+        selectedIid = c.iid; autoSelectOff = false;
         pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null; pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
         render();
       });

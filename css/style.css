@@ -6750,3 +6750,33 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
 .combat-card .roster-name, .cbdock-id .ab-name { letter-spacing: .01em; }
 .ses-scene-title { letter-spacing: 0; }
 .brand h1, .home-brand h1 { font-family: var(--font-display); font-weight: 900; }
+
+/* ================================================================
+   v2.5.09 — Journal en blanc crème, états alignés sur le nom
+   ================================================================ */
+/* Le corps du journal est en blanc crème : seules les informations
+   marquantes (états, talents, dégâts, noms) portent une couleur. */
+.combat-log .log-row,
+.combat-log .log-row.log-attack, .combat-log .log-row.log-state,
+.combat-log .log-row.log-dchoc, .combat-log .log-row.log-kill,
+.combat-log .log-row.log-down, .combat-log .log-row.log-react {
+  color: #f0e6d4;
+}
+.combat-log .log-row.log-turn { background: transparent; }
+.combat-log .lstate { color: #f0b269; font-weight: 700; }   /* états */
+.combat-log .lreact { color: #c9a8ef; font-weight: 700; }   /* talents / réactions */
+.combat-log .lwpn { color: #9fc3ec; font-style: italic; }   /* armes et attaques */
+.combat-log .lcrit { color: #ffd27a; font-weight: 800; }
+.combat-log .lfail { color: #ef9a8c; font-weight: 800; }
+.combat-log .lamt.dmg { color: #ff9a7a; }
+.combat-log .lamt.heal { color: #9ede90; }
+.combat-log .log-turn { color: rgba(240, 230, 212, .45); }
+
+/* Les onglets d'état commencent AU-DESSUS DU NOM de l'aventurier (bord gauche
+   du bandeau) et ne débordent jamais de la fenêtre de combat. */
+.cbdock-states {
+  padding-left: .7rem; padding-right: .7rem;
+  justify-content: flex-start; max-width: 100%; overflow: hidden;
+}
+@media (max-width: 1360px) { .cbdock-states { padding-left: .7rem; } }
+@media (max-width: 1000px) { .cbdock-states { padding-left: .7rem; } }
