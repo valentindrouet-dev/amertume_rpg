@@ -222,6 +222,124 @@
   // (brun beige), distinct des objets ordinaires (verts).
   function parchClass(i) { return (i && i.parchEffect) ? ' is-parchment' : ''; }
 
+  // ---- Drag & drop : donner un objet à un autre aventurier ----
+  // On attrape une languette et on la dépose sur le bloc d'un autre aventurier.
+  // Objet en plusieurs exemplaires : une fenêtre demande combien en donner.
+  let dragInv = null; // { hero, item, qty } pendant un glissement
+  function wireInvDrag(list, advId) {
+    list.querySelectorAll('.inv-strip[draggable]').forEach(function (el) {
+      el.addEventListener('dragstart', function (ev) {
+        if (combatActive()) { ev.preventDefault(); return; }
+        dragInv = {
+          hero: el.getAttribute('data-owner'),
+          item: el.getAttribute('data-info'),
+          qty: Number(el.getAttribute('data-drag-qty')) || 1,
+        };
+        ev.dataTransfer.effectAllowed = 'move';
+        try { ev.dataTransfer.setData('text/plain', dragInv.item); } catch (e) {}
+        el.classList.add('inv-dragging');
+        list.classList.add('inv-drag-on');
+      });
+      el.addEventListener('dragend', function () {
+        dragInv = null;
+        el.classList.remove('inv-dragging');
+        list.classList.remove('inv-drag-on');
+        list.querySelectorAll('.inv-drop-over').forEach(function (b) { b.classList.remove('inv-drop-over'); });
+      });
+    });
+    list.querySelectorAll('.inv-hero-block').forEach(function (block) {
+      const hid = block.getAttribute('data-hero-block');
+      block.addEventListener('dragover', function (ev) {
+        if (!dragInv || dragInv.hero === hid) return;
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'move';
+        block.classList.add('inv-drop-over');
+      });
+      block.addEventListener('dragleave', function (ev) {
+        if (ev.target === block || !block.contains(ev.relatedTarget)) block.classList.remove('inv-drop-over');
+      });
+      block.addEventListener('drop', function (ev) {
+        ev.preventDefault();
+        block.classList.remove('inv-drop-over');
+        if (!dragInv || dragInv.hero === hid) return;
+        const d = dragInv; dragInv = null;
+        if (combatActive()) { alert('Vous ne pouvez pas modifier votre équipement pendant un combat.'); return; }
+        // Le stock réel fait foi (la pastille de quantité n'existe que sur les objets).
+        const owned = (window.Session && Session.ownedForHero) ? Session.ownedForHero(advId, d.hero) : {};
+        const stock = Number(owned[d.item]) || 0;
+        if (!stock) return;
+        if (stock > 1) openGiveQtyModal(advId, d.hero, hid, d.item, stock);
+        else doTransfer(advId, d.hero, hid, d.item, 1);
+      });
+    });
+  }
+  // Applique le don : déséquipe d'abord l'excédent, PUIS transfère la possession.
+  // L'ordre est crucial : ownedForHero réconcilie « porté ⇒ possédé », donc un
+  // objet encore équipé au moment du transfert serait immédiatement re-possédé.
+  function doTransfer(advId, fromId, toId, itemId, qty) {
+    if (!window.Session || !Session.transferOwnedItem) return;
+    const before = Number((Session.ownedForHero(advId, fromId) || {})[itemId]) || 0;
+    if (!before) return;
+    const moved = Math.max(1, Math.min(before, Math.round(Number(qty) || 1)));
+    const from = Store.state.heroes.find(function (x) { return x.id === fromId; });
+    const item = byId(itemId);
+    if (from && item) {
+      const left = before - moved;
+      let worn = equippedCount(normEq(from), item);
+      while (worn > left) { unequipOneCopy(from, item); worn--; }
+      Store.save();
+    }
+    Session.transferOwnedItem(advId, fromId, toId, itemId, moved);
+    document.dispatchEvent(new CustomEvent('equipment-changed'));
+    renderPlayer(advId);
+  }
+  // Fenêtre de quantité : combien d'exemplaires donner ?
+  function openGiveQtyModal(advId, fromId, toId, itemId, stock) {
+    const from = Store.state.heroes.find(function (x) { return x.id === fromId; });
+    const to = Store.state.heroes.find(function (x) { return x.id === toId; });
+    const item = byId(itemId);
+    if (!to || !item) return;
+    const old = document.getElementById('inv-give-modal');
+    if (old) old.remove();
+    const m = document.createElement('div');
+    m.id = 'inv-give-modal';
+    m.className = 'modal';
+    m.innerHTML =
+      '<div class="modal-box inv-give-box">' +
+        '<div class="modal-head"><h2>Donner à ' + escapeHtml(to.name) + '</h2>' +
+          '<button type="button" class="icon-btn" data-give-close>✕</button></div>' +
+        '<p class="inv-give-what">' + escapeHtml(item.name) + ' — ' +
+          (from ? escapeHtml(from.name) + ' en possède ' : '') + '<b>' + stock + '</b> exemplaire' + (stock > 1 ? 's' : '') + '.</p>' +
+        '<div class="inv-give-row">' +
+          '<label>Nombre à donner' +
+            '<input type="number" id="inv-give-qty" min="1" max="' + stock + '" step="1" value="1">' +
+          '</label>' +
+          '<button type="button" class="ghost small" data-give-all>Tout (' + stock + ')</button>' +
+        '</div>' +
+        '<div class="modal-actions">' +
+          '<button type="button" class="ghost" data-give-close>Annuler</button>' +
+          '<button type="button" class="primary" data-give-ok>Donner</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(m);
+    const qtyEl = m.querySelector('#inv-give-qty');
+    qtyEl.focus(); qtyEl.select();
+    const close = function () { m.remove(); };
+    m.addEventListener('click', function (ev) { if (ev.target === m) close(); });
+    m.querySelectorAll('[data-give-close]').forEach(function (b) { b.addEventListener('click', close); });
+    m.querySelector('[data-give-all]').addEventListener('click', function () { qtyEl.value = stock; });
+    const confirmGive = function () {
+      const n = Math.max(1, Math.min(stock, Math.round(Number(qtyEl.value) || 1)));
+      close();
+      doTransfer(advId, fromId, toId, itemId, n);
+    };
+    m.querySelector('[data-give-ok]').addEventListener('click', confirmGive);
+    qtyEl.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); confirmGive(); }
+      if (ev.key === 'Escape') { ev.preventDefault(); close(); }
+    });
+  }
+
   function renderPlayer(advId) {
     const list = $('#item-list');
     if (!list) return;
@@ -252,7 +370,8 @@
     const singleStrip = function (h, i, checked, qtyBadge, isNew) {
       return '<label class="inv-strip-row cat-' + i.category + parchClass(i) + (checked ? ' equipped' : '') + '">' +
         '<input type="checkbox" class="inv-equip-cb" data-hero="' + h.id + '" data-item="' + i.id + '"' + (checked ? ' checked' : '') + '>' +
-        '<div class="inv-strip" data-info="' + i.id + '" data-owner="' + h.id + '">' + itemStripHtml(i) +
+        '<div class="inv-strip" draggable="true" data-info="' + i.id + '" data-owner="' + h.id + '"' +
+          ' data-drag-qty="' + qtyBadge + '">' + itemStripHtml(i) +
           (isNew ? '<span class="inv-new-badge" title="Nouvel objet depuis votre dernière visite">NEW</span>' : '') +
           (qtyBadge > 1 ? '<span class="inv-qty-badge" title="' + qtyBadge + ' exemplaires">' + qtyBadge + '</span>' : '') +
         '</div>' +
@@ -297,12 +416,13 @@
     heroes.forEach(function (h) {
       const e = normEq(h);
       const hands = handsUsed(e);
+      html += '<div class="inv-hero-block" data-hero-block="' + h.id + '">';
       html += '<div class="inv-hero-sep" data-hero="' + h.id + '">' + escapeHtml(h.name) +
         (h.klass ? ' <span class="hint">' + escapeHtml(h.klass) + '</span>' : '') +
         ' <span class="inv-hands">✋ ' + hands + '/2 · 🛡 DEF ' + Combatants.heroDef(h) + '</span></div>';
       const owned = ownedOf(h.id);
       const mine = Store.state.items.filter(function (i) { return owned[i.id] && isEquip(i); });
-      if (!mine.length) { html += '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement personnel.</p>'; return; }
+      if (!mine.length) { html += '<p class="empty" style="padding:.2rem 0 .6rem">Aucun équipement personnel.</p></div>'; return; }
       const melee    = mine.filter(function (i) { return i.category === 'weapon' && !i.ranged; });
       const distance = mine.filter(function (i) { return i.category === 'weapon' && i.ranged; });
       const armors   = mine.filter(function (i) { return i.category === 'armor'; });
@@ -312,6 +432,7 @@
         '<div class="inv-col inv-col-distance">' + colContent(h, e, owned, distance) + '</div>' +
         '<div class="inv-col inv-col-armor">'    + colContent(h, e, owned, armors)   + '</div>' +
         '<div class="inv-col inv-col-object">'   + colContent(h, e, owned, objects)  + '</div>' +
+      '</div>' +
       '</div>';
     });
     // ---- Or, Trésors et Objets Rares (butin de groupe, sous l'équipement) ----
@@ -392,6 +513,7 @@
         openItemSheet(el.getAttribute('data-info'), el.getAttribute('data-owner'));
       });
     });
+    wireInvDrag(list, advId);
     // ✕ : jeter un exemplaire de l'objet (confirmation).
     list.querySelectorAll('.inv-strip-del').forEach(function (btn) {
       btn.addEventListener('click', function (ev) {

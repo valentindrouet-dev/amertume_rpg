@@ -4399,6 +4399,39 @@
     });
   }
 
+  // ---- Infobulle de barrière : nom + effet, affichée SUR le plateau ----
+  // (la case Description du bandeau reçoit le même contenu via showBoardDesc).
+  function barTipShow(sep, x, y) {
+    const type = (sep.className.match(/barrier-([\w]+)/) || [])[1];
+    if (!type) { barTipHide(); return; }
+    const lbl = sep.querySelector('.zone-sep-lbl');
+    const nm = (lbl && lbl.textContent.trim()) || BARRIER_TITLE[type] || type;
+    let tip = document.getElementById('cb-bartip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'cb-bartip';
+      document.body.appendChild(tip);
+    }
+    const sig = type + '|' + nm;
+    if (tip.getAttribute('data-sig') !== sig) {
+      tip.setAttribute('data-sig', sig);
+      tip.innerHTML = '<div class="bartip-name" style="color:' + (TONE_BARRIER[type] || '#6b6257') + '">' +
+        esc(nm) + '</div><div class="bartip-txt">' + esc(BARRIER_DESC[type] || '') + '</div>';
+    }
+    tip.classList.add('on');
+    // Au-dessus du curseur, sans déborder de l'écran.
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = x - w / 2, top = y - h - 14;
+    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+    if (top < 8) top = y + 18;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  }
+  function barTipHide() {
+    const tip = document.getElementById('cb-bartip');
+    if (tip) tip.classList.remove('on');
+  }
+
   function wireAim(root) {
     wireDocDeselect();
     if (aimWiredEl === root) return;
@@ -4426,11 +4459,14 @@
       else if (under && under.closest && under.closest('.dock-state')) showStateDesc(under.closest('.dock-state'));
       // Survol du plateau : fiche du combattant, de la zone ou de la barrière.
       else if (!overBtn && under && under.closest) showBoardDesc(under);
+      // Barrière : infobulle sur place (en plus de la case Description).
+      const overSep = under && under.closest ? under.closest('.zone-sep, .zone-sep-diag') : null;
+      if (overSep) barTipShow(overSep, e.clientX, e.clientY); else barTipHide();
       aimLast = { x: e.clientX, y: e.clientY };
       if (aimRaf) return;
       aimRaf = requestAnimationFrame(function () { aimRaf = 0; drawAim(); });
     });
-    root.addEventListener('mouseleave', function () { aimLast = null; drawAim(); });
+    root.addEventListener('mouseleave', function () { aimLast = null; barTipHide(); drawAim(); });
     window.addEventListener('scroll', function () { if (aimLast) drawAim(); }, { passive: true });
   }
 

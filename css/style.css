@@ -7223,3 +7223,36 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--kl, #e79a45) 55%, transparent), 0 10px 26px rgba(0,0,0,.45);
 }
 .hero-pick-list .hpc-avatar { flex: 0 0 auto; }
+
+/* ── v2.5.43 · Infobulle de barrière + don d'objet par glisser-déposer ── */
+#cb-bartip {
+  position: fixed; z-index: 250; max-width: 240px; pointer-events: none;
+  background: #f2e7d2; color: #33271a;
+  border: 1px solid #c9b48f; border-radius: 10px; padding: .45rem .6rem;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .45);
+  opacity: 0; transform: translateY(4px); transition: opacity .12s, transform .12s;
+}
+#cb-bartip.on { opacity: 1; transform: translateY(0); }
+#cb-bartip .bartip-name {
+  font-family: var(--font-display, inherit); font-weight: 700; font-size: .85rem;
+  margin-bottom: .15rem;
+}
+#cb-bartip .bartip-txt { font-size: .74rem; font-weight: 600; line-height: 1.4; }
+
+/* Glisser-déposer de l'inventaire */
+.inv-strip[draggable] { cursor: grab; }
+.inv-strip.inv-dragging { opacity: .45; cursor: grabbing; }
+/* Pendant un glissement : les blocs des AUTRES aventuriers s'annoncent. */
+.inv-drag-on .inv-hero-block { border-radius: 12px; transition: box-shadow .12s, background .12s; }
+.inv-hero-block.inv-drop-over {
+  background: rgba(231, 154, 69, .08);
+  box-shadow: inset 0 0 0 2px rgba(231, 154, 69, .55);
+}
+.inv-hero-block.inv-drop-over .inv-hero-sep { color: #f0c98d; }
+
+/* Fenêtre « Donner à … » */
+.inv-give-box { max-width: 26rem; }
+.inv-give-what { margin: .2rem 0 .7rem; }
+.inv-give-row { display: flex; align-items: flex-end; gap: .6rem; }
+.inv-give-row label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--muted); }
+.inv-give-row input { width: 6rem; }

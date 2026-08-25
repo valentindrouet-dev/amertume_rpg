@@ -4241,6 +4241,30 @@
     return owned; // { itemId: quantité }
   }
 
+  // Donne des exemplaires d'un objet d'un aventurier à un autre (drag & drop de
+  // l'inventaire). Retourne le nombre effectivement transféré (0 si impossible).
+  function transferOwnedItem(advId, fromId, toId, itemId, qty) {
+    if (fromId === toId) return 0;
+    // ownedForHero initialise et réconcilie les deux sets au besoin — et comme
+    // il recharge les sessions (load), on ne récupère la session qu'APRÈS,
+    // sinon on mutrait un objet détaché qui ne serait jamais sauvegardé.
+    const fromOwned = ownedForHero(advId, fromId);
+    ownedForHero(advId, toId);
+    const ses = sessionForAdv(advId);
+    if (!ses) return 0;
+    if (!ses.heroOwned) ses.heroOwned = {};
+    if (!ses.heroOwned[fromId]) ses.heroOwned[fromId] = {};
+    if (!ses.heroOwned[toId]) ses.heroOwned[toId] = {};
+    const stock = Number(fromOwned[itemId]) || 0;
+    const n = Math.max(1, Math.min(stock, Math.round(Number(qty) || 1)));
+    if (!stock) return 0;
+    const left = stock - n;
+    if (left > 0) ses.heroOwned[fromId][itemId] = left; else delete ses.heroOwned[fromId][itemId];
+    ses.heroOwned[toId][itemId] = (Number(ses.heroOwned[toId][itemId]) || 0) + n;
+    save();
+    return n;
+  }
+
   // Crée une nouvelle partie avec les aventuriers choisis et lance la narration
   function startSessionWithHeroes(advId, heroIds, startLevels) {
     const adv = findAdventure(advId);
@@ -4658,6 +4682,7 @@
     activePartyXp: activePartyXp,
     effectiveHero: activeEffectiveHero,
     ownedForHero: ownedForHero,
+    transferOwnedItem: transferOwnedItem,
     engagedHeroIds: engagedHeroIds,
     restoreVie: restoreVie,
     itemUsableOutOfCombat: itemUsableOutOfCombat,
