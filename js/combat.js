@@ -4219,6 +4219,7 @@
   let autoSelectOff = false;
   let manualSelect = false;  // le combattant affiché a été choisi par le joueur
   let aimWiredEl = null;   // conteneur déjà câblé
+  let aimMod = false;      // Cmd / Ctrl maintenu : la visée passe en ANALYSE
   let aimRaf = 0;
   let aimLast = null;      // dernière position de curseur connue
 
@@ -4312,6 +4313,33 @@
     return true;
   }
 
+  // L'aventurier peut-il analyser ? (l'analyse consomme le mouvement du tour)
+  function canAnalyze(h) {
+    return !!(h && h.side === 'hero' && h.status === 'active' && combat().phase === 'heroes' &&
+      !combat().outcome && !h.used.move && !(h.states && h.states.auSol));
+  }
+  // Analyse d'un adversaire : révèle tout le groupe du même nom, consomme le
+  // mouvement et accorde +2 XP la première fois.
+  function doAnalyze(hero, c) {
+    if (!hero || hero.used.move) { render(); return; }
+    const baseName = c.name.replace(/\s*\d+$/, '').trim();
+    const combat_ = combat();
+    const firstTime = !c.analyzed;
+    let revealed_ = 0;
+    combat_.combatants.forEach(function (m) {
+      if (m.side === 'monster' && m.name.replace(/\s*\d+$/, '').trim() === baseName) {
+        m.analyzed = true; revealed_++;
+      }
+    });
+    hero.used.move = true;
+    if (firstTime) combat_.analyzeXp = (combat_.analyzeXp || 0) + 2;
+    log(cname(hero) + ' analyse ' + esc(baseName) +
+      (revealed_ > 1 ? ' (×' + revealed_ + ')' : '') +
+      (firstTime ? ' <span class="atk-dmg">+2 XP</span>' : '') + '.', 'state');
+    hideAim();
+    Store.save(); render();
+  }
+
   // Désélectionne le combattant courant et annule toute action armée.
   function clearSelection() {
     if (!selectedIid && !pendingAttack && !pendingMove && !pendingAnalyze &&
@@ -4352,7 +4380,17 @@
     wireDocDeselect();
     if (aimWiredEl === root) return;
     aimWiredEl = root;
+    // Cmd (ou Ctrl) maintenu : la visée bascule sur l'ANALYSE. On suit la touche
+    // même sans bouger la souris.
+    document.addEventListener('keydown', function (e) {
+      if ((e.key === 'Meta' || e.key === 'Control') && !aimMod) { aimMod = true; drawAim(); }
+    });
+    document.addEventListener('keyup', function (e) {
+      if ((e.key === 'Meta' || e.key === 'Control') && aimMod) { aimMod = false; drawAim(); }
+    });
+    window.addEventListener('blur', function () { if (aimMod) { aimMod = false; drawAim(); } });
     root.addEventListener('mousemove', function (e) {
+      aimMod = !!(e.metaKey || e.ctrlKey);
       // Bandeau : la 4e case décrit le bouton sous le curseur. On passe par
       // elementFromPoint car un bouton désactivé n'émet aucun événement.
       const under = document.elementFromPoint(e.clientX, e.clientY);
@@ -4401,6 +4439,10 @@
   }
   function aimColor(root, kind, blocked) {
     if (blocked) return AIM_RED;
+    if (kind === 'analyse') {
+      const ana = root.querySelector('#cbdock .ana-chip');
+      return btnColor(ana) || '#9070cf';
+    }
     const armed = root.querySelector('#cbdock .ab-atk.selected, #cbdock .ab-orbes.selected, ' +
       '#cbdock .ab-tool.selected, #cbdock .ab-gardien-btn.selected, #cbdock .ab-talent.selected');
     return btnColor(armed) || (kind === 'move' ? AIM_BEIGE : AIM_BLUE);
@@ -4457,6 +4499,11 @@
     }
     else if (pendingAttack) { kind = 'atk'; targetEl = mon || zoneEl; }
     else if (pendingMove) { kind = 'move'; targetEl = mon || zoneEl; }
+    else if (mon && mon.getAttribute('data-iid') !== String(h.iid) && aimMod) {
+      // Cmd / Ctrl : on vise l'ANALYSE plutôt que l'attaque.
+      kind = 'analyse'; targetEl = mon;
+      if (!canAnalyze(h)) blocked = true;
+    }
     else if (mon && mon.getAttribute('data-iid') !== String(h.iid)) {
       kind = 'atk'; targetEl = mon;
       if (aimAttackIndex(h) < 0) blocked = true;
@@ -6050,24 +6097,15 @@
         if (targetable && pendingAnalyze && c.side === 'monster') {
           const hero = byId(pendingAnalyze);
           pendingAnalyze = null;
-          if (!hero || hero.used.move) { render(); return; }
-          // Révèle tous les adversaires du même nom de base (ex : "Répurgateur")
-          const baseName = c.name.replace(/\s*\d+$/, '').trim();
-          const combat_ = combat();
-          const firstTime = !c.analyzed;
-          let revealed_ = 0;
-          combat_.combatants.forEach(function (m) {
-            if (m.side === 'monster' && m.name.replace(/\s*\d+$/, '').trim() === baseName) {
-              m.analyzed = true; revealed_++;
-            }
-          });
-          hero.used.move = true;
-          // Chaque groupe nommé n'est analysable qu'une fois : +2 XP au groupe.
-          if (firstTime) combat_.analyzeXp = (combat_.analyzeXp || 0) + 2;
-          log(cname(hero) + ' analyse ' + esc(baseName) +
-            (revealed_ > 1 ? ' (×' + revealed_ + ')' : '') +
-            (firstTime ? ' <span class="atk-dmg">+2 XP</span>' : '') + '.', 'move');
-          Store.save(); render(); return;
+          doAnalyze(hero, c);
+          return;
+        }
+        // 1bis) RACCOURCI : Cmd (ou Ctrl) enfoncé + clic sur un adversaire =
+        // analyse directe, sans passer par le bouton.
+        if ((e.metaKey || e.ctrlKey) && c.side === 'monster' && c.status === 'active' &&
+            !pendingAttack && !pendingMove && !pendingObject && !pendingDesignate && !pendingOrbeShare) {
+          const ah = aimHero();
+          if (ah && canAnalyze(ah)) { e.preventDefault(); doAnalyze(ah, c); return; }
         }
         // 2) Ciblage d'une attaque à cibles multiples (talent Double Attaque)
         if (targetable && pendingAttack && pendingAttack.multi) {

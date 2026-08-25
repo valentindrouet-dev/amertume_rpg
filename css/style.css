@@ -6885,11 +6885,12 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .cbdesc-name { color: #7a4a12; }
 
 
-/* v2.5.17 — le bonus de dégâts est un CARRÉ en pointillés, au format d'un dé. */
-.cbdock .dp-bonus {
-  width: var(--dp-size, 34px); min-width: var(--dp-size, 34px); height: var(--dp-size, 34px);
-  padding: 0; border: 2px dashed rgba(222, 95, 68, .85);
-  border-radius: calc(var(--dp-size, 34px) * .22);
-  background: rgba(222, 95, 68, .12);
+/* v2.5.18 — le bonus de dégâts n'a AUCUN cadre : juste « +X » et, dessous,
+   « dégâts » en plus petit. */
+.cbdock .dp-bonus, .dice-fly-inner .dp-bonus {
+  border: none; background: none; box-shadow: none;
+  width: auto; min-width: 0; height: var(--dp-size, 34px);
+  padding: 0 .1rem 0 .25rem;
 }
-.dice-fly-inner .dp-bonus { border-width: 3px; }
+.cbdock .dp-bonus b { color: #ff8a6a; }
+.cbdock .dp-bonus small { color: #ff8a6a; opacity: .9; }

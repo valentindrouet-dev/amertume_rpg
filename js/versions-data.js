@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.18",
+    "date": "2026-08-25",
+    "title": "Cmd + survol : la visee passe en ANALYSE ; bonus de degats sans cadre",
+    "changes": [
+      "Maintenir Cmd (ou Ctrl sous Windows/Linux) en survolant un adversaire remplace la visee d'attaque par une visee d'ANALYSE : fleche violette (la couleur du bouton Analyse) et icone loupe. Le clic lance alors l'analyse au lieu de l'attaque — elle revele tout le groupe du meme nom, consomme le mouvement, laisse l'action intacte et rapporte +2 XP la premiere fois.",
+      "Si l'analyse est impossible (mouvement deja depense, aventurier Au sol, hors phase des heros), la fleche vire au rouge avec l'icone d'interdiction.",
+      "La touche est suivie meme sans bouger la souris : appuyer ou relacher Cmd bascule la visee sur-le-champ, et quitter la fenetre la remet a l'attaque.",
+      "Le bonus de degats affiche dans le pool n'a plus aucun cadre : « +X » avec « degats » en plus petit dessous, dans le rouge des degats."
+    ]
+  },
+  {
     "v": "v2.5.17",
     "date": "2026-08-25",
     "title": "Titres de description colores, Killam sur tous les titres, Pre-Tour rejoue au redemarrage",
