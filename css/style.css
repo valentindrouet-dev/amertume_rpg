@@ -7048,13 +7048,13 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   gap: .9rem; align-items: start;
 }
 #hero-list .roster-card.hero-card {
-  background: linear-gradient(180deg, #241d16 0%, #1b1611 100%);
+  background: linear-gradient(180deg, #382e23 0%, #2b231a 100%);
   border: 1px solid var(--line, #3a2f24); border-left: none; border-radius: 14px;
   padding: 0 .85rem .85rem; overflow: hidden; color: #efe3d2;
   box-shadow: var(--shadow-1, 0 4px 14px rgba(0,0,0,.3));
 }
 #hero-list .roster-card.hero-card:hover {
-  transform: translateY(-2px); border-color: #554635;
+  transform: translateY(-2px); border-color: #6a5843;
   box-shadow: 0 10px 26px rgba(0,0,0,.45);
 }
 /* Liseré de classe en haut de carte (mêmes teintes que le HUD de combat). */
@@ -7108,15 +7108,17 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   display: grid; grid-template-columns: repeat(5, 1fr); gap: .4rem; margin: 0 0 .6rem;
 }
 #hero-list .hero-stat {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .1rem; min-height: 3.5rem; min-width: 0; padding: .4rem .2rem; text-align: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: .3rem; min-height: 3.7rem; min-width: 0; padding: .42rem .2rem .5rem; text-align: center;
   border-radius: 10px; border: 1px solid var(--sc, #4a3d2e);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--sc, #4a3d2e) 24%, #191410) 0%,
-                                      color-mix(in srgb, var(--sc, #4a3d2e) 10%, #171310) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sc, #4a3d2e) 30%, #251e17) 0%,
+                                      color-mix(in srgb, var(--sc, #4a3d2e) 14%, #221b15) 100%);
 }
+/* Libellés : une seule ligne, même hauteur d'une vignette à l'autre. */
 #hero-list .hero-stat .hs-label {
-  font-size: .52rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
-  color: color-mix(in srgb, var(--sc, #9c8a70) 72%, #e8dcc8); opacity: .95; line-height: 1.1;
+  font-size: .55rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--sc, #9c8a70) 60%, #f2e7d5);
+  height: .85rem; line-height: .85rem; white-space: nowrap;
 }
 #hero-list .hero-stat .hs-val {
   font-family: var(--font-display, inherit); font-size: 1.15rem; line-height: 1.05;
@@ -7132,18 +7134,18 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 #hero-list .hero-stat:nth-child(5) { --sc: #d3624c; } /* Dégâts */
 /* La vignette de Défense n'a pas de libellé dans le HTML (blason seul) :
    on le rétablit pour que les cinq vignettes soient construites pareil. */
-#hero-list .hero-stat.hero-stat-def { padding: .4rem .2rem; gap: .1rem; }
+#hero-list .hero-stat.hero-stat-def { padding: .42rem .2rem .4rem; gap: .3rem; }
 #hero-list .hero-stat.hero-stat-def::before {
-  content: 'Défense'; font-size: .52rem; font-weight: 800; letter-spacing: .07em;
-  text-transform: uppercase; line-height: 1.1;
-  color: color-mix(in srgb, var(--sc) 72%, #e8dcc8);
+  content: 'DEF'; font-size: .55rem; font-weight: 800; letter-spacing: .08em;
+  height: .85rem; line-height: .85rem; white-space: nowrap;
+  color: color-mix(in srgb, var(--sc) 60%, #f2e7d5);
 }
 #hero-list .hero-stat.hero-stat-def .hero-def-img { height: 2.05rem; margin-top: .05rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
 
 /* — Sections (Compétences, Équipement, Attaques) — */
 #hero-list .roster-section { margin-top: .55rem; }
 #hero-list .roster-label {
-  font-size: .58rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  font-size: .6rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
   color: #a08b6c; margin-bottom: .35rem;
 }
 #hero-list .roster-gear, #hero-list .roster-notes { color: #c3b199; font-size: .8rem; }
@@ -7186,3 +7188,17 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 }
 #hero-list .atk-badge-name { color: #f0e2cd; font-weight: 700; }
 #hero-list .atk-badge-meta { color: #a08b6c; }
+
+/* v2.5.34 — Talent d'Espèce (onglet Talents, mode Joueur) : même languette
+   claire que les autres talents, simplement bordée d'or. Le fond translucide
+   précédent virait au noir sur le panneau sombre. */
+.tpe-wrap.tpe-espece .tpe-row {
+  background: #efe4cf; color: #33271a;
+  border-color: #cdb98f; border-left: 4px solid #d4af37;
+}
+.tpe-wrap.tpe-espece .tpe-lvl { color: #6a563a; }
+/* La case du talent d'Espèce n'a pas la classe .tal-equip-cb : sans taille
+   imposée elle s'étirait et écrasait le nom du talent. */
+.tpe-wrap.tpe-espece .tpe-row input[type="checkbox"] {
+  flex: 0 0 auto; width: 16px; height: 16px; margin: 0;
+}

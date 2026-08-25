@@ -4486,6 +4486,8 @@
   function renderTalents(advId) {
     scopeAdventureId = advId || scopeAdventureId;
     load();
+    // Pré-Tirés : les aventuriers qui en descendent suivent leur modèle en direct.
+    if (Store.syncPrebuilts) Store.syncPrebuilts();
     if (activeSession) {
       const m = sessions.find(function (s) { return s.id === activeSession.id; });
       activeSession = m || activeSession;
@@ -4535,7 +4537,7 @@
               '<span class="tpe-name" data-info="' + esc(espT.id) + '" title="Voir le descriptif">' + esc(espT.name) + '</span>' +
               '<span class="tpe-meta" data-info="' + esc(espT.id) + '">' +
                 '<span class="tl-kind tl-kind-espece">ESP</span>' +
-                '<span class="tpe-lvl">Offert</span>' +
+                '<span class="tpe-lvl">Niv. 0</span>' +
               '</span>' +
             '</div>' +
             '<div class="tpe-desc" id="tpe-desc-' + esc(espT.id) + '-' + h.id + '" hidden>' + esc(espT.desc || '') + '</div>' +

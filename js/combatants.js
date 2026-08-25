@@ -297,7 +297,7 @@
   // Vignette des Points de Vie : affiche le max (la valeur courante de session est
   // dans la barre PV de renderHeroesState ; ici on n'a pas de contexte de session fiable).
   function pvStatHtml(dh) {
-    return '<div class="hero-stat"><span class="hs-label">Points de Vie</span><span class="hs-val">' +
+    return '<div class="hero-stat"><span class="hs-label">PV</span><span class="hs-val">' +
       heroPv(dh) + '</span></div>';
   }
   // Vignette de Défense (onglet Groupe) : uniquement le blason de la valeur de DEF
@@ -308,7 +308,7 @@
       return '<div class="hero-stat hero-stat-def" title="Défense ' + dval + '">' +
         '<img class="def-img hero-def-img" src="assets/DEF ' + dval + '.png" alt="DEF ' + dval + '" /></div>';
     }
-    return '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + dval + '</span></div>';
+    return '<div class="hero-stat"><span class="hs-label">DEF</span><span class="hs-val">' + dval + '</span></div>';
   }
   // Repos court : Endu × 🟩 (somme de dés). Repos long : tout au max.
   function heroRestShort() {
@@ -700,6 +700,11 @@
     const root = $('#progress-root');
     if (!root) return;
     const player = isPlayerMode();
+    // Pré-Tirés (MJ) : pas d'XP ni de niveau — les modèles sont TOUJOURS de
+    // niveau 1 avec les talents de départ choisis par le MJ ; la progression
+    // appartient ensuite aux joueurs.
+    if (!player) { root.innerHTML = ''; root.hidden = true; return; }
+    root.hidden = false;
     // Côté Joueur, l'XP affichée est celle de la partie en cours (décorrélée de l'XP Admin)
     const xpVal = (player && global.Session && Session.activePartyXp) ? Session.activePartyXp() : Store.state.party.xp;
     const info = Store.levelInfo(xpVal);
@@ -806,9 +811,9 @@
       '</div>' +
       '<div class="hero-stat-row">' +
         vieStatHtml(dh) +
-        '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Endu</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
         pvStatHtml(dh) +
-        '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">DEF</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
       '</div>' +
       '<div class="roster-section atk-section"><div class="roster-label">Attaques</div>' +
@@ -888,7 +893,7 @@
         identityTagsHtml(h) +
         '<div class="hero-stat-row">' +
           vieStatHtml(dh) +
-          '<div class="hero-stat"><span class="hs-label">Endurance</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Endu</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
           pvStatHtml(dh) +
           heroDefStatHtml(h) +
           '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
@@ -957,7 +962,7 @@
     return '<div class="hero-stat-row">' +
         vieStatHtml(dh) +
         pvStatHtml(dh) +
-        '<div class="hero-stat"><span class="hs-label">Défense</span><span class="hs-val">' + heroDef(dh) + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">DEF</span><span class="hs-val">' + heroDef(dh) + '</span></div>' +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
       '</div>' +
       '<div class="roster-section"><div class="roster-label">Équipement</div>' +
