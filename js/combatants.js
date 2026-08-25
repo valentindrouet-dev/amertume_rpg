@@ -1076,9 +1076,19 @@
     else if (step === 'Classe') ok = !!wiz.klass;
     else if (step === 'Caractéristiques') ok = wiz.statClicks === 3;
     else if (step === 'Équipement') ok = !!wiz.equipCombo;
-    else if (step === 'Talents') ok = (wiz.talents || []).length >= 1;
+    // Talents : un choix est exigé… sauf si le catalogue n'en propose aucun de
+    // niveau 1 (classe vide, talents masqués par le MJ) — sans quoi l'assistant
+    // resterait bloqué et aucun aventurier ne pourrait être créé.
+    else if (step === 'Talents') ok = (wiz.talents || []).length >= 1 || !wizHasChoosableTalent();
     else if (step === 'Compétences') ok = wizSkillTotal() === 3;
     const nb = $('#hw-next'); if (nb) nb.disabled = !ok;
+  }
+  // Existe-t-il au moins un talent de niveau 1 à choisir (hors Maîtrise auto) ?
+  function wizHasChoosableTalent() {
+    const auto = startMasteryOf(wiz.klass);
+    return level1Talents(wiz.klass).some(function (t) {
+      return t.id && !t.hidden && (!auto || t.id !== auto.id);
+    });
   }
   function wizSkillTotal() {
     let n = 0; SKILLS.forEach(function (s) { n += wiz.skills[s] || 0; }); return n;
@@ -1463,8 +1473,10 @@
   }
 
   function openHeroModal(id) {
-    // En mode Joueur, la création d'un nouvel aventurier passe par l'assistant
-    if (!id && scope().mode === 'player') { openHeroWizard(scope().advId); return; }
+    // CRÉATION : toujours l'assistant, en mode Joueur comme en Mode MJ (onglet
+    // Pré-Tirés). Sans aventure (MJ), l'aventurier créé est un Pré-Tiré.
+    // L'ÉDITION reste sur le formulaire détaillé.
+    if (!id) { openHeroWizard(scope().mode === 'player' ? scope().advId : null); return; }
     const isEdit = !!id;
     const h = isEdit ? Store.state.heroes.find(function (x) { return x.id === id; }) : null;
     $('#hero-modal-title').textContent = isEdit ? 'Éditer l\'aventurier' : 'Nouvel aventurier';
