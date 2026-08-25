@@ -6908,3 +6908,5 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .cbdock-states { padding-left: .7rem; padding-right: .7rem; }
 /* Le titre d'un état garde son emoji lisible sur le fond parchemin. */
 .cbdesc-name { display: flex; align-items: center; gap: .35rem; }
+/* v2.5.20 — compteur des Orbes détaché du nom sur le bouton. */
+.cbdock .ab-orbes-count { margin-top: 1px; opacity: .9; }

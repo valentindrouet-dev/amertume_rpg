@@ -1381,7 +1381,8 @@
     // Décomposition : dés d'attaque + bonus de Dégâts (Dé + Dé + Dégâts)
     const dmgTerm = dmg > 0 ? '<span class="dplus">+</span><span class="dnum d-dmg" title="Dégâts">' + dmg + '</span>' : '';
     const diceStr = '<span class="ldice">(' + diceSeq(res.dice) + dmgTerm + ')</span>';
-    const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
+    // (Le nom de l'arme n'apparaît plus dans le journal : il est visible dans
+    // la boîte de dés du bandeau.)
     // Bulle d'annonce. Aventurier : une attaque d'ARME annonce sa portée (gris
     // acier), une ACTION annonce son nom (bleu acier). Adversaire : nom de
     // l'attaque, en rouge.
@@ -1394,28 +1395,22 @@
       toast('☠ ' + attackLabel(atk), 'atk-foe');
     }
     // Fusionne un déplacement effectué dans la même action (« se déplace … et attaque … »).
-    let movePfx = '';
-    if (movePrefix && movePrefix.iid === attacker.iid) {
-      // INVISIBLE : la zone d'arrivée reste cachée dans la ligne fusionnée.
-      movePfx = hiddenFromPlayer(attacker)
-        ? ' surgit <span class="lstate">de nulle part</span> et'
-        : ' se déplace <span class="lstate">' + esc(movePrefix.zone) + '</span> et';
-      movePrefix = null;
-    }
+    // Le déplacement n'est plus raconté dans le journal (il se voit sur le
+    // plateau) : on consomme simplement le préfixe en attente.
+    if (movePrefix && movePrefix.iid === attacker.iid) movePrefix = null;
     if (res.echec) {
       toast(critToEchec ? '🛡 Critique annulé !' : '💢 Échec critique !', 'fail');
       const failTxt = critToEchec
         ? ' — <span class="lstate">' + esc(heroTalentName(target, 'crit_en_echec')) + '</span> : le <span class="lcrit">CRITIQUE</span> devient un <span class="lfail">Échec</span> !'
         : ' — <span class="lfail">Échec</span>.';
-      log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
-        ' ' + diceStr + failTxt, 'attack');
+      log(cname(attacker) + ' attaque ' + cname(target) + ' ' + diceStr + failTxt, 'attack');
       pushFx({ type: 'miss', iid: target.iid, text: 'ÉCHEC', center: true });
       applyRegain(target, attacker); // échec adverse → Regain
       return;
     }
     if (negated) {
-      log(cname(attacker) + movePfx + ' attaque ' + cname(target) +
-        ' mais l’attaque est annulée (<span class="lstate">' + reason + '</span>).', 'attack');
+      log(cname(attacker) + ' attaque ' + cname(target) +
+        ' : annulé (<span class="lstate">' + reason + '</span>).', 'attack');
       // BLINDAGE absorbé : éclat métallique « tschiing » + texte dédié.
       if (reason.indexOf('Blindage') === 0) pushFx({ type: 'blindage', iid: target.iid, text: 'BLINDAGE !' });
       else pushFx({ type: 'miss', iid: target.iid, text: reason });
@@ -1470,9 +1465,9 @@
     else if (res.critique) pushFx({ type: 'crit', iid: target.iid, amount: 0, fromPct: fromPct, toPct: toPct });
     if (res.pvHealed > 0) pushFx({ type: 'heal', iid: target.iid, amount: res.pvHealed, fromPct: fromPct, toPct: toPct });
     if (res.critique) toast('💥 CRITIQUE !', 'crit');
-    log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
+    log(cname(attacker) + ' attaque ' + cname(target) +
         (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' ' + diceStr + ' : ' +
-        (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' Dégâts infligés !' : 'aucun dégât.'),
+        (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' Dégâts.' : 'aucun dégât.'),
         res.critique ? 'crit' : 'attack');
     // REGAIN : la DEF a tout absorbé (aucun dégât d'une attaque adverse).
     if (res.pvLost <= 0 && res.pvHealed <= 0) applyRegain(target, attacker);
@@ -3948,6 +3943,7 @@
     const figs = Inventory.poolBadges(a.dice) + (showDmg ? '<span class="atk-dmg">+' + c.damage + '</span>' : '');
     return '<button class="ab-orbes' + (isThisAtk ? ' selected' : '') + '" type="button"' +
       ' data-iid="' + c.iid + '" data-atk="' + idx + '"' + (blocked ? ' disabled' : '') +
+      ' data-label="Orbes (' + uses + ' restant' + (uses > 1 ? 's' : '') + ')"' +
       ' title="Lancer un Orbe Mystique (1 par clic)">' +
       '<span class="ab-orbes-title">ORBES</span>' +
       '<span class="ab-orbes-figs">' + figs + '</span>' +
@@ -6002,7 +5998,8 @@
     const avgDice = Math.round(avgDicePool(atk.dice));
     const def = target.states.auSol ? 0 : target.def;
     const pvLost = Math.max(0, avgDice - def);
-    const label = '<span class="lwpn">' + nm(attackLabel(atk)) + '</span>';
+    // (Le nom de l'arme n'apparaît plus dans le journal : il est visible dans
+    // la boîte de dés du bandeau.)
     if (pvLost > 0) {
       const pvBefore = target.pv;
       target.pv = Math.max(0, target.pv - pvLost);
@@ -6010,16 +6007,11 @@
       pushFx({ type: 'hit', iid: target.iid, amount: pvLost, fromPct: pct(pvBefore, target.maxPv), toPct: pct(target.pv, target.maxPv) });
       checkMonsterTalents(target, pvLost);
     }
-    let movePfx = '';
-    if (movePrefix && movePrefix.iid === attacker.iid) {
-      // INVISIBLE : la zone d'arrivée reste cachée dans la ligne fusionnée.
-      movePfx = hiddenFromPlayer(attacker)
-        ? ' surgit <span class="lstate">de nulle part</span> et'
-        : ' se déplace <span class="lstate">' + esc(movePrefix.zone) + '</span> et';
-      movePrefix = null;
-    }
-    log(cname(attacker) + movePfx + ' attaque ' + cname(target) + ' avec ' + label +
-      ' <span class="lavg">(dégâts moyens)</span> : ' + amt(pvLost, 'dmg') + ' Dégâts infligés !', 'attack');
+    // Le déplacement n'est plus raconté dans le journal (il se voit sur le
+    // plateau) : on consomme simplement le préfixe en attente.
+    if (movePrefix && movePrefix.iid === attacker.iid) movePrefix = null;
+    log(cname(attacker) + ' attaque ' + cname(target) +
+      ' <span class="lavg">(moyenne)</span> : ' + amt(pvLost, 'dmg') + ' Dégâts.', 'attack');
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
     if (atk.range === 'distance' && attacker.side === 'hero') {
       enemyZoneMates(attacker).forEach(function (m) {

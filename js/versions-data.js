@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.20",
+    "date": "2026-08-25",
+    "title": "Journal resserre : « X attaque Y : N Degats. »",
+    "changes": [
+      "Les lignes d'attaque sont ramenees a l'essentiel : plus de recit du deplacement (« se deplace Zone 2 et… »), plus de nom d'arme (il est lisible dans la boite de des du bandeau). Reste « <Aventurier> attaque <Adversaire> : N Degats. », avec la mention CRITIQUE ou Echec quand elle s'applique, et le detail des des toujours replie sous le 🎲.",
+      "Meme traitement pour l'attaque annulee (« : annule (Blindage) ») et pour les degats moyens (« (moyenne) : N Degats. »).",
+      "Le compteur du bouton ORBES ne se colle plus a son nom dans la case Description : elle affiche « Orbes (2 restants) » au lieu de « ORBES2 RESTANTS »."
+    ]
+  },
+  {
     "v": "v2.5.19",
     "date": "2026-08-25",
     "title": "Onglets d'etat cales sur le bandeau, leur regle passe dans la case Description",
