@@ -4335,6 +4335,23 @@
         orbes: 2 + Math.floor((Math.max(1, lvl) - 1) / 2),
       };
       let prevKind = null;
+      // TALENT D'ESPÈCE : toujours actif, jamais équipable — il n'occupe aucun
+      // des six emplacements. On l'affiche en tête, coché et verrouillé.
+      const espT = Combatants.speciesTalent ? Combatants.speciesTalent(h) : null;
+      const espHtml = espT
+        ? '<div class="tpe-kind-sep tpe-kind-sep-espece">Espèce</div>' +
+          '<div class="tpe-wrap tpe-espece">' +
+            '<div class="tpe-row tpe-kind-espece selected">' +
+              '<input type="checkbox" checked disabled title="Talent d\'Espèce : toujours actif, il n\'occupe aucun emplacement">' +
+              '<span class="tpe-name" data-info="' + esc(espT.id) + '" title="Voir le descriptif">' + esc(espT.name) + '</span>' +
+              '<span class="tpe-meta" data-info="' + esc(espT.id) + '">' +
+                '<span class="tl-kind tl-kind-espece">ESP</span>' +
+                '<span class="tpe-lvl">Offert</span>' +
+              '</span>' +
+            '</div>' +
+            '<div class="tpe-desc" id="tpe-desc-' + esc(espT.id) + '-' + h.id + '" hidden>' + esc(espT.desc || '') + '</div>' +
+          '</div>'
+        : '';
       const body = list.length
         ? list.map(function (e) {
             const sup = e.superseded;
@@ -4367,7 +4384,7 @@
           (h.klass ? '<span class="tal-hero-class klass-' + slug(kn(h.klass)) + '">' + esc(kn(h.klass)) + '</span>' : '') +
           '<span class="tal-equip-count' + (equipped.length >= 6 ? ' full' : '') + '">' + equipped.length + '/6 équipés</span>' +
         '</div>' +
-        '<div class="tal-col-body">' + body + '</div>' +
+        '<div class="tal-col-body">' + espHtml + body + '</div>' +
       '</div>';
     }).join('');
 

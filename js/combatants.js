@@ -1118,6 +1118,11 @@
                     return '<span class="hw-pick-skill skill-' + skillSlug(k) + '">' + esc(k) + ' +' + sp.skills[k] + '</span>';
                   }).join('') + '</span>'
                 : '') +
+              // Talent d'Espèce : accordé d'office, sans occuper d'emplacement.
+              (sp.talent
+                ? '<span class="hw-pick-talent" title="' + esc(sp.talent.desc || '') + '">' +
+                    '<span class="tl-kind tl-kind-espece">ESP</span>' + esc(sp.talent.name) + '</span>'
+                : '') +
             '</span></button>';
         }).join('') + '</div>';
       const inp = $('#hw-name');

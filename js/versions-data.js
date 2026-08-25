@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.23",
+    "date": "2026-08-25",
+    "title": "Le Talent d'Espece s'affiche partout : creation, Talents, fiche, cote MJ",
+    "changes": [
+      "VIGNETTE D'ESPECE a la creation : sous les bonus de competence, une pastille « ESP · Discretion » avec son effet en infobulle.",
+      "ONGLET TALENTS (mode Joueur) : une section « Espece » en tete de la liste de chaque aventurier, avec le talent coche et VERROUILLE — il est toujours actif et n'occupe aucun des six emplacements, d'ou la mention « Offert ».",
+      "FICHE DE L'ONGLET GROUPE : l'infobulle de l'espece rappelle « Talent d'Espece : Discretion » a la suite des bonus.",
+      "COTE MJ, onglet Classes : nouvelle colonne « 🧬 Especes » listant les talents d'espece en LECTURE SEULE (ils sont definis avec leur espece, pas editables ici), chacun etiquete du nom de son espece. L'effet figure aussi dans la bibliotheque des effets."
+    ]
+  },
+  {
     "v": "v2.5.22",
     "date": "2026-08-25",
     "title": "Nouvelle Espece : Gnome, avec le Talent d'Espece Discretion",

@@ -6928,3 +6928,27 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .cbdock .dp-title { font-size: .92rem; letter-spacing: .1em; }
 .cbdock .dp-title-ico { height: 19px; }
 .cbdock .dp-tray { padding-top: .32rem; }
+
+/* v2.5.23 — Talent d'Espèce : vignette de création, onglet Talents, colonne MJ. */
+.hw-pick-talent {
+  display: inline-flex; align-items: center; gap: .3rem; margin-top: .3rem;
+  font-size: .72rem; font-weight: 700; color: #f0dcab;
+  background: rgba(214, 175, 70, .16); border: 1px solid rgba(214, 175, 70, .45);
+  border-radius: 999px; padding: .12rem .5rem .12rem .25rem;
+}
+/* Le badge ESP doit rester lisible sur le fond sombre de la vignette. */
+.hw-pick-talent .tl-kind-espece {
+  background: rgba(214, 175, 70, .3); color: #ffe9b0;
+  font-size: .6rem; font-weight: 800; letter-spacing: .05em;
+  border-radius: 999px; padding: .08rem .35rem;
+}
+.tpe-kind-sep-espece { color: #e8c476; }
+.tpe-wrap.tpe-espece .tpe-row { border-color: rgba(214, 175, 70, .5); background: rgba(214, 175, 70, .1); }
+.tpe-wrap.tpe-espece .tpe-lvl { color: #e8c476; }
+.tal-col-hdr.klass-espece { background: linear-gradient(180deg, #8a6a20, #5f4813); color: #fff6e0; }
+.tl-species-tag {
+  font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  color: #f0dcab; background: rgba(214, 175, 70, .16);
+  border: 1px solid rgba(214, 175, 70, .45); border-radius: 999px;
+  padding: .12rem .5rem; white-space: nowrap;
+}

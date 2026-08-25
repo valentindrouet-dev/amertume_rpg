@@ -90,6 +90,16 @@
   }
   function emptyPool() { return D ? D.emptyPool() : { black: 0, red: 0, blue: 0, green: 0, yellow: 0, white: 0, bone: 0 }; }
 
+  // Talents d'Espèce, reconstitués depuis le catalogue des espèces (lecture seule).
+  function speciesTalentList() {
+    const SP = (window.Combatants && Combatants.SPECIES) || [];
+    return SP.filter(function (sp) { return sp.talent; }).map(function (sp) {
+      return { id: 'esp_' + sp.value, name: sp.talent.name, kind: sp.talent.kind || 'espece',
+        effect: sp.talent.effect, level: 1, usage: 'combat',
+        description: sp.talent.desc || '', species: sp.label };
+    });
+  }
+
   // Liste des groupes (Génériques + chaque classe), avec leur tableau de talents
   function groups() {
     const g = [{ key: 'generic', ref: 'generic', name: '★ Génériques', slug: 'generique', list: generics }];
@@ -101,6 +111,10 @@
     g.push({ key: 'parchment', ref: 'parchment', name: '📜 Parchemins', slug: 'parchemin', list: parchTalents });
     // Groupe des talents adverses (même pool d'effets, noms propres aux adversaires).
     g.push({ key: 'adversary', ref: 'adversary', name: '⚔️ Adversaires', slug: 'adversaire', list: advTalents });
+    // TALENTS D'ESPÈCE : lecture seule. Ils sont définis avec leur espèce (voir
+    // SPECIES dans js/combatants.js) et accordés d'office en combat, sans
+    // occuper d'emplacement — d'où l'absence d'édition ici.
+    g.push({ key: 'species', ref: 'species', name: '🧬 Espèces', slug: 'espece', list: speciesTalentList(), readOnly: true });
     return g;
   }
   function groupByRef(ref) { return groups().find(function (g) { return g.ref === ref; }) || null; }
@@ -253,7 +267,10 @@
           '<button class="inv-strip-eye' + (hidden ? ' off' : '') + '" data-eye="' + esc(ref) + '" data-tid="' + esc(t.id) + '" ' +
             'title="' + (hidden ? 'Talent masqué aux aventuriers — cliquer pour réactiver' : 'Masquer ce talent aux aventuriers') + '">' +
             (hidden ? '🙈' : '👁') + '</button>') +
-        '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
+        (opts.readOnly
+          ? '<span class="tl-species-tag" title="Talent d\'Espèce : défini avec son espèce, accordé d\'office">' +
+              esc(t.species || 'Espèce') + '</span>'
+          : '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>') +
       '</div>' +
       (t.description ? '<div class="tal-strip-desc" hidden>' + esc(t.description) + '</div>' : '') +
     '</div>';
@@ -266,7 +283,11 @@
     box.innerHTML = '<div class="tal-cols">' + shown.map(function (g) {
       const items = sortTalents(g.list.filter(matches));
       // Colonne Parchemins : pas de niveau (accès via objet uniquement), pas d'œil.
-      const stripOpts = g.ref === 'parchment' ? { hideLevel: true, hideEye: true } : { classCol: g.key === 'class' };
+      // Colonne Espèces : lecture seule (le talent vit avec son espèce), donc ni
+      // niveau, ni œil, ni bouton d'ajout.
+      const stripOpts = g.ref === 'parchment' ? { hideLevel: true, hideEye: true }
+        : g.readOnly ? { hideLevel: true, hideEye: true, readOnly: true }
+        : { classCol: g.key === 'class' };
       const strips = items.length
         ? items.map(function (t) { return talentStrip(t, g.ref, stripOpts); }).join('')
         : '<p class="inv-col-empty">—</p>';
@@ -274,7 +295,7 @@
         '<div class="tal-col-hdr klass-' + g.slug + '">' +
           '<span class="tal-col-name">' + esc(g.name) + '</span>' +
           '<span class="tag">' + g.list.length + '</span>' +
-          '<button class="ghost small tl-col-add" data-ref="' + esc(g.ref) + '">+</button>' +
+          (g.readOnly ? '' : '<button class="ghost small tl-col-add" data-ref="' + esc(g.ref) + '">+</button>') +
         '</div>' +
         '<div class="tal-col-body">' + strips + '</div>' +
       '</div>';
