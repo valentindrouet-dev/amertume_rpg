@@ -7109,10 +7109,10 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 }
 #hero-list .hero-stat {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-  gap: .3rem; min-height: 3.7rem; min-width: 0; padding: .42rem .2rem .5rem; text-align: center;
+  gap: .28rem; min-height: 4rem; min-width: 0; padding: .42rem .2rem .5rem; text-align: center;
   border-radius: 10px; border: 1px solid var(--sc, #4a3d2e);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--sc, #4a3d2e) 30%, #251e17) 0%,
-                                      color-mix(in srgb, var(--sc, #4a3d2e) 14%, #221b15) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sc, #4a3d2e) 42%, #3a3126) 0%,
+                                      color-mix(in srgb, var(--sc, #4a3d2e) 24%, #332b21) 100%);
 }
 /* Libellés : une seule ligne, même hauteur d'une vignette à l'autre. */
 #hero-list .hero-stat .hs-label {
@@ -7121,7 +7121,7 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   height: .85rem; line-height: .85rem; white-space: nowrap;
 }
 #hero-list .hero-stat .hs-val {
-  font-family: var(--font-display, inherit); font-size: 1.15rem; line-height: 1.05;
+  font-family: var(--font-display, inherit); font-size: 1.5rem; line-height: 1.05;
   color: color-mix(in srgb, var(--sc, #d8c8ac) 45%, #ffffff); font-variant-numeric: tabular-nums;
 }
 #hero-list .hero-stat .hs-val-sep { opacity: .55; font-size: .85em; }
@@ -7140,7 +7140,7 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   height: .85rem; line-height: .85rem; white-space: nowrap;
   color: color-mix(in srgb, var(--sc) 60%, #f2e7d5);
 }
-#hero-list .hero-stat.hero-stat-def .hero-def-img { height: 2.05rem; margin-top: .05rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+#hero-list .hero-stat.hero-stat-def .hero-def-img { height: 1.72rem; margin-top: .12rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
 
 /* — Sections (Compétences, Équipement, Attaques) — */
 #hero-list .roster-section { margin-top: .55rem; }
@@ -7159,15 +7159,15 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   display: flex; align-items: center; justify-content: space-between; gap: .35rem;
   min-height: 1.7rem; padding: .18rem .5rem; border-radius: 8px;
   font-size: .72rem; font-weight: 700; letter-spacing: .01em;
-  border: 1px solid var(--kc, #554635); color: color-mix(in srgb, var(--kc, #cbb89c) 40%, #ffffff);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--kc, #554635) 26%, #191410) 0%,
-                                      color-mix(in srgb, var(--kc, #554635) 12%, #171310) 100%);
+  border: 1px solid var(--kc, #554635); color: color-mix(in srgb, var(--kc, #cbb89c) 30%, #ffffff);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kc, #554635) 40%, #3a3126) 0%,
+                                      color-mix(in srgb, var(--kc, #554635) 24%, #332b21) 100%);
 }
 #hero-list .skill-badge b {
   font-family: var(--font-display, inherit); font-size: .8rem; line-height: 1;
   color: #fff; flex: 0 0 auto; font-variant-numeric: tabular-nums;
   padding: .12rem .35rem; border-radius: 6px;
-  background: color-mix(in srgb, var(--kc, #554635) 40%, rgba(0,0,0,.45));
+  background: color-mix(in srgb, var(--kc, #554635) 46%, rgba(0,0,0,.32));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc, #554635) 55%, transparent);
 }
 #hero-list .skill-agilite    { --kc: #62a862; }

@@ -244,7 +244,8 @@
   function skillsSummary(skills) {
     if (!skills) return '';
     const badges = SKILLS.filter(function (s) { return (skills[s] || 0) > 0; })
-      .map(function (s) { return '<span class="skill-badge skill-' + skillSlug(s) + '">' + s + ' <b>+' + skills[s] + '</b></span>'; });
+      // Espace fine insécable entre le + et la valeur : « + 2 » et non « +2 ».
+      .map(function (s) { return '<span class="skill-badge skill-' + skillSlug(s) + '">' + s + ' <b>+\u202f' + skills[s] + '</b></span>'; });
     if (!badges.length) return '';
     return '<div class="roster-section"><div class="roster-label">Compétences</div>' +
       '<div class="skill-badges">' + badges.join('') + '</div></div>';
@@ -814,7 +815,7 @@
         '<div class="hero-stat"><span class="hs-label">Endu</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
         pvStatHtml(dh) +
         '<div class="hero-stat"><span class="hs-label">DEF</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
-        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+\u202f' + dh.damage + '</span></div>' +
       '</div>' +
       '<div class="roster-section atk-section"><div class="roster-label">Attaques</div>' +
         '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div></div>' +
@@ -896,7 +897,7 @@
           '<div class="hero-stat"><span class="hs-label">Endu</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
           pvStatHtml(dh) +
           heroDefStatHtml(h) +
-          '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
+          '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+\u202f' + dh.damage + '</span></div>' +
         '</div>' +
         // En mode Joueur : ni équipement, ni attaques, ni talents (consultables dans
         // leurs onglets dédiés). On n'affiche que les caractéristiques et compétences.
@@ -971,7 +972,7 @@
         vieStatHtml(dh) +
         pvStatHtml(dh) +
         '<div class="hero-stat"><span class="hs-label">DEF</span><span class="hs-val">' + heroDef(dh) + '</span></div>' +
-        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+' + dh.damage + '</span></div>' +
+        '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+\u202f' + dh.damage + '</span></div>' +
       '</div>' +
       '<div class="roster-section"><div class="roster-label">Équipement</div>' +
         '<div class="roster-gear">' + (gear.length ? esc(gear.join(' · ')) : '<span class="hint">aucun</span>') + '</div></div>' +
