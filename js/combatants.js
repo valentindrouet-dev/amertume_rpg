@@ -62,10 +62,20 @@
       talent: { name: 'Discrétion', kind: 'espece', effect: 'discretion',
         desc: 'Vous n\'êtes jamais ciblé en priorité par les adversaires tant qu\'un autre aventurier se trouve dans votre zone.' } },
   ];
-  // Talent d'Espèce d'un aventurier (null si son espèce n'en accorde pas).
+  // Talent d'Espèce d'un aventurier (null si son espèce n'en accorde pas, ou si
+  // le MJ l'a masqué). La liste éditable du MJ fait foi ; le tableau SPECIES
+  // ne sert que de repli.
   function speciesTalent(h) {
     const sp = speciesOf(h && h.species);
-    if (!sp || !sp.talent) return null;
+    if (!sp) return null;
+    const stored = Store.speciesTalentFor ? Store.speciesTalentFor(sp.value) : null;
+    if (stored) {
+      return { id: stored.id, name: stored.name, kind: stored.kind || 'espece',
+        effect: stored.effect || ((stored.effects || [])[0] || {}).effect,
+        usage: stored.usage || 'combat', level: 1,
+        desc: stored.description || '', description: stored.description || '' };
+    }
+    if (!sp.talent) return null;
     return Object.assign({ id: 'esp_' + sp.value, usage: 'combat', level: 1 }, sp.talent);
   }
   // Libellé complet des bonus d'une espèce (caractéristiques + compétences).

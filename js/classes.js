@@ -34,6 +34,7 @@
   let generics = [];
   let advTalents = []; // talents adverses nommés (effet-based)
   let parchTalents = []; // talents dédiés aux parchemins (accessibles via objets seulement)
+  let speciesTalents = []; // Talents d'Espèce (accordés d'office selon l'espèce)
   let term = '';
   let groupFilter = '';
 
@@ -57,6 +58,7 @@
     generics = Store.loadGenericTalents();
     advTalents = Store.loadAdvTalents();
     parchTalents = Store.loadParchTalents ? Store.loadParchTalents() : [];
+    speciesTalents = Store.loadSpeciesTalents ? Store.loadSpeciesTalents() : [];
   }
   // Sauvegarde les classes affichées + les classes cachées (données préservées)
   function save() { Store.saveClasses(classes.concat(hiddenClasses)); }
@@ -64,6 +66,7 @@
   function persist() {
     save(); saveGen(); Store.saveAdvTalents(advTalents);
     if (Store.saveParchTalents) Store.saveParchTalents(parchTalents);
+    if (Store.saveSpeciesTalents) Store.saveSpeciesTalents(speciesTalents);
   }
 
   function newTalent() {
@@ -90,16 +93,6 @@
   }
   function emptyPool() { return D ? D.emptyPool() : { black: 0, red: 0, blue: 0, green: 0, yellow: 0, white: 0, bone: 0 }; }
 
-  // Talents d'Espèce, reconstitués depuis le catalogue des espèces (lecture seule).
-  function speciesTalentList() {
-    const SP = (window.Combatants && Combatants.SPECIES) || [];
-    return SP.filter(function (sp) { return sp.talent; }).map(function (sp) {
-      return { id: 'esp_' + sp.value, name: sp.talent.name, kind: sp.talent.kind || 'espece',
-        effect: sp.talent.effect, level: 1, usage: 'combat',
-        description: sp.talent.desc || '', species: sp.label };
-    });
-  }
-
   // Liste des groupes (Génériques + chaque classe), avec leur tableau de talents
   function groups() {
     const g = [{ key: 'generic', ref: 'generic', name: '★ Génériques', slug: 'generique', list: generics }];
@@ -114,7 +107,7 @@
     // TALENTS D'ESPÈCE : lecture seule. Ils sont définis avec leur espèce (voir
     // SPECIES dans js/combatants.js) et accordés d'office en combat, sans
     // occuper d'emplacement — d'où l'absence d'édition ici.
-    g.push({ key: 'species', ref: 'species', name: '🧬 Espèces', slug: 'espece', list: speciesTalentList(), readOnly: true });
+    g.push({ key: 'species', ref: 'species', name: '🧬 Espèces', slug: 'espece', list: speciesTalents });
     return g;
   }
   function groupByRef(ref) { return groups().find(function (g) { return g.ref === ref; }) || null; }
@@ -232,6 +225,15 @@
     });
     return found;
   }
+  // Pastille compacte d'espèce : son initiale, le nom complet en infobulle.
+  function speciesInitialHtml(t) {
+    const SP = (window.Combatants && Combatants.SPECIES) || [];
+    const sp = SP.find(function (x) { return x.value === t.species; });
+    const nom = sp ? sp.label : (t.species || 'Espèce');
+    return '<span class="tl-species-tag" title="Talent d\'Espèce — accordé d\'office aux ' + esc(nom) + 's">' +
+      esc(nom.charAt(0).toUpperCase()) + '</span>';
+  }
+
   function talentStrip(t, ref, opts) {
     opts = opts || {};
     const kind = t.kind || (t.effect && effectMap()[t.effect] ? effectMap()[t.effect].kind : '');
@@ -267,10 +269,8 @@
           '<button class="inv-strip-eye' + (hidden ? ' off' : '') + '" data-eye="' + esc(ref) + '" data-tid="' + esc(t.id) + '" ' +
             'title="' + (hidden ? 'Talent masqué aux aventuriers — cliquer pour réactiver' : 'Masquer ce talent aux aventuriers') + '">' +
             (hidden ? '🙈' : '👁') + '</button>') +
-        (opts.readOnly
-          ? '<span class="tl-species-tag" title="Talent d\'Espèce : défini avec son espèce, accordé d\'office">' +
-              esc(t.species || 'Espèce') + '</span>'
-          : '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>') +
+        (opts.speciesCol ? speciesInitialHtml(t) : '') +
+        '<button class="inv-strip-edit" data-edit="' + esc(ref) + '" data-tid="' + esc(t.id) + '" title="Éditer">✎</button>' +
       '</div>' +
       (t.description ? '<div class="tal-strip-desc" hidden>' + esc(t.description) + '</div>' : '') +
     '</div>';
@@ -285,8 +285,10 @@
       // Colonne Parchemins : pas de niveau (accès via objet uniquement), pas d'œil.
       // Colonne Espèces : lecture seule (le talent vit avec son espèce), donc ni
       // niveau, ni œil, ni bouton d'ajout.
+      // Colonne Espèces : pas de niveau (le talent est offert), mais l'œil et le
+      // crayon comme partout ailleurs.
       const stripOpts = g.ref === 'parchment' ? { hideLevel: true, hideEye: true }
-        : g.readOnly ? { hideLevel: true, hideEye: true, readOnly: true }
+        : g.ref === 'species' ? { hideLevel: true, speciesCol: true }
         : { classCol: g.key === 'class' };
       const strips = items.length
         ? items.map(function (t) { return talentStrip(t, g.ref, stripOpts); }).join('')
@@ -295,7 +297,7 @@
         '<div class="tal-col-hdr klass-' + g.slug + '">' +
           '<span class="tal-col-name">' + esc(g.name) + '</span>' +
           '<span class="tag">' + g.list.length + '</span>' +
-          (g.readOnly ? '' : '<button class="ghost small tl-col-add" data-ref="' + esc(g.ref) + '">+</button>') +
+          '<button class="ghost small tl-col-add" data-ref="' + esc(g.ref) + '">+</button>' +
         '</div>' +
         '<div class="tal-col-body">' + strips + '</div>' +
       '</div>';

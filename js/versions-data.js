@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.25",
+    "date": "2026-08-25",
+    "title": "Colonne Especes du MJ : en-tete accorde, pastille compacte, oeil et crayon",
+    "changes": [
+      "L'en-tete de la colonne « 🧬 Especes » avait recu un fond dore plein, unique dans l'onglet : il reprend le traitement des autres colonnes (fond transparent, simple couleur de texte et lisere assorti).",
+      "La pastille de l'espece passe d'un long libelle (« GNOME ») a une pastille ronde d'une lettre (« G »), le nom complet restant en infobulle.",
+      "L'OEIL et le CRAYON sont de retour : ces talents ne sont plus en lecture seule. Ils vivent desormais dans leur propre liste, comme les parchemins et les talents adverses, avec leur cle d'espece — le MJ peut donc les renommer, changer leur effet, ecrire leur descriptif, en ajouter, et les masquer.",
+      "Un talent d'espece masque n'est plus accorde en combat ni affiche cote joueur ; le reactiver le retablit. Verifie dans les deux sens, ainsi que la persistance et l'affichage cote joueur."
+    ]
+  },
+  {
     "v": "v2.5.24",
     "date": "2026-08-25",
     "title": "Niveau de depart choisi pour chaque aventurier au lancement",

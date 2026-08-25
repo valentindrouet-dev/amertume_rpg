@@ -317,6 +317,43 @@
     return added;
   }
 
+  // ---------- Talents d'Espèce ----------
+  // Ils vivent dans leur propre liste (comme les parchemins) : le MJ peut donc
+  // les renommer, les décrire et les masquer. Chacun porte la CLÉ de son espèce
+  // (`species`), ce qui l'accorde d'office aux aventuriers de cette espèce.
+  const ESP_TAL_KEY = 'amertume_espece_talents_v1';
+  const ESP_TAL_SEED = [
+    { id: 'esp_gnome', species: 'gnome', name: 'Discrétion', kind: 'espece', usage: 'combat',
+      level: 1, effects: [{ effect: 'discretion' }], effect: 'discretion', hidden: false,
+      description: 'Vous n\'êtes jamais ciblé en priorité par les adversaires tant qu\'un autre aventurier se trouve dans votre zone.' },
+  ];
+  function loadSpeciesTalents() {
+    let list = [];
+    try {
+      const raw = global.localStorage.getItem(ESP_TAL_KEY);
+      list = raw ? JSON.parse(raw) : [];
+    } catch (e) { list = []; }
+    if (!Array.isArray(list)) list = [];
+    // Amorçage : on ajoute les talents d'espèce livrés qui manquent, sans jamais
+    // écraser ceux que le MJ a modifiés.
+    let seeded = false;
+    ESP_TAL_SEED.forEach(function (t) {
+      if (!list.some(function (x) { return x.id === t.id; })) { list.push(JSON.parse(JSON.stringify(t))); seeded = true; }
+    });
+    if (seeded) { try { global.localStorage.setItem(ESP_TAL_KEY, JSON.stringify(list)); } catch (e) {} }
+    return list;
+  }
+  function saveSpeciesTalents(list) {
+    try { global.localStorage.setItem(ESP_TAL_KEY, JSON.stringify(list || [])); } catch (e) {}
+  }
+  // Talent d'Espèce actif pour une espèce donnée (null s'il est masqué).
+  function speciesTalentFor(speciesValue) {
+    if (!speciesValue) return null;
+    return loadSpeciesTalents().find(function (t) {
+      return t.species === speciesValue && !t.hidden;
+    }) || null;
+  }
+
   // ---------- Aventures (stockage séparé) ----------
   const ADV_KEY = 'amertume_adventures_v1';
   const SES_KEY = 'amertume_sessions_v1';
@@ -1097,6 +1134,9 @@
     saveSessions: saveSessions,
     loadClasses: loadClasses,
     saveClasses: saveClasses,
+    loadSpeciesTalents: loadSpeciesTalents,
+    saveSpeciesTalents: saveSpeciesTalents,
+    speciesTalentFor: speciesTalentFor,
     loadGenericTalents: loadGenericTalents,
     saveGenericTalents: saveGenericTalents,
     talentEffects: talentEffects,

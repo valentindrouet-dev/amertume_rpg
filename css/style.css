@@ -6945,12 +6945,14 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .tpe-kind-sep-espece { color: #e8c476; }
 .tpe-wrap.tpe-espece .tpe-row { border-color: rgba(214, 175, 70, .5); background: rgba(214, 175, 70, .1); }
 .tpe-wrap.tpe-espece .tpe-lvl { color: #e8c476; }
-.tal-col-hdr.klass-espece { background: linear-gradient(180deg, #8a6a20, #5f4813); color: #fff6e0; }
+.tal-col-hdr.klass-espece { color: #e8c476; border-bottom-color: rgba(214, 175, 70, .5); }
 .tl-species-tag {
-  font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
-  color: #f0dcab; background: rgba(214, 175, 70, .16);
-  border: 1px solid rgba(214, 175, 70, .45); border-radius: 999px;
-  padding: .12rem .5rem; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; flex: 0 0 20px; margin-left: .2rem;
+  font-size: .72rem; font-weight: 800; line-height: 1;
+  color: #f0dcab; background: rgba(214, 175, 70, .18);
+  border: 1px solid rgba(214, 175, 70, .5); border-radius: 50%;
+  cursor: help;
 }
 
 /* v2.5.24 — Sélecteur de niveau de départ sur les cartes de lancement. */
