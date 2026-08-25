@@ -3128,7 +3128,8 @@
         const cur = (h.skills || {});
         const gSk = (g.skills || {});
         skillHtml =
-          '<div class="lvl-sec-title">Compétences <small>(+1 dans 2 différentes)</small></div>' +
+          '<div class="lvl-sec-title">Compétences <small>(+1 dans 2 différentes)</small>' +
+            '<span class="lvl-skill-count" data-count="' + idx + '">0/2</span></div>' +
           '<div class="lvl-skill-grid">' +
             LVL_SKILLS.map(function (s) {
               const base = (cur[s] || 0) + (gSk[s] || 0);
@@ -3166,18 +3167,42 @@
         '<div class="lvlup-heroes lvlup-grid">' + cards + '</div>' +
         '<button class="primary big" id="lvlup-continue" disabled>' +
           (talentsOnly ? '▶ Commencer l\'aventure' : 'Continuer →') + '</button>' +
+        '<p class="lvlup-missing" id="lvlup-missing" hidden></p>' +
       '</div>';
 
     const contBtn = root.querySelector('#lvlup-continue');
 
+    const missBox = root.querySelector('#lvlup-missing');
+
+    // Ce qui manque encore, dit explicitement : un bouton grisé sans raison
+    // laisse croire à un bug (le piège classique : 1 seule compétence sur 2).
     function refresh() {
-      let ok = true;
+      const miss = [];
       heroes.forEach(function (h, idx) {
-        if (!talentsOnly && !statSel[idx]) ok = false;
-        if (availableTalents(ses, h, newLevel).length > 0 && !talSel[idx]) ok = false;
-        if (needSkills && (!skillSel[idx] || skillSel[idx].length !== 2)) ok = false;
+        const need = [];
+        if (!talentsOnly && !statSel[idx]) need.push('une caractéristique');
+        if (needSkills) {
+          const n = (skillSel[idx] || []).length;
+          if (n !== 2) need.push(n === 1 ? 'encore 1 compétence (2 au total)' : '2 compétences différentes');
+        }
+        if (availableTalents(ses, h, newLevel).length > 0 && !talSel[idx]) need.push('un talent');
+        // Compteur de compétences dans l'en-tête de la section.
+        const cnt = root.querySelector('.lvl-skill-count[data-count="' + idx + '"]');
+        if (cnt) {
+          const n = (skillSel[idx] || []).length;
+          cnt.textContent = n + '/2';
+          cnt.classList.toggle('done', n === 2);
+        }
+        // Colonne incomplète : liseré d'attention pour la repérer d'un coup d'œil.
+        const col = root.querySelector('.lvl-col[data-idx="' + idx + '"]');
+        if (col) col.classList.toggle('lvl-col-incomplete', need.length > 0);
+        if (need.length) miss.push(esc(h.name) + ' : ' + need.join(', '));
       });
-      contBtn.disabled = !ok;
+      contBtn.disabled = miss.length > 0;
+      if (missBox) {
+        missBox.hidden = !miss.length;
+        missBox.innerHTML = miss.length ? '⚠️ Choix incomplets — ' + miss.join(' · ') : '';
+      }
     }
 
     root.querySelectorAll('.lvl-stat-row').forEach(function (row) {
@@ -3230,6 +3255,8 @@
         }
       });
     });
+
+    refresh(); // état initial : on annonce d'emblée ce qu'il reste à choisir
 
     contBtn.addEventListener('click', function () {
       heroes.forEach(function (h, idx) {
