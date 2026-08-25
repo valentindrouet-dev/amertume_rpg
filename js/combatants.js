@@ -55,12 +55,25 @@
       skills: { 'Force': 1, 'Robustesse': 1 } },
     { value: 'elfe',    label: 'Elfe',    icon: '🏹', bonus: 'ENDU +1|Dégâts +1', vie: 0, endu: 1, damage: 1, pvBonus: 0,
       skills: { 'Agilité': 1, 'Mysticisme': 1 } },
+    // `talent` : Talent d'Espèce accordé d'office en combat (aucun emplacement
+    // de talent consommé). Voir instFromHero dans js/combat.js.
+    { value: 'gnome',   label: 'Gnome',   icon: '🍄', bonus: '', vie: 0, endu: 0, damage: 0, pvBonus: 0,
+      skills: { 'Ruse': 1, 'Technique': 1 },
+      talent: { name: 'Discrétion', kind: 'espece', effect: 'discretion',
+        desc: 'Vous n\'êtes jamais ciblé en priorité par les adversaires tant qu\'un autre aventurier se trouve dans votre zone.' } },
   ];
+  // Talent d'Espèce d'un aventurier (null si son espèce n'en accorde pas).
+  function speciesTalent(h) {
+    const sp = speciesOf(h && h.species);
+    if (!sp || !sp.talent) return null;
+    return Object.assign({ id: 'esp_' + sp.value, usage: 'combat', level: 1 }, sp.talent);
+  }
   // Libellé complet des bonus d'une espèce (caractéristiques + compétences).
   function speciesBonusList(sp) {
     if (!sp) return [];
     const out = String(sp.bonus || '').split('|').filter(Boolean);
     Object.keys(sp.skills || {}).forEach(function (k) { out.push(k + ' +' + sp.skills[k]); });
+    if (sp.talent && sp.talent.name) out.push('Talent d\'Espèce : ' + sp.talent.name);
     return out;
   }
   // Couleur de chaque caractéristique — identique partout dans l'application.
@@ -2431,7 +2444,7 @@
 
   global.Combatants = {
     pronoun: pronoun, pronounCap: pronounCap, pronounObj: pronounObj, possessive: possessive, agree: agree,
-    genderOf: genderOf, SPECIES: SPECIES, speciesOf: speciesOf,
+    genderOf: genderOf, SPECIES: SPECIES, speciesOf: speciesOf, speciesTalent: speciesTalent,
     init: init,
     renderHeroes: renderHeroes,
     renderMonsters: renderMonsters,

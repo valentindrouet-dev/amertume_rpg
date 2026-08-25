@@ -1,6 +1,18 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.22",
+    "date": "2026-08-25",
+    "title": "Nouvelle Espece : Gnome, avec le Talent d'Espece Discretion",
+    "changes": [
+      "Espece GNOME (🍄) ajoutee a la creation d'aventurier : Ruse +1, Technique +1, et un Talent d'Espece.",
+      "Nouvel effet DISCRETION (genre « Espece ») dans le catalogue : « Vous n'etes jamais cible en priorite par les adversaires tant qu'un autre aventurier se trouve dans votre zone. »",
+      "Le Talent d'Espece est accorde d'office au lancement du combat, SANS occuper d'emplacement de talent : les six emplacements restent libres pour les talents de classe. Il apparait dans les bonus de l'espece a la creation.",
+      "Cablage du ciblage adverse : un aventurier discret accompagne est retire du choix des cibles, aussi bien pour l'attaque que pour la designation de PROIE — sauf s'il ne reste que des discrets a viser, et sauf si un allie force le ciblage par MENACE (qui prime).",
+      "Verifie en combat reel : avec les deux aventuriers dans la meme zone, le Rodeur frappe le Nain (20 PV) et ignore le Gnome a 1 PV, qu'il aurait cible sans Discretion ; le Gnome isole dans sa zone redevient la cible."
+    ]
+  },
+  {
     "v": "v2.5.21",
     "date": "2026-08-25",
     "title": "Niveau de l'aventurier dans le bandeau, titre ATTAQUE agrandi",

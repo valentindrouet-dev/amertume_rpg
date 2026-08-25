@@ -145,6 +145,9 @@
     const heroLevel = Math.max(1, combatHeroLevel || 1);
     const attacks = Combatants.heroCombatAttacks(hero);
     const talents = Combatants.resolveHeroTalents(Array.isArray(hero.chosenTalents) ? hero.chosenTalents : null);
+    // TALENT D'ESPÈCE : accordé d'office, sans occuper d'emplacement de talent.
+    const espTal = Combatants.speciesTalent ? Combatants.speciesTalent(hero) : null;
+    if (espTal && !talents.some(function (t) { return t.effect === espTal.effect; })) talents.push(espTal);
     const hasTalent = function (e) { return talents.some(function (t) { return t.effect === e; }); };
     // ORBES MYSTIQUES (Mystique) : nombre d'Orbes par tour = 2 + 1 par niveau impair (3, 5, 7…).
     // Le nom de l'attaque devient « X Orbes Mystiques » (varie avec le niveau).
@@ -1899,7 +1902,9 @@
   // (mêmes priorités que le ciblage d'attaque). Compat. anciens modes PROIE.
   const MARK_MODE_MAP = { least_pv: 'pvLow', most_pv: 'pvHigh', least_def: 'defLow', most_def: 'defHigh' };
   function pickMarkTarget(heroes, mode) {
-    return focusPick(heroes, MARK_MODE_MAP[mode] || mode || 'pvHigh');
+    const exposed = (heroes || []).filter(function (h) { return !isDiscreet(h); });
+    const pool = exposed.length ? exposed : heroes;
+    return focusPick(pool, MARK_MODE_MAP[mode] || mode || 'pvHigh');
   }
   function designateMarkedHero() {
     const c = combat();
@@ -2513,11 +2518,22 @@
       default:        return a[0];
     }
   }
+  // DISCRÉTION (Talent d'Espèce des Gnomes) : tant qu'un autre aventurier se
+  // trouve dans sa zone, ce combattant n'est pas visé en priorité.
+  function isDiscreet(h) {
+    return !!(h && h.side === 'hero' && heroHasTalent(h, 'discretion') && zoneHeroCount(h.zone) > 1);
+  }
   function chooseFrom(monster, candidates) {
     if (!candidates || !candidates.length) return null;
     // MENACE (talent d'aventurier) : un aventurier peut forcer l'adversaire à le viser.
     const taunters = candidates.filter(function (h) { return heroMenaces(h, monster); });
-    const pool = taunters.length ? taunters : candidates;
+    let pool = taunters.length ? taunters : candidates;
+    // La Menace prime sur la Discrétion : on n'écarte les discrets que si
+    // personne ne force le ciblage, et seulement s'il reste quelqu'un à viser.
+    if (!taunters.length) {
+      const exposed = pool.filter(function (h) { return !isDiscreet(h); });
+      if (exposed.length) pool = exposed;
+    }
     return focusPick(pool, monster.menace) || pool[0];
   }
 

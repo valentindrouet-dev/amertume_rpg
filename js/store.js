@@ -706,6 +706,8 @@
     { effect: 'menace', name: 'Menace', kind: 'mastery', cat: 'groupe', hasVal: false,
       hasChoice: true, choiceLabel: 'Cibles forcées', choices: ['sbire', 'elite'],
       desc: 'Les adversaires de votre zone du type choisi sont obligés de vous cibler.' },
+    { effect: 'discretion', name: 'Discrétion', kind: 'espece', cat: 'groupe', hasVal: false,
+      desc: 'Vous n\'êtes jamais ciblé en priorité par les adversaires tant qu\'un autre aventurier se trouve dans votre zone.' },
     { effect: 'garde_secrete', name: 'Garde Secrète', kind: 'mastery', cat: 'groupe', hasVal: false,
       desc: 'Un allié GARDÉ qui conserve son Blindage jusqu\'à la fin du combat rapporte +2 XP au groupe.' },
     // 🔮 ORBES & MYSTICISME
