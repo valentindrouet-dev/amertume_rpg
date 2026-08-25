@@ -1,6 +1,24 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.14",
+    "date": "2026-08-25",
+    "title": "Fiches au survol, des bloques par la DEF, Recommencer le combat, sorties agrandies",
+    "changes": [
+      "Fin des infobulles jaunes du navigateur : chaque `title` du bandeau et des vignettes est deplace dans un attribut lu par la case Description, qui reste seule a documenter l'interface.",
+      "La case Description devient une VRAIE fiche au survol du plateau :",
+      "adversaire — type, et s'il est analyse ses PV, sa DEF, ses degats, son XP, ses talents et ses notes ; sinon un rappel qu'il faut l'analyser ;",
+      "aventurier — classe, PV, DEF, degats, etats en cours et ce qui lui reste a jouer (action, action bonus, mouvement) ;",
+      "zone — son nom et qui s'y trouve ;",
+      "barriere — son nom et sa regle exacte (mur, infranchissable, difficile, instable).",
+      "PREPARATION ARCANIQUE : un seul Orbe avant le tour. Les Orbes ne consommant pas l'action, le Pre-Tour les rearmait aussitot et deux clics de suite en lancaient deux.",
+      "Des arretes par la Defense : grises, avec un cartouche « DEF X » dans leur coin — on voit d'un coup d'oeil ce qui est passe et ce qui a ete bloque.",
+      "Cliquer la vignette d'un aventurier dans le COMA affiche bien SA fiche : la selection automatique ne remplace plus un combattant choisi a la main.",
+      "Nouveau bouton « ↺ Recommencer le Combat », a gauche de « Fuir le Combat » : il remet PV, positions, etats, journal et tour dans leur etat de depart grace a un instantane pris au lancement. Absent en mode partage.",
+      "Sorties de donjon : la FLECHE de direction reste toujours affichee (plus de cadenas ni de cle qui la remplacent), seule sa couleur distingue une sortie ouverte, verrouillee ou reservee au MJ ; le nom des salles passe en plus gros et plus gras."
+    ]
+  },
+  {
     "v": "v2.5.12",
     "date": "2026-08-25",
     "title": "Pastilles d'action et de mouvement, loupe des adversaires analyses",

@@ -6808,3 +6808,31 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
 }
 /* Loupe des adversaires déjà analysés. */
 .cc-analyzed { font-size: .82rem; line-height: 1; opacity: .85; margin-left: .1rem; cursor: help; }
+/* v2.5.13 — états rappelés dans la fiche de survol. */
+.cbdesc-states { display: inline-block; margin-top: .15rem; font-weight: 700; color: #6b4a14; }
+.cbdesc-txt b { color: #2f2415; }
+.cbdesc-txt i { color: #6a5a42; font-weight: 500; }
+
+/* v2.5.13 — dés arrêtés par la Défense : grisés, avec le seuil dans le coin. */
+.dp-die.is-blocked { filter: grayscale(.85) brightness(.75); opacity: .8; }
+.dp-die { position: relative; overflow: visible; }
+.dp-def-mark {
+  position: absolute; top: -6px; right: -8px;
+  font-family: var(--font-body); font-size: 8px; font-weight: 800; letter-spacing: .02em;
+  line-height: 1; padding: .12rem .22rem; border-radius: 5px;
+  background: #2a2119; color: #e6d8bf; border: 1px solid rgba(255, 244, 224, .35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .5); pointer-events: none; white-space: nowrap;
+}
+.dice-fly-inner .dp-def-mark { font-size: 11px; top: -8px; right: -10px; }
+
+/* v2.5.14 — Sorties : flèche toujours visible (seule la couleur change),
+   libellé plus grand pour les passages praticables. */
+.ses-exits-block .rose-btn.ses-exit-btn { font-size: .96rem; padding: .55rem .95rem .55rem .5rem; }
+.ses-exits-block .rose-name { font-size: 1rem; font-weight: 800; max-width: 260px; }
+.ses-exits-block .rose-lbl { font-size: .74rem; }
+.ses-exits-block .rose-arrow { width: 34px; height: 34px; font-size: 1.15rem; border-radius: 10px; }
+/* Verrouillé / combat en cours : la flèche vire au rouge sourd. */
+.ses-exits-block .ses-exit-locked .rose-arrow {
+  background: linear-gradient(180deg, #c98b7c, #a4614f); color: #2b1109;
+}
+.ses-exits-block .ses-exit-locked .rose-name { font-size: .92rem; }

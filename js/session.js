@@ -1460,7 +1460,7 @@
       return '<button type="button" class="rose-btn ses-exit-btn' + (visited ? ' ses-exit-visited' : '') +
           (locked ? ' ses-exit-locked' : '') + (mjOnly ? ' ses-exit-mj' : '') + '" data-to="' + esc(e.other) + '"' +
           (locked ? ' disabled' : '') + ' title="' + esc(tip) + '">' +
-        '<span class="rose-arrow">' + (allLocked ? '⚔' : locked ? '🔒' : mjOnly ? (hidden ? '👁' : '🗝') : e.arrow) + '</span>' +
+        '<span class="rose-arrow">' + e.arrow + '</span>' +
         '<span class="rose-name">' + esc(name) + (danger ? ' ⚔️' : '') + '</span>' +
         (e.l.label ? '<span class="rose-lbl">' + esc(e.l.label) + '</span>' : '') +
       '</button>';

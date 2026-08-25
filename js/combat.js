@@ -343,9 +343,12 @@
     });
     pendingAttack = null; pendingMove = null; stateMenuFor = null;
     armPrepared(combatants); // PRÉPARÉ au tour 1 (talent Vivacité / états de scène en attente)
-    setCombat({ turn: 1, phase: 'heroes', bonusXp: 0, analyzeXp: 0, noDmgXp: 0, zones: zones,
+    const fresh = { turn: 1, phase: 'heroes', bonusXp: 0, analyzeXp: 0, noDmgXp: 0, zones: zones,
       barriers: normalizeBarriers(cfg.barriers),
-      combatants: combatants, log: [], outcome: null });
+      combatants: combatants, log: [], outcome: null };
+    // Instantané de départ : permet de RECOMMENCER le combat à l'identique.
+    try { fresh.initial = JSON.parse(JSON.stringify(fresh)); } catch (e) { fresh.initial = null; }
+    setCombat(fresh);
   }
 
   function startCombat() {
@@ -2589,7 +2592,8 @@
           hint: 'Désigner ' + (h.gardienLeft || 1) + ' allié(s) à protéger' });
       }
       // PRÉPARATION ARCANIQUE : un Orbe lançable dès le Pré-Tour 1.
-      if (c.turn === 1 && heroHasTalent(h, 'orbe_pretour') && !actionSpent(h) && !(h.states && h.states.auSol)) {
+      if (c.turn === 1 && heroHasTalent(h, 'orbe_pretour') && !h.orbPretourDone &&
+          !actionSpent(h) && !(h.states && h.states.auSol)) {
         const i = (h.attacks || []).findIndex(isOrbAttack);
         if (i >= 0 && (h.attackUses[i] === undefined || h.attackUses[i] > 0)) {
           out.push({ iid: h.iid, kind: 'orb', atkIndex: i, ico: '🔮', hero: h,
@@ -2627,7 +2631,7 @@
   function startPretour() {
     const c = combat();
     c.phase = 'pretour';
-    autoSelectOff = false;   // nouveau tour : la sélection automatique reprend
+    autoSelectOff = false; manualSelect = false;   // nouveau tour : la sélection automatique reprend
     // Octroie le mouvement gratuit (Pas Léger), l'action rapide (Rapide), et l'accès
     // au Pré-Tour pour Initiative / Préparation Arcanique (Orbes en Pré-Tour 1).
     activeOf('hero').forEach(function (h) {
@@ -3620,6 +3624,11 @@
           (c.outcome
             ? '<button id="cb-result" class="small result-btn">📊 Résultat du Combat</button>'
             : '') +
+          // RECOMMENCER : remet le combat dans son état de départ. Absent en
+          // mode partagé (le joueur d'une partie publiée ne rejoue pas un combat).
+          ((combat().initial && !(global.Shell && Shell.isPublished && Shell.isPublished()))
+            ? '<button id="cb-restart" class="ghost small" title="Remettre ce combat dans son état de départ : PV, positions, états et journal sont réinitialisés">↺ Recommencer le Combat</button>'
+            : '') +
           '<button id="cb-end" class="ghost small" title="Abandonner ce combat : vos adversaires agiront une dernière fois et vous en subirez les conséquences">⚠️ Fuir le Combat</button>' +
         '</div>' +
       '</div>' +
@@ -3670,6 +3679,9 @@
     try { renderZones(); } catch (e) { zonesErr = e; console.error('[combat] renderZones', e); }
     try { renderPhaseControls(); } catch (e) { console.error('[combat] renderPhaseControls', e); }
     try { renderLog(); } catch (e) { console.error('[combat] renderLog', e); }
+    // Les infobulles natives sont retirées APRÈS le rendu des boutons et des
+    // vignettes : la case Description est seule à documenter les éléments.
+    try { stripTitles(root); } catch (e) { /* sans conséquence */ }
 
     // Filet ULTIME : si aucune carte n'a pu s'afficher (placement incohérent,
     // snapshot hérité…), on FORCE le rendu de tous les combattants — regroupés —
@@ -3693,6 +3705,23 @@
 
     const cbRes = root.querySelector('#cb-result');
     if (cbRes) cbRes.addEventListener('click', function () { endCombat(c.outcome !== 'defeat'); });
+    const cbRestart = root.querySelector('#cb-restart');
+    if (cbRestart) cbRestart.addEventListener('click', function () {
+      if (!confirm('Recommencer ce combat depuis le début ? PV, positions, états et journal repartent de zéro.')) return;
+      const snap = combat().initial;
+      if (!snap) return;
+      let again = null;
+      try { again = JSON.parse(JSON.stringify(snap)); } catch (e) { return; }
+      again.initial = snap;
+      selectedIid = null; autoSelectOff = false; manualSelect = false;
+      pendingAttack = null; pendingMove = null; pendingAnalyze = null;
+      pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
+      arrivalTargetIid = null; movePrefix = null; pendingReaction = null;
+      lastRoll = null; rollActive = false;
+      fxQueue = []; toastQueue = []; aiToken++;
+      setCombat(again);
+      Store.save(); render();
+    });
     const cbEnd = root.querySelector('#cb-end');
     if (cbEnd) cbEnd.addEventListener('click', function () {
       const isSession = combatKey === 'combat' && Store.state.sessionCombat;
@@ -4018,9 +4047,109 @@
       '<div class="cbdesc-txt">' + esc(DIE_DESC[color] || '') + '</div>';
   }
 
+  // Fiche affichée dans la case Description au survol du plateau.
+  function descBox() {
+    const root = $(rootSel);
+    return root ? root.querySelector('#cbdock-desc') : null;
+  }
+  function putDesc(key, title, html) {
+    const box = descBox();
+    if (!box || key === descLast) return;
+    descLast = key;
+    box.innerHTML = '<div class="cbdesc-name">' + esc(title) + '</div>' +
+      '<div class="cbdesc-txt">' + html + '</div>';
+  }
+  const BARRIER_DESC = {
+    infranchissable: 'Barrière infranchissable : aucun déplacement possible entre ces deux zones. Les tirs passent.',
+    mur: 'Mur : aucun déplacement NI aucun tir ne le traverse. Il coupe aussi la ligne de vue.',
+    difficile: 'Passage difficile : franchissable, mais il faut réussir un test d\'Agilité pour le traverser.',
+    instable: 'Passage instable : toujours franchissable, mais un test d\'Agilité raté fait arriver Au sol.',
+  };
+  const BARRIER_TITLE = {
+    infranchissable: 'Infranchissable', mur: 'Mur', difficile: 'Passage difficile', instable: 'Passage instable',
+  };
+  function showBoardDesc(under) {
+    const card = under.closest('.combat-card[data-iid]');
+    if (card) { showCombatantDesc(byId(card.getAttribute('data-iid'))); return; }
+    const sep = under.closest('.zone-sep, .zone-sep-diag');
+    if (sep) {
+      const type = (sep.className.match(/barrier-([\w]+)/) || [])[1];
+      if (!type) return;
+      const lbl = sep.querySelector('.zone-sep-lbl');
+      const nm2 = (lbl && lbl.textContent.trim()) || BARRIER_TITLE[type] || type;
+      putDesc('bar:' + type + nm2, nm2, esc(BARRIER_DESC[type] || ''));
+      return;
+    }
+    const zone = under.closest('.combat-zone[data-zone]');
+    if (zone) {
+      const zi = parseInt(zone.getAttribute('data-zone'), 10);
+      const here = combat().combatants.filter(function (x) { return x.zone === zi && x.status === 'active'; });
+      const nh = here.filter(function (x) { return x.side === 'hero'; }).length;
+      const nm2 = here.length - nh;
+      const parts = [];
+      if (nh) parts.push('<b>' + nh + '</b> aventurier' + (nh > 1 ? 's' : ''));
+      if (nm2) parts.push('<b>' + nm2 + '</b> adversaire' + (nm2 > 1 ? 's' : ''));
+      putDesc('zone:' + zi + ':' + here.length, zname(zi),
+        parts.length ? parts.join(' et ') + ' sur place.' : 'Zone vide : personne ne s\'y trouve.');
+    }
+  }
+  // Fiche d'un combattant : un adversaire ne révèle ses chiffres qu'ANALYSÉ.
+  function showCombatantDesc(c) {
+    if (!c) return;
+    const isEnemy = c.side === 'monster';
+    const known = !isEnemy || c.analyzed;
+    const L = [];
+    if (isEnemy) {
+      L.push('<b>' + esc((Combatants.TYPE_LABEL && Combatants.TYPE_LABEL[c.type]) || c.type || 'Adversaire') + '</b>');
+    } else if (c.klass) {
+      L.push('<b>' + esc(c.klass) + '</b>');
+    }
+    if (known) {
+      L.push('PV <b>' + c.pv + ' / ' + c.maxPv + '</b>');
+      L.push('DEF <b>' + ((c.states.auSol || c.states.brise) ? 0 : c.def) + '</b>');
+      if (c.damage) L.push('Dégâts <b>+' + c.damage + '</b>');
+      if (isEnemy && c.xp) L.push('<b>' + c.xp + '</b> XP');
+    }
+    let txt = L.join(' · ');
+    // États en cours.
+    const st = Object.keys(STATE_META).filter(function (k) {
+      return isStackState(k) ? stateVal(c, k) > 0 : (k === 'prepare' ? (c.states.prepare || c.prepBonus) : c.states[k]);
+    });
+    if (st.length) {
+      txt += '<br><span class="cbdesc-states">' + st.map(function (k) {
+        return stateIcon(k) + ' ' + esc(stateBadgeLabel(c, k));
+      }).join(' · ') + '</span>';
+    }
+    if (!known) {
+      txt += '<br><i>Adversaire non analysé : sa Défense, ses Dégâts et son XP restent inconnus. Utilisez l\'action Analyse pour les révéler.</i>';
+    } else if (isEnemy) {
+      const tpl = (Store.state.monsters || []).find(function (m) { return m.id === c.templateId; });
+      if (tpl && tpl.notes) txt += '<br><i>' + esc(tpl.notes) + '</i>';
+      const labels = c.analyzed ? (c.talentLabels || []) : [];
+      if (labels.length) txt += '<br>Talents : <b>' + esc(labels.join(', ')) + '</b>';
+    } else {
+      const rest = [];
+      if (!actionSpent(c)) rest.push('action');
+      if (c.prepBonus) rest.push('action bonus (Préparé)');
+      if (!c.used.move || c.freeMoveReady || c.freeMoves > 0) rest.push('mouvement');
+      txt += '<br>' + (rest.length ? 'Reste : <b>' + rest.join(', ') + '</b>.' : '<i>A tout joué ce tour.</i>');
+    }
+    putDesc('c:' + c.iid + ':' + c.pv + ':' + st.join(',') + ':' + (c.analyzed ? 'a' : '') + ':' + (actionSpent(c) ? 's' : ''),
+      c.name, txt);
+  }
+
   function initDockDesc(root) {
     const box = root.querySelector('#cbdock-desc');
     if (box && !box.firstChild) box.innerHTML = dockDescDefault();
+  }
+  // La case Description remplace les infobulles du navigateur : dans le bandeau
+  // et sur le plateau, chaque `title` est déplacé dans `data-desc` (lu par la
+  // case) pour qu'aucune bulle jaune ne vienne se superposer.
+  function stripTitles(root) {
+    root.querySelectorAll('#cbdock [title], .combat-card [title], .combat-card[title]').forEach(function (el) {
+      const t = el.getAttribute('title');
+      if (t) { if (!el.getAttribute('data-desc')) el.setAttribute('data-desc', t); el.removeAttribute('title'); }
+    });
   }
 
   function buildAimLayer() {
@@ -4039,6 +4168,7 @@
   // Le joueur a explicitement désélectionné (clic dans le vide) : on n'auto-
   // sélectionne plus tant qu'il n'a pas repris la main sur un combattant.
   let autoSelectOff = false;
+  let manualSelect = false;  // le combattant affiché a été choisi par le joueur
   let aimWiredEl = null;   // conteneur déjà câblé
   let aimRaf = 0;
   let aimLast = null;      // dernière position de curseur connue
@@ -4137,7 +4267,7 @@
   function clearSelection() {
     if (!selectedIid && !pendingAttack && !pendingMove && !pendingAnalyze &&
         !pendingObject && !pendingOrbeShare && !pendingDesignate) return false;
-    selectedIid = null; autoSelectOff = true;
+    selectedIid = null; autoSelectOff = true; manualSelect = false;
     pendingAttack = null; pendingMove = null; pendingAnalyze = null;
     pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
     arrivalTargetIid = null;
@@ -4182,6 +4312,8 @@
       // Survol d'un dé : la case Description explique ce que fait sa couleur.
       const overDie = under && under.closest ? under.closest('#cbdock .dp-die') : null;
       if (overDie) showDieDesc(overDie);
+      // Survol du plateau : fiche du combattant, de la zone ou de la barrière.
+      else if (!overBtn && under && under.closest) showBoardDesc(under);
       aimLast = { x: e.clientX, y: e.clientY };
       if (aimRaf) return;
       aimRaf = requestAnimationFrame(function () { aimRaf = 0; drawAim(); });
@@ -4357,7 +4489,7 @@
 
   }
 
-  function dieHtml(d) {
+  function dieHtml(d, def) {
     // Les marques de résultat (6, 1, dé retiré, dé arrêté par la DEF) ne sont
     // PAS posées ici : elles apparaissent quand le dé se fige, sinon elles
     // vendraient la mèche pendant la seconde de rotation.
@@ -4370,9 +4502,12 @@
     if (d.value === 1) after.push('is-one');
     const title = (DIE_LABEL[d.color] || d.color) + (d.note ? ' — ' + d.note : '') +
       (d.passes === false && !d.removed ? ' — arrêté par la DEF' : '');
+    // Dé arrêté par la Défense : cartouche « DEF X » dans son coin.
+    const defMark = (d.passes === false && !d.removed && def > 0)
+      ? '<span class="dp-def-mark">DEF ' + def + '</span>' : '';
     return '<span class="' + cls.join(' ') + '" data-final="' + d.value + '" data-after="' + after.join(' ') +
       '" title="' + esc(title) + '">' +
-      '<span class="dp-num">' + d.value + '</span></span>';
+      '<span class="dp-num">' + d.value + '</span>' + defMark + '</span>';
   }
 
   // Attaque dont les dés sont affichés au repos : celle qui est armée, sinon
@@ -4492,7 +4627,7 @@
     let head = '<div class="dp-title">' + (m.ico ? atkIcoHtml(m.ico) : '') +
       '<span>Attaque</span></div>';
 
-    let tray = '<div class="dp-tray"' + traySize(res.dice.length + (res.damageBonus > 0 ? 1 : 0)) + '>' + res.dice.map(dieHtml).join('');
+    let tray = '<div class="dp-tray"' + traySize(res.dice.length + (res.damageBonus > 0 ? 1 : 0)) + '>' + res.dice.map(function (d) { return dieHtml(d, res.def); }).join('');
     if (res.damageBonus > 0) tray += bonusHtml(res.damageBonus);
     tray += '</div>';
 
@@ -4591,7 +4726,11 @@
     if (pendingReaction) { const rh = byId(pendingReaction); if (rh) { sel = rh; selectedIid = rh.iid; } }
     // Auto-sélection : en phase héros ou Pré-Tour, défaut = 1er aventurier actif.
     // En Pré-Tour, on privilégie un aventurier ayant encore un talent à jouer.
-    if (!autoSelectOff && (!sel || sel.status !== 'active') && (cmb.phase === 'heroes' || cmb.phase === 'pretour') && !cmb.outcome) {
+    // La sélection automatique ne remplace un combattant que si AUCUN n'est
+    // choisi, ou si le joueur n'a pas fait ce choix lui-même : cliquer la
+    // vignette d'un aventurier dans le coma doit bien afficher SA fiche.
+    if (!autoSelectOff && (!sel || (!manualSelect && sel.status !== 'active')) &&
+        (cmb.phase === 'heroes' || cmb.phase === 'pretour') && !cmb.outcome) {
       const fh = (cmb.phase === 'pretour' && activeOf('hero').find(function (h) { return h.freeMoveReady || canDesignateGardien(h); })) || activeOf('hero')[0];
       if (fh) { sel = fh; selectedIid = fh.iid; }
     }
@@ -5363,8 +5502,13 @@
 
   // Version UI : applique puis rafraîchit
   function execHeroAttack(attacker, atkIndex, target) {
+    const atkPlayed = attacker.attacks && attacker.attacks[atkIndex];
     applyAttack(attacker, atkIndex, target);
     flashInvisibleAlert();
+    // PRÉPARATION ARCANIQUE : un SEUL Orbe avant le tour. Sans ce drapeau, le
+    // Pré-Tour réarmait aussitôt les Orbes (ils ne consomment pas l'action) et
+    // deux clics de suite en lançaient deux.
+    if (atkPlayed && isOrbAttack(atkPlayed) && combat().phase === 'pretour') attacker.orbPretourDone = true;
     pendingAttack = null;
     checkOutcome(); Store.save(); render();
     if (startNextChoice()) render();
@@ -5946,7 +6090,7 @@
         // 3) Sinon : sélectionne ce combattant — ou le DÉSÉLECTIONNE si on
         // reclique celui qui l'était déjà. Toute action en cours est annulée.
         if (selectedIid === c.iid) { clearSelection(); return; }
-        selectedIid = c.iid; autoSelectOff = false;
+        selectedIid = c.iid; autoSelectOff = false; manualSelect = true;
         pendingAttack = null; pendingAnalyze = null; pendingMove = null; arrivalTargetIid = null; pendingObject = null; pendingOrbeShare = null; pendingDesignate = null;
         render();
       });
