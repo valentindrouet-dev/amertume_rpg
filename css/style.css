@@ -6813,11 +6813,18 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
 .cbdesc-txt b { color: #2f2415; }
 .cbdesc-txt i { color: #6a5a42; font-weight: 500; }
 
-/* v2.5.13 — dés arrêtés par la Défense : grisés, avec le seuil dans le coin. */
-.dp-die.is-blocked { filter: grayscale(.85) brightness(.75); opacity: .8; }
+/* v2.5.13 — dés arrêtés par la Défense : grisés, avec le seuil dans le coin.
+   Le voile est un calque posé SUR le dé (et non un filtre hérité par ses
+   enfants) : le blason de DEF reste net et coloré par-dessus. */
+.dp-die.is-blocked { filter: none; opacity: 1; }
+.dp-die.is-blocked::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: rgba(58, 53, 46, .68); z-index: 1; pointer-events: none;
+}
+.dp-die.is-blocked .dp-num { position: relative; z-index: 2; opacity: .55; }
 .dp-die { position: relative; overflow: visible; }
 .dp-def-mark {
-  position: absolute; top: -7px; right: -7px; line-height: 0;
+  position: absolute; top: -7px; right: -7px; line-height: 0; z-index: 3;
   pointer-events: none; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .7));
 }
 .dp-def-mark .def-img { width: 19px; height: 19px; display: block; }
@@ -6848,3 +6855,41 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
 /* overflow visible : les blasons posés dans le coin des dés ne sont plus rognés. */
 .cbdock .dp-tray { overflow: visible; padding-top: .3rem; }
 .cbdock .dicepool { overflow: visible; }
+
+/* ================================================================
+   v2.5.17 — Killam sur TOUS les titres de l'application
+   Jusqu'ici la police de titrage ne servait qu'au combat et aux salles.
+   Elle habille maintenant tous les intitulés « spéciaux » : titres de
+   cartes et de fenêtres, en-têtes de sections, noms d'aventures, de
+   classes, d'adversaires, d'objets et de talents.
+   ================================================================ */
+h1, h2, h3, h4,
+.card-head h2, .modal-head h2, .home-section h2,
+.home-adv-title, .home-saga-title, .class-name, .hw-class-tab-name,
+.adv-chapter-title, .mon-sheet-name, .roster-card .roster-name,
+.ses-map-title, .ver-h1, .ver-num, .ver-title,
+.io-bar .io-label, .zone-name-input, .tl-strip strong, .weapon-fields legend {
+  font-family: var(--font-display);
+  font-weight: 900;
+}
+/* Killam porte davantage : on retire un peu d'interlettrage sur les titres
+   déjà espacés, et on garde les libellés fonctionnels en Inter. */
+h3, .io-bar .io-label { letter-spacing: .06em; }
+.ver-title { letter-spacing: .02em; }
+.tab, .primary, .ghost, .danger, button, input, select, textarea, label,
+.hint, .empty, .scene-block, .log-row, .cbdesc-txt {
+  font-family: var(--font-body);
+}
+/* Le titre de la case Description prend la couleur de ce qu'il décrit :
+   la valeur est posée en ligne par le moteur, on garde juste un repli. */
+.cbdesc-name { color: #7a4a12; }
+
+
+/* v2.5.17 — le bonus de dégâts est un CARRÉ en pointillés, au format d'un dé. */
+.cbdock .dp-bonus {
+  width: var(--dp-size, 34px); min-width: var(--dp-size, 34px); height: var(--dp-size, 34px);
+  padding: 0; border: 2px dashed rgba(222, 95, 68, .85);
+  border-radius: calc(var(--dp-size, 34px) * .22);
+  background: rgba(222, 95, 68, .12);
+}
+.dice-fly-inner .dp-bonus { border-width: 3px; }

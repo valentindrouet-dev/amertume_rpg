@@ -1,6 +1,18 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.17",
+    "date": "2026-08-25",
+    "title": "Titres de description colores, Killam sur tous les titres, Pre-Tour rejoue au redemarrage",
+    "changes": [
+      "Le titre de la case Description prend la COULEUR de ce qu'il decrit : classe de l'aventurier, type de l'adversaire, genre du bouton survole, couleur du de, teinte de la barriere, ambre pour une zone. Les couleurs sont assombries juste ce qu'il faut pour rester lisibles sur le fond parchemin. Les degrades rendant `background-color` transparent, la teinte est prise sur la bordure du bouton en priorite — sans ce repli le titre sortait en noir.",
+      "Killam habille desormais TOUS les intitules speciaux de l'application, et plus seulement le combat : titres de cartes et de fenetres, en-tetes de sections, noms d'aventures, de classes, d'adversaires, d'objets, de talents, historique des versions. Les libelles fonctionnels (boutons, champs, journal, textes de salle) restent en Inter.",
+      "RECOMMENCER LE COMBAT rejoue l'ouverture : annonce des invisibles, designation de la Proie et PRE-TOUR avec ses pouvoirs. L'instantane etant pris avant l'ouverture, le combat repartait sinon directement en phase heros, sans Pre-Tour. Verifie : phase=pretour et bouton « Tour 1 → » de retour.",
+      "Le blason de DEF pose sur un de bloque n'est plus grise avec lui : le voile est un calque sous le blason, qui reste net et colore.",
+      "Le bonus de degats redevient un vrai CARRE en pointillés, au format d'un de (mesure : 35x35, bordure 2 px tiretee)."
+    ]
+  },
+  {
     "v": "v2.5.16",
     "date": "2026-08-25",
     "title": "Blason de DEF sur les des bloques, titre degage, Orbes enchaines",

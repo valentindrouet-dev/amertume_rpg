@@ -3720,6 +3720,13 @@
       lastRoll = null; rollActive = false;
       fxQueue = []; toastQueue = []; aiToken++;
       setCombat(again);
+      // L'instantané est pris AVANT l'ouverture : on rejoue donc l'annonce, la
+      // désignation de la Proie et le Pré-Tour, sinon le combat repartait
+      // directement en phase héros, sans pouvoirs de Pré-Tour.
+      log('Combat recommencé — Tour 1.', 'turn');
+      try { announceInvisibles(); } catch (e) {}
+      try { designateMarkedHero(); } catch (e) {}
+      try { if (needsPretour()) startPretour(); } catch (e) { console.error('[combat] pretour', e); }
       Store.save(); render();
     });
     const cbEnd = root.querySelector('#cb-end');
@@ -4019,7 +4026,11 @@
     const key = name + '\u0000' + txt;
     if (key === descLast) return;
     descLast = key;
-    box.innerHTML = '<div class="cbdesc-name">' + esc(name) + '</div>' +
+    // Le titre reprend la couleur du bouton décrit (assombrie pour rester
+    // lisible sur le fond parchemin de la case).
+    const tone = toneOf(btn);
+    box.innerHTML = '<div class="cbdesc-name"' + (tone ? ' style="color:' + tone + '"' : '') + '>' +
+      esc(name) + '</div>' +
       '<div class="cbdesc-txt">' + (txt ? esc(txt) : 'Aucune description.') + '</div>';
   }
   // Règle de chaque couleur de dé, affichée au survol dans la case Description.
@@ -4043,7 +4054,8 @@
     const key = 'die:' + color;
     if (key === descLast) return;
     descLast = key;
-    box.innerHTML = '<div class="cbdesc-name">Dé ' + esc(DIE_LABEL[color] || color) + '</div>' +
+    box.innerHTML = '<div class="cbdesc-name" style="color:' + (TONE_DIE[color] || '#7a4a12') + '">Dé ' +
+      esc(DIE_LABEL[color] || color) + '</div>' +
       '<div class="cbdesc-txt">' + esc(DIE_DESC[color] || '') + '</div>';
   }
 
@@ -4052,11 +4064,35 @@
     const root = $(rootSel);
     return root ? root.querySelector('#cbdock-desc') : null;
   }
-  function putDesc(key, title, html) {
+  // Couleur représentative d'un bouton : sa bordure d'abord (elle porte la
+  // teinte du genre), sinon son fond, sinon son texte. Les dégradés rendent
+  // `background-color` transparent : sans ce repli, le titre sortait en noir.
+  function toneOf(el) {
+    try {
+      const cs = getComputedStyle(el);
+      const cands = [cs.borderTopColor, cs.backgroundColor, cs.color];
+      for (let i = 0; i < cands.length; i++) {
+        const m = (cands[i] || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/);
+        if (!m) continue;
+        const al = m[4] === undefined ? 1 : parseFloat(m[4]);
+        const rgb = [+m[1], +m[2], +m[3]];
+        if (al < .2 || (rgb[0] + rgb[1] + rgb[2] === 0 && al < 1)) continue;
+        const lum = (rgb[0] * .299 + rgb[1] * .587 + rgb[2] * .114) / 255;
+        const k = lum > .42 ? .58 : .95;   // les tons clairs sont assombris davantage
+        return 'rgb(' + rgb.map(function (v) { return Math.round(v * k); }).join(',') + ')';
+      }
+    } catch (e) { /* repli : couleur par défaut du titre */ }
+    return '';
+  }
+
+  // `tone` : couleur du titre — celle de l'élément décrit (bouton, classe de
+  // l'aventurier, type de l'adversaire, dé, barrière…).
+  function putDesc(key, title, html, tone) {
     const box = descBox();
     if (!box || key === descLast) return;
     descLast = key;
-    box.innerHTML = '<div class="cbdesc-name">' + esc(title) + '</div>' +
+    box.innerHTML = '<div class="cbdesc-name"' + (tone ? ' style="color:' + tone + '"' : '') + '>' +
+      esc(title) + '</div>' +
       '<div class="cbdesc-txt">' + html + '</div>';
   }
   const BARRIER_DESC = {
@@ -4065,6 +4101,18 @@
     difficile: 'Passage difficile : franchissable, mais il faut réussir un test d\'Agilité pour le traverser.',
     instable: 'Passage instable : toujours franchissable, mais un test d\'Agilité raté fait arriver Au sol.',
   };
+  // Teintes des titres de la case Description (lisibles sur son fond parchemin).
+  const TONE_KLASS = {
+    apothicaire: '#2f6b1f', artificier: '#8a6410', chasseur: '#2f6f22', destructeur: '#a83a22',
+    deviant: '#6a3fa8', gardien: '#1f5a96', lamevent: '#136b5e', mystique: '#5f3c9e',
+  };
+  const TONE_TYPE = { standard: '#5a5348', alpha: '#8a6410', solitaire: '#a8321f', boss: '#6a2fa8' };
+  const TONE_DIE = {
+    white: '#6b6257', bone: '#8a6a2a', red: '#a8321f', blue: '#1f5a96',
+    green: '#2f6b1f', black: '#2c2620', yellow: '#8a7410', pink: '#a8329a',
+  };
+  const TONE_BARRIER = { infranchissable: '#8a6410', mur: '#4a463f', difficile: '#6b6257', instable: '#8a6410' };
+
   const BARRIER_TITLE = {
     infranchissable: 'Infranchissable', mur: 'Mur', difficile: 'Passage difficile', instable: 'Passage instable',
   };
@@ -4077,7 +4125,7 @@
       if (!type) return;
       const lbl = sep.querySelector('.zone-sep-lbl');
       const nm2 = (lbl && lbl.textContent.trim()) || BARRIER_TITLE[type] || type;
-      putDesc('bar:' + type + nm2, nm2, esc(BARRIER_DESC[type] || ''));
+      putDesc('bar:' + type + nm2, nm2, esc(BARRIER_DESC[type] || ''), TONE_BARRIER[type]);
       return;
     }
     const zone = under.closest('.combat-zone[data-zone]');
@@ -4090,7 +4138,7 @@
       if (nh) parts.push('<b>' + nh + '</b> aventurier' + (nh > 1 ? 's' : ''));
       if (nm2) parts.push('<b>' + nm2 + '</b> adversaire' + (nm2 > 1 ? 's' : ''));
       putDesc('zone:' + zi + ':' + here.length, zname(zi),
-        parts.length ? parts.join(' et ') + ' sur place.' : 'Zone vide : personne ne s\'y trouve.');
+        parts.length ? parts.join(' et ') + ' sur place.' : 'Zone vide : personne ne s\'y trouve.', '#7a4a12');
     }
   }
   // Fiche d'un combattant : un adversaire ne révèle ses chiffres qu'ANALYSÉ.
@@ -4134,8 +4182,9 @@
       if (!c.used.move || c.freeMoveReady || c.freeMoves > 0) rest.push('mouvement');
       txt += '<br>' + (rest.length ? 'Reste : <b>' + rest.join(', ') + '</b>.' : '<i>A tout joué ce tour.</i>');
     }
+    const tone = isEnemy ? (TONE_TYPE[c.type] || '#a8321f') : (TONE_KLASS[slug(c.klass || '')] || '#1f5a96');
     putDesc('c:' + c.iid + ':' + c.pv + ':' + st.join(',') + ':' + (c.analyzed ? 'a' : '') + ':' + (actionSpent(c) ? 's' : ''),
-      c.name, txt);
+      c.name, txt, tone);
   }
 
   function initDockDesc(root) {
