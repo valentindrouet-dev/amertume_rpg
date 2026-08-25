@@ -4502,9 +4502,10 @@
     if (d.value === 1) after.push('is-one');
     const title = (DIE_LABEL[d.color] || d.color) + (d.note ? ' — ' + d.note : '') +
       (d.passes === false && !d.removed ? ' — arrêté par la DEF' : '');
-    // Dé arrêté par la Défense : cartouche « DEF X » dans son coin.
+    // Dé arrêté par la Défense : le BLASON de DEF (celui des adversaires) se
+    // pose dans son coin, au lieu d'une pastille de texte.
     const defMark = (d.passes === false && !d.removed && def > 0)
-      ? '<span class="dp-def-mark">DEF ' + def + '</span>' : '';
+      ? '<span class="dp-def-mark" aria-label="Arrêté par la Défense ' + def + '">' + defShield(def) + '</span>' : '';
     return '<span class="' + cls.join(' ') + '" data-final="' + d.value + '" data-after="' + after.join(' ') +
       '" title="' + esc(title) + '">' +
       '<span class="dp-num">' + d.value + '</span>' + defMark + '</span>';
@@ -5510,6 +5511,14 @@
     // deux clics de suite en lançaient deux.
     if (atkPlayed && isOrbAttack(atkPlayed) && combat().phase === 'pretour') attacker.orbPretourDone = true;
     pendingAttack = null;
+    // ORBES pendant le tour : le bouton RESTE armé tant qu'il reste des orbes
+    // (ils ne consomment pas l'action) — on enchaîne les tirs sans recliquer.
+    // Au Pré-Tour en revanche, un seul orbe est autorisé : on ne réarme pas.
+    if (atkPlayed && isOrbAttack(atkPlayed) && combat().phase === 'heroes' && !combat().outcome &&
+        attacker.status === 'active' && !(attacker.states && attacker.states.auSol) &&
+        (attacker.attackUses[atkIndex] === undefined || attacker.attackUses[atkIndex] > 0)) {
+      pendingAttack = { iid: attacker.iid, atkIndex: atkIndex, average: false };
+    }
     checkOutcome(); Store.save(); render();
     if (startNextChoice()) render();
   }

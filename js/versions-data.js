@@ -1,6 +1,16 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.16",
+    "date": "2026-08-25",
+    "title": "Blason de DEF sur les des bloques, titre degage, Orbes enchaines",
+    "changes": [
+      "Les des arretes par la Defense portent desormais le BLASON de DEF (la meme image que sur les fiches d'adversaires), pose dans leur coin superieur droit, a la place de la pastille de texte.",
+      "Le titre « ATTAQUE » est resserre et la boite laisse passer les blasons : ils ne sont plus rognes par le haut (16 px de degagement mesures entre le bas du titre et le blason le plus haut).",
+      "ORBES : le bouton RESTE arme apres un tir tant qu'il reste des orbes — on enchaine les lancers sans recliquer — et se desarme des que le dernier est parti. Le Pre-Tour garde sa regle : un seul orbe avant le tour. Verifie sur une Mystique a 2 orbes : arme apres le 1er tir, desarme apres le 2e, le 3e clic ne fait rien."
+    ]
+  },
+  {
     "v": "v2.5.14",
     "date": "2026-08-25",
     "title": "Fiches au survol, des bloques par la DEF, Recommencer le combat, sorties agrandies",

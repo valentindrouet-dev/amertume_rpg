@@ -6817,13 +6817,16 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
 .dp-die.is-blocked { filter: grayscale(.85) brightness(.75); opacity: .8; }
 .dp-die { position: relative; overflow: visible; }
 .dp-def-mark {
-  position: absolute; top: -6px; right: -8px;
-  font-family: var(--font-body); font-size: 8px; font-weight: 800; letter-spacing: .02em;
-  line-height: 1; padding: .12rem .22rem; border-radius: 5px;
-  background: #2a2119; color: #e6d8bf; border: 1px solid rgba(255, 244, 224, .35);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .5); pointer-events: none; white-space: nowrap;
+  position: absolute; top: -7px; right: -7px; line-height: 0;
+  pointer-events: none; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .7));
 }
-.dice-fly-inner .dp-def-mark { font-size: 11px; top: -8px; right: -10px; }
+.dp-def-mark .def-img { width: 19px; height: 19px; display: block; }
+.dp-def-mark .def-shield {
+  display: inline-block; min-width: 17px; padding: 0 .18rem; border-radius: 4px;
+  background: #fff; color: #4682b4; font-size: 10px; font-weight: 800; line-height: 17px; text-align: center;
+}
+.dice-fly-inner .dp-def-mark { top: -10px; right: -10px; }
+.dice-fly-inner .dp-def-mark .def-img { width: 26px; height: 26px; }
 
 /* v2.5.14 — Sorties : flèche toujours visible (seule la couleur change),
    libellé plus grand pour les passages praticables. */
@@ -6836,3 +6839,12 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
   background: linear-gradient(180deg, #c98b7c, #a4614f); color: #2b1109;
 }
 .ses-exits-block .ses-exit-locked .rose-name { font-size: .92rem; }
+
+
+/* v2.5.15 — La boîte de dés respire : titre resserré, blasons de DEF non coupés. */
+.cbdock .dicepool { grid-template-rows: auto minmax(0, 1fr) auto; gap: .1rem; padding: .3rem .5rem .4rem; }
+.cbdock .dp-title { font-size: .72rem; height: auto; align-self: start; padding-top: .05rem; }
+.cbdock .dp-title-ico { height: 16px; }
+/* overflow visible : les blasons posés dans le coin des dés ne sont plus rognés. */
+.cbdock .dp-tray { overflow: visible; padding-top: .3rem; }
+.cbdock .dicepool { overflow: visible; }
