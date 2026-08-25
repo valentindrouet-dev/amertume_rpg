@@ -7019,3 +7019,170 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   .cine-in { animation-duration: .01s !important; }
   .cine-hint { animation: none; }
 }
+
+/* ══ v2.5.32 · Onglet Groupe — refonte visuelle (langage du HUD de combat) ══
+   Cartes sombres, vignettes de caractéristique toutes de MÊME taille, chips de
+   compétence calibrées, palettes conservées mais retendues (fonds profonds,
+   texte clair) pour coller au bandeau de combat. Tout est scopé à l'onglet. */
+
+/* — Bandeau de progression — */
+#progress-root .progress-card {
+  background: linear-gradient(180deg, var(--surface-2, #241d16) 0%, var(--surface-1, #1c1712) 100%);
+  border: 1px solid var(--line, #3a2f24); border-radius: 14px;
+  box-shadow: var(--shadow-1, 0 4px 14px rgba(0,0,0,.3));
+}
+#progress-root .level-badge {
+  background: linear-gradient(180deg, #e07f3c 0%, #b5541f 100%);
+  border: 1px solid rgba(255, 210, 150, .35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 3px 10px rgba(0,0,0,.35);
+  border-radius: 14px;
+}
+#progress-root .level-badge .lvl-num { font-family: var(--font-display, inherit); font-size: 1.6rem; }
+#progress-root .level-badge .lvl-lbl { font-size: .55rem; opacity: .85; }
+#progress-root .xp-bar { height: 10px; border-radius: 999px; background: rgba(0,0,0,.35); border-color: var(--line, #3a2f24); }
+#progress-root .xp-fill { border-radius: 999px; box-shadow: 0 0 10px rgba(231,154,69,.45); }
+
+/* — Grille de cartes — */
+#hero-list.roster-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  gap: .9rem; align-items: start;
+}
+#hero-list .roster-card.hero-card {
+  background: linear-gradient(180deg, #241d16 0%, #1b1611 100%);
+  border: 1px solid var(--line, #3a2f24); border-left: none; border-radius: 14px;
+  padding: 0 .85rem .85rem; overflow: hidden; color: #efe3d2;
+  box-shadow: var(--shadow-1, 0 4px 14px rgba(0,0,0,.3));
+}
+#hero-list .roster-card.hero-card:hover {
+  transform: translateY(-2px); border-color: #554635;
+  box-shadow: 0 10px 26px rgba(0,0,0,.45);
+}
+/* Liseré de classe en haut de carte (mêmes teintes que le HUD de combat). */
+#hero-list .hero-card::before {
+  content: ''; display: block; height: 4px; margin: 0 -.85rem .7rem;
+  background: var(--kl, #7c6a55);
+}
+#hero-list .hero-card.klass-apothicaire { --kl: #7bbf6a; }
+#hero-list .hero-card.klass-artificier  { --kl: #d9a94a; }
+#hero-list .hero-card.klass-chasseur    { --kl: #74b85e; }
+#hero-list .hero-card.klass-destructeur { --kl: #d36a52; }
+#hero-list .hero-card.klass-deviant     { --kl: #9d7fc4; }
+#hero-list .hero-card.klass-gardien     { --kl: #6f9fd6; }
+#hero-list .hero-card.klass-lamevent    { --kl: #5cb6a6; }
+#hero-list .hero-card.klass-mystique    { --kl: #9b84d8; }
+
+/* — En-tête : nom, classe, boutons alignés — */
+#hero-list .hero-head {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  padding-bottom: .5rem; margin-bottom: .5rem;
+  border-bottom: 1px solid rgba(255, 235, 205, .10);
+}
+#hero-list .hero-head .roster-name {
+  font-family: var(--font-display, inherit); font-size: 1.12rem; color: #f6ead8;
+  flex: 1 1 auto; min-width: 0;
+}
+#hero-list .hero-head .class-badge {
+  font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+  padding: .2rem .55rem; border-radius: 999px;
+  color: var(--kl, #d7c7ae); border: 1px solid var(--kl, #554635);
+  background: color-mix(in srgb, var(--kl, #554635) 16%, transparent);
+}
+#hero-list .hero-head .ghost.small {
+  height: 1.7rem; min-width: 1.7rem; padding: 0 .5rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .72rem; font-weight: 700; border-radius: 8px;
+  background: rgba(255, 235, 205, .06); border: 1px solid rgba(255, 235, 205, .16); color: #cdbca4;
+}
+#hero-list .hero-head .ghost.small:hover:not(:disabled) { background: rgba(255, 235, 205, .12); color: #f2e3cc; }
+#hero-list .hero-head .del-btn:hover:not(:disabled) { border-color: #b5533c; color: #f0a892; }
+
+/* — Genre / espèce — */
+#hero-list .hero-ident { gap: .35rem; margin: 0 0 .55rem; }
+#hero-list .hero-ident .tag {
+  font-size: .68rem; font-weight: 700; padding: .16rem .5rem; border-radius: 999px;
+  background: rgba(255, 235, 205, .06); border: 1px solid rgba(255, 235, 205, .15); color: #c6b498;
+}
+
+/* — Caractéristiques : 5 vignettes STRICTEMENT identiques — */
+#hero-list .hero-stat-row {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: .4rem; margin: 0 0 .6rem;
+}
+#hero-list .hero-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .1rem; min-height: 3.5rem; min-width: 0; padding: .4rem .2rem; text-align: center;
+  border-radius: 10px; border: 1px solid var(--sc, #4a3d2e);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sc, #4a3d2e) 24%, #191410) 0%,
+                                      color-mix(in srgb, var(--sc, #4a3d2e) 10%, #171310) 100%);
+}
+#hero-list .hero-stat .hs-label {
+  font-size: .52rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--sc, #9c8a70) 72%, #e8dcc8); opacity: .95; line-height: 1.1;
+}
+#hero-list .hero-stat .hs-val {
+  font-family: var(--font-display, inherit); font-size: 1.15rem; line-height: 1.05;
+  color: color-mix(in srgb, var(--sc, #d8c8ac) 45%, #ffffff); font-variant-numeric: tabular-nums;
+}
+#hero-list .hero-stat .hs-val-sep { opacity: .55; font-size: .85em; }
+#hero-list .hero-stat .hs-val-cur--danger { color: #ff9a7a; }
+/* Palettes conservées, valeurs retendues pour fond sombre. */
+#hero-list .hero-stat:nth-child(1) { --sc: #b06fd8; } /* Vie */
+#hero-list .hero-stat:nth-child(2) { --sc: #3fae9f; } /* Endurance */
+#hero-list .hero-stat:nth-child(3) { --sc: #5fb46a; } /* Points de Vie */
+#hero-list .hero-stat:nth-child(4) { --sc: #8b93b8; } /* Défense */
+#hero-list .hero-stat:nth-child(5) { --sc: #d3624c; } /* Dégâts */
+/* La vignette de Défense n'a pas de libellé dans le HTML (blason seul) :
+   on le rétablit pour que les cinq vignettes soient construites pareil. */
+#hero-list .hero-stat.hero-stat-def { padding: .4rem .2rem; gap: .1rem; }
+#hero-list .hero-stat.hero-stat-def::before {
+  content: 'Défense'; font-size: .52rem; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; line-height: 1.1;
+  color: color-mix(in srgb, var(--sc) 72%, #e8dcc8);
+}
+#hero-list .hero-stat.hero-stat-def .hero-def-img { height: 2.05rem; margin-top: .05rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+
+/* — Sections (Compétences, Équipement, Attaques) — */
+#hero-list .roster-section { margin-top: .55rem; }
+#hero-list .roster-label {
+  font-size: .58rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: #a08b6c; margin-bottom: .35rem;
+}
+#hero-list .roster-gear, #hero-list .roster-notes { color: #c3b199; font-size: .8rem; }
+#hero-list .roster-notes { border-top: 1px solid rgba(255,235,205,.10); margin-top: .55rem; padding-top: .5rem; }
+
+/* — Compétences : chips de MÊME gabarit, alignées en grille — */
+#hero-list .skill-badges {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(7.4rem, 1fr)); gap: .35rem;
+}
+#hero-list .skill-badge {
+  display: flex; align-items: center; justify-content: space-between; gap: .35rem;
+  min-height: 1.7rem; padding: .18rem .5rem; border-radius: 8px;
+  font-size: .72rem; font-weight: 700; letter-spacing: .01em;
+  border: 1px solid var(--kc, #554635); color: color-mix(in srgb, var(--kc, #cbb89c) 40%, #ffffff);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kc, #554635) 26%, #191410) 0%,
+                                      color-mix(in srgb, var(--kc, #554635) 12%, #171310) 100%);
+}
+#hero-list .skill-badge b {
+  font-family: var(--font-display, inherit); font-size: .8rem; line-height: 1;
+  color: #fff; flex: 0 0 auto; font-variant-numeric: tabular-nums;
+  padding: .12rem .35rem; border-radius: 6px;
+  background: color-mix(in srgb, var(--kc, #554635) 40%, rgba(0,0,0,.45));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc, #554635) 55%, transparent);
+}
+#hero-list .skill-agilite    { --kc: #62a862; }
+#hero-list .skill-force      { --kc: #cd5a3c; }
+#hero-list .skill-mysticisme { --kc: #9d72c4; }
+#hero-list .skill-perception { --kc: #cbae3a; }
+#hero-list .skill-robustesse { --kc: #b07a2e; }
+#hero-list .skill-ruse       { --kc: #8d8d95; }
+#hero-list .skill-savoir     { --kc: #4f8bd0; }
+#hero-list .skill-technique  { --kc: #3fae9f; }
+
+/* Attaques & équipement d'une carte (côté MJ) : mêmes surfaces sombres. */
+#hero-list .atk-badges { gap: .4rem; }
+#hero-list .atk-badge {
+  background: linear-gradient(180deg, #221c15 0%, #1a1510 100%);
+  border: 1px solid var(--line, #3a2f24); border-left: 3px solid var(--action, #6f9fd6);
+  border-radius: 9px; padding: .45rem .6rem;
+}
+#hero-list .atk-badge-name { color: #f0e2cd; font-weight: 700; }
+#hero-list .atk-badge-meta { color: #a08b6c; }
