@@ -1,6 +1,21 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.07",
+    "date": "2026-08-25",
+    "title": "Plateau : pierre, barrieres d'un seul trait, pastilles et Orbes violets",
+    "changes": [
+      "Objet et Analyse : icone et libelle sur la MEME ligne.",
+      "Boite de des sur fond nettement plus clair (pierre chaude), liseré renforce.",
+      "L'arme equipee s'affiche dans une pastille arrondie sous les des.",
+      "Barrieres refaites : bouts francs au lieu d'arrondis, meme hachure, meme epaisseur et meme lisere sombre pour les segments droits et la diagonale — elles forment desormais UN SEUL trait continu, y compris dans les angles. Les libelles (MUR, DIFFICILE…) passent en pastille sombre lisible.",
+      "Fond des zones en ton PIERRE, sensiblement plus clair que le plateau, avec un degrade doux ; nom de zone et mention « Zone vide » reaccordes.",
+      "Les Orbes Mystiques redeviennent VIOLETS (le bouton avait ete uniformise en bleu avec les attaques a la version precedente).",
+      "Les libelles d'action trop longs passent a la ligne (deux lignes centrees) au lieu d'etre coupes.",
+      "Fenetre de description : texte plus gras et un peu plus grand."
+    ]
+  },
+  {
     "v": "v2.5.06",
     "date": "2026-08-25",
     "title": "Bandeau : une seule typographie, boutons d'action denses, lueur du selectionne",

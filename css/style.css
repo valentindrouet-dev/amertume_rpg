@@ -6637,3 +6637,89 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
 }
 .combat-card.selected { animation: card-glow 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .combat-card.selected { animation: none; } }
+
+/* ================================================================
+   v2.5.07 — Finitions du plateau : pierre, barrières, pastilles
+   ================================================================ */
+
+/* ---- 1. Objet / Analyse : icône et libellé sur la MÊME ligne ---- */
+.cbdock .ab-tool.ab-tool-ico { flex-direction: row; gap: .4rem; }
+.cbdock .ab-tools.ab-tools-icons { justify-items: stretch; }
+
+/* ---- 2. Boîte de dés sur fond plus clair ---- */
+.cbdock .dicepool {
+  background: linear-gradient(180deg, #3f372c, #342d24);
+  border-color: rgba(255, 244, 224, .22);
+}
+.cbdock .dp-title { color: #d9c4a2; }
+
+/* ---- 3. Armes équipées en pastille ---- */
+.cbdock .dp-foot {
+  align-self: center; justify-self: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: auto; max-width: 100%;
+  padding: .22rem .7rem; border-radius: 999px;
+  background: rgba(255, 244, 224, .1);
+  border: 1px solid rgba(255, 244, 224, .2);
+  color: #f0e6d4; font-weight: 700; font-size: .74rem; letter-spacing: .02em;
+}
+.cbdock .dicepool { justify-items: center; }
+.cbdock .dp-tray, .cbdock .dp-title, .cbdock .dp-out { justify-self: stretch; }
+
+/* ---- 4. Barrières : un seul trait continu, même dans les angles ----
+   Bouts francs (plus d'arrondis qui coupent le trait aux jonctions), même
+   hachure et même épaisseur partout, liseré sombre commun : les segments
+   droits et la diagonale forment une seule coulée. */
+.zone-sep, .zone-sep-diag { border-radius: 0; }
+.zone-sep, .zone-sep-diag { box-shadow: 0 0 0 1px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.zone-sep.barrier-infranchissable, .zone-sep-diag.barrier-infranchissable {
+  background: repeating-linear-gradient(45deg, #d9d2c4, #d9d2c4 7px, #8e877a 7px, #8e877a 14px);
+}
+.zone-sep.barrier-difficile, .zone-sep-diag.barrier-difficile {
+  background: repeating-linear-gradient(45deg, #9b9384, #9b9384 7px, #6f6a5f 7px, #6f6a5f 14px);
+}
+.zone-sep.barrier-mur, .zone-sep-diag.barrier-mur {
+  background: linear-gradient(180deg, #7a7269, #59534b);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6), inset 0 0 0 1px rgba(255, 255, 255, .12);
+}
+.zone-sep-diag { height: 14px; }
+.zone-sep-lbl {
+  background: rgba(28, 24, 18, .85); border-radius: 4px; padding: .05rem .3rem;
+  font-family: var(--font-body); letter-spacing: .06em; text-transform: uppercase;
+}
+
+/* ---- 5. Zones : fond pierre, légèrement plus clair ---- */
+.combat-zone {
+  background:
+    linear-gradient(180deg, rgba(255, 244, 224, .10), rgba(255, 244, 224, .04)),
+    #453d35;
+  border: 1px solid rgba(255, 244, 224, .16);
+}
+.combat-zone .zone-name { color: #cbbda5; }
+.zone-empty { color: rgba(203, 189, 165, .55); }
+
+/* ---- 6. Orbes Mystiques : violet ---- */
+.cbdock .ab-orbes {
+  background: linear-gradient(180deg, #8455bd, #5f3c8f) !important;
+  border-color: #a077d8 !important; color: #f7f1ff !important;
+}
+.cbdock .ab-atk.ab-atk-mystic {
+  background: linear-gradient(180deg, #8455bd, #5f3c8f); border-color: #a077d8; color: #f7f1ff;
+}
+
+/* ---- 7. Libellés d'action sur plusieurs lignes ---- */
+.cbdock .ab-talent { white-space: normal; line-height: 1.12; padding: 0 .3rem; }
+.cbdock .ab-talent .ab-tal-txt {
+  white-space: normal; text-overflow: clip; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  text-align: center;
+}
+.cbdock .ab-atk .ab-atk-talname {
+  white-space: normal; line-height: 1.12; text-align: center;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+
+/* ---- 8. Description : texte plus gras et un peu plus grand ---- */
+.cbdesc-txt { font-size: .84rem; font-weight: 600; line-height: 1.4; color: #3f3120; }
+.cbdesc-name { font-size: .88rem; }
+.cbdesc-empty { font-size: .82rem; font-weight: 600; }
