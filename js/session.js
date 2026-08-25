@@ -4067,7 +4067,7 @@
         : '<button type="button" class="ghost small grp-del-btn" data-grp-del="' + h.id + '" title="Supprimer">✕</button>';
       return '<div class="hero-pick-card-wrap">' +
         '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
-          Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
+          Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], hideRapide: true }) +
         '</label>' + delBtn +
       '</div>';
     }
@@ -4076,7 +4076,7 @@
     function prebuiltCardHtml(h) {
       return '<div class="hero-pick-card-wrap">' +
         '<label class="hero-pick-card' + (setupSel[h.id] ? ' selected' : '') + '">' +
-          Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], showAvatar: true, defAsIcon: true, hideRapide: true }) +
+          Combatants.heroCardHtml(h, { selectable: true, checked: !!setupSel[h.id], hideRapide: true }) +
         '</label>' +
       '</div>';
     }
@@ -4109,10 +4109,16 @@
         '<div class="grp-cat-title">Aventuriers</div>' +
         '<div id="grp-list" class="hero-pick-list">' +
           (customRows || '<p class="empty">Aucun aventurier créé. Clique sur « + Aventurier » ou choisissez un Pré-Tiré ci-dessous.</p>') + '</div>' +
+        // La section reste TOUJOURS visible : quand tous les modèles ont déjà été
+        // tirés, on l'explique au lieu de la faire disparaître.
+        '<div class="grp-cat-title">🎲 Aventuriers Pré-Tirés <small>(fournis avec l\'aventure — sélectionnez-les tels quels)</small></div>' +
         (prebuiltRows
-          ? '<div class="grp-cat-title">🎲 Aventuriers Pré-Tirés <small>(fournis avec l\'aventure — sélectionnez-les tels quels)</small></div>' +
-            '<div class="hero-pick-list">' + prebuiltRows + '</div>'
-          : '') +
+          ? '<div class="hero-pick-list">' + prebuiltRows + '</div>'
+          : '<p class="empty">' +
+              (Combatants.prebuiltHeroes && Combatants.prebuiltHeroes().length
+                ? 'Tous les Pré-Tirés proposés sont déjà dans votre groupe ci-dessus.'
+                : 'Aucun aventurier Pré-Tiré n\'est proposé pour le moment.') +
+            '</p>') +
         '<p class="diff-advice" id="grp-advice"></p>' +
         groupLevelHtml() +
         '<div class="roll-actions"><button class="primary big" id="grp-start">▶ Commencer l\'aventure</button></div>' +

@@ -794,32 +794,28 @@
     return '<span class="def-shield">' + val + '</span>';
   }
 
+  // Carte d'aventurier de l'écran de CHOIX DU GROUPE : rigoureusement la même
+  // structure que la carte de l'onglet Groupe (identité, 5 vignettes dont le
+  // blason de DEF, compétences), plus la case de sélection.
   function heroCardHtml(h, opts) {
     opts = opts || {};
     const dh = displayHero(h);
-    const def = heroDef(h);
-    const initials = (h.name || '?').trim().slice(0, 2).toUpperCase();
-    const avatarStyle = h.imageUrl
-      ? 'background-image:url(' + JSON.stringify(h.imageUrl) + ');background-size:cover;background-position:center;font-size:0;color:transparent'
-      : '';
     return '<div class="roster-card hero-card' + (h.klass ? ' klass-' + classSlug(h.klass) : '') + '">' +
       '<div class="roster-head hero-head">' +
         (opts.selectable ? '<input type="checkbox" class="hero-pick-cb" data-hero="' + h.id + '"' + (opts.checked ? ' checked' : '') + '>' : '') +
-        (opts.showAvatar ? '<div class="hpc-avatar" style="' + avatarStyle + '">' + esc(initials) + '</div>' : '') +
         '<span class="roster-name">' + esc(h.name) + '</span>' +
         (h.klass ? '<span class="class-badge klass-' + classSlug(h.klass) + '">' + esc(normKlass(h.klass)) + '</span>' : '') +
         (!opts.hideRapide && h.rapide ? '<span class="tag">Rapide</span>' : '') +
       '</div>' +
+      identityTagsHtml(h) +
       '<div class="hero-stat-row">' +
         vieStatHtml(dh) +
         '<div class="hero-stat"><span class="hs-label">Endu</span><span class="hs-val">' + (dh.endu || 0) + '</span></div>' +
         pvStatHtml(dh) +
-        '<div class="hero-stat"><span class="hs-label">DEF</span><span class="hs-val">' + (opts.defAsIcon ? defIcon(def) : def) + '</span></div>' +
+        heroDefStatHtml(h) +
         '<div class="hero-stat"><span class="hs-label">Dégâts</span><span class="hs-val">+\u202f' + dh.damage + '</span></div>' +
       '</div>' +
-      '<div class="roster-section atk-section"><div class="roster-label">Attaques</div>' +
-        '<div class="atk-badges">' + attacksSummary(heroCombatAttacks(dh)) + '</div></div>' +
-      skillsSummary(h.skills) +
+      skillsSummary(dh.skills) +
       (h.notes ? '<div class="roster-notes">' + esc(h.notes) + '</div>' : '') +
     '</div>';
   }
