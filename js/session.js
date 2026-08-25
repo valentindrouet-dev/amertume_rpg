@@ -1468,7 +1468,7 @@
     // v2.5.05 : les sorties vivent DANS la salle, à la suite des paragraphes —
     // plus de bandeau flottant. Boutons clairs (parchemin), triés du nord à
     // l'ouest pour garder une lecture directionnelle stable.
-    const DIR_ORDER = ['⬆', '↗', '➡', '↘', '⬇', '↙', '⬅', '↖'];
+    const DIR_ORDER = ['⬅', '↖', '↙', '⬆', '⬇', '➡', '↗', '↘'];
     const sorted = exits.slice().sort(function (a, b) {
       return DIR_ORDER.indexOf(a.arrow) - DIR_ORDER.indexOf(b.arrow);
     });

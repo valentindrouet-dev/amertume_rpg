@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.06",
+    "date": "2026-08-25",
+    "title": "Bandeau : une seule typographie, boutons d'action denses, lueur du selectionne",
+    "changes": [
+      "Ordre des sorties impose : GAUCHE, HAUT, BAS, DROITE (les diagonales suivent leur cote : nord-ouest et sud-ouest avec la gauche, nord-est et sud-est avec la droite). Verifie sur une salle a quatre sorties.",
+      "Typographie UNIQUE pour tous les boutons du bandeau. Mesure avant : 12,8 / 16,8 / 17,28 px, graisses 600 et 700, capitales tantot oui tantot non. Apres : Inter 0,78 rem, gras 700, capitales, meme interlettrage pour les talents, les attaques, les Orbes, les outils et leurs libelles — seules les icones (fiole, loupe) gardent leur taille d'icone.",
+      "Boutons d'action nettement plus DENSES, avec un degrade par genre : action et attaque en bleu franc, maitrise en or, reaction en violet, amelioration en vert, passif en gris chaud, garde en bleu marine, objet en vert profond, analyse en violet, se relever/liberer en ambre. Le rouge des libelles est desormais reserve aux talents d'ADVERSAIRE : il ecrasait la couleur de genre des talents d'aventurier.",
+      "L'aventurier selectionne LUIT doucement (pulsation ambree de 2,4 s, coupee si le systeme demande moins d'animations)."
+    ]
+  },
+  {
     "v": "v2.5.05",
     "date": "2026-08-24",
     "title": "Sorties dans le fil de la salle en boutons clairs, PV et Blindage alternes",

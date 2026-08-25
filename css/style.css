@@ -6552,3 +6552,88 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
   .pv-alt-a, .pv-alt-b { animation: none; }
   .pv-alt-b { display: none; }
 }
+
+/* ================================================================
+   v2.5.06 — Bandeau : typographie unique, boutons denses, lueur
+   ================================================================ */
+/* ---- 1. UNE seule typographie pour TOUS les boutons du bandeau ----
+   Mesuré avant correction : 12,8 / 16,8 / 17,28 px et deux graisses
+   cohabitaient. Tout passe en Inter 0.78rem, gras, capitales. */
+.cbdock .ab-talent,
+.cbdock .ab-talent.ab-talent-named,
+.cbdock .ab-talent.ab-gardien-btn,
+.cbdock .ab-talent.ab-talent-kind-garde,
+.cbdock .ab-talent.ab-talent-kind-passive,
+.cbdock .ab-talent.ab-talent-kind-upgrade,
+.cbdock .ab-talent.ab-talent-kind-mastery,
+.cbdock .ab-talent.ab-talent-kind-action,
+.cbdock .ab-talent.ab-talent-kind-reaction,
+.cbdock .ab-talent.ab-talent-kind-espece,
+.cbdock .ab-atk, .cbdock .ab-atk-talname,
+.cbdock .ab-tool, .cbdock .ab-tool-txt,
+.cbdock .ab-orbes, .cbdock .ab-orbes-title {
+  font-family: var(--font-body) !important;
+  font-size: .78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: .045em !important;
+  text-transform: uppercase !important;
+  text-shadow: none;
+}
+.cbdock .ab-tool.ab-tool-ico { font-size: 1.05rem !important; }
+.cbdock .ab-tool-txt { line-height: 1; }
+.cbdock .ab-orbes-count, .cbdock .atk-uses, .cbdock .atk-dmg {
+  font-family: var(--font-body); font-size: .66rem; font-weight: 700;
+  letter-spacing: .02em; text-transform: none;
+}
+
+/* ---- 2. Boutons d'action DENSES ---- */
+.cbdock .ab-talent.ab-talent-kind-action,
+.cbdock .ab-talent.ab-talent-kind-action:disabled {
+  background: linear-gradient(180deg, #3a7fc4, #2b5f95); color: #f2f8ff; border-color: #4a8ed4;
+}
+.cbdock .ab-talent.ab-talent-kind-reaction,
+.cbdock .ab-talent.ab-talent-kind-reaction:disabled {
+  background: linear-gradient(180deg, #8455bd, #633d92); color: #f7f1ff; border-color: #9a6ad0;
+}
+.cbdock .ab-talent.ab-talent-kind-mastery,
+.cbdock .ab-talent.ab-talent-kind-mastery:disabled {
+  background: linear-gradient(180deg, #c79a34, #9d7623); color: #fffaf0; border-color: #dcb14c;
+}
+.cbdock .ab-talent.ab-talent-kind-upgrade,
+.cbdock .ab-talent.ab-talent-kind-upgrade:disabled {
+  background: linear-gradient(180deg, #4a9a5c, #367043); color: #f2fff5; border-color: #5cb371;
+}
+.cbdock .ab-talent.ab-talent-kind-passive,
+.cbdock .ab-talent.ab-talent-kind-passive:disabled {
+  background: linear-gradient(180deg, #6a675f, #4e4b45); color: #f5f2ec; border-color: #837f75;
+}
+.cbdock .ab-talent.ab-talent-kind-garde,
+.cbdock .ab-talent.ab-talent-kind-garde:disabled,
+.cbdock .ab-talent.ab-gardien-btn {
+  background: linear-gradient(180deg, #3f6ba8, #2d4f80); color: #f0f6ff; border-color: #5286c4;
+}
+.cbdock .ab-talent.ab-talent-named:not([class*="ab-talent-kind-"]),
+.cbdock .ab-talent.ab-talent-named:not([class*="ab-talent-kind-"]):disabled {
+  background: linear-gradient(180deg, #a8492e, #83351f); color: #fff0e8; border-color: #c25c3c;
+}
+.cbdock .ab-atk, .cbdock .ab-orbes {
+  background: linear-gradient(180deg, #3a7fc4, #2b5f95); color: #f2f8ff; border-color: #4a8ed4;
+}
+.cbdock .ab-tool.obj-chip { background: linear-gradient(180deg, #3f8a6d, #2d6650); color: #eefff7; border-color: #4fa583; }
+.cbdock .ab-tool.ana-chip { background: linear-gradient(180deg, #7a5ab5, #5b408b); color: #f4eeff; border-color: #9070cf; }
+.cbdock .ab-tool.standup-chip { background: linear-gradient(180deg, #c08a2e, #96691f); color: #fff8ea; border-color: #d7a44a; }
+.cbdock .ab-talent:not(.ab-talent-empty):not(:disabled):hover,
+.cbdock .ab-atk:not(:disabled):hover, .cbdock .ab-tool:not(:disabled):hover {
+  filter: brightness(1.12); transform: translateY(-1px);
+}
+.cbdock .ab-talent.selected, .cbdock .ab-atk.selected, .cbdock .ab-tool.selected, .cbdock .ab-orbes.selected {
+  box-shadow: 0 0 0 2px var(--accent-2), 0 0 14px rgba(231, 154, 69, .45);
+}
+
+/* ---- 3. L'aventurier sélectionné LUIT doucement ---- */
+@keyframes card-glow {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(231, 154, 69, .5), 0 0 14px rgba(231, 154, 69, .28); }
+  50%      { box-shadow: 0 0 0 2px rgba(231, 154, 69, .75), 0 0 26px rgba(231, 154, 69, .5); }
+}
+.combat-card.selected { animation: card-glow 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .combat-card.selected { animation: none; } }
