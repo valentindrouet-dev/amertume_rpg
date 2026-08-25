@@ -3165,7 +3165,7 @@
           : '<div class="lvlup-banner">⭐ <span>Niveau Supérieur !</span>' +
               '<span class="lvlup-num">Niveau ' + newLevel + '</span></div>') +
         '<div class="lvlup-heroes lvlup-grid">' + cards + '</div>' +
-        '<button class="primary big" id="lvlup-continue" disabled>' +
+        '<button class="primary big" id="lvlup-continue">' +
           (talentsOnly ? '▶ Commencer l\'aventure' : 'Continuer →') + '</button>' +
         '<p class="lvlup-missing" id="lvlup-missing" hidden></p>' +
       '</div>';
@@ -3173,9 +3173,11 @@
     const contBtn = root.querySelector('#lvlup-continue');
 
     const missBox = root.querySelector('#lvlup-missing');
+    let missing = [];      // choix manquants, recalculés à chaque clic
+    let attempted = false; // le joueur a déjà tenté de continuer
 
-    // Ce qui manque encore, dit explicitement : un bouton grisé sans raison
-    // laisse croire à un bug (le piège classique : 1 seule compétence sur 2).
+    // Ce qui manque encore : le message n'apparaît qu'après un clic sur
+    // Continuer, jamais avant — on ne réprimande pas un joueur qui choisit.
     function refresh() {
       const miss = [];
       heroes.forEach(function (h, idx) {
@@ -3195,13 +3197,14 @@
         }
         // Colonne incomplète : liseré d'attention pour la repérer d'un coup d'œil.
         const col = root.querySelector('.lvl-col[data-idx="' + idx + '"]');
-        if (col) col.classList.toggle('lvl-col-incomplete', need.length > 0);
+        if (col) col.classList.toggle('lvl-col-incomplete', attempted && need.length > 0);
         if (need.length) miss.push(esc(h.name) + ' : ' + need.join(', '));
       });
-      contBtn.disabled = miss.length > 0;
+      missing = miss;
       if (missBox) {
-        missBox.hidden = !miss.length;
-        missBox.innerHTML = miss.length ? '⚠️ Choix incomplets — ' + miss.join(' · ') : '';
+        const show = attempted && miss.length > 0;
+        missBox.hidden = !show;
+        missBox.innerHTML = show ? '⚠️ Choix incomplets — ' + miss.join(' · ') : '';
       }
     }
 
@@ -3259,6 +3262,13 @@
     refresh(); // état initial : on annonce d'emblée ce qu'il reste à choisir
 
     contBtn.addEventListener('click', function () {
+      // Choix incomplets : on explique ce qui manque au lieu d'avancer.
+      if (missing.length) {
+        attempted = true;
+        refresh();
+        if (missBox && missBox.scrollIntoView) missBox.scrollIntoView({ block: 'nearest' });
+        return;
+      }
       heroes.forEach(function (h, idx) {
         const g = heroGains(ses, h.id);
         const curEndu = (h.endu || 0) + (g.endu || 0);
