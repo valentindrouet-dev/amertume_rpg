@@ -1,6 +1,17 @@
 /* Historique des versions — genere depuis l'historique Git (outils/gen-versions.js). */
 window.VERSIONS = [
   {
+    "v": "v2.5.10",
+    "date": "2026-08-25",
+    "title": "Police de titrage Killam Bold, fournie et embarquee dans le depot",
+    "changes": [
+      "Le fichier Killam Bold est ajoute au depot dans assets/fonts/, converti en WOFF2 (65 Ko contre 184 Ko pour le TTF, soit ~65 % de moins). Le TTF est conserve en repli pour les navigateurs anciens.",
+      "Declaration @font-face locale : plus aucune dependance a un service externe pour le titrage. La plage font-weight: 400 900 evite que le navigateur rajoute un gras synthetique par-dessus une police deja grasse.",
+      "--font-display passe a « Killam », avec Fraunces puis Cinzel puis Georgia en repli. Tout le titrage suit : noms des combattants, noms de zones, pastille TOUR, titres des cases du bandeau, onglets d'etat, titres de salle, en-tete des sorties, journal et marque de l'application.",
+      "Couverture verifiee avant integration : 291 glyphes, TOUS les accents francais presents (a e i o u avec accents, cedille, trema, guillemets, apostrophe typographique). Chargement verifie dans le navigateur."
+    ]
+  },
+  {
     "v": "v2.5.09",
     "date": "2026-08-25",
     "title": "Deselection au clic dans le vide, regle des des au survol, journal en blanc creme",

@@ -6731,7 +6731,18 @@ body.mode-admin .topbar { border-bottom: 1px solid var(--line); }
    la variable --font-display ci-dessous (et la balise <link> des
    polices Google dans index.html) : tout le titrage suit.
    ================================================================ */
-:root { --font-display: "Fraunces", "Cinzel", Georgia, serif; }
+/* Police de titrage locale : Killam Bold (fichier fourni, converti en WOFF2 —
+   65 Ko au lieu de 184 Ko ; le TTF reste en repli pour les vieux navigateurs).
+   Couverture verifiee : tous les accents francais sont presents. */
+@font-face {
+  font-family: "Killam";
+  src: url("../assets/fonts/killam-bold.woff2") format("woff2"),
+       url("../assets/fonts/killam-bold.ttf") format("truetype");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+:root { --font-display: "Killam", "Fraunces", "Cinzel", Georgia, serif; }
 /* Toute la famille de titrage part en 900 : noms, zones, titres de cases. */
 .zone-name, .turn-pill, .dock-state,
 .cbdock .dp-title, .cbdesc-name,
