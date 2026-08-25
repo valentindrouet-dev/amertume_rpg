@@ -7256,3 +7256,132 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .inv-give-row { display: flex; align-items: flex-end; gap: .6rem; }
 .inv-give-row label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--muted); }
 .inv-give-row input { width: 6rem; }
+
+/* ── v2.5.45 · Cartes d'affrontement libres ─────────────────────── */
+/* Plateau : la grille devient un plan — les zones sont des salles posées
+   sur des cellules uniformes, le fond sombre entre elles fait les murs. */
+.combat-zones-free {
+  position: relative; gap: 5px; padding: 6px; border-radius: 12px;
+  background: #17120d;
+  box-shadow: inset 0 0 0 1px #2c241a, inset 0 2px 12px rgba(0,0,0,.5);
+}
+.combat-zones-free .combat-zone.zone-free {
+  min-height: 0; overflow-y: auto; margin: 0;
+}
+.combat-zones-free .zone-free .zone-cards { align-content: flex-start; }
+/* Porte : passage libre entre deux salles reliées. */
+.zone-door {
+  position: absolute; width: 16px; height: 16px; z-index: 3;
+  transform: translate(-50%, -50%); border-radius: 4px;
+  background: linear-gradient(180deg, #caa96a, #97753e);
+  border: 1px solid #5f4a24; box-shadow: 0 1px 3px rgba(0,0,0,.55);
+  pointer-events: none;
+}
+/* Barrière : chip posé au point de contact, mêmes codes couleur qu'avant. */
+.zone-sep-free {
+  position: absolute; z-index: 4; transform: translate(-50%, -50%);
+  display: flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 .35rem; border-radius: 6px;
+  font-size: .58rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  color: #f2e7d2; cursor: help;
+}
+.zone-sep-free .zone-sep-lbl {
+  position: static; transform: none; writing-mode: horizontal-tb;
+  max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: .58rem; padding: 0; background: none; border: none;
+}
+.zone-sep-free.barrier-difficile      { background: #7a6c58; border: 1px solid #a5947c; }
+.zone-sep-free.barrier-instable       { background: #9a7a1c; border: 1px solid #c9a53c; }
+.zone-sep-free.barrier-mur            { background: #4a463f; border: 1px solid #6d675d; }
+.zone-sep-free.barrier-infranchissable{ background: #8a6410; border: 1px solid #b8912c; }
+
+/* — Onglet Cartes : liste — */
+.map-list { display: flex; flex-direction: column; gap: .6rem; }
+.map-row {
+  display: flex; align-items: center; gap: .8rem; padding: .55rem .7rem;
+  background: var(--surface-2, #241d16); border: 1px solid var(--line, #3a2f24);
+  border-radius: 12px;
+}
+.map-thumb { flex: 0 0 92px; }
+.map-thumb-grid {
+  position: relative; width: 92px; background: #17120d;
+  border: 1px solid #2c241a; border-radius: 6px; overflow: hidden;
+}
+.map-thumb-grid span {
+  position: absolute; background: #4d4033; border: 1px solid #6a5843; border-radius: 2px;
+}
+.map-row-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: .15rem; }
+.map-row-actions { display: flex; gap: .35rem; }
+
+/* — Onglet Cartes : éditeur — */
+.map-edit-bar { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.map-edit-bar label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--muted); }
+.map-edit-bar input { width: 16rem; }
+.map-edit-help { max-width: 30rem; }
+.map-board-wrap { overflow-x: auto; }
+.map-board {
+  position: relative; width: 100%; max-width: 900px; margin: 0 auto;
+  background: #17120d; border: 1px solid #2c241a; border-radius: 12px;
+  cursor: crosshair; user-select: none;
+  box-shadow: inset 0 2px 12px rgba(0,0,0,.5);
+}
+.map-grid-bg {
+  position: absolute; inset: 0; display: grid; pointer-events: none;
+}
+.map-grid-bg i { border: 1px dashed rgba(255, 235, 205, .05); }
+.map-zone {
+  position: absolute; box-sizing: border-box; cursor: pointer;
+  background: linear-gradient(180deg, #453a2c 0%, #372e22 100%);
+  border: 1.5px solid #6a5843; border-radius: 8px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: .3rem .45rem; transition: box-shadow .12s, border-color .12s;
+}
+.map-zone:hover { border-color: #8d7a5e; }
+.map-zone.sel { border-color: #e79a45; box-shadow: 0 0 0 2px rgba(231, 154, 69, .4); z-index: 2; }
+.map-zone.link-from { border-color: #6f9fd6; box-shadow: 0 0 0 2px rgba(111, 159, 214, .45); }
+.map-zone-name {
+  font-size: .68rem; font-weight: 800; color: #efe3d2; letter-spacing: .02em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.map-zone-hero { font-size: .75rem; }
+.map-ghost {
+  position: absolute; pointer-events: none; z-index: 3; border-radius: 8px;
+  background: rgba(231, 154, 69, .18); border: 1.5px dashed #e79a45;
+}
+.map-ghost.bad { background: rgba(213, 74, 54, .18); border-color: #d54a36; }
+.map-link {
+  position: absolute; z-index: 4; transform: translate(-50%, -50%);
+  width: 22px; height: 22px; border-radius: 6px; padding: 0; line-height: 1;
+  font-size: .7rem; cursor: pointer;
+  background: linear-gradient(180deg, #caa96a, #97753e);
+  border: 1px solid #5f4a24; color: #241a0c;
+  display: flex; align-items: center; justify-content: center;
+}
+.map-link.map-link-bar.barrier-difficile       { background: #7a6c58; color: #f2e7d2; }
+.map-link.map-link-bar.barrier-instable        { background: #9a7a1c; color: #f2e7d2; }
+.map-link.map-link-bar.barrier-mur             { background: #4a463f; color: #f2e7d2; }
+.map-link.map-link-bar.barrier-infranchissable { background: #8a6410; color: #f2e7d2; }
+.map-panels { display: grid; grid-template-columns: 1fr 1.4fr; gap: .8rem; margin-top: .8rem; }
+@media (max-width: 860px) { .map-panels { grid-template-columns: 1fr; } }
+.map-panel {
+  background: var(--surface-2, #241d16); border: 1px solid var(--line, #3a2f24);
+  border-radius: 12px; padding: .7rem .8rem;
+}
+.map-panel-title {
+  font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em;
+  color: #a08b6c; margin-bottom: .5rem;
+}
+.map-panel label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--muted); margin-bottom: .5rem; }
+.map-panel .mz-check { flex-direction: row; align-items: center; gap: .4rem; }
+.map-panel-actions { display: flex; gap: .4rem; margin-top: .3rem; }
+.map-link-row {
+  display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;
+  padding: .3rem .2rem; border-bottom: 1px solid rgba(255, 235, 205, .07);
+}
+.map-link-row.flash { background: rgba(231, 154, 69, .14); border-radius: 8px; }
+.map-link-names { font-size: .78rem; font-weight: 700; color: #e6d7bd; flex: 0 0 auto; }
+.map-link-row select, .map-link-row .ml-name { font-size: .76rem; padding: .2rem .3rem; width: auto; }
+.map-link-row .ml-name { flex: 1 1 7rem; min-width: 6rem; }
+.setup-map-pick { display: inline-flex; align-items: center; gap: .35rem; font-size: .78rem; color: var(--muted); margin-left: auto; margin-right: .5rem; }
+.setup-map-pick select { width: auto; font-size: .78rem; padding: .2rem .3rem; }
+#setup-add-zone[hidden] { display: none; }

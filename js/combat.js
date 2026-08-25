@@ -25,6 +25,7 @@
   // Sélections de l'écran de préparation (Combat Test)
   let setupHeroes = {};      // { heroId: true }
   let setupZones = [{ name: 'Zone 1', monsters: [] }, { name: 'Zone 2', monsters: [] }]; // [{name, monsters:[{templateId,count}]}]
+  let setupMapId = '';   // Combat Test : carte d'affrontement choisie ('' = grille classique)
   let setupHeroZone = 0;     // index de la zone de départ des aventuriers
 
   // État d'interaction du plateau
@@ -306,7 +307,9 @@
   }
   // Assemble les combattants en plaçant chacun dans sa zone
   function buildCombat(heroObjs, cfg) {
-    const zones = (cfg.zones || []).map(function (z) { return { name: z.name || '' }; });
+    const zones = (cfg.zones || []).map(function (z) {
+      return { name: z.name || '', rect: z.rect || null };
+    });
     if (!zones.length) zones.push({ name: 'Zone 1' });
     zones.forEach(function (z, i) { if (!z.name) z.name = 'Zone ' + (i + 1); });
     const heroZone = Math.min(Math.max(0, cfg.heroStartZone || 0), zones.length - 1);
@@ -348,8 +351,36 @@
     });
     pendingAttack = null; pendingMove = null; stateMenuFor = null;
     armPrepared(combatants); // PRÉPARÉ au tour 1 (talent Vivacité / états de scène en attente)
+    // CARTE LIBRE : la disposition (grille cols×rows) et le graphe des liens
+    // remplacent les barrières « par paire » — deux zones non reliées reçoivent
+    // une barrière infranchissable IMPLICITE (jamais dessinée) : tout le moteur
+    // (déplacements, BFS des adversaires, visée, téléportation) suit sans retouche.
+    let barriers = normalizeBarriers(cfg.barriers);
+    if (cfg.layout && Array.isArray(cfg.zoneLinks)) {
+      barriers = {};
+      const linked = {};
+      cfg.zoneLinks.forEach(function (l) {
+        if (l == null || l.a == null || l.b == null || l.a === l.b) return;
+        const key = barrierKey(l.a, l.b);
+        linked[key] = true;
+        if (l.barrier && l.barrier.type && l.barrier.type !== 'none') {
+          barriers[key] = {
+            type: migrateBarrierType(l.barrier.type),
+            difficulty: l.barrier.diff || l.barrier.difficulty || 'moyen',
+            name: l.barrier.name || '',
+          };
+        }
+      });
+      for (let a = 0; a < zones.length; a++) {
+        for (let b = a + 1; b < zones.length; b++) {
+          const key = barrierKey(a, b);
+          if (!linked[key]) barriers[key] = { type: 'infranchissable', implicit: true };
+        }
+      }
+    }
     const fresh = { turn: 1, phase: 'heroes', bonusXp: 0, analyzeXp: 0, noDmgXp: 0, zones: zones,
-      barriers: normalizeBarriers(cfg.barriers),
+      layout: cfg.layout || null,
+      barriers: barriers,
       combatants: combatants, log: [], outcome: null };
     // Instantané de départ : permet de RECOMMENCER le combat à l'identique.
     try { fresh.initial = JSON.parse(JSON.stringify(fresh)); } catch (e) { fresh.initial = null; }
@@ -369,6 +400,24 @@
       }),
       heroStartZone: setupHeroZone,
     };
+    // CARTE D'AFFRONTEMENT : formes, disposition et liens viennent de la carte.
+    if (setupMapId && global.Cartes && Cartes.mapToConfig) {
+      const mp = (Store.loadBattleMaps() || []).find(function (x) { return x.id === setupMapId; });
+      if (mp) {
+        const mc = Cartes.mapToConfig(mp);
+        cfg.layout = mc.layout;
+        cfg.zoneLinks = mc.zoneLinks;
+        cfg.heroStartZone = mc.heroStartZone;
+        cfg.zones = mc.zones.map(function (z, i) {
+          return {
+            name: z.name, rect: z.rect, heroStart: z.heroStart,
+            monsterRefs: ((setupZones[i] || {}).monsters || []).map(function (mm) {
+              return { monsterId: mm.templateId, count: mm.count };
+            }),
+          };
+        });
+      }
+    }
     buildCombat(heroObjs, cfg);
     log('Début du combat — Tour 1.', 'turn');
     announceInvisibles();
@@ -707,6 +756,74 @@
   // Paires « diagonales » (sans arête orthogonale) : 1-4 et 2-3 d'un carré 2x2.
   // Elles se croisent au centre de la grille (gouttière centrale).
   const DIAG_SEPS = [ { pair: [0, 3], dir: 'down-left' }, { pair: [1, 2], dir: 'down-right' } ];
+  // ----- CARTE LIBRE : zones rectangulaires sur une grille cols×rows -----
+  function freeGridStyle() {
+    const L = combat().layout || { cols: 12, rows: 8 };
+    return 'grid-template-columns:repeat(' + L.cols + ',minmax(0,1fr));' +
+      'grid-template-rows:repeat(' + L.rows + ',var(--bm-cell, 58px));';
+  }
+  function zonesFreeCells() {
+    const c = combat();
+    const L = c.layout || { cols: 12, rows: 8 };
+    const bars = c.barriers || {};
+    const mover = pendingMove ? byId(pendingMove) : null;
+    let html = '';
+    zones().forEach(function (z, zi) {
+      const r = z.rect || { x: 0, y: 0, w: 2, h: 2 };
+      const teleports = mover && mover.side === 'hero' && heroHasTalent(mover, 'teleportation');
+      const blocked = mover && mover.zone !== zi && !teleports && moveBarrier(mover.zone, zi).type === 'block';
+      const movable = pendingMove && !blocked && (!mover || mover.zone !== zi);
+      const atkr = pendingAttack ? byId(pendingAttack.iid) : null;
+      const zoneAttackable = !!(atkr && !pendingMove &&
+        (pendingAttack.blastZone || zoneAttackReach(atkr, zi)));
+      const zTip = zoneAttackable
+        ? ' title="Cliquez cette zone pour y frapper' + (anyInvisibleFoe() ? ' — de quoi débusquer un invisible (Perception 2)' : '') + '"'
+        : '';
+      html += '<div class="combat-zone zone-free' + (movable ? ' movable' : '') + (zoneAttackable ? ' zone-attackable' : '') +
+        '" data-zone="' + zi + '"' + zTip +
+        ' style="grid-column:' + (r.x + 1) + ' / span ' + r.w + ';grid-row:' + (r.y + 1) + ' / span ' + r.h + ';">' +
+        '<div class="zone-name">' + esc(zname(zi)) + '</div>' +
+        '<div class="zone-cards" id="zone-cards-' + zi + '"></div>' +
+      '</div>';
+    });
+    // Connecteurs : portes (passage libre) et barrières, posés au POINT DE
+    // CONTACT des deux zones (milieu de l'arête partagée ; à défaut, milieu du
+    // segment entre les centres). Coordonnées en % de la grille — les rangées
+    // sont uniformes, le positionnement absolu est donc exact.
+    const zs = zones();
+    const pt = function (a, b) {
+      const ra = zs[a].rect, rb = zs[b].rect;
+      if (!ra || !rb) return null;
+      // Chevauchement des intervalles sur chaque axe (zones qui se touchent).
+      const ox = [Math.max(ra.x, rb.x), Math.min(ra.x + ra.w, rb.x + rb.w)];
+      const oy = [Math.max(ra.y, rb.y), Math.min(ra.y + ra.h, rb.y + rb.h)];
+      if (ox[0] < ox[1] && (ra.y + ra.h === rb.y || rb.y + rb.h === ra.y)) {
+        return { x: (ox[0] + ox[1]) / 2, y: ra.y + ra.h === rb.y ? rb.y : ra.y };
+      }
+      if (oy[0] < oy[1] && (ra.x + ra.w === rb.x || rb.x + rb.w === ra.x)) {
+        return { x: ra.x + ra.w === rb.x ? rb.x : ra.x, y: (oy[0] + oy[1]) / 2 };
+      }
+      return { x: (ra.x + ra.w / 2 + rb.x + rb.w / 2) / 2, y: (ra.y + ra.h / 2 + rb.y + rb.h / 2) / 2 };
+    };
+    for (let a = 0; a < zs.length; a++) {
+      for (let b = a + 1; b < zs.length; b++) {
+        const bar = bars[barrierKey(a, b)];
+        if (bar && bar.implicit) continue;             // mur implicite : rien à dessiner
+        if (bar && bar.type && bar.type !== 'none') {  // barrière explicite
+          const p2 = pt(a, b); if (!p2) continue;
+          html += '<div class="zone-sep zone-sep-free barrier-' + bar.type + '"' +
+            ' style="left:' + (p2.x / L.cols * 100) + '%;top:' + (p2.y / L.rows * 100) + '%;">' +
+            '<span class="zone-sep-lbl">' + esc(barrierDisplayName(bar)) + '</span></div>';
+        } else if (combat().layout) {                  // passage libre : porte discrète
+          const p2 = pt(a, b); if (!p2) continue;
+          html += '<div class="zone-door" title="Passage libre"' +
+            ' style="left:' + (p2.x / L.cols * 100) + '%;top:' + (p2.y / L.rows * 100) + '%;"></div>';
+        }
+      }
+    }
+    return html;
+  }
+
   function zonesGridCells() {
     const c = combat();
     const n = zoneCount();
@@ -3428,7 +3545,15 @@
         '</div>' +
         '<div class="card">' +
           '<div class="card-head"><h2>Zones de combat</h2>' +
-            '<button id="setup-add-zone" class="ghost small"' + (setupZones.length >= 4 ? ' disabled' : '') + '>+ Zone</button></div>' +
+            '<span class="setup-map-pick">🗺 Carte ' +
+              '<select id="setup-map">' +
+                '<option value="">— grille classique —</option>' +
+                (Store.loadBattleMaps ? Store.loadBattleMaps() : []).map(function (mp) {
+                  return '<option value="' + mp.id + '"' + (setupMapId === mp.id ? ' selected' : '') + '>' +
+                    esc(mp.name || 'Sans titre') + ' (' + mp.zones.length + ' zones)</option>';
+                }).join('') +
+              '</select></span>' +
+            '<button id="setup-add-zone" class="ghost small"' + (setupMapId ? ' hidden' : '') + (setupZones.length >= 4 ? ' disabled' : '') + '>+ Zone</button></div>' +
           '<div id="setup-zones"></div>' +
           '<div class="roll-actions">' +
             '<button id="setup-start" class="primary big">⚔ Démarrer le combat</button>' +
@@ -3468,6 +3593,23 @@
       alert('🌙 Repos long : tous les aventuriers sont à PV maximum.');
     });
 
+    const mapSel = $('#setup-map');
+    if (mapSel) mapSel.addEventListener('change', function () {
+      setupMapId = mapSel.value;
+      if (setupMapId) {
+        // Les zones (noms, formes, départ) viennent de la carte ; on y garde
+        // les adversaires déjà choisis, zone par zone, tant que l'index existe.
+        const mp = (Store.loadBattleMaps() || []).find(function (x) { return x.id === setupMapId; });
+        if (mp) {
+          const prev = setupZones;
+          setupZones = mp.zones.map(function (z, i) {
+            return { name: z.name || ('Salle ' + (i + 1)), monsters: (prev[i] && prev[i].monsters) || [] };
+          });
+          setupHeroZone = Math.max(0, mp.zones.findIndex(function (z) { return z.heroStart; }));
+        }
+      }
+      renderSetup(root);
+    });
     $('#setup-add-zone').addEventListener('click', function () {
       if (setupZones.length >= 4) return;
       setupZones.push({ name: 'Zone ' + (setupZones.length + 1), monsters: [] });
@@ -3661,9 +3803,11 @@
       // au-dessus du plateau en version compacte.
       '<div class="combat-main-grid">' +
         '<div class="combat-main-col">' +
-          '<div class="combat-zones-grid zc-' + zoneCount() + '" style="' + zonesGridStyle(zoneCount()) + '">' +
-            zonesGridCells() +
-          '</div>' +
+          (combat().layout
+            ? '<div class="combat-zones-grid combat-zones-free" style="' + freeGridStyle() + '">' +
+                zonesFreeCells() + '</div>'
+            : '<div class="combat-zones-grid zc-' + zoneCount() + '" style="' + zonesGridStyle(zoneCount()) + '">' +
+                zonesGridCells() + '</div>') +
           '<div id="combat-cemetery" class="combat-cemetery"></div>' +
           '<div class="phase-controls" id="phase-controls"></div>' +
         '</div>' +

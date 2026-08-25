@@ -397,6 +397,23 @@
     }) || null;
   }
 
+  // ---------- Cartes d'affrontement (plateaux libres) ----------
+  // Une carte : { id, name, cols, rows, zones: [{ name, x, y, w, h, heroStart }],
+  // links: [{ a, b, barrier: null | { type, diff, name } }] }. Les zones sont des
+  // rectangles sur une grille cols×rows ; deux zones NON reliées sont séparées
+  // par un mur implicite (aucun déplacement possible).
+  const MAPS_KEY = 'amertume_cartes_v1';
+  function loadBattleMaps() {
+    try {
+      const raw = global.localStorage.getItem(MAPS_KEY);
+      const arr = raw ? JSON.parse(raw) : null;
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function saveBattleMaps(list) {
+    try { global.localStorage.setItem(MAPS_KEY, JSON.stringify(Array.isArray(list) ? list : [])); } catch (e) {}
+  }
+
   // ---------- Aventures (stockage séparé) ----------
   const ADV_KEY = 'amertume_adventures_v1';
   const SES_KEY = 'amertume_sessions_v1';
@@ -1182,6 +1199,8 @@
     saveSessions: saveSessions,
     loadClasses: loadClasses,
     saveClasses: saveClasses,
+    loadBattleMaps: loadBattleMaps,
+    saveBattleMaps: saveBattleMaps,
     loadSpeciesTalents: loadSpeciesTalents,
     saveSpeciesTalents: saveSpeciesTalents,
     speciesTalentFor: speciesTalentFor,

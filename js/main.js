@@ -6,7 +6,7 @@
   const $ = function (sel) { return document.querySelector(sel); };
 
   // Version applicative — incrémentée de +0.01 à chaque nouvelle implémentation.
-  const APP_VERSION = 'v2.5.44';
+  const APP_VERSION = 'v2.5.45';
   const esc = function (s) { return (window.Inventory ? Inventory.escapeHtml(s) : String(s)); };
 
   // Exécute fn en isolant ses erreurs (un module cassé ne doit pas bloquer le reste)
@@ -42,6 +42,7 @@
     if (target === 'saves') safe('saves', function () { Session.renderSaves(advId); });
     if (target === 'bugs') safe('bugs', Bugs.renderAdmin);
     if (target === 'versions') safe('versions', Versions.render);
+    if (target === 'cartes') safe('cartes', function () { Cartes.render(); });
   }
 
   // Active un onglet (visible) et son panneau, puis déclenche son rendu
