@@ -7020,7 +7020,8 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   .cine-hint { animation: none; }
 }
 
-/* ══ v2.5.32 · Onglet Groupe — refonte visuelle (langage du HUD de combat) ══
+/* ══ v2.5.32 · Cartes d'aventurier — refonte (langage du HUD de combat) ══
+   Appliqué à l'onglet Groupe ET à l'écran de choix des aventuriers.
    Cartes sombres, vignettes de caractéristique toutes de MÊME taille, chips de
    compétence calibrées, palettes conservées mais retendues (fonds profonds,
    texte clair) pour coller au bandeau de combat. Tout est scopé à l'onglet. */
@@ -7047,67 +7048,67 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
   gap: .9rem; align-items: start;
 }
-#hero-list .roster-card.hero-card {
+:is(#hero-list, .hero-pick-list) .roster-card.hero-card {
   background: linear-gradient(180deg, #382e23 0%, #2b231a 100%);
   border: 1px solid var(--line, #3a2f24); border-left: none; border-radius: 14px;
   padding: 0 .85rem .85rem; overflow: hidden; color: #efe3d2;
   box-shadow: var(--shadow-1, 0 4px 14px rgba(0,0,0,.3));
 }
-#hero-list .roster-card.hero-card:hover {
+:is(#hero-list, .hero-pick-list) .roster-card.hero-card:hover {
   transform: translateY(-2px); border-color: #6a5843;
   box-shadow: 0 10px 26px rgba(0,0,0,.45);
 }
 /* Liseré de classe en haut de carte (mêmes teintes que le HUD de combat). */
-#hero-list .hero-card::before {
+:is(#hero-list, .hero-pick-list) .hero-card::before {
   content: ''; display: block; height: 4px; margin: 0 -.85rem .7rem;
   background: var(--kl, #7c6a55);
 }
-#hero-list .hero-card.klass-apothicaire { --kl: #7bbf6a; }
-#hero-list .hero-card.klass-artificier  { --kl: #d9a94a; }
-#hero-list .hero-card.klass-chasseur    { --kl: #74b85e; }
-#hero-list .hero-card.klass-destructeur { --kl: #d36a52; }
-#hero-list .hero-card.klass-deviant     { --kl: #9d7fc4; }
-#hero-list .hero-card.klass-gardien     { --kl: #6f9fd6; }
-#hero-list .hero-card.klass-lamevent    { --kl: #5cb6a6; }
-#hero-list .hero-card.klass-mystique    { --kl: #9b84d8; }
+:is(#hero-list, .hero-pick-list) .hero-card.klass-apothicaire { --kl: #7bbf6a; }
+:is(#hero-list, .hero-pick-list) .hero-card.klass-artificier  { --kl: #d9a94a; }
+:is(#hero-list, .hero-pick-list) .hero-card.klass-chasseur    { --kl: #74b85e; }
+:is(#hero-list, .hero-pick-list) .hero-card.klass-destructeur { --kl: #d36a52; }
+:is(#hero-list, .hero-pick-list) .hero-card.klass-deviant     { --kl: #9d7fc4; }
+:is(#hero-list, .hero-pick-list) .hero-card.klass-gardien     { --kl: #6f9fd6; }
+:is(#hero-list, .hero-pick-list) .hero-card.klass-lamevent    { --kl: #5cb6a6; }
+:is(#hero-list, .hero-pick-list) .hero-card.klass-mystique    { --kl: #9b84d8; }
 
 /* — En-tête : nom, classe, boutons alignés — */
-#hero-list .hero-head {
+:is(#hero-list, .hero-pick-list) .hero-head {
   display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
   padding-bottom: .5rem; margin-bottom: .5rem;
   border-bottom: 1px solid rgba(255, 235, 205, .10);
 }
-#hero-list .hero-head .roster-name {
+:is(#hero-list, .hero-pick-list) .hero-head .roster-name {
   font-family: var(--font-display, inherit); font-size: 1.12rem; color: #f6ead8;
   flex: 1 1 auto; min-width: 0;
 }
-#hero-list .hero-head .class-badge {
+:is(#hero-list, .hero-pick-list) .hero-head .class-badge {
   font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
   padding: .2rem .55rem; border-radius: 999px;
   color: var(--kl, #d7c7ae); border: 1px solid var(--kl, #554635);
   background: color-mix(in srgb, var(--kl, #554635) 16%, transparent);
 }
-#hero-list .hero-head .ghost.small {
+:is(#hero-list, .hero-pick-list) .hero-head .ghost.small {
   height: 1.7rem; min-width: 1.7rem; padding: 0 .5rem; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: .72rem; font-weight: 700; border-radius: 8px;
   background: rgba(255, 235, 205, .06); border: 1px solid rgba(255, 235, 205, .16); color: #cdbca4;
 }
-#hero-list .hero-head .ghost.small:hover:not(:disabled) { background: rgba(255, 235, 205, .12); color: #f2e3cc; }
-#hero-list .hero-head .del-btn:hover:not(:disabled) { border-color: #b5533c; color: #f0a892; }
+:is(#hero-list, .hero-pick-list) .hero-head .ghost.small:hover:not(:disabled) { background: rgba(255, 235, 205, .12); color: #f2e3cc; }
+:is(#hero-list, .hero-pick-list) .hero-head .del-btn:hover:not(:disabled) { border-color: #b5533c; color: #f0a892; }
 
 /* — Genre / espèce — */
-#hero-list .hero-ident { gap: .35rem; margin: 0 0 .55rem; }
-#hero-list .hero-ident .tag {
+:is(#hero-list, .hero-pick-list) .hero-ident { gap: .35rem; margin: 0 0 .55rem; }
+:is(#hero-list, .hero-pick-list) .hero-ident .tag {
   font-size: .68rem; font-weight: 700; padding: .16rem .5rem; border-radius: 999px;
   background: rgba(255, 235, 205, .06); border: 1px solid rgba(255, 235, 205, .15); color: #c6b498;
 }
 
 /* — Caractéristiques : 5 vignettes STRICTEMENT identiques — */
-#hero-list .hero-stat-row {
+:is(#hero-list, .hero-pick-list) .hero-stat-row {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: .4rem; margin: 0 0 .6rem;
 }
-#hero-list .hero-stat {
+:is(#hero-list, .hero-pick-list) .hero-stat {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
   gap: .28rem; min-height: 4rem; min-width: 0; padding: .42rem .2rem .5rem; text-align: center;
   border-radius: 10px; border: 1px solid var(--sc, #4a3d2e);
@@ -7115,47 +7116,47 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
                                       color-mix(in srgb, var(--sc, #4a3d2e) 24%, #332b21) 100%);
 }
 /* Libellés : une seule ligne, même hauteur d'une vignette à l'autre. */
-#hero-list .hero-stat .hs-label {
+:is(#hero-list, .hero-pick-list) .hero-stat .hs-label {
   font-size: .55rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
   color: color-mix(in srgb, var(--sc, #9c8a70) 60%, #f2e7d5);
   height: .85rem; line-height: .85rem; white-space: nowrap;
 }
-#hero-list .hero-stat .hs-val {
+:is(#hero-list, .hero-pick-list) .hero-stat .hs-val {
   font-family: var(--font-display, inherit); font-size: 1.5rem; line-height: 1.05;
   color: color-mix(in srgb, var(--sc, #d8c8ac) 45%, #ffffff); font-variant-numeric: tabular-nums;
 }
-#hero-list .hero-stat .hs-val-sep { opacity: .55; font-size: .85em; }
-#hero-list .hero-stat .hs-val-cur--danger { color: #ff9a7a; }
+:is(#hero-list, .hero-pick-list) .hero-stat .hs-val-sep { opacity: .55; font-size: .85em; }
+:is(#hero-list, .hero-pick-list) .hero-stat .hs-val-cur--danger { color: #ff9a7a; }
 /* Palettes conservées, valeurs retendues pour fond sombre. */
-#hero-list .hero-stat:nth-child(1) { --sc: #b06fd8; } /* Vie */
-#hero-list .hero-stat:nth-child(2) { --sc: #3fae9f; } /* Endurance */
-#hero-list .hero-stat:nth-child(3) { --sc: #5fb46a; } /* Points de Vie */
-#hero-list .hero-stat:nth-child(4) { --sc: #8b93b8; } /* Défense */
-#hero-list .hero-stat:nth-child(5) { --sc: #d3624c; } /* Dégâts */
+:is(#hero-list, .hero-pick-list) .hero-stat:nth-child(1) { --sc: #b06fd8; } /* Vie */
+:is(#hero-list, .hero-pick-list) .hero-stat:nth-child(2) { --sc: #3fae9f; } /* Endurance */
+:is(#hero-list, .hero-pick-list) .hero-stat:nth-child(3) { --sc: #5fb46a; } /* Points de Vie */
+:is(#hero-list, .hero-pick-list) .hero-stat:nth-child(4) { --sc: #8b93b8; } /* Défense */
+:is(#hero-list, .hero-pick-list) .hero-stat:nth-child(5) { --sc: #d3624c; } /* Dégâts */
 /* La vignette de Défense n'a pas de libellé dans le HTML (blason seul) :
    on le rétablit pour que les cinq vignettes soient construites pareil. */
-#hero-list .hero-stat.hero-stat-def { padding: .42rem .2rem .4rem; gap: .3rem; }
-#hero-list .hero-stat.hero-stat-def::before {
+:is(#hero-list, .hero-pick-list) .hero-stat.hero-stat-def { padding: .42rem .2rem .4rem; gap: .3rem; }
+:is(#hero-list, .hero-pick-list) .hero-stat.hero-stat-def::before {
   content: 'DEF'; font-size: .55rem; font-weight: 800; letter-spacing: .08em;
   height: .85rem; line-height: .85rem; white-space: nowrap;
   color: color-mix(in srgb, var(--sc) 60%, #f2e7d5);
 }
-#hero-list .hero-stat.hero-stat-def .hero-def-img { height: 1.72rem; margin-top: .12rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+:is(#hero-list, .hero-pick-list) .hero-stat.hero-stat-def .hero-def-img { height: 1.72rem; margin-top: .12rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
 
 /* — Sections (Compétences, Équipement, Attaques) — */
-#hero-list .roster-section { margin-top: .55rem; }
-#hero-list .roster-label {
+:is(#hero-list, .hero-pick-list) .roster-section { margin-top: .55rem; }
+:is(#hero-list, .hero-pick-list) .roster-label {
   font-size: .6rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
   color: #a08b6c; margin-bottom: .35rem;
 }
-#hero-list .roster-gear, #hero-list .roster-notes { color: #c3b199; font-size: .8rem; }
-#hero-list .roster-notes { border-top: 1px solid rgba(255,235,205,.10); margin-top: .55rem; padding-top: .5rem; }
+:is(#hero-list, .hero-pick-list) .roster-gear, :is(#hero-list, .hero-pick-list) .roster-notes { color: #c3b199; font-size: .8rem; }
+:is(#hero-list, .hero-pick-list) .roster-notes { border-top: 1px solid rgba(255,235,205,.10); margin-top: .55rem; padding-top: .5rem; }
 
 /* — Compétences : chips de MÊME gabarit, alignées en grille — */
-#hero-list .skill-badges {
+:is(#hero-list, .hero-pick-list) .skill-badges {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(7.4rem, 1fr)); gap: .35rem;
 }
-#hero-list .skill-badge {
+:is(#hero-list, .hero-pick-list) .skill-badge {
   display: flex; align-items: center; justify-content: space-between; gap: .35rem;
   min-height: 1.7rem; padding: .18rem .5rem; border-radius: 8px;
   font-size: .72rem; font-weight: 700; letter-spacing: .01em;
@@ -7163,31 +7164,31 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   background: linear-gradient(180deg, color-mix(in srgb, var(--kc, #554635) 40%, #3a3126) 0%,
                                       color-mix(in srgb, var(--kc, #554635) 24%, #332b21) 100%);
 }
-#hero-list .skill-badge b {
+:is(#hero-list, .hero-pick-list) .skill-badge b {
   font-family: var(--font-display, inherit); font-size: .8rem; line-height: 1;
   color: #fff; flex: 0 0 auto; font-variant-numeric: tabular-nums;
   padding: .12rem .35rem; border-radius: 6px;
   background: color-mix(in srgb, var(--kc, #554635) 46%, rgba(0,0,0,.32));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc, #554635) 55%, transparent);
 }
-#hero-list .skill-agilite    { --kc: #62a862; }
-#hero-list .skill-force      { --kc: #cd5a3c; }
-#hero-list .skill-mysticisme { --kc: #9d72c4; }
-#hero-list .skill-perception { --kc: #cbae3a; }
-#hero-list .skill-robustesse { --kc: #b07a2e; }
-#hero-list .skill-ruse       { --kc: #8d8d95; }
-#hero-list .skill-savoir     { --kc: #4f8bd0; }
-#hero-list .skill-technique  { --kc: #3fae9f; }
+:is(#hero-list, .hero-pick-list) .skill-agilite    { --kc: #62a862; }
+:is(#hero-list, .hero-pick-list) .skill-force      { --kc: #cd5a3c; }
+:is(#hero-list, .hero-pick-list) .skill-mysticisme { --kc: #9d72c4; }
+:is(#hero-list, .hero-pick-list) .skill-perception { --kc: #cbae3a; }
+:is(#hero-list, .hero-pick-list) .skill-robustesse { --kc: #b07a2e; }
+:is(#hero-list, .hero-pick-list) .skill-ruse       { --kc: #8d8d95; }
+:is(#hero-list, .hero-pick-list) .skill-savoir     { --kc: #4f8bd0; }
+:is(#hero-list, .hero-pick-list) .skill-technique  { --kc: #3fae9f; }
 
 /* Attaques & équipement d'une carte (côté MJ) : mêmes surfaces sombres. */
-#hero-list .atk-badges { gap: .4rem; }
-#hero-list .atk-badge {
+:is(#hero-list, .hero-pick-list) .atk-badges { gap: .4rem; }
+:is(#hero-list, .hero-pick-list) .atk-badge {
   background: linear-gradient(180deg, #221c15 0%, #1a1510 100%);
   border: 1px solid var(--line, #3a2f24); border-left: 3px solid var(--action, #6f9fd6);
   border-radius: 9px; padding: .45rem .6rem;
 }
-#hero-list .atk-badge-name { color: #f0e2cd; font-weight: 700; }
-#hero-list .atk-badge-meta { color: #a08b6c; }
+:is(#hero-list, .hero-pick-list) .atk-badge-name { color: #f0e2cd; font-weight: 700; }
+:is(#hero-list, .hero-pick-list) .atk-badge-meta { color: #a08b6c; }
 
 /* v2.5.34 — Talent d'Espèce (onglet Talents, mode Joueur) : même languette
    claire que les autres talents, simplement bordée d'or. Le fond translucide
@@ -7202,3 +7203,23 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .tpe-wrap.tpe-espece .tpe-row input[type="checkbox"] {
   flex: 0 0 auto; width: 16px; height: 16px; margin: 0;
 }
+
+/* v2.5.38 — Écran de choix des aventuriers : mêmes cartes que l'onglet Groupe. */
+.hero-pick-list { grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr)); gap: .9rem; }
+@media (max-width: 720px) { .hero-pick-list { grid-template-columns: 1fr; } }
+/* La case de sélection et l'avatar font partie de l'en-tête ; la croix de
+   suppression se pose DANS la carte, sans mordre sur la pastille de classe. */
+.hero-pick-list .hero-head { padding-right: 1.9rem; }
+.hero-pick-card-wrap .grp-del-btn {
+  top: .75rem; right: .55rem; z-index: 3;
+  width: 1.5rem; height: 1.5rem; min-width: 0; padding: 0; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255, 235, 205, .08); border: 1px solid rgba(255, 235, 205, .18); color: #cdbca4;
+}
+.hero-pick-card-wrap .grp-del-btn:hover:not([disabled]) { border-color: #b5533c; color: #f0a892; }
+.hero-pick-list .hero-pick-card { display: block; cursor: pointer; }
+:is(#hero-list, .hero-pick-list) .hero-pick-card.selected .hero-card {
+  border-color: var(--kl, #e79a45);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--kl, #e79a45) 55%, transparent), 0 10px 26px rgba(0,0,0,.45);
+}
+.hero-pick-list .hpc-avatar { flex: 0 0 auto; }

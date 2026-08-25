@@ -4050,12 +4050,11 @@
         opts += '<option value="' + l + '"' + (l === setupLevel ? ' selected' : '') + '>Niveau ' + l + '</option>';
       }
       return '<div class="grp-level-row">' +
-        '<label class="grp-level">' +
+        '<label class="grp-level" title="L\'expérience est commune : tous les aventuriers commencent au même niveau. ' +
+            'Au-delà du niveau 1, chacun choisira ses gains avant d\'entrer en jeu.">' +
           '<span>Niveau de départ du groupe</span>' +
           '<select id="grp-level">' + opts + '</select>' +
         '</label>' +
-        '<p class="hint grp-level-hint">L\'expérience est commune : tous les aventuriers commencent au même niveau. ' +
-          'Au-delà du niveau 1, chacun choisira ses gains (caractéristique, compétences, talents) avant d\'entrer en jeu.</p>' +
       '</div>';
     }
     function cardHtml(h) {
@@ -4107,13 +4106,13 @@
           '</div>' +
         '</div>' +
         '<p class="hint">Choisis 1 à 4 aventuriers qui partent à l\'aventure.</p>' +
+        '<div class="grp-cat-title">Aventuriers</div>' +
+        '<div id="grp-list" class="hero-pick-list">' +
+          (customRows || '<p class="empty">Aucun aventurier créé. Clique sur « + Aventurier » ou choisissez un Pré-Tiré ci-dessous.</p>') + '</div>' +
         (prebuiltRows
           ? '<div class="grp-cat-title">🎲 Aventuriers Pré-Tirés <small>(fournis avec l\'aventure — sélectionnez-les tels quels)</small></div>' +
             '<div class="hero-pick-list">' + prebuiltRows + '</div>'
           : '') +
-        '<div class="grp-cat-title">Aventuriers</div>' +
-        '<div id="grp-list" class="hero-pick-list">' +
-          (customRows || '<p class="empty">Aucun aventurier créé. Clique sur « + Aventurier » ou choisissez un Pré-Tiré ci-dessus.</p>') + '</div>' +
         '<p class="diff-advice" id="grp-advice"></p>' +
         groupLevelHtml() +
         '<div class="roll-actions"><button class="primary big" id="grp-start">▶ Commencer l\'aventure</button></div>' +
