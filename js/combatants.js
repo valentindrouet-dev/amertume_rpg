@@ -819,15 +819,18 @@
   }
 
   function renderHeroes() {
+    // Les copies issues d'un Pré-Tiré se réalignent sur leur modèle.
+    if (Store.syncPrebuilts) Store.syncPrebuilts();
     renderProgress();
     const s = scope();
     const player = s.mode === 'player';
     const titleEl = $('#heroes-title');
-    if (titleEl) titleEl.textContent = player ? 'Votre groupe' : 'Aventuriers pré-construits';
+    if (titleEl) titleEl.textContent = player ? 'Votre groupe' : 'Aventuriers Pré-Tirés';
     const hintEl = $('#heroes-hint');
     if (hintEl) hintEl.textContent = player
       ? 'Les membres engagés dans l\'aventure en cours. Le groupe se constitue au lancement de l\'aventure.'
-      : 'Aventuriers modèles, réutilisables par les joueurs via « + Aventurier Pré-Construit ».';
+      : 'Modèles proposés dans TOUTES vos aventures, section « Aventuriers Pré-Tirés » de l\'écran de lancement. ' +
+        'Vos modifications sont répercutées immédiatement sur les aventuriers déjà tirés, même en pleine partie.';
     // En mode Joueur, le groupe (création/ajout) se fait sur l'écran de lancement
     // de l'aventure : ces boutons n'apparaissent que côté MJ.
     const addBtn = $('#btn-add-hero');

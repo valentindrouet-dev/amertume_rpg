@@ -353,6 +353,8 @@
   // ---------- Rendu principal ----------
   function render() {
     load();
+    // Pré-Tirés : les aventuriers qui en descendent suivent leur modèle en direct.
+    if (Store.syncPrebuilts) Store.syncPrebuilts();
     // Réaligne activeSession sur l'instance fraîchement chargée : save() persiste
     // le tableau `sessions`, donc activeSession doit y appartenir pour ne rien perdre.
     if (activeSession) {
@@ -3997,6 +3999,8 @@
   function renderPlay(advId) {
     scopeAdventureId = advId || scopeAdventureId;
     load();
+    // Pré-Tirés : les aventuriers qui en descendent suivent leur modèle en direct.
+    if (Store.syncPrebuilts) Store.syncPrebuilts();
     if (activeSession) {
       const m = sessions.find(function (s) { return s.id === activeSession.id; });
       setActive(m || null);

@@ -92,6 +92,8 @@
     var players = Store.state.heroes.filter(function (h) { return h.adventureId; });
     Store.state.heroes = (b.prebuilts || []).concat(players);
     Store.save();
+    // Les aventuriers tirés d'un modèle se réalignent sur la version reçue.
+    if (Store.syncPrebuilts) Store.syncPrebuilts();
   }
 
   // ---------- Publication / chargement ----------

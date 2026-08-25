@@ -305,6 +305,49 @@
     }
   }
 
+  // ---------- Aventuriers PRÉ-TIRÉS : lien vivant avec leurs copies ----------
+  // Un aventurier ajouté depuis un Pré-Tiré garde le lien `prebuiltId`. Toute
+  // modification du modèle par le MJ (nom, classe, caractéristiques, compétences,
+  // espèce, talents…) est répercutée sur ces copies — y compris pendant une
+  // partie — sans que le joueur ait à le recréer.
+  //
+  // Restent la propriété du joueur, jamais écrasés : l'identité de la copie
+  // (id, aventure), ses PV courants, et l'équipement qu'il a modifié en jeu
+  // (butin équipé). L'équipement de BASE suit toujours le modèle ; l'équipement
+  // porté ne suit que s'il n'a pas été touché depuis.
+  const PREBUILT_KEEP = { id: 1, adventureId: 1, prebuiltId: 1, pv: 1, equipment: 1, baseEquipment: 1 };
+  function syncPrebuilts() {
+    const list = state.heroes || [];
+    const models = {};
+    list.forEach(function (h) { if (h && !h.adventureId) models[h.id] = h; });
+    let changed = false;
+    list.forEach(function (c) {
+      if (!c || !c.prebuiltId) return;
+      const src = models[c.prebuiltId];
+      if (!src) return; // modèle supprimé : la copie garde son dernier état
+      Object.keys(src).forEach(function (k) {
+        if (PREBUILT_KEEP[k]) return;
+        const nv = JSON.stringify(src[k]);
+        if (JSON.stringify(c[k]) === nv) return;
+        c[k] = nv === undefined ? src[k] : JSON.parse(nv);
+        changed = true;
+      });
+      // Champ retiré du modèle : retiré aussi de la copie.
+      Object.keys(c).forEach(function (k) {
+        if (PREBUILT_KEEP[k]) return;
+        if (!(k in src)) { delete c[k]; changed = true; }
+      });
+      const modelEq = JSON.stringify(src.baseEquipment || src.equipment || {});
+      const baseEq = JSON.stringify(c.baseEquipment || {});
+      const wornEq = JSON.stringify(c.equipment || {});
+      const untouched = wornEq === baseEq;
+      if (baseEq !== modelEq) { c.baseEquipment = JSON.parse(modelEq); changed = true; }
+      if (untouched && wornEq !== modelEq) { c.equipment = JSON.parse(modelEq); changed = true; }
+    });
+    if (changed) save();
+    return changed;
+  }
+
   // Ajoute les pièces d'équipement officielles absentes (par nom), sans doublon
   function loadOfficial() {
     const existing = {};
@@ -1119,6 +1162,7 @@
     xpForLevel: xpForLevel,
     get state() { return state; },
     save: save,
+    syncPrebuilts: syncPrebuilts,
     replace: function (newState) {
       state = newState;
       save();
