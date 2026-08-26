@@ -1588,9 +1588,15 @@
     else if (res.critique) pushFx({ type: 'crit', iid: target.iid, amount: 0, fromPct: fromPct, toPct: toPct });
     if (res.pvHealed > 0) pushFx({ type: 'heal', iid: target.iid, amount: res.pvHealed, fromPct: fromPct, toPct: toPct });
     if (res.critique) toast('💥 CRITIQUE !', 'crit');
-    log(cname(attacker) + ' attaque ' + cname(target) +
-        (res.critique ? ' <span class="lcrit">CRITIQUE&nbsp;!</span>' : '') + ' ' + diceStr + ' : ' +
-        (res.pvLost > 0 ? amt(res.pvLost, 'dmg') + ' Dégâts.' : 'aucun dégât.'),
+    // Synthèse : un coup qui achève un adversaire s'annonce « tue » (en rouge)
+    // au lieu de « attaque … » + une ligne « est vaincu ! » séparée. Les dégâts
+    // d'un Critique s'affichent en doré — inutile de l'écrire en toutes lettres.
+    const willVanquish = wasActive && target.side === 'monster' && res.pvLost > 0 && target.pv <= 0;
+    log(cname(attacker) + (willVanquish ? ' <span class="lkill">tue</span> ' : ' attaque ') + cname(target) +
+        ' ' + diceStr + ' : ' +
+        (res.pvLost > 0
+          ? amt(res.pvLost, res.critique ? 'dmg-crit' : 'dmg') + ' Dégâts' + (willVanquish ? ' !' : '.')
+          : 'aucun dégât.'),
         res.critique ? 'crit' : 'attack');
     // REGAIN : la DEF a tout absorbé (aucun dégât d'une attaque adverse).
     if (res.pvLost <= 0 && res.pvHealed <= 0) applyRegain(target, attacker);
@@ -1637,7 +1643,7 @@
         }
       });
     }
-    checkComa(target);
+    checkComa(target, { silentVanquish: willVanquish });
     const killedNow = wasActive && target.status !== 'active';
     // Talents de critique (classes) : déclenchés après un critique d'un aventurier.
     if (res.critique && attacker.side === 'hero') onHeroCritTriggers(attacker, target, killedNow);
@@ -1960,7 +1966,8 @@
     Store.save();
   }
 
-  function checkComa(c) {
+  function checkComa(c, opts) {
+    const silentVanquish = !!(opts && opts.silentVanquish);
     // DERNIER SOUFFLE (passif) : 1×/combat, l'aventurier ignore le coup fatal.
     if (c.status === 'active' && c.pv <= 0 && c.side === 'hero' && heroHasTalent(c, 'dernier_souffle') && !c.lastBreathUsed) {
       c.lastBreathUsed = true; c.pv = 1;
@@ -1972,9 +1979,11 @@
       c.status = 'coma';
       c.pv = 0;
       pushFx({ type: 'faint', iid: c.iid, side: c.side, name: c.name });
-      appendLastLog(c.side === 'monster'
-        ? cname(c) + ' <span class="lvanq">est ' + gAgr(c, 'vaincu') + ' !</span>'
-        : cname(c) + ' <span class="lcoma">tombe dans le coma…</span>');
+      if (!(silentVanquish && c.side === 'monster')) {
+        appendLastLog(c.side === 'monster'
+          ? cname(c) + ' <span class="lvanq">est ' + gAgr(c, 'vaincu') + ' !</span>'
+          : cname(c) + ' <span class="lcoma">tombe dans le coma…</span>');
+      }
       if (c.side === 'hero' && combatKey === 'combat') applyHeroComaVieLoss(c);
       // MORT EXPLOSIVE : le souffle part au moment où le porteur tombe.
       mortExplosive(c);
@@ -3158,7 +3167,7 @@
   // ils s'écrivent dans une ligne fixe sous les zones — remplacée à chaque
   // action au lieu de s'empiler. Passer TURNLINE à false rétablit à l'identique
   // les anciens messages flottants (rien d'autre à toucher).
-  const TURNLINE = true;
+  const TURNLINE = false;
   let turnLine = null;        // { text, kind } affiché en ce moment
   let toastBusy = false;
   // Le plateau se redessine souvent : on repeint le fil après chaque rendu.
@@ -6260,8 +6269,9 @@
     // Le déplacement n'est plus raconté dans le journal (il se voit sur le
     // plateau) : on consomme simplement le préfixe en attente.
     if (movePrefix && movePrefix.iid === attacker.iid) movePrefix = null;
-    log(cname(attacker) + ' attaque ' + cname(target) +
-      ' <span class="lavg">(moyenne)</span> : ' + amt(pvLost, 'dmg') + ' Dégâts.', 'attack');
+    const willVanquishAvg = target.status === 'active' && target.side === 'monster' && pvLost > 0 && target.pv <= 0;
+    log(cname(attacker) + (willVanquishAvg ? ' <span class="lkill">tue</span> ' : ' attaque ') + cname(target) +
+      ' <span class="lavg">(moyenne)</span> : ' + amt(pvLost, 'dmg') + ' Dégâts' + (willVanquishAvg ? ' !' : '.'), 'attack');
     if (target.side === 'monster' && target.pv <= 0 && !target.killedBy) target.killedBy = attacker.iid;
     if (atk.range === 'distance' && attacker.side === 'hero') {
       enemyZoneMates(attacker).forEach(function (m) {
@@ -6269,7 +6279,7 @@
         if (attacker.status === 'active') dchocFrom(m, attacker, 'distance');
       });
     }
-    checkComa(target);
+    checkComa(target, { silentVanquish: willVanquishAvg });
   }
 
   function applyAverageAttack(attacker, atkIndex, target) {
@@ -6610,10 +6620,17 @@
       return e.kind !== 'move' && e.kind !== 'turn';
     });
     if (!rows.length) { box.innerHTML = '<p class="empty">Rien à signaler pour l\'instant.</p>'; return; }
-    box.innerHTML = rows.map(function (e) {
-      return '<div class="log-row log-' + e.kind + '"><span class="log-turn">T' + e.turn + '</span>' +
-        e.text + '</div>';
-    }).join('');
+    // Le « Tx » en préfixe de chaque ligne est remplacé par une ligne de
+    // séparation entre tours — plus lisible qu'un repère répété partout.
+    let html = ''; let lastTurn = null;
+    rows.forEach(function (e) {
+      if (e.turn !== lastTurn) {
+        html += '<div class="log-turn-sep"><span>Tour ' + e.turn + '</span></div>';
+        lastTurn = e.turn;
+      }
+      html += '<div class="log-row log-' + e.kind + '">' + e.text + '</div>';
+    });
+    box.innerHTML = html;
     // Détail du calcul des dégâts (les dés) replié par défaut : clic pour l'ouvrir.
     if (!box.dataset.diceWired) {
       box.dataset.diceWired = '1';

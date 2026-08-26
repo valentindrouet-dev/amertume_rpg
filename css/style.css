@@ -7419,3 +7419,14 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .cbt-turnline-invis      { border-left-color: #9a6ad0; }
 .cbt-turnline-info       { border-left-color: #6f9fd6; }
 @media (prefers-reduced-motion: reduce) { .cbt-turnline.bump { animation: none; } }
+
+/* ── v2.5.48 · Journal de combat : synthèse "tue" + séparateur de tour ── */
+.log-turn-sep {
+  display: flex; align-items: center; gap: .55rem; margin: .55rem 0 .3rem;
+  color: #8a7860; font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em;
+}
+.log-turn-sep::before, .log-turn-sep::after { content: ''; flex: 1 1 auto; height: 1px; background: rgba(255, 235, 205, .12); }
+.log-turn-sep:first-child { margin-top: 0; }
+.lkill { color: #ff5a4a; font-weight: 800; }
+.lamt.dmg-crit { color: #f2b13a; }
+.combat-log .lamt.dmg-crit { color: #f7c65a; }
