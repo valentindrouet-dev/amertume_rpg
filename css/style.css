@@ -7391,3 +7391,31 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .setup-map-pick { display: inline-flex; align-items: center; gap: .35rem; font-size: .78rem; color: var(--muted); margin-left: auto; margin-right: .5rem; }
 .setup-map-pick select { width: auto; font-size: .78rem; padding: .2rem .3rem; }
 #setup-add-zone[hidden] { display: none; }
+
+/* ── v2.5.47 · Fil du tour (remplace les messages flottants) ─────── */
+.cbt-turnline {
+  margin: .5rem 0 .2rem; padding: .45rem .8rem; border-radius: 10px;
+  background: linear-gradient(180deg, #2a2219 0%, #211a13 100%);
+  border: 1px solid var(--line, #3a2f24); border-left: 3px solid #7a6a55;
+  color: #f0e2cd; font-size: .84rem; font-weight: 700; letter-spacing: .01em;
+  min-height: 1.35rem; display: flex; align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+}
+.cbt-turnline[hidden] { display: none; }
+/* Petite pulsation au changement : on voit que la ligne s'est mise à jour. */
+.cbt-turnline.bump { animation: cbt-line-bump .28s ease-out; }
+@keyframes cbt-line-bump {
+  0%   { transform: translateY(-2px); opacity: .55; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+/* Teintes : mêmes codes que les anciens messages. */
+.cbt-turnline-atk-weapon { border-left-color: #c9822f; }
+.cbt-turnline-atk-foe    { border-left-color: #b5533c; }
+.cbt-turnline-act-hero   { border-left-color: #4d8ed1; }
+.cbt-turnline-orbe       { border-left-color: #9b84d8; }
+.cbt-turnline-crit       { border-left-color: #d9a94a; color: #ffe6a8; }
+.cbt-turnline-fail       { border-left-color: #8a4a3a; color: #f0b8a8; }
+.cbt-turnline-miss       { border-left-color: #8a7a4a; }
+.cbt-turnline-invis      { border-left-color: #9a6ad0; }
+.cbt-turnline-info       { border-left-color: #6f9fd6; }
+@media (prefers-reduced-motion: reduce) { .cbt-turnline.bump { animation: none; } }

@@ -389,6 +389,7 @@
 
   function startCombat() {
     lastRoll = null; rollActive = false; autoSelectOff = false;   // pool vide et sélection auto au départ
+    turnLine = null;
     const heroObjs = Store.state.heroes.filter(function (h) { return setupHeroes[h.id]; });
     const cfg = {
       zones: setupZones.map(function (z, i) {
@@ -3153,14 +3154,41 @@
     // Rafale : on ne garde que les derniers messages, les plus pertinents.
     if (toastQueue.length > 4) toastQueue = toastQueue.slice(-4);
   }
-  // UN SEUL message à l'écran à la fois : ils se succèdent au même endroit au
-  // lieu de s'empiler et de se superposer. Le journal garde tout le détail.
+  // FIL DU TOUR (v2.5.47) : les messages ne flottent plus au-dessus du plateau,
+  // ils s'écrivent dans une ligne fixe sous les zones — remplacée à chaque
+  // action au lieu de s'empiler. Passer TURNLINE à false rétablit à l'identique
+  // les anciens messages flottants (rien d'autre à toucher).
+  const TURNLINE = true;
+  let turnLine = null;        // { text, kind } affiché en ce moment
   let toastBusy = false;
+  // Le plateau se redessine souvent : on repeint le fil après chaque rendu.
+  function paintTurnLine() {
+    const root = document.querySelector(rootSel);
+    const el = root ? root.querySelector('#combat-turnline') : null;
+    if (!el) return;
+    if (!TURNLINE || !turnLine) { el.hidden = true; el.textContent = ''; return; }
+    el.hidden = false;
+    el.className = 'cbt-turnline cbt-turnline-' + turnLine.kind;
+    el.textContent = turnLine.text;
+  }
+  function clearTurnLine() { turnLine = null; paintTurnLine(); }
   function flushToasts() {
     if (toastBusy || !toastQueue.length) return;
     const root = document.querySelector(rootSel);
     if (!root) { toastQueue = []; return; }
     const t = toastQueue.shift();
+    if (TURNLINE) {
+      turnLine = t;
+      paintTurnLine();
+      const el = root.querySelector('#combat-turnline');
+      if (el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+      // Les messages en attente défilent, le dernier RESTE affiché.
+      if (toastQueue.length) {
+        toastBusy = true;
+        setTimeout(function () { toastBusy = false; flushToasts(); }, 700);
+      }
+      return;
+    }
     const el = document.createElement('div');
     el.className = 'cbt-toast cbt-toast-' + t.kind;
     el.textContent = t.text;
@@ -3825,6 +3853,7 @@
                 zonesFreeCells() + '</div>'
             : '<div class="combat-zones-grid zc-' + zoneCount() + '" style="' + zonesGridStyle(zoneCount()) + '">' +
                 zonesGridCells() + '</div>') +
+          '<div id="combat-turnline" class="cbt-turnline" hidden></div>' +
           '<div id="combat-cemetery" class="combat-cemetery"></div>' +
           '<div class="phase-controls" id="phase-controls"></div>' +
         '</div>' +
@@ -3853,6 +3882,7 @@
     try { renderZones(); } catch (e) { zonesErr = e; console.error('[combat] renderZones', e); }
     try { renderPhaseControls(); } catch (e) { console.error('[combat] renderPhaseControls', e); }
     try { renderLog(); } catch (e) { console.error('[combat] renderLog', e); }
+    try { paintTurnLine(); } catch (e) { /* sans conséquence */ }
     // Les infobulles natives sont retirées APRÈS le rendu des boutons et des
     // vignettes : la case Description est seule à documenter les éléments.
     try { stripTitles(root); } catch (e) { /* sans conséquence */ }
@@ -3897,6 +3927,7 @@
       // L'instantané est pris AVANT l'ouverture : on rejoue donc l'annonce, la
       // désignation de la Proie et le Pré-Tour, sinon le combat repartait
       // directement en phase héros, sans pouvoirs de Pré-Tour.
+      turnLine = null;
       log('Combat recommencé — Tour 1.', 'turn');
       try { announceInvisibles(); } catch (e) {}
       try { designateMarkedHero(); } catch (e) {}
