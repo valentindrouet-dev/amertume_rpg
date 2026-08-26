@@ -7430,3 +7430,74 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
 .lkill { color: #ff5a4a; font-weight: 800; }
 .lamt.dmg-crit { color: #f2b13a; }
 .combat-log .lamt.dmg-crit { color: #f7c65a; }
+
+/* ── v2.5.49 · Fiche de combattant au survol (case Description) ──── */
+.cbf-tags { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .35rem; }
+.cbf-tag {
+  font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+  padding: .12rem .4rem; border-radius: 999px;
+  background: rgba(80, 55, 20, .12); border: 1px solid rgba(80, 55, 20, .3); color: #5a4527;
+}
+.cbf-tag.cbf-type-standard  { background: rgba(90,83,72,.16);  border-color: rgba(90,83,72,.45);  color: #4a453c; }
+.cbf-tag.cbf-type-alpha     { background: rgba(138,100,16,.16); border-color: rgba(138,100,16,.5); color: #7a5c12; }
+.cbf-tag.cbf-type-solitaire { background: rgba(168,50,31,.15);  border-color: rgba(168,50,31,.5);  color: #96301f; }
+.cbf-tag.cbf-type-boss      { background: rgba(106,47,168,.15); border-color: rgba(106,47,168,.5); color: #5f2f96; }
+.cbf-tag.cbf-rapide { background: rgba(214,175,70,.18); border-color: rgba(214,175,70,.5); color: #7a5c12; }
+.cbf-tag.cbf-esq    { background: rgba(95,164,95,.18);  border-color: rgba(95,164,95,.5);  color: #3d7a3d; }
+.cbf-tag.cbf-seen   { background: rgba(63,123,192,.16); border-color: rgba(63,123,192,.45); color: #2c5a93; }
+/* Barre de PV, comme sur la vignette du bandeau. */
+.cbf-pv { display: flex; align-items: center; gap: .4rem; margin-bottom: .3rem; }
+.cbf-pv-bar {
+  flex: 1 1 auto; height: 10px; border-radius: 999px; overflow: hidden;
+  background: rgba(80, 55, 20, .18); box-shadow: inset 0 0 0 1px rgba(80, 55, 20, .25);
+}
+.cbf-pv-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6fbf6f, #4f9d4f); }
+.cbf-pv-txt { font-size: .68rem; font-weight: 800; color: #2f6b2f; white-space: nowrap; }
+/* Vignettes de caractéristique. */
+.cbf-stats { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .35rem; }
+.cbf-stat {
+  display: inline-flex; align-items: center; gap: .25rem;
+  padding: .16rem .45rem; border-radius: 8px;
+  font-size: .66rem; font-weight: 700;
+  border: 1px solid var(--sc, rgba(80,55,20,.3)); background: var(--sb, rgba(80,55,20,.08));
+}
+.cbf-stat i { font-style: normal; font-size: .78rem; line-height: 1; }
+.cbf-stat .cbf-lbl { text-transform: uppercase; letter-spacing: .05em; opacity: .8; }
+.cbf-stat .cbf-val { font-family: var(--font-display, inherit); font-size: .84rem; }
+.cbf-stat.cbf-def { --sc: rgba(70,90,140,.45);  --sb: rgba(70,90,140,.12);  color: #2f4a7a; }
+.cbf-stat.cbf-dmg { --sc: rgba(190,70,50,.45);  --sb: rgba(190,70,50,.12);  color: #9a3320; }
+.cbf-stat.cbf-xp  { --sc: rgba(190,150,40,.5);  --sb: rgba(190,150,40,.14); color: #7a5c12; }
+/* États en pastilles. */
+.cbf-states { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .3rem; }
+.cbf-state {
+  font-size: .62rem; font-weight: 800; padding: .12rem .4rem; border-radius: 999px;
+  background: rgba(80, 55, 20, .12); border: 1px solid rgba(80, 55, 20, .28); color: #5a4527;
+}
+.cbf-state.st-feu    { background: rgba(214,90,40,.16);  border-color: rgba(214,90,40,.5);  color: #a8421c; }
+.cbf-state.st-gele   { background: rgba(90,150,210,.16); border-color: rgba(90,150,210,.5); color: #2c5a93; }
+.cbf-state.st-poison { background: rgba(110,170,70,.16); border-color: rgba(110,170,70,.5); color: #4a7a20; }
+.cbf-state.st-blindage, .cbf-state.st-garde, .cbf-state.st-prepare {
+  background: rgba(70,120,190,.14); border-color: rgba(70,120,190,.45); color: #2c5a93;
+}
+/* Blocs de texte. */
+.cbf-unknown { font-size: .72rem; line-height: 1.35; color: #6a563a; font-style: italic; }
+.cbf-unknown b { font-style: normal; color: #4a3a23; }
+.cbf-talents { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .25rem; }
+.cbf-tal {
+  font-size: .62rem; font-weight: 700; padding: .12rem .4rem; border-radius: 6px;
+  background: rgba(106,47,168,.1); border: 1px solid rgba(106,47,168,.35); color: #5f2f96;
+}
+.cbf-notes { font-size: .7rem; font-style: italic; line-height: 1.35; color: #6a563a; }
+.cbf-rest { font-size: .7rem; font-weight: 700; color: #3d6b3d; }
+.cbf-rest.spent { color: #8a7860; font-style: italic; font-weight: 600; }
+/* « Vaincu ! » local, au-dessus de la vignette (remplace le bandeau géant). */
+.fx-vanq-txt {
+  color: #ff5a4a; font-size: 1.15rem; font-weight: 800; letter-spacing: .03em;
+  text-shadow: 0 0 10px rgba(255, 90, 74, .5), 0 1px 2px rgba(0, 0, 0, .7);
+}
+/* Quantité de monstres : option « par joueur » dans les éditeurs de combat. */
+.adv-ref-row .ref-per {
+  display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap;
+  font-size: .72rem; color: var(--muted); cursor: pointer;
+}
+.adv-ref-row .ref-per input { margin: 0; }

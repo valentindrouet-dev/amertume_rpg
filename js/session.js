@@ -3446,7 +3446,7 @@
       (z.monsterRefs || []).forEach(function (r) {
         if (!r.monsterId && !r.monName) return;
         const m = monsterTplForRef(r);
-        if (m) total += Math.max(1, r.count || 1);
+        if (m) total += Store.refCountEstimate ? Store.refCountEstimate(r) : Math.max(1, r.count || 1);
         else missing.push(r.monName || r.monsterId || '?');
       });
     });
@@ -3511,7 +3511,7 @@
           return previewChip('⚠ ' + (r.monName || 'Adversaire introuvable'), 'pv-foe pv-foe-missing');
         }
         const t = m.type === 'standard' ? 'sbire' : m.type;
-        const n = Math.max(1, r.count || 1);
+        const n = Store.refCountEstimate ? Store.refCountEstimate(r) : Math.max(1, r.count || 1);
         let out = '';
         for (let k = 0; k < n; k++) out += previewChip(m.name + (n > 1 ? ' ' + (k + 1) : ''), 'pv-foe ztype-' + t);
         return out;
@@ -3602,7 +3602,7 @@
     // Préparer les données de combat (zones)
     const zones = sceneZones(scene);
     const monsterCount = zones.reduce(function (n, z) {
-      return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).reduce(function (s, r) { return s + (r.count || 1); }, 0);
+      return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).reduce(function (s, r) { return s + (Store.refCountEstimate ? Store.refCountEstimate(r) : (r.count || 1)); }, 0);
     }, 0);
     if (!monsterCount) { alert('Aucun monstre défini pour ce combat.'); return; }
     // Les aventuriers morts (conséquence de scène) ne participent plus aux combats.
@@ -3650,7 +3650,8 @@
       (z.monsterRefs || []).forEach(function (r) {
         if (!r.monsterId && !r.monName) return;
         const m = monsterTplForRef(r);
-        foes.push((m ? m.name : '⚠ ' + (r.monName || 'introuvable')) + (r.count > 1 ? ' ×' + r.count : ''));
+        const qty = Store.refCountLabel ? Store.refCountLabel(r) : (r.count > 1 ? '×' + r.count : '');
+        foes.push((m ? m.name : '⚠ ' + (r.monName || 'introuvable')) + (qty ? ' ' + qty : ''));
       });
     });
     const sec = appendSection(box);
@@ -3749,7 +3750,7 @@
     const fc = ses.forcedCombat || {};
     const zones = fc.zones || [];
     const monsterCount = zones.reduce(function (n, z) {
-      return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).reduce(function (s, r) { return s + (r.count || 1); }, 0);
+      return n + (z.monsterRefs || []).filter(function (r) { return r.monsterId; }).reduce(function (s, r) { return s + (Store.refCountEstimate ? Store.refCountEstimate(r) : (r.count || 1)); }, 0);
     }, 0);
     if (!monsterCount) { alert('Aucun monstre défini pour ce combat.'); delete ses.forcedCombat; save(); render(); return; }
     const fighters = (ses.heroIds || []).filter(function (hid) {

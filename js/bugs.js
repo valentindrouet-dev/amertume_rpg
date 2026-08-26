@@ -92,7 +92,8 @@
       const m = Store.state.monsters.find(function (x) { return x.id === r.monsterId; });
       if (m) name = m.name;
     }
-    return (name || r.monsterId || '?') + (r.count > 1 ? '×' + r.count : '');
+    const q = (window.Store && Store.refCountLabel) ? Store.refCountLabel(r) : (r.count > 1 ? '×' + r.count : '');
+    return (name || r.monsterId || '?') + q;
   }
   // Détail compact d'une scène : id court, type, blocs, zones de combat, sorties.
   function sceneSummary(sc) {

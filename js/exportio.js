@@ -487,7 +487,10 @@
     let h = '<div class="kv"><b>Zones de combat :</b></div><ul style="margin:.15rem 0 .3rem 1.1rem;font-size:.85rem">';
     zones.forEach(function (z, i) {
       const refs = (z.monsterRefs || []).filter(function (r) { return r.monsterId; })
-        .map(function (r) { return (r.count > 1 ? r.count + '× ' : '') + monsterName(r.monsterId); });
+        .map(function (r) {
+          const q = Store.refCountLabel ? Store.refCountLabel(r) : (r.count > 1 ? '×' + r.count : '');
+          return (q ? q.replace(/^×/, '') + '× ' : '') + monsterName(r.monsterId);
+        });
       h += '<li>Zone ' + (i + 1) + (z.name ? ' « ' + esc(z.name) + ' »' : '') + ' : ' + (refs.length ? esc(refs.join(', ')) : 'vide') + '</li>';
     });
     h += '</ul>';

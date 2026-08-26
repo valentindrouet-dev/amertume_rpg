@@ -2457,7 +2457,12 @@
         }).join('');
         return '<div class="adv-ref-row" data-zi="' + zi + '" data-mi="' + mi + '">' +
           '<select class="ref-mon"><option value="">(choisir)</option>' + monOpts + '</select>' +
-          '<input type="number" class="ref-count" value="' + (ref.count || 1) + '" min="1" style="width:55px" />' +
+          // Nombre : un chiffre OU une expression de dés (« 1d3 », « 2d6+1 »)
+          // tirée au démarrage du combat.
+          '<input type="text" class="ref-count" value="' + esc(String(ref.count == null ? 1 : ref.count)) + '"' +
+            ' style="width:64px" title="Nombre d\'exemplaires : un chiffre (3) ou des dés (1d3, 2d6+1) tirés au lancement du combat" />' +
+          '<label class="ref-per" title="Multiplie ce nombre par le nombre d\'aventuriers engagés dans le combat">' +
+            '<input type="checkbox" class="ref-perhero"' + (ref.perHero ? ' checked' : '') + '> /joueur</label>' +
           '<button type="button" class="icon-btn ref-del">✕</button>' +
         '</div>';
       }).join('');
@@ -2541,7 +2546,16 @@
         };
       });
       zEl.querySelectorAll('.ref-count').forEach(function (inp, mi) {
-        inp.oninput = function () { z.monsterRefs[mi].count = Math.max(1, parseInt(this.value, 10) || 1); save(); };
+        inp.oninput = function () {
+          // Chaîne conservée telle quelle quand c'est une expression de dés,
+          // sinon repliée sur un entier ≥ 1.
+          const raw = String(this.value || '').trim();
+          z.monsterRefs[mi].count = /^\s*\d+\s*[dD]\s*\d+/.test(raw) ? raw : Math.max(1, parseInt(raw, 10) || 1);
+          save();
+        };
+      });
+      zEl.querySelectorAll('.ref-perhero').forEach(function (cb, mi) {
+        cb.onchange = function () { z.monsterRefs[mi].perHero = this.checked; save(); };
       });
       zEl.querySelectorAll('.ref-del').forEach(function (b, mi) {
         b.onclick = function () { z.monsterRefs.splice(mi, 1); refresh(); };

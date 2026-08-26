@@ -1165,8 +1165,37 @@
     return parseInt(s, 10) || 0;
   }
 
+  // Nombre d'exemplaires d'une référence d'adversaire, en valeur INDICATIVE pour
+  // les aperçus (le tirage réel a lieu au démarrage du combat) : une expression
+  // de dés rend sa moyenne, et « /joueur » n'est pas multiplié ici (le nombre
+  // d'aventuriers n'est pas connu à l'édition).
+  function refCountEstimate(ref) {
+    if (!ref) return 1;
+    const v = ref.count;
+    if (typeof v === 'number') return Math.max(1, Math.round(v));
+    const m = String(v == null ? '' : v).trim().match(DICE_RE);
+    if (m) {
+      const n = Math.min(50, Math.max(1, parseInt(m[1], 10) || 1));
+      const faces = Math.max(2, parseInt(m[2], 10) || 6);
+      const mod = m[3] ? parseInt(m[3].replace(/\s+/g, ''), 10) : 0;
+      return Math.max(1, Math.round(n * (faces + 1) / 2 + mod));
+    }
+    return Math.max(1, parseInt(v, 10) || 1);
+  }
+  // Libellé d'une quantité pour l'affichage (« ×3 », « ×1d3 », « ×2 /joueur »).
+  function refCountLabel(ref) {
+    if (!ref) return '';
+    const v = ref.count;
+    const txt = (typeof v === 'number') ? String(v) : String(v == null ? '1' : v).trim();
+    const per = ref.perHero ? ' /joueur' : '';
+    if (!per && (txt === '1' || txt === '')) return '';
+    return '×' + (txt || '1') + per;
+  }
+
   global.Store = {
     uid: uid,
+    refCountEstimate: refCountEstimate,
+    refCountLabel: refCountLabel,
     findMonster: findMonster,
     fillTalentTags: fillTalentTags,
     fillTalentTagsHtml: fillTalentTagsHtml,

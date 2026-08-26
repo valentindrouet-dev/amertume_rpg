@@ -321,6 +321,20 @@
       inst.zone = (startMap && startMap[h.id] != null) ? clampZone(startMap[h.id]) : heroZone;
       combatants.push(inst);
     });
+    // NOMBRE D'EXEMPLAIRES : `count` accepte un chiffre (3) OU une expression de
+    // dés (« 1d3 », « 2d6+1 »), tirée UNE fois ici. Avec `perHero`, le nombre est
+    // multiplié par le nombre d'aventuriers engagés — un combat qui s'adapte à
+    // la taille du groupe. Le tirage est mémorisé sur la ref (resolvedCount)
+    // pour que la numérotation et la création utilisent la même valeur.
+    const heroCount = Math.max(1, heroObjs.length);
+    const resolveCount = function (ref) {
+      let n = (typeof ref.count === 'number')
+        ? ref.count
+        : (Store.rollAmount ? Store.rollAmount(ref.count) : parseInt(ref.count, 10) || 1);
+      n = Math.max(1, Math.round(n || 1));
+      if (ref.perHero) n *= heroCount;
+      return Math.min(24, n); // garde-fou : un plateau reste jouable
+    };
     // Numérotation globale par template : on compte d'abord le total d'exemplaires
     // de chaque adversaire sur tout le combat (toutes zones confondues), puis on
     // numérote en continu — sans « # » et indépendamment de la zone, car un
@@ -330,7 +344,8 @@
       (z.monsterRefs || []).forEach(function (ref) {
         const tpl = monsterTplFor(ref);
         if (!tpl) return;
-        totalByTpl[tpl.id] = (totalByTpl[tpl.id] || 0) + (ref.count || 1);
+        ref.resolvedCount = resolveCount(ref);
+        totalByTpl[tpl.id] = (totalByTpl[tpl.id] || 0) + ref.resolvedCount;
       });
     });
     const seqByTpl = {};
@@ -339,7 +354,7 @@
       (z.monsterRefs || []).forEach(function (ref) {
         const tpl = monsterTplFor(ref);
         if (!tpl) { console.warn('[combat] Adversaire introuvable pour la zone', z.name, '— ref:', ref); return; }
-        const count = ref.count || 1;
+        const count = (typeof ref.resolvedCount === 'number') ? ref.resolvedCount : resolveCount(ref);
         for (let k = 0; k < count; k++) {
           const inst = instFromMonster(tpl, mi++);
           seqByTpl[tpl.id] = (seqByTpl[tpl.id] || 0) + 1;
@@ -3424,8 +3439,10 @@
           // Adversaire vaincu : fondu fantôme + annonce centrale « <Nom> est vaincu ! ».
           // Aventurier : il reste affiché (grisé) dans sa zone ; coma annoncé au centre.
           if (ev.side === 'monster') {
+            // Annonce LOCALE au-dessus de la vignette (comme les PV), plus de
+            // bandeau géant au centre de l'écran.
             spawnGhostFade(ev.iid);
-            centerText((ev.name || 'Un adversaire') + ' est vaincu !', 'fx-center-foe', fxCenterIdx++);
+            floatText(a.rect, 'Vaincu !', 'fx-vanq-txt', fxFloatIdx++);
           } else {
             centerText((ev.name || 'Un aventurier') + ' tombe dans le coma !', 'fx-center-coma', fxCenterIdx++);
           }
@@ -3457,7 +3474,12 @@
       document.body.classList.toggle('has-cbdock', onBoard);
       if (!combat()) { renderSetup(root); }
       else if (combat().finished) { renderSummary(); }
-      else { renderBoard(root); }
+      else {
+        renderBoard(root);
+        // FIN DE COMBAT : dès qu'un camp est vaincu, l'écran de résultat s'ouvre
+        // de lui-même — le temps de laisser jouer l'animation du dernier coup.
+        scheduleAutoFinish();
+      }
     } catch (e) {
       // Dernier filet : ne jamais laisser un module de combat totalement vide.
       console.error('[combat] render', e);
@@ -3467,6 +3489,20 @@
       const b = document.getElementById('combat-recover');
       if (b) b.addEventListener('click', function () { render(); });
     }
+  }
+
+  // Ouverture automatique du résultat quand un camp est vaincu (plus besoin de
+  // cliquer « Résultat du Combat » : le bouton reste en place comme filet).
+  let autoFinishTimer = null;
+  function scheduleAutoFinish() {
+    const c = combat();
+    if (!c || !c.outcome || c.finished || autoFinishTimer) return;
+    autoFinishTimer = setTimeout(function () {
+      autoFinishTimer = null;
+      const cc = combat();
+      if (!cc || !cc.outcome || cc.finished) return;
+      endCombat(cc.outcome !== 'defeat');
+    }, 1200); // laisse passer le « Vaincu ! » et le fondu de la vignette
   }
 
   // Écran de résumé de fin de combat
@@ -4361,41 +4397,63 @@
     if (!c) return;
     const isEnemy = c.side === 'monster';
     const known = !isEnemy || c.analyzed;
-    const L = [];
+    // Fiche en vignettes, façon carte d'aventurier : chaque chiffre a son
+    // symbole et sa couleur, sur le fond clair de la case Description.
+    const stat = function (ico, lbl, val, kls) {
+      return '<span class="cbf-stat cbf-' + kls + '"><i>' + ico + '</i>' +
+        '<span class="cbf-lbl">' + lbl + '</span>' +
+        '<b class="cbf-val">' + val + '</b></span>';
+    };
+    let head = '';
     if (isEnemy) {
-      L.push('<b>' + esc((Combatants.TYPE_LABEL && Combatants.TYPE_LABEL[c.type]) || c.type || 'Adversaire') + '</b>');
+      const tl = (Combatants.TYPE_LABEL && Combatants.TYPE_LABEL[c.type]) || c.type || 'Adversaire';
+      head += '<span class="cbf-tag cbf-type-' + esc(c.type || 'standard') + '">' + esc(tl) + '</span>';
+      if (c.rapide) head += '<span class="cbf-tag cbf-rapide">⚡ Rapide</span>';
+      if (c.esquive) head += '<span class="cbf-tag cbf-esq">🍃 Esquive</span>';
+      if (c.analyzed) head += '<span class="cbf-tag cbf-seen">🔍 Analysé</span>';
     } else if (c.klass) {
-      L.push('<b>' + esc(c.klass) + '</b>');
+      head += '<span class="cbf-tag cbf-klass klass-' + slug(c.klass) + '">' + esc(c.klass) + '</span>';
     }
+    let txt = head ? '<div class="cbf-tags">' + head + '</div>' : '';
     if (known) {
-      L.push('PV <b>' + c.pv + ' / ' + c.maxPv + '</b>');
-      L.push('DEF <b>' + ((c.states.auSol || c.states.brise) ? 0 : c.def) + '</b>');
-      if (c.damage) L.push('Dégâts <b>+' + c.damage + '</b>');
-      if (isEnemy && c.xp) L.push('<b>' + c.xp + '</b> XP');
+      const defNow = (c.states.auSol || c.states.brise) ? 0 : c.def;
+      const pvPct = Math.max(0, Math.min(100, Math.round((c.pv / (c.maxPv || 1)) * 100)));
+      txt += '<div class="cbf-pv"><div class="cbf-pv-bar"><i style="width:' + pvPct + '%"></i></div>' +
+        '<span class="cbf-pv-txt">❤ ' + c.pv + ' / ' + c.maxPv + ' PV</span></div>';
+      txt += '<div class="cbf-stats">' +
+        stat('🛡', 'DEF', defNow, 'def') +
+        (c.damage ? stat('⚔', 'DÉG', '+' + c.damage, 'dmg') : '') +
+        (isEnemy && c.xp ? stat('✦', 'XP', c.xp, 'xp') : '') +
+      '</div>';
     }
-    let txt = L.join(' · ');
-    // États en cours.
+    // États en cours, en pastilles colorées.
     const st = Object.keys(STATE_META).filter(function (k) {
       return isStackState(k) ? stateVal(c, k) > 0 : (k === 'prepare' ? (c.states.prepare || c.prepBonus) : c.states[k]);
     });
     if (st.length) {
-      txt += '<br><span class="cbdesc-states">' + st.map(function (k) {
-        return stateIcon(k) + ' ' + esc(stateBadgeLabel(c, k));
-      }).join(' · ') + '</span>';
+      txt += '<div class="cbf-states">' + st.map(function (k) {
+        return '<span class="cbf-state st-' + k + '">' + stateIcon(k) + ' ' + esc(stateBadgeLabel(c, k)) + '</span>';
+      }).join('') + '</div>';
     }
     if (!known) {
-      txt += '<br><i>Adversaire non analysé : sa Défense, ses Dégâts et son XP restent inconnus. Utilisez l\'action Analyse pour les révéler.</i>';
+      txt += '<div class="cbf-unknown">🔍 <b>Non analysé</b> — Défense, Dégâts et XP restent inconnus. ' +
+        'Utilisez l\'action <b>Analyse</b> pour les révéler.</div>';
     } else if (isEnemy) {
-      const tpl = (Store.state.monsters || []).find(function (m) { return m.id === c.templateId; });
-      if (tpl && tpl.notes) txt += '<br><i>' + esc(tpl.notes) + '</i>';
       const labels = c.analyzed ? (c.talentLabels || []) : [];
-      if (labels.length) txt += '<br>Talents : <b>' + esc(labels.join(', ')) + '</b>';
+      if (labels.length) {
+        txt += '<div class="cbf-talents">' + labels.map(function (t) {
+          return '<span class="cbf-tal">✦ ' + esc(t) + '</span>';
+        }).join('') + '</div>';
+      }
+      const tpl = (Store.state.monsters || []).find(function (m) { return m.id === c.templateId; });
+      if (tpl && tpl.notes) txt += '<div class="cbf-notes">' + esc(tpl.notes) + '</div>';
     } else {
       const rest = [];
-      if (!actionSpent(c)) rest.push('action');
-      if (c.prepBonus) rest.push('action bonus (Préparé)');
-      if (!c.used.move || c.freeMoveReady || c.freeMoves > 0) rest.push('mouvement');
-      txt += '<br>' + (rest.length ? 'Reste : <b>' + rest.join(', ') + '</b>.' : '<i>A tout joué ce tour.</i>');
+      if (!actionSpent(c)) rest.push('⚔ action');
+      if (c.prepBonus) rest.push('✦ action bonus');
+      if (!c.used.move || c.freeMoveReady || c.freeMoves > 0) rest.push('👣 mouvement');
+      txt += '<div class="cbf-rest' + (rest.length ? '' : ' spent') + '">' +
+        (rest.length ? 'Reste : ' + rest.join(' · ') : 'A tout joué ce tour.') + '</div>';
     }
     const tone = isEnemy ? (TONE_TYPE[c.type] || '#a8321f') : (TONE_KLASS[slug(c.klass || '')] || '#1f5a96');
     putDesc('c:' + c.iid + ':' + c.pv + ':' + st.join(',') + ':' + (c.analyzed ? 'a' : '') + ':' + (actionSpent(c) ? 's' : ''),
