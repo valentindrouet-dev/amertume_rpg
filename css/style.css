@@ -4458,21 +4458,27 @@ body.mode-player #item-list.roster-list { display: block; }
 }
 .combat-zone.zone-attackable:hover { background: rgba(231,111,57,.16); outline-color: #e76f39; }
 /* Messages flottants du module de combat */
+/* v2.5.46 — UN SEUL message à la fois, à une position FIXE : ils se succèdent
+   au même endroit au lieu de s'empiler en cascade. */
 .cbt-toast {
-  position: absolute; left: 50%; transform: translateX(-50%);
+  position: absolute; left: 50%; top: 3.2rem; transform: translateX(-50%);
   z-index: 40; pointer-events: none;
   border-radius: 10px; padding: .4rem .9rem; font-weight: 800; letter-spacing: .02em;
-  animation: cbt-toast-pop 1.9s ease-out forwards;
+  animation: cbt-toast-in .16s ease-out both;
+}
+.cbt-toast.out { animation: cbt-toast-out .18s ease-in both; }
+@keyframes cbt-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes cbt-toast-out {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(-6px); }
 }
 .cbt-toast-invis { background: rgba(60,40,90,.94); color: #f0e4ff; border: 1px solid rgba(190,150,240,.7); box-shadow: 0 0 18px rgba(160,110,220,.45); }
 .cbt-toast-miss  { background: rgba(70,55,40,.94); color: #f3e3cc; border: 1px solid rgba(214,175,70,.6); box-shadow: 0 0 16px rgba(214,175,70,.3); }
 .cbt-toast-info  { background: rgba(40,50,70,.94); color: #e2ecff; border: 1px solid rgba(120,160,220,.6); }
-@keyframes cbt-toast-pop {
-  0% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
-  15%, 70% { opacity: 1; transform: translateX(-50%) translateY(0); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
-}
-@media (prefers-reduced-motion: reduce) { .cbt-toast { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .cbt-toast, .cbt-toast.out { animation: none; } }
 .combat-choicebar.cbt-aimbar { background: rgba(231,111,57,.14); border-color: rgba(231,111,57,.5); }
 
 /* v2.3.80 : « Blocs révélés si … » — cases à cocher multiples */

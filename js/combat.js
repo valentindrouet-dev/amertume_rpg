@@ -3145,20 +3145,37 @@
   // Mis en file puis affichés APRÈS le rendu : un toast inséré avant render()
   // serait immédiatement effacé par la reconstruction du DOM.
   let toastQueue = [];
-  function toast(text, kind) { toastQueue.push({ text: text, kind: kind || 'info' }); }
+  function toast(text, kind) {
+    // Doublon consécutif (même texte enchaîné) : inutile de le répéter.
+    const last = toastQueue[toastQueue.length - 1];
+    if (last && last.text === text) return;
+    toastQueue.push({ text: text, kind: kind || 'info' });
+    // Rafale : on ne garde que les derniers messages, les plus pertinents.
+    if (toastQueue.length > 4) toastQueue = toastQueue.slice(-4);
+  }
+  // UN SEUL message à l'écran à la fois : ils se succèdent au même endroit au
+  // lieu de s'empiler et de se superposer. Le journal garde tout le détail.
+  let toastBusy = false;
   function flushToasts() {
-    if (!toastQueue.length) return;
-    const q = toastQueue; toastQueue = [];
+    if (toastBusy || !toastQueue.length) return;
     const root = document.querySelector(rootSel);
-    if (!root) return;
-    q.forEach(function (t, i) {
-      const el = document.createElement('div');
-      el.className = 'cbt-toast cbt-toast-' + t.kind;
-      el.textContent = t.text;
-      el.style.top = (3.2 + i * 3) + 'rem';
-      root.appendChild(el);
-      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 1900);
-    });
+    if (!root) { toastQueue = []; return; }
+    const t = toastQueue.shift();
+    const el = document.createElement('div');
+    el.className = 'cbt-toast cbt-toast-' + t.kind;
+    el.textContent = t.text;
+    root.appendChild(el);
+    toastBusy = true;
+    // Enchaînement serré : les messages restants défilent sans faire attendre.
+    const dur = toastQueue.length ? 620 : 1250;
+    setTimeout(function () {
+      el.classList.add('out');
+      setTimeout(function () {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        toastBusy = false;
+        flushToasts();
+      }, 180);
+    }, dur);
   }
 
   function pushFx(ev) { if (ev) fxQueue.push(ev); }
@@ -4941,7 +4958,9 @@
     if (box.getAttribute('data-anim') !== String(lastRoll.seq)) {
       box.setAttribute('data-anim', String(lastRoll.seq));
       animatePool(box);
-      flyDice(box);
+      // (v2.5.46) Plus de dés projetés au centre de l'écran : le jet se lit
+      // directement dans le pool du bandeau, seul endroit où le regard va.
+      
     }
   }
 
