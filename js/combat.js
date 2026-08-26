@@ -241,10 +241,17 @@
     const hasEsquiveEff = advTalents.some(function (t) { return t.effect === 'esquive_innee' || t.effect === 'esquive_6'; });
     // RENFORCEMENT : le maximum de PV augmente du bonus de dégâts.
     const renfort = advTalents.some(function (t) { return t.effect === 'renforcement'; }) ? (m.damage || 0) : 0;
+    // PV : un nombre fixe, OU une expression de dés (« 2d6+2 ») tirée ICI —
+    // donc une fois PAR EXEMPLAIRE : deux adversaires du même type n'ont pas
+    // forcément le même nombre de PV dans un même combat.
+    let basePv = (typeof m.pv === 'number')
+      ? m.pv
+      : (Store.rollAmount ? Store.rollAmount(m.pv) : parseInt(m.pv, 10) || 1);
+    basePv = Math.max(1, Math.round(basePv || 1));
     return {
       iid: 'M' + i + '-' + m.id.slice(-4),
       side: 'monster', templateId: m.id, name: m.name, imageUrl: m.imageUrl || null,
-      maxPv: m.pv + renfort, pv: m.pv + renfort,
+      maxPv: basePv + renfort, pv: basePv + renfort,
       def: Combatants.monsterTotalDef(m), damage: m.damage, xp: m.xp, type: m.type,
       menace: m.menace, esquive: !!m.esquive || hasEsquiveEff, rapide: !!m.rapide, socle: m.socle,
       behaviors: Array.isArray(m.behaviors) ? m.behaviors.slice() : [],
@@ -324,8 +331,7 @@
     // NOMBRE D'EXEMPLAIRES : `count` accepte un chiffre (3) OU une expression de
     // dés (« 1d3 », « 2d6+1 »), tirée UNE fois ici. Avec `perHero`, le nombre est
     // multiplié par le nombre d'aventuriers engagés — un combat qui s'adapte à
-    // la taille du groupe. Le tirage est mémorisé sur la ref (resolvedCount)
-    // pour que la numérotation et la création utilisent la même valeur.
+    // la taille du groupe. Le tirage a lieu UNE fois par lancement de combat.
     const heroCount = Math.max(1, heroObjs.length);
     const resolveCount = function (ref) {
       let n = (typeof ref.count === 'number')
@@ -339,22 +345,28 @@
     // de chaque adversaire sur tout le combat (toutes zones confondues), puis on
     // numérote en continu — sans « # » et indépendamment de la zone, car un
     // adversaire peut changer de zone (« Répurgateur 2 »).
+    // Le tirage est mémorisé DANS UNE TABLE LOCALE (clé zone|index) et jamais
+    // écrit sur la référence : celle-ci appartient à l'aventure, et l'y stocker
+    // figeait le nombre d'une partie à l'autre — et le faisait voyager dans les
+    // exports et les partages.
     const totalByTpl = {};
-    (cfg.zones || []).forEach(function (z) {
-      (z.monsterRefs || []).forEach(function (ref) {
+    const rolled = {};
+    (cfg.zones || []).forEach(function (z, zi) {
+      (z.monsterRefs || []).forEach(function (ref, ri) {
         const tpl = monsterTplFor(ref);
         if (!tpl) return;
-        ref.resolvedCount = resolveCount(ref);
-        totalByTpl[tpl.id] = (totalByTpl[tpl.id] || 0) + ref.resolvedCount;
+        const n = resolveCount(ref);
+        rolled[zi + '|' + ri] = n;
+        totalByTpl[tpl.id] = (totalByTpl[tpl.id] || 0) + n;
       });
     });
     const seqByTpl = {};
     let mi = 0;
     (cfg.zones || []).forEach(function (z, zi) {
-      (z.monsterRefs || []).forEach(function (ref) {
+      (z.monsterRefs || []).forEach(function (ref, ri) {
         const tpl = monsterTplFor(ref);
         if (!tpl) { console.warn('[combat] Adversaire introuvable pour la zone', z.name, '— ref:', ref); return; }
-        const count = (typeof ref.resolvedCount === 'number') ? ref.resolvedCount : resolveCount(ref);
+        const count = rolled[zi + '|' + ri] != null ? rolled[zi + '|' + ri] : resolveCount(ref);
         for (let k = 0; k < count; k++) {
           const inst = instFromMonster(tpl, mi++);
           seqByTpl[tpl.id] = (seqByTpl[tpl.id] || 0) + 1;

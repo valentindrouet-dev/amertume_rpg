@@ -2141,7 +2141,7 @@
         (open
           ? '<div class="mon-sheet">' +
               '<div class="mon-sheet-line mon-sheet-stats">' +
-                '<span class="stat-pill">❤ <b>' + m.pv + '</b> PV</span>' +
+                '<span class="stat-pill">❤ <b>' + esc(String(m.pv)) + '</b> PV</span>' +
                 '<span class="stat-pill">🛡 <b>' + monsterTotalDef(m) + '</b> DEF</span>' +
                 '<span class="stat-pill">⚔ <b>' + m.damage + '</b> Dégâts</span>' +
                 '<span class="stat-pill">✦ <b>' + m.xp + '</b> XP</span>' +
@@ -2343,7 +2343,13 @@
       id: id, name: $('#m-name').value.trim() || 'Monstre',
       family: $('#m-family').value.trim(),
       advId: ($('#m-adv') && $('#m-adv').value) || '',
-      pv: parseInt($('#m-pv').value, 10) || 1,
+      // PV : un nombre, OU une expression de dés (« 2d6+2 ») tirée pour chaque
+      // exemplaire au début du combat — deux loups du même type n'ont alors pas
+      // le même nombre de PV.
+      pv: (function () {
+        const raw = String($('#m-pv').value || '').trim();
+        return /^\s*\d+\s*[dD]\s*\d+/.test(raw) ? raw : (parseInt(raw, 10) || 1);
+      })(),
       def: parseInt($('#m-def').value, 10) || 0,
       damage: parseInt($('#m-damage').value, 10) || 0,
       xp: parseInt($('#m-xp').value, 10) || 0,

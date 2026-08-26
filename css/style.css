@@ -7501,3 +7501,13 @@ h3, .io-bar .io-label { letter-spacing: .06em; }
   font-size: .72rem; color: var(--muted); cursor: pointer;
 }
 .adv-ref-row .ref-per input { margin: 0; }
+
+/* ── v2.5.50 · Accueil : ligne de titre compacte et stable ───────── */
+/* Le titre ne s'étire plus (flex:1 le faisait pousser le bouton ▶ Jouer
+   jusqu'au bord droit et reléguer « x ch. · x scènes » à la ligne suivante
+   dès que le titre était long). Tout est désormais groupé à gauche, quelle
+   que soit la longueur du titre. */
+.home-adv-card.home-play .home-adv-info { margin-right: 0; width: 100%; }
+.home-adv-toprow { justify-content: flex-start; row-gap: .35rem; }
+.home-adv-toprow .home-adv-title { flex: 0 1 auto; min-width: 0; }
+.home-adv-toprow .home-adv-meta { white-space: nowrap; }
